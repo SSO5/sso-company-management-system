@@ -7,3 +7,4 @@ private-storage/*
 *.log
 .DS_Store
 next-env.d.ts
+cloudflared.exe
