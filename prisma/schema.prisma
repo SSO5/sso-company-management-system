@@ -1,0 +1,1052 @@
+// ============================================================================
+// SSO Company Management System — Prisma Schema
+// Core principle: enter data once, reuse it everywhere. Every entity below is
+// wired with foreign keys so Sales -> Finance -> Project -> Documents share
+// one relational graph instead of operating as silos.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled (PgBouncer) — used at runtime by the app
+  directUrl = env("DIRECT_URL")   // unpooled — used only for `prisma db push` / migrate
+}
+
+// ---------------------------------------------------------------------------
+// ENUMS
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  ADMIN
+  SALES
+  FINANCE
+  PROJECT_MANAGER
+}
+
+enum CustomerType {
+  PROSPECT
+  CUSTOMER
+  PARTNER
+  OTHER
+}
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  DISQUALIFIED
+  CONVERTED
+}
+
+enum OpportunityStatus {
+  NEW
+  QUALIFIED
+  PROPOSAL
+  NEGOTIATION
+  WON
+  LOST
+}
+
+enum QuotationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  SENT
+  WON
+  LOST
+  EXPIRED
+  CANCELLED
+}
+
+enum PurchaseOrderStatus {
+  PENDING
+  RECEIVED
+  VERIFIED
+  CANCELLED
+}
+
+enum ContractStatus {
+  DRAFT
+  ACTIVE
+  EXPIRED
+  TERMINATED
+  COMPLETED
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  AT_RISK
+  COMPLETED
+  CANCELLED
+  CLOSED
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  COMPLETED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum MilestoneStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  DELAYED
+}
+
+enum ExpenseCategory {
+  LABOR
+  MATERIALS
+  TRANSPORTATION
+  ACCOMMODATION
+  VENDOR
+  EQUIPMENT
+  MARKETING
+  OTHER
+}
+
+enum ExpensePaymentStatus {
+  UNPAID
+  PAID
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  CASH
+  CHECK
+  CREDIT_CARD
+  OTHER
+}
+
+enum NumberEntityType {
+  CUSTOMER
+  LEAD
+  OPPORTUNITY
+  QUOTATION
+  PURCHASE_ORDER
+  CONTRACT
+  PROJECT
+  INVOICE
+  PAYMENT
+  EXPENSE
+  COSTING
+  JOB_ORDER
+  GENERAL_DOCUMENT
+}
+
+enum CostingStatus {
+  DRAFT
+  FINAL
+  CONVERTED
+}
+
+enum ActivityAction {
+  LOGIN
+  LOGOUT
+  CREATE
+  UPDATE
+  DELETE
+  RESTORE
+  UPLOAD
+  DOWNLOAD
+  APPROVE
+  REJECT
+  STATUS_CHANGE
+  PAYMENT
+  PROJECT_CREATED
+  PROJECT_COMPLETED
+  PROJECT_CLOSED
+}
+
+enum FolderKind {
+  COMPANY
+  PROJECT
+  OPPORTUNITY
+}
+
+// ---------------------------------------------------------------------------
+// USERS
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         UserRole
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Quotation PDF signature block (spec: PIC/signer must be customizable per
+  // quotation, not one fixed company signer). "title" is the jabatan printed
+  // under the name (e.g. "Direktur", "Marketing Manager"). signatureImageUrl
+  // points into private storage's branding/ area (see lib/storage.ts).
+  title             String?
+  signatureImageUrl String?
+
+  opportunitiesAsSalesPic Opportunity[]     @relation("OpportunitySalesPic")
+  quotationsCreated       Quotation[]       @relation("QuotationCreatedBy")
+  quotationsAsSalesPic    Quotation[]       @relation("QuotationSalesPic")
+  quotationsSubmitted     Quotation[]       @relation("QuotationSubmittedBy")
+  quotationsApproved      Quotation[]       @relation("QuotationApprovedBy")
+  quotationsRejected      Quotation[]       @relation("QuotationRejectedBy")
+  quotationsSigned        Quotation[]       @relation("QuotationSigner")
+  projectsManaged         Project[]         @relation("ProjectManager")
+  projectsAsSalesPic      Project[]         @relation("ProjectSalesPic")
+  projectsClosedBy        Project[]         @relation("ProjectClosedBy")
+  tasksAssigned           ProjectTask[]     @relation("TaskAssignedTo")
+  documentsUploaded       Document[]        @relation("DocumentUploadedBy")
+  documentsDeleted        Document[]        @relation("DocumentDeletedBy")
+  notifications           Notification[]
+  activityLogs            ActivityLog[]
+  createdCustomers        Customer[]        @relation("CustomerCreatedBy")
+  createdCostingSheets    CostingSheet[]    @relation("CostingCreatedBy")
+  numberRegistryEntriesCreated NumberRegistryEntry[] @relation("NumberRegistryCreatedBy")
+  numberRegistryEntriesVoided  NumberRegistryEntry[] @relation("NumberRegistryVoidedBy")
+  createdExpenses         ProjectExpense[]  @relation("ExpenseCreatedBy")
+  createdInvoices         Invoice[]         @relation("InvoiceCreatedBy")
+  createdPayments         Payment[]         @relation("PaymentCreatedBy")
+  createdPurchaseOrders   PurchaseOrder[]   @relation("POCreatedBy")
+  createdContracts        Contract[]        @relation("ContractCreatedBy")
+  createdTasks            ProjectTask[]     @relation("TaskCreatedBy")
+
+  @@index([role])
+}
+
+// ---------------------------------------------------------------------------
+// SALES: CUSTOMER / CONTACT / LEAD / OPPORTUNITY
+// ---------------------------------------------------------------------------
+
+model Customer {
+  id           String         @id @default(cuid())
+  number       String         @unique // CUS-2026-0001
+  companyName  String
+  customerType CustomerType   @default(PROSPECT)
+  industry     String?
+  address      String?
+  city         String?
+  province     String?
+  country      String?
+  taxId        String?
+  phone        String?
+  email        String?
+  website      String?
+  status       CustomerStatus @default(ACTIVE)
+  notes        String?
+
+  createdById String
+  createdBy   User     @relation("CustomerCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+  deletedById String?
+
+  contacts       Contact[]
+  leads          Lead[]
+  opportunities  Opportunity[]
+  quotations     Quotation[]
+  costingSheets  CostingSheet[]
+  purchaseOrders PurchaseOrder[]
+  contracts      Contract[]
+  projects       Project[]
+  invoices       Invoice[]
+  payments       Payment[]
+
+  @@index([companyName])
+  @@index([status])
+  @@index([customerType])
+}
+
+model Contact {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  name       String
+  salutation String? // "Mr.", "Ms.", "Mrs." — used on quotation PDF's greeting line
+  position  String?
+  department String?
+  email     String?
+  phone     String?
+  whatsapp  String?
+  isPrimary Boolean  @default(false)
+  notes     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  opportunities Opportunity[]
+  quotations    Quotation[]
+
+  @@index([customerId])
+}
+
+model Lead {
+  id         String     @id @default(cuid())
+  number     String     @unique // LED-2026-0001
+  customerId String?
+  customer   Customer?  @relation(fields: [customerId], references: [id])
+
+  companyName String
+  contactName String?
+  email       String?
+  phone       String?
+  source      String?
+  status      LeadStatus @default(NEW)
+  notes       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  @@index([status])
+}
+
+model Opportunity {
+  id         String   @id @default(cuid())
+  number     String   @unique // OPP-2026-0001
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  contactId  String?
+  contact    Contact? @relation(fields: [contactId], references: [id])
+
+  name                String
+  description         String?
+  estimatedValue      Decimal            @db.Decimal(18, 2)
+  probability          Int               @default(10) // 0-100
+  expectedClosingDate DateTime?
+  salesPicId          String
+  salesPic            User               @relation("OpportunitySalesPic", fields: [salesPicId], references: [id])
+  source              String?
+  status              OpportunityStatus  @default(NEW)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  quotations    Quotation[]
+  projects      Project[]
+  costingSheets CostingSheet[]
+  folders       Folder[]
+
+  @@index([status])
+  @@index([customerId])
+  @@index([salesPicId])
+}
+
+// ---------------------------------------------------------------------------
+// SALES: QUOTATION (critical module + approval workflow)
+// ---------------------------------------------------------------------------
+
+model Quotation {
+  id            String    @id @default(cuid())
+  number        String    @unique // QT-2026-0001
+  customerId    String
+  customer      Customer  @relation(fields: [customerId], references: [id])
+  contactId     String?
+  contact       Contact?  @relation(fields: [contactId], references: [id])
+  opportunityId String?
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id])
+
+  quotationDate DateTime  @default(now())
+  validUntil    DateTime?
+  salesPicId    String
+  salesPic      User      @relation("QuotationSalesPic", fields: [salesPicId], references: [id])
+  // Who signs this specific quotation's PDF (name, title, and signature
+  // image are pulled from this user). Defaults to salesPicId when the
+  // quotation is created, but is fully overridable per document — e.g. a
+  // Director signs high-value quotes while a Sales Manager signs routine
+  // ones. This is what makes PIC/TTD customizable instead of fixed.
+  signerId      String?
+  signer        User?     @relation("QuotationSigner", fields: [signerId], references: [id])
+  description   String?
+  subjectLine   String? // PDF "SUBJECT" line, e.g. "Quotation — Bracket Idler for Mechanical Parts"; falls back to description
+  terms         String?
+  notes         String?
+  // Structured "B. TERMS & CONDITIONS" grid for the PDF (Pricing, Validity,
+  // Lead Time, Scope of Work, Payment Terms, Warranty). Array of
+  // { title: string, body: string }. Pre-filled with SSO's standard six
+  // items on creation, editable per quotation, always rendered in this
+  // fixed order on the PDF to match the company SOP layout.
+  commercialTerms Json?
+
+  // Revision counter for the SOP's ".R1" / ".R2" suffix (verified against
+  // real issued quotations, e.g. "005/QUO/MKT/V/2026.R2"). The base `number`
+  // above is issued once and never changes — revising a quotation bumps this
+  // counter instead of burning a new sequence number, so the printed/display
+  // number becomes "{number}.R{revision}" once revision > 0. See
+  // lib/pdf/format.ts:formatRevisedNumber and lib/workflows/quotation.ts:
+  // reviseQuotation (the action that increments this and re-opens the
+  // quotation for editing).
+  revision Int @default(0)
+
+  subtotal   Decimal @db.Decimal(18, 2) @default(0)
+  discount   Decimal @db.Decimal(18, 2) @default(0)
+  tax        Decimal @db.Decimal(18, 2) @default(0)
+  grandTotal Decimal @db.Decimal(18, 2) @default(0)
+
+  status   QuotationStatus @default(DRAFT)
+  isLocked Boolean         @default(false) // locked once submitted for approval
+
+  submittedAt   DateTime?
+  submittedById String?
+  submittedBy   User?     @relation("QuotationSubmittedBy", fields: [submittedById], references: [id])
+  approvedAt    DateTime?
+  approvedById  String?
+  approvedBy    User?     @relation("QuotationApprovedBy", fields: [approvedById], references: [id])
+  rejectedAt    DateTime?
+  rejectedById  String?
+  rejectedBy    User?     @relation("QuotationRejectedBy", fields: [rejectedById], references: [id])
+  rejectionReason String?
+  sentAt        DateTime?
+  wonAt         DateTime?
+  lostAt        DateTime?
+  lostReason    String?
+
+  createdById String
+  createdBy   User     @relation("QuotationCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  items          QuotationItem[]
+  purchaseOrders PurchaseOrder[]
+  contracts      Contract[]
+  project        Project?
+  invoices       Invoice[]
+  costingSheet   CostingSheet?
+
+  @@index([status])
+  @@index([customerId])
+  @@index([salesPicId])
+}
+
+model QuotationItem {
+  id          String    @id @default(cuid())
+  quotationId String
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  itemName        String
+  description     String?
+  technicalSpec   String? // shown in its own PDF column, e.g. "A36/SS400, Sandblast SA 2.5, Painting 250 micron"
+  quantity        Decimal @db.Decimal(18, 4)
+  unit            String  @default("unit")
+  unitPrice       Decimal @db.Decimal(18, 2)
+  discountPercent Decimal @db.Decimal(5, 2) @default(0)
+  taxPercent      Decimal @db.Decimal(5, 2) @default(0)
+  total           Decimal @db.Decimal(18, 2)
+  sortOrder       Int     @default(0)
+
+  @@index([quotationId])
+}
+
+// ---------------------------------------------------------------------------
+// SALES: COSTING (dynamic per-project costing worksheet, mobile-friendly)
+// ---------------------------------------------------------------------------
+// Spec: PIC builds a costing sheet from customer's supply request (highly
+// variable goods/services), entering Cost + per-line target Margin % for
+// each item (cross-subsidization between lines is expected — some lines
+// carry more margin to cover others priced near cost). Selling price is
+// ALWAYS derived server-side: sellingUnitPrice = cost / (1 - margin%).
+// A finished costing sheet can be converted directly into a Quotation,
+// carrying line items across so nothing is re-typed (section 38 principle).
+
+model CostingSheet {
+  id         String        @id @default(cuid())
+  number     String        @unique // CST-2026-0001
+  customerId String
+  customer   Customer      @relation(fields: [customerId], references: [id])
+  opportunityId String?
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id])
+
+  projectTitle String // e.g. "Quotation for Gearbox Drive Unit Maintenance & Servicing"
+  jobNo        String?
+  costingDate  DateTime      @default(now())
+  status       CostingStatus @default(DRAFT)
+  notes        String?
+
+  // Same ".R1"/".R2" revision suffix convention as Quotation.revision — see
+  // that field's comment. Bumped via reviseCostingSheet(); display number is
+  // "{number}.R{revision}" once revision > 0.
+  revision Int @default(0)
+
+  quotationId String?    @unique
+  quotation   Quotation? @relation(fields: [quotationId], references: [id])
+
+  // Profitability summary (spec: matches SSO's real costing SOP exactly —
+  // verified line-by-line against the "COSTING JPC - GEARBOX" reference).
+  // PPN and PPh Final are both charged as a % of Total COGS (input VAT +
+  // withholding tax on vendor/procurement spend), not of revenue. Editable
+  // per sheet since rates and the operational estimate vary by job.
+  operationalCost  Decimal @db.Decimal(18, 2) @default(0)
+  ppnPercent       Decimal @db.Decimal(5, 2) @default(11)
+  pphFinalPercent  Decimal @db.Decimal(5, 2) @default(2)
+
+  createdById String
+  createdBy   User     @relation("CostingCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  sections CostingSection[]
+
+  @@index([customerId])
+  @@index([status])
+}
+
+model CostingSection {
+  id             String       @id @default(cuid())
+  costingSheetId String
+  costingSheet   CostingSheet @relation(fields: [costingSheetId], references: [id], onDelete: Cascade)
+
+  code      String // "A", "B", ...
+  name      String // "MECHANICAL", "OTHERS"
+  sortOrder Int    @default(0)
+
+  items CostingLineItem[]
+
+  @@index([costingSheetId])
+}
+
+model CostingLineItem {
+  id        String         @id @default(cuid())
+  sectionId String
+  section   CostingSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  groupLabel String? // optional sub-heading shared by several lines, e.g. "1. SERVICE GEARBOX"
+  name        String // Equipment / item name
+  description String?
+  quantity    Decimal @db.Decimal(18, 4) @default(1)
+  unit        String  @default("lot")
+  currency    String  @default("IDR")
+
+  costUnitPrice          Decimal @db.Decimal(18, 2) // cost per unit, before supplier discount
+  supplierDiscountPercent Decimal @db.Decimal(5, 2) @default(0)
+  marginPercent           Decimal @db.Decimal(5, 2) @default(0) // target margin on SELLING price
+
+  // Server-computed & persisted at save time (never trust client math):
+  costTotal         Decimal @db.Decimal(18, 2) @default(0) // costUnitPrice * qty * (1 - supplierDiscount%)
+  sellingUnitPrice   Decimal @db.Decimal(18, 2) @default(0) // costPerUnitAfterDiscount / (1 - margin%)
+  sellingTotalPrice  Decimal @db.Decimal(18, 2) @default(0) // sellingUnitPrice * qty
+
+  sortOrder Int @default(0)
+
+  @@index([sectionId])
+}
+
+// ---------------------------------------------------------------------------
+// SALES: PURCHASE ORDER / CONTRACT
+// ---------------------------------------------------------------------------
+
+model PurchaseOrder {
+  id         String              @id @default(cuid())
+  number     String              @unique // PO-2026-0001
+  customerId String
+  customer   Customer            @relation(fields: [customerId], references: [id])
+  quotationId String?
+  quotation  Quotation?          @relation(fields: [quotationId], references: [id])
+  projectId  String?
+  project    Project?            @relation(fields: [projectId], references: [id])
+
+  poDate    DateTime            @default(now())
+  poValue   Decimal             @db.Decimal(18, 2)
+  startDate DateTime?
+  endDate   DateTime?
+  status    PurchaseOrderStatus @default(PENDING)
+
+  createdById String
+  createdBy   User     @relation("POCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  contracts Contract[]
+
+  @@index([status])
+  @@index([customerId])
+  @@index([projectId])
+}
+
+model Contract {
+  id         String         @id @default(cuid())
+  number     String         @unique // CTR-2026-0001
+  customerId String
+  customer   Customer       @relation(fields: [customerId], references: [id])
+  quotationId String?
+  quotation  Quotation?     @relation(fields: [quotationId], references: [id])
+  purchaseOrderId String?
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+  projectId  String?
+  project    Project?       @relation(fields: [projectId], references: [id])
+
+  contractValue Decimal        @db.Decimal(18, 2)
+  startDate     DateTime
+  endDate       DateTime
+  status        ContractStatus @default(DRAFT)
+  notes         String?
+
+  createdById String
+  createdBy   User     @relation("ContractCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([status])
+  @@index([customerId])
+  @@index([endDate])
+}
+
+// ---------------------------------------------------------------------------
+// PROJECT (auto-created when Quotation -> WON)
+// ---------------------------------------------------------------------------
+
+model Project {
+  id         String   @id @default(cuid())
+  number     String   @unique // PRJ-2026-0001
+  name       String
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  opportunityId String?
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id])
+  quotationId   String?      @unique
+  quotation     Quotation?   @relation(fields: [quotationId], references: [id])
+
+  projectManagerId String?
+  projectManager    User?    @relation("ProjectManager", fields: [projectManagerId], references: [id])
+  salesPicId        String?
+  salesPic          User?    @relation("ProjectSalesPic", fields: [salesPicId], references: [id])
+
+  // Free-text "Job Number" (spec: found in SSO's own real job-costing sheet
+  // as "NO JO" — a short internal code like "226" or "BPN-0505", distinct
+  // from the formal system-generated Project.number). Manually assigned by
+  // whoever books the job into cost tracking; NOT auto-generated, since real
+  // usage mixes quotation-derived, PO-derived, and site-prefixed codes with
+  // no single fixed pattern. Left blank until Finance/PM assigns one.
+  jobNumber String?
+
+  startDate     DateTime?
+  endDate       DateTime?
+  contractValue Decimal       @db.Decimal(18, 2) @default(0)
+  budget        Decimal       @db.Decimal(18, 2) @default(0)
+  status        ProjectStatus @default(PLANNING)
+  progressPercent Int         @default(0)
+
+  closingChecklist Json?     // { taskCompleted: bool, bastUploaded: bool, ... }
+  completedAt      DateTime?
+  closedAt         DateTime?
+  closedById       String?
+  closedBy         User?     @relation("ProjectClosedBy", fields: [closedById], references: [id])
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  purchaseOrders PurchaseOrder[]
+  contracts      Contract[]
+  tasks          ProjectTask[]
+  milestones     ProjectMilestone[]
+  expenses       ProjectExpense[]
+  invoices       Invoice[]
+  payments       Payment[]
+  folders        Folder[]
+
+  @@index([status])
+  @@index([customerId])
+  @@index([projectManagerId])
+}
+
+model ProjectTask {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String?
+  assignedToId String?
+  assignedTo   User?      @relation("TaskAssignedTo", fields: [assignedToId], references: [id])
+  startDate   DateTime?
+  dueDate     DateTime?
+  priority    TaskPriority @default(MEDIUM)
+  status      TaskStatus   @default(TODO)
+  progressPercent Int      @default(0)
+  notes       String?
+
+  createdById String
+  createdBy   User     @relation("TaskCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([projectId])
+  @@index([status])
+  @@index([assignedToId])
+}
+
+model ProjectMilestone {
+  id          String          @id @default(cuid())
+  projectId   String
+  project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  name            String
+  dueDate         DateTime?
+  status          MilestoneStatus @default(PENDING)
+  progressPercent Int             @default(0)
+  description     String?
+  sortOrder       Int             @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+}
+
+model ProjectExpense {
+  id        String          @id @default(cuid())
+  number    String          @unique // EXP-2026-0001
+  projectId String
+  project   Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  category      ExpenseCategory
+  description   String
+  vendor        String?
+  date          DateTime        @default(now())
+  amount        Decimal         @db.Decimal(18, 2)
+  tax           Decimal         @db.Decimal(18, 2) @default(0)
+  total         Decimal         @db.Decimal(18, 2)
+  paymentStatus ExpensePaymentStatus @default(UNPAID)
+
+  createdById String
+  createdBy   User     @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([projectId])
+  @@index([category])
+}
+
+// ---------------------------------------------------------------------------
+// FINANCE: INVOICE / PAYMENT
+// ---------------------------------------------------------------------------
+
+model Invoice {
+  id         String    @id @default(cuid())
+  number     String    @unique // INV-2026-0001
+  customerId String
+  customer   Customer  @relation(fields: [customerId], references: [id])
+  projectId  String?
+  project    Project?  @relation(fields: [projectId], references: [id])
+  quotationId String?
+  quotation   Quotation? @relation(fields: [quotationId], references: [id])
+
+  invoiceDate DateTime      @default(now())
+  dueDate     DateTime
+  subtotal    Decimal       @db.Decimal(18, 2) @default(0)
+  discount    Decimal       @db.Decimal(18, 2) @default(0)
+  tax         Decimal       @db.Decimal(18, 2) @default(0)
+  grandTotal  Decimal       @db.Decimal(18, 2) @default(0)
+  paidAmount  Decimal       @db.Decimal(18, 2) @default(0)
+  status      InvoiceStatus @default(DRAFT)
+
+  createdById String
+  createdBy   User     @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  items    InvoiceItem[]
+  payments Payment[]
+
+  @@index([status])
+  @@index([customerId])
+  @@index([projectId])
+  @@index([dueDate])
+}
+
+model InvoiceItem {
+  id        String  @id @default(cuid())
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  description String
+  quantity    Decimal @db.Decimal(18, 4) @default(1)
+  unit        String  @default("unit")
+  unitPrice   Decimal @db.Decimal(18, 2)
+  taxPercent  Decimal @db.Decimal(5, 2) @default(0)
+  total       Decimal @db.Decimal(18, 2)
+  sortOrder   Int     @default(0)
+
+  @@index([invoiceId])
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  number    String   @unique // PAY-2026-0001
+  invoiceId String
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id])
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  projectId  String?
+  project    Project? @relation(fields: [projectId], references: [id])
+
+  paymentDate     DateTime      @default(now())
+  amount          Decimal       @db.Decimal(18, 2)
+  method          PaymentMethod @default(BANK_TRANSFER)
+  referenceNumber String?
+  bankAccount     String?
+  notes           String?
+
+  createdById String
+  createdBy   User     @relation("PaymentCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  deletedAt   DateTime?
+
+  @@index([invoiceId])
+  @@index([projectId])
+  @@index([customerId])
+}
+
+// ---------------------------------------------------------------------------
+// DOCUMENT MANAGEMENT
+// ---------------------------------------------------------------------------
+
+model Folder {
+  id       String     @id @default(cuid())
+  name     String
+  kind     FolderKind
+  parentId String?
+  parent   Folder?    @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children Folder[]   @relation("FolderTree")
+
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // Opportunity-stage folders (spec: pre-Won documents need a home too —
+  // created the moment an Opportunity is logged, before any Quotation even
+  // exists yet, let alone a Won deal). See lib/workflows/folders.ts:
+  // createOpportunityFolders / OPPORTUNITY_FOLDER_TEMPLATE.
+  opportunityId String?
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  routeKey  String?  // stable key for auto-routing, e.g. "SALES/QUOTATION", "FINANCE/INVOICE", "CLOSING/BAST"
+  isSystem  Boolean  @default(true) // system folders cannot be deleted by normal users
+  path      String   // materialized display path, e.g. "PRJ-2026-0001 - PT ABC / 01 Sales / Quotation"
+
+  createdAt DateTime @default(now())
+
+  documents Document[]
+
+  @@index([parentId])
+  @@index([projectId])
+  @@index([opportunityId])
+  @@index([routeKey])
+}
+
+model Document {
+  id           String   @id @default(cuid())
+  fileName     String
+  originalName String
+  mimeType     String
+  fileSize     Int
+  storageDriver String  @default("local")
+  storagePath  String   // internal key, never exposed to client directly
+
+  folderId String?
+  folder   Folder? @relation(fields: [folderId], references: [id])
+
+  relatedEntityType String? // "CUSTOMER" | "OPPORTUNITY" | "QUOTATION" | "PO" | "CONTRACT" | "PROJECT" | "INVOICE" | "PAYMENT" | "EXPENSE"
+  relatedEntityId   String?
+
+  uploadedById String
+  uploadedBy   User     @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
+  uploadedAt   DateTime @default(now())
+  version      Int      @default(1)
+  description  String?
+
+  deletedAt   DateTime? // soft delete = Trash
+  deletedById String?
+  deletedBy   User?     @relation("DocumentDeletedBy", fields: [deletedById], references: [id])
+
+  @@index([folderId])
+  @@index([relatedEntityType, relatedEntityId])
+  @@index([deletedAt])
+}
+
+// ---------------------------------------------------------------------------
+// NOTIFICATIONS / ACTIVITY LOG / NUMBERING / SETTINGS
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id      String   @id @default(cuid())
+  userId  String
+  user    User     @relation(fields: [userId], references: [id])
+  type    String   // e.g. "QUOTATION_APPROVAL", "INVOICE_OVERDUE", "PROJECT_DEADLINE", "CONTRACT_EXPIRING", "PROJECT_CLOSING_INCOMPLETE"
+  title   String
+  message String
+  link    String?
+  isRead  Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+}
+
+model ActivityLog {
+  id          String         @id @default(cuid())
+  userId      String?
+  user        User?          @relation(fields: [userId], references: [id])
+  action      ActivityAction
+  entityType  String
+  entityId    String
+  description String
+  metadata    Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model NumberSequence {
+  id            String           @id @default(cuid())
+  entityType    NumberEntityType
+  year          Int
+  prefix        String
+  currentNumber Int              @default(0)
+  padding       Int              @default(3)
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([entityType, year])
+}
+
+// Front-door number intake (spec: "ambil nomor dulu" before drafting any
+// quotation or letter — mirrors SSO's real registry: pick a document type,
+// fill date/subject/PIC, get a number back immediately). Reuses the same
+// per-(docType, year) sequence as generateNumber() in lib/numbering.ts, so
+// numbers taken here are never duplicated or skipped relative to the rest
+// of the system. Once issued a number is never reused, even if voided
+// (voidedAt) — voiding only marks it cancelled for display purposes.
+// docTypeCode / deptCode are free strings (not enums) matching SSO's real
+// document-type and department code lists (see DOCUMENT_TYPE_CODES /
+// DEPARTMENT_CODES in lib/validation/numbering.ts) — kept as plain strings
+// rather than Prisma enums because this list is company policy, not a
+// database entity, and may grow without a schema migration.
+model NumberRegistryEntry {
+  id         String   @id @default(cuid())
+  docTypeCode String  // e.g. "SK", "QUO", "INV", "BAST"...
+  deptCode    String  // e.g. "MKT", "FIN", "DIR"...
+  number     String   @unique
+  numberDate DateTime
+  subject    String // Perihal / Nama Proyek
+  picName    String // Nama Peminta
+
+  createdById String
+  createdBy   User     @relation("NumberRegistryCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  voidedAt   DateTime?
+  voidedById String?
+  voidedBy   User?     @relation("NumberRegistryVoidedBy", fields: [voidedById], references: [id])
+
+  @@index([docTypeCode])
+  @@index([number])
+}
+
+// Sequence counter dedicated to the general document registry above —
+// separate from NumberSequence (which backs entity-linked auto-numbering
+// for Quotation/Invoice/Costing/etc. created through their own modules).
+// Keyed by docTypeCode only (not department) — one running count per
+// document type per year, matching standard Indonesian corporate "nomor
+// surat keluar" convention, regardless of which department issued it.
+model RegistryNumberSequence {
+  id            String   @id @default(cuid())
+  docTypeCode   String
+  year          Int
+  currentNumber Int      @default(0)
+  updatedAt     DateTime @updatedAt
+
+  @@unique([docTypeCode, year])
+}
+
+model CompanySettings {
+  id      String @id @default("singleton")
+  companyName  String  @default("PT Sarana Sinergi Optima")
+  logoUrl      String?
+  address      String?
+  city         String?
+  province     String?
+  country      String? @default("Indonesia")
+  phone        String?
+  email        String?
+  taxId        String?
+  currency     String  @default("IDR")
+  timezone     String  @default("Asia/Jakarta")
+  fiscalYearStartMonth Int @default(1)
+  defaultTaxRatePercent Decimal @db.Decimal(5,2) @default(11)
+
+  // Prefix is the literal string placed between the sequence and the roman
+  // month in the number (see lib/numbering.ts): {seq}/{prefix}/{month}/{year}.
+  // It may itself contain "/" to encode a department code (e.g. "QUO/MKT"),
+  // matching SSO's real numbering SOP — verified against the company's
+  // numbering registry (e.g. "004/QUO/MKT/VII/2026"). All editable per
+  // entity type in Settings > Numbering.
+  customerPrefix    String @default("CUS/MKT")
+  leadPrefix        String @default("LED/MKT")
+  opportunityPrefix String @default("OPP/MKT")
+  quotationPrefix   String @default("QUO/MKT")
+  poPrefix          String @default("PO/MKT")
+  contractPrefix    String @default("CTR/MKT")
+  projectPrefix     String @default("PRJ/OPS")
+  invoicePrefix     String @default("INV/FIN")
+  paymentPrefix     String @default("PAY/FIN")
+  expensePrefix     String @default("EXP/FIN")
+  costingPrefix     String @default("CST/MKT")
+  jobOrderPrefix        String @default("JO/MKT")
+  generalDocumentPrefix String @default("SSO-SURAT")
+  numberPadding     Int    @default(3)
+
+  projectClosingChecklist Json @default("[\"All project tasks completed\",\"Final deliverables uploaded\",\"BAST uploaded\",\"Final report uploaded\",\"All invoices created\",\"Payment status reviewed\",\"Project expenses recorded\",\"Project financial result calculated\",\"Customer documents complete\"]")
+
+  // Quotation PDF branding (spec: PDF must match the company's exact SOP
+  // template). logoUrl already exists above. stampImageUrl is the company's
+  // official stamp/cap — it is the same on every quotation regardless of who
+  // signs. The signature itself is NOT stored here: each User has their own
+  // signatureImageUrl + title, and each Quotation picks which user signs it
+  // (Quotation.signerId) so PIC/TTD is customizable per document, not fixed.
+  stampImageUrl String?
+
+  updatedAt DateTime @updatedAt
+}

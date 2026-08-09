@@ -1,0 +1,12 @@
+import { getCompanySettings } from "@/server/settings/company";
+import { NumberingForm } from "@/components/settings/numbering-form";
+
+export default async function NumberingSettingsPage() {
+  const settings = await getCompanySettings();
+  return (
+    <div className="space-y-4">
+      <div><h1 className="text-xl font-semibold">Numbering</h1><p className="text-sm text-muted-foreground">Configure document numbering prefixes.</p></div>
+      <NumberingForm settings={settings} />
+    </div>
+  );
+}

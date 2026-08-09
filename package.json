@@ -1,0 +1,66 @@
+{
+  "name": "sso-company-management-system",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PT Sarana Sinergi Optima - Company Management System (Sales, Finance, Project, Documents, Reports)",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "postinstall": "prisma generate",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:reset": "tsx prisma/reset.ts",
+    "db:studio": "prisma studio"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "next": "14.2.15",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "server-only": "0.0.1",
+    "@prisma/client": "5.20.0",
+    "bcryptjs": "2.4.3",
+    "jose": "5.9.3",
+    "zod": "3.23.8",
+    "react-hook-form": "7.53.0",
+    "@hookform/resolvers": "3.9.0",
+    "recharts": "2.12.7",
+    "lucide-react": "0.445.0",
+    "date-fns": "3.6.0",
+    "clsx": "2.1.1",
+    "tailwind-merge": "2.5.2",
+    "class-variance-authority": "0.7.0",
+    "uuid": "10.0.0",
+    "mime-types": "2.1.35",
+    "papaparse": "5.4.1",
+    "@react-pdf/renderer": "3.4.4",
+    "@aws-sdk/client-s3": "3.632.0"
+  },
+  "devDependencies": {
+    "typescript": "5.5.4",
+    "@types/node": "20.14.15",
+    "@types/react": "18.3.3",
+    "@types/react-dom": "18.3.0",
+    "@types/bcryptjs": "2.4.6",
+    "@types/uuid": "10.0.0",
+    "@types/mime-types": "2.1.4",
+    "@types/papaparse": "5.3.14",
+    "prisma": "5.20.0",
+    "tsx": "4.19.1",
+    "tailwindcss": "3.4.10",
+    "postcss": "8.4.41",
+    "autoprefixer": "10.4.20",
+    "eslint": "8.57.0",
+    "eslint-config-next": "14.2.15"
+  },
+  "engines": {
+    "node": ">=18.18.0"
+  }
+}

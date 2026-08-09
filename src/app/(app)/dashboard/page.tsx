@@ -1,0 +1,93 @@
+import Link from "next/link";
+import { getDashboardData } from "@/server/dashboard";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatCurrency, formatDate } from "@/lib/utils";
+import { AlertTriangle } from "lucide-react";
+
+export default async function DashboardPage() {
+  const { kpis, alerts } = await getDashboardData();
+
+  const kpiCards = [
+    { label: "Total Revenue", value: formatCurrency(kpis.totalRevenue) },
+    { label: "Outstanding Receivables", value: formatCurrency(kpis.outstandingReceivables) },
+    { label: "Active Projects", value: String(kpis.activeProjects) },
+    { label: "Projects At Risk", value: String(kpis.atRiskProjects) },
+    { label: "Completed Projects", value: String(kpis.completedProjects) },
+    { label: "Gross Profit", value: formatCurrency(kpis.grossProfit) },
+  ];
+
+  const alertItems = [
+    alerts.overdueInvoices.length > 0 && {
+      text: `${alerts.overdueInvoices.length} invoice(s) overdue`,
+      href: "/finance/receivables",
+    },
+    alerts.projectsAtRiskCount > 0 && {
+      text: `${alerts.projectsAtRiskCount} project(s) at risk`,
+      href: "/projects",
+    },
+    alerts.quotationsAwaitingApproval.length > 0 && {
+      text: `${alerts.quotationsAwaitingApproval.length} quotation(s) waiting approval`,
+      href: "/sales/quotations",
+    },
+    alerts.expiringContracts.length > 0 && {
+      text: `${alerts.expiringContracts.length} contract(s) expiring within 30 days`,
+      href: "/sales/contracts",
+    },
+  ].filter(Boolean) as { text: string; href: string }[];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold">Executive Overview</h1>
+        <p className="text-sm text-muted-foreground">Live snapshot across Sales, Finance, and Project execution.</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+        {kpiCards.map((k) => (
+          <Card key={k.label}>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-[11px] font-medium text-muted-foreground">{k.label}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-lg font-semibold">{k.value}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {alertItems.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Alerts</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {alertItems.map((a) => (
+              <Link
+                key={a.text}
+                href={a.href}
+                className="flex items-center gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm hover:bg-warning/20"
+              >
+                <AlertTriangle className="h-4 w-4 text-warning" />
+                {a.text}
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {alerts.overdueInvoices.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle>Overdue Invoices</CardTitle></CardHeader>
+          <CardContent className="space-y-1">
+            {alerts.overdueInvoices.map((inv) => (
+              <Link key={inv.id} href={`/finance/invoices/${inv.id}`} className="flex justify-between text-sm hover:underline">
+                <span>{inv.number} — {inv.customer.companyName}</span>
+                <span className="text-muted-foreground">Due {formatDate(inv.dueDate)}</span>
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
