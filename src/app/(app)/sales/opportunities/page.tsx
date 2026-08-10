@@ -1,12 +1,14 @@
 import { listOpportunities } from "@/server/sales/opportunities";
 import { listCustomers } from "@/server/sales/customers";
 import { listUsersForPicker } from "@/server/settings/users";
+import { requireUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { OpportunityFormDialog } from "@/components/sales/opportunity-form-dialog";
 import { OpportunityStageSelect } from "@/components/sales/opportunity-stage-select";
+import { OpportunityDeleteButton } from "@/components/sales/opportunity-delete-button";
 import { formatCurrency } from "@/lib/utils";
 import { Plus, FolderOpen } from "lucide-react";
 import type { OpportunityStatus } from "@prisma/client";
@@ -15,9 +17,10 @@ import Link from "next/link";
 const STAGES: OpportunityStatus[] = ["NEW", "QUALIFIED", "PROPOSAL", "NEGOTIATION", "WON", "LOST"];
 
 export default async function OpportunitiesPage() {
-  const [opportunities, customers, salesUsers, contacts] = await Promise.all([
+  const [opportunities, customers, salesUsers, contacts, actor] = await Promise.all([
     listOpportunities(), listCustomers(), listUsersForPicker("SALES"),
     prisma.contact.findMany({ select: { id: true, customerId: true, name: true } }),
+    requireUser(),
   ]);
 
   return (
@@ -51,11 +54,14 @@ export default async function OpportunitiesPage() {
                     <div key={o.id} className="rounded-md border border-border p-2">
                       <div className="flex items-start justify-between gap-1">
                         <Link href={`/sales/opportunities/${o.id}`} className="text-xs font-medium hover:underline">{o.name}</Link>
-                        {o.folders[0] && (
-                          <Link href={`/sales/opportunities/${o.id}`} title="Buka Opportunity & folder">
-                            <FolderOpen className="h-3.5 w-3.5 shrink-0 text-muted-foreground hover:text-foreground" />
-                          </Link>
-                        )}
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          {o.folders[0] && (
+                            <Link href={`/sales/opportunities/${o.id}`} title="Buka Opportunity & folder">
+                              <FolderOpen className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                            </Link>
+                          )}
+                          {actor.role === "ADMIN" && <OpportunityDeleteButton id={o.id} number={o.number} />}
+                        </div>
                       </div>
                       <p className="text-[11px] text-muted-foreground">{o.customer.companyName}</p>
                       <p className="text-[11px] text-muted-foreground">{formatCurrency(Number(o.estimatedValue))}</p>

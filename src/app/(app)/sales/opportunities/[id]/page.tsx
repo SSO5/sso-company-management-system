@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { getOpportunityDetail } from "@/server/sales/opportunities";
+import { requireUser } from "@/lib/auth/current-user";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { OpportunityStageSelect } from "@/components/sales/opportunity-stage-select";
+import { OpportunityDeleteButton } from "@/components/sales/opportunity-delete-button";
 import { formatCurrency, formatRevisedNumber } from "@/lib/utils";
 import { Folder as FolderIcon, FolderKanban } from "lucide-react";
 
@@ -13,7 +15,10 @@ const QUOTATION_STATUS_VARIANT: Record<string, "default" | "secondary" | "succes
 };
 
 export default async function OpportunityDetailPage({ params }: { params: { id: string } }) {
-  const { opportunity: o, folders } = await getOpportunityDetail(params.id);
+  const [{ opportunity: o, folders }, actor] = await Promise.all([
+    getOpportunityDetail(params.id),
+    requireUser(),
+  ]);
 
   return (
     <div className="space-y-4">
@@ -26,6 +31,7 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">Stage:</span>
           <OpportunityStageSelect id={o.id} status={o.status} />
+          {actor.role === "ADMIN" && <OpportunityDeleteButton id={o.id} number={o.number} size="sm" />}
         </div>
       </div>
 

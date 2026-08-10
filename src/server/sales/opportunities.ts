@@ -9,6 +9,7 @@ import { createOpportunityFolders } from "@/lib/workflows/folders";
 import { opportunitySchema } from "@/lib/validation/sales";
 import { runAction, type ActionResult } from "@/lib/action-helpers";
 import type { OpportunityStatus } from "@prisma/client";
+import type { SessionPayload } from "@/lib/auth/session";
 
 export async function listOpportunities() {
   const actor = await requireUserOrThrow();
@@ -73,6 +74,81 @@ export async function createOpportunity(input: unknown): Promise<ActionResult<{ 
 
     revalidatePath("/sales/opportunities");
     return { id: opp.id };
+  });
+}
+
+/**
+ * Permanently deletes ONE Opportunity card and everything generated from it
+ * (Quotations, Costing Sheets, the Project if it was marked Won, POs,
+ * Contracts, Invoices, Payments, Folders, Documents) — mirrors
+ * prisma/delete-opportunity.ts exactly, exposed as an in-app action so
+ * cleaning up a mistaken/trial deal doesn't require a terminal. Does NOT
+ * touch the Customer/Contact — those stay. ADMIN-only (see permissions.ts —
+ * "delete" on the "sales" module is the one action SALES doesn't have).
+ */
+export async function deleteOpportunity(id: string, actor: SessionPayload) {
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.opportunity.findUniqueOrThrow({ where: { id } });
+
+    const [quotations, costingSheets, projects] = await Promise.all([
+      tx.quotation.findMany({ where: { opportunityId: id }, select: { id: true } }),
+      tx.costingSheet.findMany({ where: { opportunityId: id }, select: { id: true } }),
+      tx.project.findMany({ where: { opportunityId: id }, select: { id: true } }),
+    ]);
+    const quotationIds = quotations.map((q) => q.id);
+    const costingIds = costingSheets.map((c) => c.id);
+    const projectIds = projects.map((p) => p.id);
+
+    const folders = await tx.folder.findMany({
+      where: { OR: [{ opportunityId: id }, { projectId: { in: projectIds } }] },
+      select: { id: true },
+    });
+    const folderIds = folders.map((f) => f.id);
+    const invoices = await tx.invoice.findMany({
+      where: { OR: [{ projectId: { in: projectIds } }, { quotationId: { in: quotationIds } }] },
+      select: { id: true },
+    });
+    const invoiceIds = invoices.map((i) => i.id);
+
+    await tx.payment.deleteMany({ where: { OR: [{ invoiceId: { in: invoiceIds } }, { projectId: { in: projectIds } }] } });
+    await tx.invoice.deleteMany({ where: { OR: [{ projectId: { in: projectIds } }, { quotationId: { in: quotationIds } }] } }); // cascades InvoiceItem
+    await tx.contract.deleteMany({ where: { OR: [{ projectId: { in: projectIds } }, { quotationId: { in: quotationIds } }] } });
+    await tx.purchaseOrder.deleteMany({ where: { OR: [{ projectId: { in: projectIds } }, { quotationId: { in: quotationIds } }] } });
+    await tx.document.deleteMany({
+      where: {
+        OR: [
+          { folderId: { in: folderIds } },
+          { relatedEntityId: { in: [id, ...quotationIds, ...costingIds, ...projectIds] } },
+        ],
+      },
+    });
+    await tx.costingSheet.deleteMany({ where: { opportunityId: id } }); // cascades sections/items
+    await tx.project.deleteMany({ where: { opportunityId: id } }); // cascades tasks/milestones/expenses/folders
+    await tx.quotation.deleteMany({ where: { opportunityId: id } }); // cascades QuotationItem
+    await tx.folder.deleteMany({ where: { opportunityId: id } });
+    await tx.activityLog.deleteMany({ where: { entityId: { in: [id, ...quotationIds, ...costingIds, ...projectIds] } } });
+    await tx.opportunity.delete({ where: { id } });
+
+    await logActivity(tx, {
+      userId: actor.userId,
+      action: "DELETE",
+      entityType: "OPPORTUNITY",
+      entityId: id,
+      description: `Deleted opportunity ${existing.number} - ${existing.name} (and everything generated from it) by ${actor.name}`,
+    });
+
+    return { number: existing.number };
+  });
+}
+
+export async function deleteOpportunityAction(id: string): Promise<ActionResult<{ number: string }>> {
+  return runAction(async () => {
+    const actor = await requireUserOrThrow();
+    requirePermission(actor.role, "sales", "delete");
+    const result = await deleteOpportunity(id, actor);
+    revalidatePath("/sales/opportunities");
+    revalidatePath("/documents");
+    return result;
   });
 }
 
