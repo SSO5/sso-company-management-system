@@ -41,7 +41,8 @@
     "mime-types": "2.1.35",
     "papaparse": "5.4.1",
     "@react-pdf/renderer": "3.4.4",
-    "@aws-sdk/client-s3": "3.632.0"
+    "@aws-sdk/client-s3": "3.632.0",
+    "exceljs": "4.4.0"
   },
   "devDependencies": {
     "typescript": "5.5.4",

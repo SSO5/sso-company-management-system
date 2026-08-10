@@ -47,7 +47,7 @@ export default async function QuotationDetailPage({ params }: { params: { id: st
           <a href={`/api/quotations/${q.id}/pdf`} target="_blank" rel="noreferrer">
             <Button variant="outline" size="icon" title="Download PDF"><Download className="h-4 w-4" /></Button>
           </a>
-          <QuotationActions id={q.id} status={q.status} role={actor.role} projectManagers={pms} />
+          <QuotationActions id={q.id} status={q.status} role={actor.role} projectManagers={pms} opportunityId={q.opportunity?.id} />
         </div>
       </div>
 

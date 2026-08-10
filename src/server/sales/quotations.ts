@@ -9,6 +9,7 @@ import {
   createQuotation,
   updateQuotation,
   reviseQuotation,
+  deleteQuotation,
   submitQuotationForApproval,
   approveQuotation,
   rejectQuotation,
@@ -30,8 +31,8 @@ export async function listQuotations() {
 export async function getQuotation(id: string) {
   const actor = await requireUserOrThrow();
   requirePermission(actor.role, "sales", "view");
-  return prisma.quotation.findUniqueOrThrow({
-    where: { id },
+  return prisma.quotation.findFirstOrThrow({
+    where: { id, deletedAt: null },
     include: {
       customer: true, contact: true, opportunity: true, items: { orderBy: { sortOrder: "asc" } },
       salesPic: { select: { name: true } }, createdBy: { select: { name: true } },
@@ -123,6 +124,18 @@ export async function markWonAction(
     revalidatePath(`/sales/quotations/${id}`);
     revalidatePath("/projects");
     return { id, projectId: project.id };
+  });
+}
+
+export async function deleteQuotationAction(id: string): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const actor = await requireUserOrThrow();
+    requirePermission(actor.role, "sales", "update");
+    await deleteQuotation(id, actor);
+    revalidatePath("/sales/quotations");
+    revalidatePath("/sales/opportunities");
+    revalidatePath("/documents");
+    return { id };
   });
 }
 

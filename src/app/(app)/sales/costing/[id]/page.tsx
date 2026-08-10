@@ -12,7 +12,7 @@ import { formatCurrency, formatDate, formatRevisedNumber } from "@/lib/utils";
 import { calcCostingSummary } from "@/lib/workflows/calculations";
 import { ConvertCostingDialog } from "@/components/sales/convert-costing-dialog";
 import { ReviseCostingButton } from "@/components/sales/revise-costing-button";
-import { Pencil, Eye, Download } from "lucide-react";
+import { Pencil, Eye, Download, FileSpreadsheet } from "lucide-react";
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "success" | "warning" | "destructive" | "outline"> = {
   DRAFT: "secondary", FINAL: "outline", CONVERTED: "success",
@@ -63,6 +63,9 @@ export default async function CostingDetailPage({ params }: { params: { id: stri
           </a>
           <a href={`/api/costing/${sheet.id}/pdf`} target="_blank" rel="noreferrer">
             <Button variant="outline" size="icon" title="Download PDF"><Download className="h-4 w-4" /></Button>
+          </a>
+          <a href={`/api/costing/${sheet.id}/excel`} target="_blank" rel="noreferrer">
+            <Button variant="outline" title="Download Excel"><FileSpreadsheet className="h-4 w-4" /> Excel</Button>
           </a>
           {sheet.status !== "CONVERTED" && (
             <>

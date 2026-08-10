@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/toast";
 import {
   submitQuotationAction, approveQuotationAction, rejectQuotationAction,
   sendQuotationAction, markWonAction, markLostAction, reviseQuotationAction,
+  deleteQuotationAction,
 } from "@/server/sales/quotations";
 import type { QuotationStatus, UserRole } from "@prisma/client";
 
@@ -18,11 +19,13 @@ export function QuotationActions({
   status,
   role,
   projectManagers,
+  opportunityId,
 }: {
   id: string;
   status: QuotationStatus;
   role: UserRole;
   projectManagers: { id: string; name: string }[];
+  opportunityId?: string | null;
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -30,6 +33,7 @@ export function QuotationActions({
   const [rejectOpen, setRejectOpen] = useState(false);
   const [lostOpen, setLostOpen] = useState(false);
   const [wonOpen, setWonOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [pmId, setPmId] = useState("");
 
@@ -60,10 +64,26 @@ export function QuotationActions({
     }
   }
 
+  async function confirmDelete() {
+    setDeleteOpen(false);
+    setPending(true);
+    const res = await deleteQuotationAction(id);
+    setPending(false);
+    if (res.ok) {
+      toast({ title: "Quotation dihapus", variant: "success" });
+      router.push(opportunityId ? `/sales/opportunities/${opportunityId}` : "/sales/quotations");
+    } else {
+      toast({ title: "Gagal menghapus", description: res.error, variant: "destructive" });
+    }
+  }
+
   return (
     <div className="flex flex-wrap gap-2">
       {status === "DRAFT" && canEditSales && (
         <Button disabled={pending} onClick={() => run(() => submitQuotationAction(id))}>Submit for Approval</Button>
+      )}
+      {status === "DRAFT" && canEditSales && (
+        <Button disabled={pending} variant="destructive" onClick={() => setDeleteOpen(true)}>Hapus</Button>
       )}
       {isRevisable && canEditSales && (
         <Button disabled={pending} variant="outline" onClick={reviseAndEdit}>Buat Revisi (R+1)</Button>
@@ -90,6 +110,16 @@ export function QuotationActions({
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setRejectOpen(false)}>Cancel</Button>
             <Button variant="destructive" disabled={!reason || pending} onClick={() => { setRejectOpen(false); run(() => rejectQuotationAction(id, reason)); }}>Reject</Button>
+          </div>
+        </div>
+      </Dialog>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen} title="Hapus Quotation Draft" description="Nomor yang sudah terlanjur terbit tidak akan dipakai ulang — tindakan ini hanya untuk draft yang salah input dan belum pernah dikirim/diajukan.">
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">Yakin hapus quotation ini? Tindakan ini tidak bisa dibatalkan dari layar ini.</p>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>Batal</Button>
+            <Button variant="destructive" disabled={pending} onClick={confirmDelete}>Hapus Permanen</Button>
           </div>
         </div>
       </Dialog>

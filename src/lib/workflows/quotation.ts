@@ -404,6 +404,42 @@ export async function reviseQuotation(quotationId: string, actor: SessionPayload
   });
 }
 
+/**
+ * Deletes a quotation that never left DRAFT — the one safe window to remove
+ * one outright, since spec requires an issued/burned number never be reused
+ * (see numbering-registry.ts's void-not-delete pattern). This exists for the
+ * "salah input nomor/data quotation" case: a data-entry mistake caught while
+ * still drafting, before anything was submitted, sent, or seen by a
+ * customer or approver. Soft-deletes (sets deletedAt) rather than
+ * hard-deleting so the mistake and its burned number stay visible on the
+ * audit trail instead of vanishing without a trace.
+ */
+export async function deleteQuotation(quotationId: string, actor: SessionPayload) {
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.quotation.findUniqueOrThrow({ where: { id: quotationId } });
+    if (existing.status !== "DRAFT") {
+      throw new Error(
+        "Only a draft quotation (never submitted) can be deleted. For one already sent/approved, use \"Mark Lost\" instead."
+      );
+    }
+
+    const quotation = await tx.quotation.update({
+      where: { id: quotationId },
+      data: { deletedAt: new Date() },
+    });
+
+    await logActivity(tx, {
+      userId: actor.userId,
+      action: "DELETE",
+      entityType: "QUOTATION",
+      entityId: quotation.id,
+      description: `${quotation.number}: Deleted (draft) by ${actor.name}`,
+    });
+
+    return quotation;
+  });
+}
+
 export async function markQuotationLost(quotationId: string, reason: string, actor: SessionPayload) {
   return prisma.$transaction(async (tx) => {
     const quotation = await tx.quotation.update({
