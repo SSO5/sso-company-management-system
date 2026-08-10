@@ -86,6 +86,7 @@ export const NAV: NavGroup[] = [
     items: [
       { label: "Users", href: "/settings/users" },
       { label: "Company Settings", href: "/settings/company" },
+      { label: "Panduan Sistem", href: "/settings/manual" },
     ],
   },
   { label: "Activity Log", icon: "History", roles: ["ADMIN"], items: [{ label: "Activity Log", href: "/activity-log" }] },
