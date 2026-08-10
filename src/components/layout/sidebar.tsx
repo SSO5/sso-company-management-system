@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Briefcase, Wallet, FolderKanban, FileText,
@@ -68,10 +69,14 @@ export function Sidebar({ role, open, onClose }: { role: UserRole; open: boolean
         )}
       >
         <div className="flex items-center justify-between gap-2 px-5 py-5">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide opacity-70">PT Sarana Sinergi Optima</p>
-            <p className="text-sm font-semibold">Company Management System</p>
-          </div>
+          <Image
+            src="/logo-wordmark.png"
+            alt="SSO Connect — PT Sarana Sinergi Optima"
+            width={220}
+            height={64}
+            priority
+            className="h-9 w-auto"
+          />
           <button
             type="button"
             onClick={onClose}
