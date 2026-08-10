@@ -17,6 +17,7 @@
     "db:reset": "tsx prisma/reset.ts",
     "db:delete-customer": "tsx prisma/delete-customer.ts",
     "db:delete-opportunity": "tsx prisma/delete-opportunity.ts",
+    "db:sync-numbers": "tsx prisma/sync-number-sequences.ts",
     "db:studio": "prisma studio"
   },
   "prisma": {
