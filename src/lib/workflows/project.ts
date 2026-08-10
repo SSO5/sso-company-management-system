@@ -1,12 +1,23 @@
-import type { Prisma, Quotation, Customer } from "@prisma/client";
+import type { Prisma, Quotation, Customer, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { generateNumber } from "@/lib/numbering";
 import { logActivity } from "@/lib/workflows/audit";
-import { notifyRole, notifyUser } from "@/lib/workflows/notify";
+import { notifyRole } from "@/lib/workflows/notify";
 import { createProjectFolders, mergeOpportunityFoldersIntoProject } from "@/lib/workflows/folders";
 import { calcProfitability } from "@/lib/workflows/calculations";
 import type { SessionPayload } from "@/lib/auth/session";
 import { requireProjectCloser } from "@/lib/permissions";
+
+/** A notification to send once the Won-deal transaction has actually
+ * committed — see the "pendingNotifications" note on convertQuotationToProject. */
+export interface PendingNotification {
+  role?: UserRole;
+  userId?: string;
+  type: string;
+  title: string;
+  message: string;
+  link?: string;
+}
 
 const DEFAULT_TASK_TEMPLATE = [
   { title: "Kickoff meeting with customer", priority: "HIGH" as const },
@@ -26,9 +37,20 @@ const DEFAULT_MILESTONE_TEMPLATE = [
 /**
  * Deal-Won automation (spec sections 11 & 38). Runs entirely inside the
  * caller's transaction: Project -> folders -> default tasks -> milestones ->
- * notifications -> activity log. If ANY step throws, Prisma rolls back the
- * whole transaction and the quotation status change that triggered this is
- * undone too — there is no partially-created project left behind.
+ * activity log. If ANY step throws, Prisma rolls back the whole transaction
+ * and the quotation status change that triggered this is undone too — there
+ * is no partially-created project left behind.
+ *
+ * Notifications are the one exception: they're collected into
+ * `pendingNotifications` and returned instead of written here. Sending them
+ * needs a `user.findMany` (by role) plus a `notification.createMany` per
+ * recipient group — real DB work that doesn't need to be atomic with the
+ * project/folder/task creation above (a failed notification insert should
+ * never roll back an otherwise-successful Won conversion), and cutting it
+ * from the transaction also shortens an already-long chain of sequential
+ * round trips against a remote database. The caller fires these with the
+ * plain `prisma` client AFTER the transaction commits (see
+ * markQuotationWon in lib/workflows/quotation.ts).
  */
 export async function convertQuotationToProject(
   tx: Prisma.TransactionClient,
@@ -37,6 +59,7 @@ export async function convertQuotationToProject(
   actor: SessionPayload,
   opts?: { projectManagerId?: string }
 ) {
+  const pendingNotifications: PendingNotification[] = [];
   const number = await generateNumber(tx, "PROJECT");
 
   const project = await tx.project.create({
@@ -84,7 +107,8 @@ export async function convertQuotationToProject(
     })),
   });
 
-  await notifyRole(tx, "FINANCE", {
+  pendingNotifications.push({
+    role: "FINANCE",
     type: "PROJECT_CREATED",
     title: "New project created from Won deal",
     message: `${project.number} (${customer.companyName}) is ready for invoicing setup.`,
@@ -92,7 +116,7 @@ export async function convertQuotationToProject(
   });
 
   if (opts?.projectManagerId) {
-    await notifyUser(tx, {
+    pendingNotifications.push({
       userId: opts.projectManagerId,
       type: "PROJECT_CREATED",
       title: "You were assigned a new project",
@@ -100,7 +124,8 @@ export async function convertQuotationToProject(
       link: `/projects/${project.id}`,
     });
   } else {
-    await notifyRole(tx, "PROJECT_MANAGER", {
+    pendingNotifications.push({
+      role: "PROJECT_MANAGER",
       type: "PROJECT_CREATED",
       title: "New project needs a Project Manager",
       message: `${project.number} (${customer.companyName}) was created and has no PM assigned yet.`,
@@ -117,7 +142,7 @@ export async function convertQuotationToProject(
     metadata: { quotationId: quotation.id, quotationNumber: quotation.number },
   });
 
-  return project;
+  return { project, pendingNotifications };
 }
 
 /** Revenue - Cost = Gross Profit; Gross Profit / Revenue = Gross Margin (section 28). */

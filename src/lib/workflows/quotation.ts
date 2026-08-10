@@ -2,7 +2,7 @@ import { Prisma, type OpportunityStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { generateNumber } from "@/lib/numbering";
 import { logActivity } from "@/lib/workflows/audit";
-import { notifyRole } from "@/lib/workflows/notify";
+import { notifyRole, dispatchPendingNotifications } from "@/lib/workflows/notify";
 import { calcQuotationTotals } from "@/lib/workflows/calculations";
 import { convertQuotationToProject } from "@/lib/workflows/project";
 import { DEFAULT_COMMERCIAL_TERMS, type QuotationInput } from "@/lib/validation/sales";
@@ -297,9 +297,10 @@ export async function markQuotationSent(quotationId: string, actor: SessionPaylo
 /**
  * THE most important automation in the system (spec section 11).
  * Marking a quotation WON atomically creates the Project, its folder tree,
- * default tasks, notifications, and activity log — all inside one
- * transaction so a partial failure never leaves an orphaned half-created
- * project. See lib/workflows/project.ts:convertQuotationToProject.
+ * default tasks, and activity log — all inside one transaction so a partial
+ * failure never leaves an orphaned half-created project. Notifications fire
+ * separately right after the transaction commits (see
+ * lib/workflows/project.ts:convertQuotationToProject for why).
  */
 export async function markQuotationWon(
   quotationId: string,
@@ -309,7 +310,7 @@ export async function markQuotationWon(
   if (!["ADMIN", "SALES"].includes(actor.role)) {
     throw new ForbiddenError("Only Sales or Admin can mark a quotation as Won.");
   }
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const quotation = await tx.quotation.findUniqueOrThrow({
       where: { id: quotationId },
       include: { customer: true },
@@ -335,9 +336,19 @@ export async function markQuotationWon(
       await tx.opportunity.update({ where: { id: won.opportunityId }, data: { status: "WON" } });
     }
 
-    const project = await convertQuotationToProject(tx, won, quotation.customer, actor, opts);
-    return { quotation: won, project };
+    const { project, pendingNotifications } = await convertQuotationToProject(tx, won, quotation.customer, actor, opts);
+    return { quotation: won, project, pendingNotifications };
   });
+
+  // Fired AFTER the transaction above has committed — see the comment on
+  // convertQuotationToProject for why these are kept out of the atomic path.
+  // Never let a notification hiccup surface as a failure of the Won action
+  // itself, since the quotation/project/folders are already safely saved.
+  await dispatchPendingNotifications(prisma, result.pendingNotifications).catch((err) =>
+    console.error("[markQuotationWon] dispatchPendingNotifications failed:", err)
+  );
+
+  return { quotation: result.quotation, project: result.project };
 }
 
 /**

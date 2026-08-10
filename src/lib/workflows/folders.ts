@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { randomUUID } from "crypto";
 
 /**
  * Folder structure is data, not frontend decoration (spec section 24: "The
@@ -141,28 +142,77 @@ export const COMPANY_FOLDER_TEMPLATE: FolderTemplateNode[] = [
   },
 ];
 
+/**
+ * Materializes a folder template as real rows using ONE `createMany` round
+ * trip per tree depth (2 for PROJECT/COMPANY templates, 1 for OPPORTUNITY's
+ * flat template) instead of one `create` per node.
+ *
+ * The naive version awaited `tx.folder.create()` node-by-node — for
+ * PROJECT_FOLDER_TEMPLATE that's ~23 sequential round trips, all inside the
+ * same Won-deal transaction as ~25 other queries. Against a remote Neon
+ * instance each round trip costs real network latency, and enough of them
+ * stacked in one interactive transaction can outrun even a generous
+ * transaction timeout ("Transaction already closed").
+ *
+ * Fix: generate each row's id client-side (a Folder's `id` only needs to be
+ * a valid unique string — Prisma's default cuid() generator is not required
+ * for anything downstream) so a child's `parentId` is known BEFORE its
+ * parent is inserted, removing the need to read the parent back from the DB.
+ * That lets every node at the same depth be inserted in a single
+ * `createMany` call, walking the template breadth-first.
+ */
 async function createTree(
   tx: Prisma.TransactionClient,
   nodes: FolderTemplateNode[],
   opts: { kind: "COMPANY" | "PROJECT" | "OPPORTUNITY"; projectId?: string; opportunityId?: string; parentId?: string; parentPath: string }
 ) {
-  for (const node of nodes) {
-    const path = `${opts.parentPath} / ${node.name}`;
-    const folder = await tx.folder.create({
-      data: {
-        name: node.name,
+  interface PendingRow {
+    id: string;
+    parentId?: string;
+    name: string;
+    routeKey?: string;
+    path: string;
+    children?: FolderTemplateNode[];
+  }
+
+  let level: PendingRow[] = nodes.map((n) => ({
+    id: randomUUID(),
+    parentId: opts.parentId,
+    name: n.name,
+    routeKey: n.routeKey,
+    path: `${opts.parentPath} / ${n.name}`,
+    children: n.children,
+  }));
+
+  while (level.length > 0) {
+    await tx.folder.createMany({
+      data: level.map((row) => ({
+        id: row.id,
+        name: row.name,
         kind: opts.kind,
-        parentId: opts.parentId,
+        parentId: row.parentId,
         projectId: opts.projectId,
         opportunityId: opts.opportunityId,
-        routeKey: node.routeKey,
+        routeKey: row.routeKey,
         isSystem: true,
-        path,
-      },
+        path: row.path,
+      })),
     });
-    if (node.children?.length) {
-      await createTree(tx, node.children, { ...opts, parentId: folder.id, parentPath: path });
+
+    const nextLevel: PendingRow[] = [];
+    for (const row of level) {
+      for (const child of row.children ?? []) {
+        nextLevel.push({
+          id: randomUUID(),
+          parentId: row.id,
+          name: child.name,
+          routeKey: child.routeKey,
+          path: `${row.path} / ${child.name}`,
+          children: child.children,
+        });
+      }
     }
+    level = nextLevel;
   }
 }
 
@@ -234,13 +284,21 @@ export async function mergeOpportunityFoldersIntoProject(
   opportunityId: string,
   projectId: string
 ) {
+  // Fetch each root together with its children in one round trip (`include`)
+  // instead of a separate findFirst + findMany pair — same data, half the
+  // queries, since this whole cascade runs inside the same big Won-deal
+  // transaction as folder-tree creation.
   const oppRoot = await tx.folder.findFirst({
     where: { kind: "OPPORTUNITY", opportunityId, parentId: null },
+    include: { children: true },
   });
   if (!oppRoot) return; // nothing to migrate
+  const oppChildren = oppRoot.children;
 
-  const oppChildren = await tx.folder.findMany({ where: { parentId: oppRoot.id } });
-  const salesSection = await tx.folder.findFirst({ where: { projectId, routeKey: "SALES_SECTION" } });
+  const salesSection = await tx.folder.findFirst({
+    where: { projectId, routeKey: "SALES_SECTION" },
+    include: { children: true },
+  });
 
   if (!salesSection) {
     // Fallback for a Project whose folder tree predates this restructure —
@@ -257,7 +315,7 @@ export async function mergeOpportunityFoldersIntoProject(
     return;
   }
 
-  const projChildren = await tx.folder.findMany({ where: { parentId: salesSection.id } });
+  const projChildren = salesSection.children;
   const projByRoute = new Map(projChildren.filter((f) => f.routeKey).map((f) => [f.routeKey as string, f]));
 
   for (const oppChild of oppChildren) {
