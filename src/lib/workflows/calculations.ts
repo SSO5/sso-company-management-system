@@ -188,3 +188,85 @@ export function calcProfitability({ revenue, cost }: ProfitabilityInput) {
   const grossMargin = revenue > 0 ? round2((grossProfit / revenue) * 100) : 0;
   return { grossProfit, grossMargin };
 }
+
+/**
+ * Kurva S (S-Curve): three cumulative-% series over time —
+ *  - "Rencana" (planned): cumulative ProjectMilestone.weightPercent, plotted
+ *    at each milestone's dueDate.
+ *  - "Realisasi" (actual): same weights, plotted at completedAt (only
+ *    milestones actually marked COMPLETED count).
+ *  - "Penagihan" (billed): cumulative Invoice.grandTotal / project
+ *    contractValue, plotted at invoiceDate — free from existing Invoice
+ *    data, no separate billing-schedule model needed.
+ * Step-function by design (this is a real S-curve, not a smoothed trend):
+ * each series only moves on a date something in it actually happened.
+ */
+export interface SCurvePoint {
+  date: string; // ISO yyyy-mm-dd
+  planned: number;
+  actual: number;
+  billed: number;
+}
+export interface SCurveInput {
+  milestones: { dueDate: Date | null; weightPercent: number; completedAt: Date | null }[];
+  invoices: { invoiceDate: Date; grandTotal: number; status: string }[];
+  contractValue: number;
+}
+const SCURVE_BILLABLE_STATUSES = ["ISSUED", "PARTIALLY_PAID", "PAID", "OVERDUE"];
+
+export function computeSCurve({ milestones, invoices, contractValue }: SCurveInput): {
+  points: SCurvePoint[];
+  totalWeight: number;
+  asOfToday: { planned: number; actual: number; billed: number };
+} {
+  type Event = { date: Date; weight: number };
+  const byDateAsc = (a: Event, b: Event) => a.date.getTime() - b.date.getTime();
+
+  const plannedEvents: Event[] = milestones
+    .filter((m) => m.dueDate && Number(m.weightPercent) > 0)
+    .map((m) => ({ date: m.dueDate as Date, weight: Number(m.weightPercent) }))
+    .sort(byDateAsc);
+
+  const actualEvents: Event[] = milestones
+    .filter((m) => m.completedAt && Number(m.weightPercent) > 0)
+    .map((m) => ({ date: m.completedAt as Date, weight: Number(m.weightPercent) }))
+    .sort(byDateAsc);
+
+  const billedEvents: Event[] = invoices
+    .filter((i) => SCURVE_BILLABLE_STATUSES.includes(i.status))
+    .map((i) => ({ date: i.invoiceDate, weight: contractValue > 0 ? (Number(i.grandTotal) / contractValue) * 100 : 0 }))
+    .sort(byDateAsc);
+
+  const totalWeight = round2(milestones.reduce((s, m) => s + Number(m.weightPercent), 0));
+
+  function cumulativeAt(events: Event[], cutoff: Date): number {
+    return Math.min(100, round2(events.filter((e) => e.date <= cutoff).reduce((s, e) => s + e.weight, 0)));
+  }
+
+  // Chart timeline: every date something actually happened (milestone due,
+  // milestone completed, or invoice issued) — including planned dates still
+  // in the future, so the chart shows where the plan is heading, not just
+  // history.
+  const allDateKeys = Array.from(
+    new Set([...plannedEvents, ...actualEvents, ...billedEvents].map((e) => e.date.toISOString().slice(0, 10)))
+  ).sort();
+
+  const points: SCurvePoint[] = allDateKeys.map((d) => ({
+    date: d,
+    planned: cumulativeAt(plannedEvents, new Date(`${d}T23:59:59.999Z`)),
+    actual: cumulativeAt(actualEvents, new Date(`${d}T23:59:59.999Z`)),
+    billed: cumulativeAt(billedEvents, new Date(`${d}T23:59:59.999Z`)),
+  }));
+
+  // Summary card values: cumulative AS OF TODAY specifically — distinct from
+  // the last chart point, since "planned" can include future-dated
+  // milestones that haven't arrived yet.
+  const now = new Date();
+  const asOfToday = {
+    planned: cumulativeAt(plannedEvents, now),
+    actual: cumulativeAt(actualEvents, now),
+    billed: cumulativeAt(billedEvents, now),
+  };
+
+  return { points, totalWeight, asOfToday };
+}

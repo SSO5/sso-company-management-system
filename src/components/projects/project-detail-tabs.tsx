@@ -7,8 +7,10 @@ import { MilestonePanel } from "@/components/projects/milestone-panel";
 import { ExpensePanel } from "@/components/projects/expense-panel";
 import { ClosingPanel } from "@/components/projects/closing-panel";
 import { DocumentsPanel } from "@/components/projects/documents-panel";
+import { SCurvePanel } from "@/components/projects/s-curve-panel";
 import { formatCurrency } from "@/lib/utils";
 import type { TaskStatus, UserRole } from "@prisma/client";
+import type { SCurvePoint } from "@/lib/workflows/calculations";
 
 interface Props {
   projectId: string;
@@ -20,7 +22,8 @@ interface Props {
     totalInvoiced: number; totalPaid: number; outstanding: number; grossProfit: number; grossMargin: number;
   };
   tasks: { id: string; title: string; status: TaskStatus; priority: string; dueDate: Date | null; progressPercent: number; assignedTo: { name: string } | null }[];
-  milestones: { id: string; name: string; status: string; dueDate: Date | null; progressPercent: number }[];
+  milestones: { id: string; name: string; status: string; dueDate: Date | null; progressPercent: number; weightPercent: unknown }[];
+  sCurve: { points: SCurvePoint[]; totalWeight: number; asOfToday: { planned: number; actual: number; billed: number } };
   expenses: {
     id: string; number: string; category: string; description: string; date: Date; total: unknown;
     paymentStatus: string; approvalStatus: string; submittedById: string | null; rejectionReason: string | null;
@@ -40,6 +43,7 @@ const TABS = [
   { value: "documents", label: "Documents" },
   { value: "tasks", label: "Tasks" },
   { value: "milestones", label: "Milestones" },
+  { value: "scurve", label: "S-Curve" },
   { value: "costs", label: "Costs" },
   { value: "closing", label: "Closing" },
 ];
@@ -85,6 +89,7 @@ export function ProjectDetailTabs(props: Props) {
       )}
       {active === "tasks" && <TaskPanel projectId={props.projectId} tasks={props.tasks} assignees={props.assignees} />}
       {active === "milestones" && <MilestonePanel projectId={props.projectId} milestones={props.milestones} />}
+      {active === "scurve" && <SCurvePanel points={props.sCurve.points} totalWeight={props.sCurve.totalWeight} asOfToday={props.sCurve.asOfToday} />}
       {active === "costs" && <ExpensePanel projectId={props.projectId} expenses={props.expenses} role={props.role} />}
       {active === "closing" && (
         <ClosingPanel

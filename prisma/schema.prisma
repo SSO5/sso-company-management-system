@@ -864,6 +864,15 @@ model ProjectMilestone {
   description     String?
   sortOrder       Int             @default(0)
 
+  // S-curve inputs (spec: Kurva S — progress rencana vs realisasi vs
+  // penagihan). weightPercent = kontribusi milestone ini terhadap total
+  // scope project (idealnya semua milestone dalam satu project berjumlah
+  // 100%) — dipakai untuk menghitung kumulatif "Rencana" (dari dueDate) dan
+  // "Realisasi" (dari completedAt). Tidak wajib diisi; kalau kosong,
+  // milestone itu tidak ikut dihitung ke kurva sampai bobotnya diisi.
+  weightPercent Decimal   @db.Decimal(5, 2) @default(0)
+  completedAt   DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

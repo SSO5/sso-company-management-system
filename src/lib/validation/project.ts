@@ -34,6 +34,8 @@ export const milestoneSchema = z.object({
   dueDate: z.coerce.date().optional().nullable(),
   status: z.enum(["PENDING", "IN_PROGRESS", "COMPLETED", "DELAYED"]).default("PENDING"),
   progressPercent: z.coerce.number().int().min(0).max(100).default(0),
+  // Kontribusi milestone ini ke total scope project, untuk Kurva S.
+  weightPercent: z.coerce.number().min(0).max(100).default(0),
   description: z.string().optional().nullable(),
   sortOrder: z.coerce.number().int().default(0),
 });

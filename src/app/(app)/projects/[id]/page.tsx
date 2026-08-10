@@ -13,7 +13,7 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "success" | "warn
 };
 
 export default async function ProjectDetailPage({ params }: { params: { id: string } }) {
-  const [{ project, profitability, closing, opportunityFolder }, actor, assignees] = await Promise.all([
+  const [{ project, profitability, closing, opportunityFolder, sCurve }, actor, assignees] = await Promise.all([
     getProjectDetail(params.id),
     requireUser(),
     listUsersForPicker(),
@@ -47,6 +47,7 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
         profitability={profitability}
         tasks={project.tasks}
         milestones={project.milestones}
+        sCurve={sCurve}
         expenses={project.expenses}
         assignees={assignees}
         closing={closing}

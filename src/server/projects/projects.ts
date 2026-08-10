@@ -5,6 +5,7 @@ import { requireUserOrThrow } from "@/lib/auth/current-user";
 import { requirePermission } from "@/lib/permissions";
 import { logActivity } from "@/lib/workflows/audit";
 import { calculateProjectProfitability, validateProjectClosing, closeProject, markProjectCompleted } from "@/lib/workflows/project";
+import { computeSCurve } from "@/lib/workflows/calculations";
 import { projectUpdateSchema } from "@/lib/validation/project";
 import { runAction, type ActionResult } from "@/lib/action-helpers";
 
@@ -67,7 +68,13 @@ export async function getProjectDetail(id: string) {
     ? await prisma.folder.findFirst({ where: { opportunityId: project.opportunityId, parentId: null }, select: { id: true, name: true } })
     : null;
 
-  return { project, profitability, closing, opportunityFolder };
+  const sCurve = computeSCurve({
+    milestones: project.milestones.map((m) => ({ dueDate: m.dueDate, weightPercent: Number(m.weightPercent), completedAt: m.completedAt })),
+    invoices: project.invoices.map((i) => ({ invoiceDate: i.invoiceDate, grandTotal: Number(i.grandTotal), status: i.status })),
+    contractValue: Number(project.contractValue),
+  });
+
+  return { project, profitability, closing, opportunityFolder, sCurve };
 }
 
 export async function updateProject(id: string, input: unknown): Promise<ActionResult<{ id: string }>> {

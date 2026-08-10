@@ -66,8 +66,16 @@ export async function updateMilestoneStatus(
     const actor = await requireUserOrThrow();
     requirePermission(actor.role, "project", "update");
     const progressPercent = status === "COMPLETED" ? 100 : undefined;
+    // completedAt feeds the "Realisasi" line on the S-Curve — stamp it the
+    // moment a milestone is actually marked done, and clear it if someone
+    // reopens the milestone by mistake (status moved away from COMPLETED),
+    // so the S-Curve never counts un-done work as delivered.
+    const completedAt = status === "COMPLETED" ? new Date() : null;
     await prisma.$transaction(async (tx) => {
-      await tx.projectMilestone.update({ where: { id }, data: { status, ...(progressPercent !== undefined ? { progressPercent } : {}) } });
+      await tx.projectMilestone.update({
+        where: { id },
+        data: { status, completedAt, ...(progressPercent !== undefined ? { progressPercent } : {}) },
+      });
       await logActivity(tx, { userId: actor.userId, action: "STATUS_CHANGE", entityType: "PROJECT_MILESTONE", entityId: id, description: `Milestone -> ${status}` });
     });
     revalidatePath(`/projects/${projectId}`);
