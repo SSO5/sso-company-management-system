@@ -248,7 +248,7 @@ export function SystemManualTabs() {
                 <div>npx prisma generate</div>
                 <div>npx prisma db push</div>
                 <div>npm run typecheck</div>
-                <div>git add -A &amp;&amp; git commit -m "..." &amp;&amp; git push</div>
+                <div>git add -A &amp;&amp; git commit -m &quot;...&quot; &amp;&amp; git push</div>
               </div>
               <p className="mt-2 text-muted-foreground">Setelah push, cek di Vercel → Deployments bahwa deployment terbaru statusnya &quot;Ready&quot;, lalu cek Settings → Domains bahwa domain production sudah otomatis mengarah ke deployment tersebut.</p>
             </CardContent>
