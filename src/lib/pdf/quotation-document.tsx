@@ -86,6 +86,7 @@ const styles = StyleSheet.create({
 interface CompanyInfo {
   companyName: string;
   address: string | null;
+  addressLine2: string | null;
   city: string | null;
   province: string | null;
   phone: string | null;
@@ -119,14 +120,18 @@ interface QuotationPdfProps {
 }
 
 function Header({ company, logo }: { company: CompanyInfo; logo: PdfImageSrc | null }) {
-  const addressLine = [company.address, company.city && company.province ? `${company.city}, ${company.province}` : company.city].filter(Boolean).join(", ");
+  // Second line falls back to city/province if addressLine2 isn't filled in
+  // yet (Settings > Company Settings), so existing companies with only the
+  // old single-line address don't regress to a blank line.
+  const line2 = company.addressLine2 || [company.city, company.province].filter(Boolean).join(", ");
   return (
     <>
       <View style={styles.headerFixed} fixed>
         {logo ? <Image src={logo} style={styles.logo} /> : <Text style={{ fontSize: 14, fontFamily: "Helvetica-Bold", color: NAVY }}>SINERGI</Text>}
         <View style={styles.companyBlock}>
           <Text style={styles.companyName}>{company.companyName.toUpperCase()}</Text>
-          {addressLine ? <Text style={styles.companyLine}>{addressLine}</Text> : null}
+          {company.address ? <Text style={styles.companyLine}>{company.address}</Text> : null}
+          {line2 ? <Text style={styles.companyLine}>{line2}</Text> : null}
           {company.phone ? <Text style={styles.companyLine}>Indonesia · {company.phone}</Text> : null}
         </View>
       </View>
@@ -136,7 +141,7 @@ function Header({ company, logo }: { company: CompanyInfo; logo: PdfImageSrc | n
 }
 
 function Footer({ company }: { company: CompanyInfo }) {
-  const addressLine = [company.address, company.city].filter(Boolean).join(", ");
+  const addressLine = [company.address, company.addressLine2 || company.city].filter(Boolean).join(" · ");
   return (
     <View style={styles.footerFixed} fixed>
       <View style={styles.footerRule} />

@@ -21,6 +21,7 @@ const styles = StyleSheet.create({
   page: { padding: 40, fontSize: 9, fontFamily: "Helvetica", color: DARK },
 
   headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+  logo: { width: 100, height: 26, objectFit: "contain", marginBottom: 4 },
   companyName: { fontSize: 15, fontFamily: "Helvetica-Bold" },
   companyLine: { fontSize: 7.5, color: GRAY, marginTop: 1.5, maxWidth: 260 },
   docTitleBlock: { alignItems: "flex-end" },
@@ -89,6 +90,7 @@ const styles = StyleSheet.create({
 interface CompanyInfo {
   companyName: string;
   address: string | null;
+  addressLine2: string | null;
   city: string | null;
   province: string | null;
   phone: string | null;
@@ -119,13 +121,14 @@ interface VendorPoPdfProps {
   };
   company: CompanyInfo;
   signer: { name: string; title: string | null };
+  logo: PdfImageSrc | null;
   signature: PdfImageSrc | null;
   stamp: PdfImageSrc | null;
 }
 
-export function VendorPoPdfDocument({ po, company, signer, signature, stamp }: VendorPoPdfProps) {
+export function VendorPoPdfDocument({ po, company, signer, logo, signature, stamp }: VendorPoPdfProps) {
   const netto = po.subtotal - po.discount;
-  const addressLine = [company.address, company.city && company.province ? `${company.city}, ${company.province}` : company.city].filter(Boolean).join("\n");
+  const addressLine2 = company.addressLine2 || [company.city, company.province].filter(Boolean).join(", ");
   const dateStr = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric" }).format(po.poDate);
 
   let lastGroup: string | null = "__none__";
@@ -136,8 +139,10 @@ export function VendorPoPdfDocument({ po, company, signer, signature, stamp }: V
       <Page size="A4" style={styles.page}>
         <View style={styles.headerRow}>
           <View>
+            {logo ? <Image src={logo} style={styles.logo} /> : null}
             <Text style={styles.companyName}>{company.companyName.toUpperCase()}</Text>
-            <Text style={styles.companyLine}>{addressLine}</Text>
+            {company.address ? <Text style={styles.companyLine}>{company.address}</Text> : null}
+            {addressLine2 ? <Text style={styles.companyLine}>{addressLine2}</Text> : null}
             {company.phone ? <Text style={styles.companyLine}>{company.phone}</Text> : null}
           </View>
           <View style={styles.docTitleBlock}>
@@ -201,7 +206,11 @@ export function VendorPoPdfDocument({ po, company, signer, signature, stamp }: V
             <Text style={[styles.tableHeaderCell, styles.colAmount]}>Amount</Text>
           </View>
           {po.items.map((item, idx) => {
-            const isNewGroup = item.groupLabel && item.groupLabel !== lastGroup;
+            // Boolean(...) matters: an empty-string groupLabel (not null)
+            // would otherwise make `isNewGroup` itself an empty string, which
+            // React-PDF renders as a raw text child and throws "Invalid ''
+            // string child outside <Text>" — see invoice-document.tsx.
+            const isNewGroup = Boolean(item.groupLabel) && item.groupLabel !== lastGroup;
             if (isNewGroup) {
               lastGroup = item.groupLabel;
               groupIndex += 1;
@@ -256,14 +265,14 @@ export function VendorPoPdfDocument({ po, company, signer, signature, stamp }: V
           </View>
         </View>
 
-        {po.notes && (
+        {po.notes ? (
           <View style={styles.notesBox} wrap={false}>
             <Text style={styles.notesTitle}>Note / Ketentuan :</Text>
             {po.notes.split("\n").filter(Boolean).map((line, i) => (
               <Text key={i} style={styles.notesLine}>{line}</Text>
             ))}
           </View>
-        )}
+        ) : null}
 
         <View style={styles.signRow} wrap={false}>
           <View style={styles.signCol}>

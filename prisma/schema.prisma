@@ -1215,6 +1215,11 @@ model CompanySettings {
   companyName  String  @default("PT Sarana Sinergi Optima")
   logoUrl      String?
   address      String?
+  // Second address line (kecamatan/kota/kode pos, e.g. "Pondok Pinang,
+  // Kebayoran Lama, Jakarta Selatan 12310") — printed on its own line under
+  // `address` in PDF headers/footers, matching the real letterhead format
+  // (spec point #1: full address must show, not just "Jakarta").
+  addressLine2 String?
   city         String?
   province     String?
   country      String? @default("Indonesia")

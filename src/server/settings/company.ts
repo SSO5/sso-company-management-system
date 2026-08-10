@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/current-user";
 import { requirePermission } from "@/lib/permissions";
 import { runAction, type ActionResult } from "@/lib/action-helpers";
+import { assertFileAllowed, saveBrandingAsset } from "@/lib/storage";
 import { z } from "zod";
 
 export async function getCompanySettings() {
@@ -16,6 +17,7 @@ export async function getCompanySettings() {
 const companySettingsSchema = z.object({
   companyName: z.string().min(2),
   address: z.string().optional().nullable(),
+  addressLine2: z.string().optional().nullable(),
   city: z.string().optional().nullable(),
   province: z.string().optional().nullable(),
   country: z.string().optional().nullable(),
@@ -32,15 +34,57 @@ const companySettingsSchema = z.object({
   bankAccountNumber: z.string().optional().nullable(),
 });
 
-export async function updateCompanySettings(input: unknown): Promise<ActionResult<{ id: string }>> {
+/**
+ * Takes FormData (not JSON) because the Logo and Company Stamp are optional
+ * file uploads alongside the text fields — same reason
+ * updateUserAction/signature upload does, see server/settings/users.ts.
+ * Without an actual logoUrl saved here, every PDF header falls back to a
+ * plain "SINERGI" text label instead of the real logo image (spec point #1).
+ */
+export async function updateCompanySettings(formData: FormData): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
     const actor = await requireUserOrThrow();
     requirePermission(actor.role, "settings", "manage");
-    const data = companySettingsSchema.parse(input);
+
+    const data = companySettingsSchema.parse({
+      companyName: formData.get("companyName"),
+      address: formData.get("address") || null,
+      addressLine2: formData.get("addressLine2") || null,
+      city: formData.get("city") || null,
+      province: formData.get("province") || null,
+      country: formData.get("country") || null,
+      phone: formData.get("phone") || null,
+      email: formData.get("email") || null,
+      taxId: formData.get("taxId") || null,
+      currency: formData.get("currency") || "IDR",
+      timezone: formData.get("timezone") || "Asia/Jakarta",
+      defaultTaxRatePercent: formData.get("defaultTaxRatePercent") || 11,
+      bankName: formData.get("bankName") || null,
+      bankBranch: formData.get("bankBranch") || null,
+      bankAccountName: formData.get("bankAccountName") || null,
+      bankAccountNumber: formData.get("bankAccountNumber") || null,
+    });
+
+    let logoUrl: string | undefined;
+    const logoFile = formData.get("logo");
+    if (logoFile instanceof File && logoFile.size > 0) {
+      assertFileAllowed(logoFile.name, logoFile.type, logoFile.size);
+      const buffer = Buffer.from(await logoFile.arrayBuffer());
+      logoUrl = await saveBrandingAsset(buffer, { prefix: "company-logo", originalName: logoFile.name });
+    }
+
+    let stampImageUrl: string | undefined;
+    const stampFile = formData.get("stamp");
+    if (stampFile instanceof File && stampFile.size > 0) {
+      assertFileAllowed(stampFile.name, stampFile.type, stampFile.size);
+      const buffer = Buffer.from(await stampFile.arrayBuffer());
+      stampImageUrl = await saveBrandingAsset(buffer, { prefix: "company-stamp", originalName: stampFile.name });
+    }
+
     await prisma.companySettings.upsert({
       where: { id: "singleton" },
-      create: { id: "singleton", ...data, email: data.email || null },
-      update: { ...data, email: data.email || null },
+      create: { id: "singleton", ...data, email: data.email || null, ...(logoUrl ? { logoUrl } : {}), ...(stampImageUrl ? { stampImageUrl } : {}) },
+      update: { ...data, email: data.email || null, ...(logoUrl ? { logoUrl } : {}), ...(stampImageUrl ? { stampImageUrl } : {}) },
     });
     revalidatePath("/settings/company");
     return { id: "singleton" };

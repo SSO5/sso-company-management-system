@@ -65,6 +65,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
         company={{
           companyName: settings?.companyName || "PT Sarana Sinergi Optima",
           address: settings?.address ?? null,
+          addressLine2: settings?.addressLine2 ?? null,
           city: settings?.city ?? null,
           province: settings?.province ?? null,
           phone: settings?.phone ?? null,

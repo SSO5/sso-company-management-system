@@ -28,6 +28,7 @@ const styles = StyleSheet.create({
   page: { padding: 40, fontSize: 9, fontFamily: "Helvetica", color: DARK },
 
   headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+  logo: { width: 100, height: 26, objectFit: "contain", marginBottom: 4 },
   companyName: { fontSize: 15, fontFamily: "Helvetica-Bold" },
   companyLine: { fontSize: 7.5, color: GRAY, marginTop: 1.5, maxWidth: 260 },
   docTitle: { fontSize: 26, fontFamily: "Helvetica-Bold", letterSpacing: 0.5 },
@@ -93,6 +94,7 @@ const styles = StyleSheet.create({
 interface CompanyInfo {
   companyName: string;
   address: string | null;
+  addressLine2: string | null;
   city: string | null;
   province: string | null;
   phone: string | null;
@@ -120,6 +122,7 @@ interface InvoicePdfProps {
   contactName: string | null;
   company: CompanyInfo;
   bank: { bankName: string | null; bankBranch: string | null; bankAccountName: string | null; bankAccountNumber: string | null };
+  logo: PdfImageSrc | null;
   stamp: PdfImageSrc | null;
 }
 
@@ -131,7 +134,7 @@ function dateStr(d: Date | null): string {
   return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric" }).format(d);
 }
 
-export function InvoicePdfDocument({ invoice, customer, contactName, company, bank, stamp }: InvoicePdfProps) {
+export function InvoicePdfDocument({ invoice, customer, contactName, company, bank, logo, stamp }: InvoicePdfProps) {
   const dpp = invoice.subtotal - invoice.discount;
   const hasBank = bank.bankName || bank.bankAccountNumber;
   const dueAmount = invoice.dpPercent ? invoice.grandTotal * (Number(invoice.dpPercent) / 100) : null;
@@ -143,10 +146,12 @@ export function InvoicePdfDocument({ invoice, customer, contactName, company, ba
       <Page size="A4" style={styles.page}>
         <View style={styles.headerRow}>
           <View>
+            {logo ? <Image src={logo} style={styles.logo} /> : null}
             <Text style={styles.companyName}>{company.companyName.toUpperCase()}</Text>
-            <Text style={styles.companyLine}>
-              {[company.address, company.city && company.province ? `${company.city}, ${company.province}` : company.city].filter(Boolean).join(", ")}
-            </Text>
+            {company.address ? <Text style={styles.companyLine}>{company.address}</Text> : null}
+            {(company.addressLine2 || company.city) ? (
+              <Text style={styles.companyLine}>{company.addressLine2 || [company.city, company.province].filter(Boolean).join(", ")}</Text>
+            ) : null}
             {company.phone ? <Text style={styles.companyLine}>{company.phone}</Text> : null}
           </View>
           <Text style={styles.docTitle}>INVOICE</Text>
@@ -185,7 +190,12 @@ export function InvoicePdfDocument({ invoice, customer, contactName, company, ba
             <Text style={[styles.tableHeaderCell, styles.colTotal]}>Total Price (IDR)</Text>
           </View>
           {invoice.items.map((item, idx) => {
-            const isNewGroup = item.groupLabel && item.groupLabel !== lastGroup;
+            // Boolean(...) matters here, not just truthiness: if groupLabel is
+            // "" (empty string, not null), `"" && x` evaluates to "" itself —
+            // React-PDF then throws "Invalid '' string child outside <Text>"
+            // because that empty string gets rendered as a raw child of the
+            // <View> below instead of short-circuiting to a clean `false`.
+            const isNewGroup = Boolean(item.groupLabel) && item.groupLabel !== lastGroup;
             if (isNewGroup) lastGroup = item.groupLabel;
             return (
               <View key={idx}>
@@ -217,14 +227,14 @@ export function InvoicePdfDocument({ invoice, customer, contactName, company, ba
           })}
         </View>
 
-        {invoice.notes && (
+        {invoice.notes ? (
           <View style={styles.notesBox} wrap={false}>
             <Text style={styles.notesTitle}>NOTE :</Text>
             {invoice.notes.split("\n").filter(Boolean).map((line, i) => (
               <Text key={i} style={styles.notesLine}>{line}</Text>
             ))}
           </View>
-        )}
+        ) : null}
 
         <View style={styles.bottomRow} wrap={false}>
           {hasBank ? (
