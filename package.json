@@ -18,6 +18,7 @@
     "db:delete-customer": "tsx prisma/delete-customer.ts",
     "db:delete-opportunity": "tsx prisma/delete-opportunity.ts",
     "db:sync-numbers": "tsx prisma/sync-number-sequences.ts",
+    "db:reset-financials": "tsx prisma/reset-financials.ts",
     "db:studio": "prisma studio"
   },
   "prisma": {
