@@ -25,6 +25,11 @@ const companySettingsSchema = z.object({
   currency: z.string().default("IDR"),
   timezone: z.string().default("Asia/Jakarta"),
   defaultTaxRatePercent: z.coerce.number().min(0).max(100).default(11),
+  // "PAYMENT INSTRUCTIONS" bank block printed on the Invoice PDF.
+  bankName: z.string().optional().nullable(),
+  bankBranch: z.string().optional().nullable(),
+  bankAccountName: z.string().optional().nullable(),
+  bankAccountNumber: z.string().optional().nullable(),
 });
 
 export async function updateCompanySettings(input: unknown): Promise<ActionResult<{ id: string }>> {
@@ -54,6 +59,7 @@ const numberingSchema = z.object({
   paymentPrefix: z.string().min(1),
   expensePrefix: z.string().min(1),
   costingPrefix: z.string().min(1),
+  vendorPoPrefix: z.string().min(1),
   numberPadding: z.coerce.number().int().min(2).max(8),
 });
 

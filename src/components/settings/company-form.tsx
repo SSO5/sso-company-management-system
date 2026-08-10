@@ -37,6 +37,17 @@ export function CompanyForm({ settings }: { settings: CompanySettings }) {
         <div className="space-y-1"><Label>Timezone</Label><Input name="timezone" defaultValue={settings.timezone} /></div>
         <div className="space-y-1"><Label>Default Tax Rate (%)</Label><Input name="defaultTaxRatePercent" type="number" step="0.01" defaultValue={Number(settings.defaultTaxRatePercent)} /></div>
       </div>
+
+      <div className="border-t border-border pt-4">
+        <p className="mb-3 text-sm font-medium">Payment Instructions (printed on Invoice PDF)</p>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1"><Label>Bank Name</Label><Input name="bankName" defaultValue={settings.bankName ?? ""} /></div>
+          <div className="space-y-1"><Label>Branch</Label><Input name="bankBranch" defaultValue={settings.bankBranch ?? ""} /></div>
+          <div className="space-y-1"><Label>Account Name</Label><Input name="bankAccountName" defaultValue={settings.bankAccountName ?? ""} /></div>
+          <div className="space-y-1"><Label>Account Number</Label><Input name="bankAccountNumber" defaultValue={settings.bankAccountNumber ?? ""} /></div>
+        </div>
+      </div>
+
       <Button type="submit" disabled={pending}>{pending ? "Saving..." : "Save Company Settings"}</Button>
     </form>
   );

@@ -1,38 +1,51 @@
 import { getInvoice } from "@/server/finance/invoices";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { RecordPaymentDialog } from "@/components/finance/record-payment-dialog";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { FileDown } from "lucide-react";
 
 export default async function InvoiceDetailPage({ params }: { params: { id: string } }) {
   const inv = await getInvoice(params.id);
   const outstanding = Number(inv.grandTotal) - Number(inv.paidAmount);
+  let lastGroup: string | null = null;
 
   return (
     <div className="space-y-5">
-      <div className="flex items-start justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="font-mono text-xs text-muted-foreground">{inv.number}</p>
           <h1 className="text-xl font-semibold">{inv.customer.companyName}</h1>
-          <div className="mt-1 flex items-center gap-2">
+          <div className="mt-1 flex flex-wrap items-center gap-2">
             <Badge>{inv.status}</Badge>
             {inv.project && <span className="text-xs text-muted-foreground">Project {inv.project.number}</span>}
+            {inv.contact && <span className="text-xs text-muted-foreground">Attn: {inv.contact.name}</span>}
           </div>
         </div>
-        {outstanding > 0 && inv.status !== "CANCELLED" && (
-          <RecordPaymentDialog invoiceId={inv.id} outstanding={outstanding} trigger={<Button>Record Payment</Button>} />
-        )}
+        <div className="flex items-center gap-2">
+          <a href={`/api/invoices/${inv.id}/pdf`} target="_blank" rel="noreferrer">
+            <Button size="sm" variant="outline"><FileDown className="h-4 w-4" /> Download PDF</Button>
+          </a>
+          {outstanding > 0 && inv.status !== "CANCELLED" && (
+            <RecordPaymentDialog invoiceId={inv.id} outstanding={outstanding} trigger={<Button>Record Payment</Button>} />
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Card><CardHeader><CardTitle>Dates</CardTitle></CardHeader><CardContent className="space-y-1 text-sm">
+        <Card><CardHeader><CardTitle>Dates &amp; References</CardTitle></CardHeader><CardContent className="space-y-1 text-sm">
           <div className="flex justify-between"><span className="text-muted-foreground">Invoice Date</span><span>{formatDate(inv.invoiceDate)}</span></div>
           <div className="flex justify-between"><span className="text-muted-foreground">Due Date</span><span>{formatDate(inv.dueDate)}</span></div>
+          {inv.customerPO && <div className="flex justify-between"><span className="text-muted-foreground">Customer PO</span><span>{inv.customerPO}</span></div>}
+          {inv.poDate && <div className="flex justify-between"><span className="text-muted-foreground">PO Date</span><span>{formatDate(inv.poDate)}</span></div>}
+          {inv.deliveryDate && <div className="flex justify-between"><span className="text-muted-foreground">Delivery Date</span><span>{formatDate(inv.deliveryDate)}</span></div>}
+          {inv.jobNo && <div className="flex justify-between"><span className="text-muted-foreground">Job No.</span><span>{inv.jobNo}</span></div>}
+          {inv.salesPic && <div className="flex justify-between"><span className="text-muted-foreground">Sales PIC</span><span>{inv.salesPic.name}</span></div>}
         </CardContent></Card>
         <Card><CardHeader><CardTitle>Totals</CardTitle></CardHeader><CardContent className="space-y-1 text-sm">
           <div className="flex justify-between"><span className="text-muted-foreground">Grand Total</span><span>{formatCurrency(Number(inv.grandTotal))}</span></div>
+          {inv.dpPercent != null && <div className="flex justify-between"><span className="text-muted-foreground">DP %</span><span>{Number(inv.dpPercent)}%</span></div>}
           <div className="flex justify-between"><span className="text-muted-foreground">Paid</span><span>{formatCurrency(Number(inv.paidAmount))}</span></div>
           <div className="flex justify-between font-semibold"><span>Outstanding</span><span>{formatCurrency(outstanding)}</span></div>
         </CardContent></Card>
@@ -46,23 +59,35 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
 
       <Card>
         <CardHeader><CardTitle>Items</CardTitle></CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader><TableRow><TableHead>Description</TableHead><TableHead>Qty</TableHead><TableHead>Unit Price</TableHead><TableHead>Tax %</TableHead><TableHead>Total</TableHead></TableRow></TableHeader>
-            <TableBody>
-              {inv.items.map((it) => (
-                <TableRow key={it.id}>
-                  <TableCell>{it.description}</TableCell>
-                  <TableCell>{Number(it.quantity)} {it.unit}</TableCell>
-                  <TableCell>{formatCurrency(Number(it.unitPrice))}</TableCell>
-                  <TableCell>{Number(it.taxPercent)}%</TableCell>
-                  <TableCell>{formatCurrency(Number(it.total))}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+        <CardContent className="space-y-1">
+          {inv.items.map((it) => {
+            const showGroup = it.groupLabel && it.groupLabel !== lastGroup;
+            if (it.groupLabel) lastGroup = it.groupLabel;
+            return (
+              <div key={it.id}>
+                {showGroup && <p className="mt-2 text-sm font-semibold">{it.groupLabel}</p>}
+                <div className="flex items-center justify-between border-b border-border/60 py-1.5 text-sm">
+                  <span className="pl-2 text-muted-foreground">{it.description}</span>
+                  {it.isNote ? (
+                    <span className="text-xs text-muted-foreground">note</span>
+                  ) : (
+                    <span className="whitespace-nowrap pl-4">
+                      {Number(it.quantity)} {it.unit} × {formatCurrency(Number(it.unitPrice))} (PPN {Number(it.taxPercent)}%) = <span className="font-medium text-foreground">{formatCurrency(Number(it.total))}</span>
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </CardContent>
       </Card>
+
+      {inv.notes && (
+        <Card>
+          <CardHeader><CardTitle className="text-sm">Note</CardTitle></CardHeader>
+          <CardContent><p className="whitespace-pre-line text-sm text-muted-foreground">{inv.notes}</p></CardContent>
+        </Card>
+      )}
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { invoiceSchema, type InvoiceInput } from "@/lib/validation/finance";
@@ -18,9 +19,16 @@ import { Plus, Trash2 } from "lucide-react";
 interface Props {
   customers: { id: string; companyName: string; number: string }[];
   projects: { id: string; customerId: string; number: string }[];
+  contacts: { id: string; customerId: string; name: string }[];
+  salesUsers: { id: string; name: string }[];
 }
 
-export function InvoiceForm({ customers, projects }: Props) {
+function dateInputValue(d: Date | string | null | undefined): string {
+  if (!d) return "";
+  return new Date(d).toISOString().slice(0, 10);
+}
+
+export function InvoiceForm({ customers, projects, contacts, salesUsers }: Props) {
   const router = useRouter();
   const { toast } = useToast();
 
@@ -30,7 +38,7 @@ export function InvoiceForm({ customers, projects }: Props) {
       invoiceDate: new Date(),
       dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
       discount: 0,
-      items: [{ description: "", quantity: 1, unit: "unit", unitPrice: 0, taxPercent: 11 }],
+      items: [{ groupLabel: "", description: "", quantity: 1, unit: "unit", unitPrice: 0, taxPercent: 11, isNote: false }],
     },
   });
   const { fields, append, remove } = useFieldArray({ control, name: "items" });
@@ -39,6 +47,7 @@ export function InvoiceForm({ customers, projects }: Props) {
   const watchedCustomerId = watch("customerId");
   const totals = useMemo(() => calcInvoiceTotals(watchedItems || [], Number(watchedDiscount || 0)), [watchedItems, watchedDiscount]);
   const filteredProjects = projects.filter((p) => p.customerId === watchedCustomerId);
+  const filteredContacts = contacts.filter((c) => c.customerId === watchedCustomerId);
 
   async function onSubmit(data: InvoiceInput) {
     const res = await createInvoiceAction(data);
@@ -62,6 +71,13 @@ export function InvoiceForm({ customers, projects }: Props) {
           {errors.customerId && <p className="text-xs text-destructive">{errors.customerId.message}</p>}
         </div>
         <div className="space-y-1">
+          <Label>Contact / Attn (optional)</Label>
+          <Select {...register("contactId")} defaultValue="">
+            <option value="">None</option>
+            {filteredContacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </Select>
+        </div>
+        <div className="space-y-1">
           <Label>Project (optional)</Label>
           <Select {...register("projectId")} defaultValue="">
             <option value="">None</option>
@@ -69,42 +85,85 @@ export function InvoiceForm({ customers, projects }: Props) {
           </Select>
         </div>
         <div className="space-y-1">
+          <Label>Sales PIC (optional)</Label>
+          <Select {...register("salesPicId")} defaultValue="">
+            <option value="">None</option>
+            {salesUsers.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+          </Select>
+        </div>
+        <div className="space-y-1">
           <Label>Invoice Date</Label>
           <Controller control={control} name="invoiceDate" render={({ field }) => (
-            <Input type="date" value={field.value ? new Date(field.value).toISOString().slice(0, 10) : ""} onChange={(e) => field.onChange(new Date(e.target.value))} />
+            <Input type="date" value={dateInputValue(field.value)} onChange={(e) => field.onChange(new Date(e.target.value))} />
           )} />
         </div>
         <div className="space-y-1">
           <Label>Due Date</Label>
           <Controller control={control} name="dueDate" render={({ field }) => (
-            <Input type="date" value={field.value ? new Date(field.value).toISOString().slice(0, 10) : ""} onChange={(e) => field.onChange(new Date(e.target.value))} />
+            <Input type="date" value={dateInputValue(field.value)} onChange={(e) => field.onChange(new Date(e.target.value))} />
           )} />
+        </div>
+        <div className="space-y-1">
+          <Label>Customer PO No. (optional)</Label>
+          <Input {...register("customerPO")} placeholder="EPC-L/2026-0450" />
+        </div>
+        <div className="space-y-1">
+          <Label>PO Date (optional)</Label>
+          <Controller control={control} name="poDate" render={({ field }) => (
+            <Input type="date" value={dateInputValue(field.value)} onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : null)} />
+          )} />
+        </div>
+        <div className="space-y-1">
+          <Label>Delivery Date (optional)</Label>
+          <Controller control={control} name="deliveryDate" render={({ field }) => (
+            <Input type="date" value={dateInputValue(field.value)} onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : null)} />
+          )} />
+        </div>
+        <div className="space-y-1">
+          <Label>Job No. (optional)</Label>
+          <Input {...register("jobNo")} placeholder="JO-2607-003" />
+        </div>
+        <div className="space-y-1">
+          <Label>Down Payment % (optional)</Label>
+          <Input type="number" step="any" min={0} max={100} {...register("dpPercent")} placeholder="e.g. 20 for a DP invoice" />
+          <p className="text-[11px] text-muted-foreground">Leave blank if this invoice bills the full amount.</p>
         </div>
       </div>
 
       <div className="rounded-lg border border-border bg-card p-4">
         <div className="mb-3 flex items-center justify-between">
-          <Label>Invoice Items</Label>
-          <Button type="button" size="sm" variant="outline" onClick={() => append({ description: "", quantity: 1, unit: "unit", unitPrice: 0, taxPercent: 11 })}>
+          <div>
+            <Label>Invoice Items</Label>
+            <p className="text-[11px] text-muted-foreground">
+              Fill &quot;Group&quot; to start a bold section heading (e.g. &quot;1. OVERHOUL GEARBOX...&quot;) — leave later rows in the same
+              group blank and it keeps grouping under the last one. Tick &quot;Note only&quot; for a scope bullet with no price of its own.
+            </p>
+          </div>
+          <Button type="button" size="sm" variant="outline" onClick={() => append({ groupLabel: "", description: "", quantity: 1, unit: "unit", unitPrice: 0, taxPercent: 11, isNote: false })}>
             <Plus className="h-3.5 w-3.5" /> Add Item
           </Button>
         </div>
         <Table>
           <TableHeader>
-            <TableRow><TableHead>Description</TableHead><TableHead>Qty</TableHead><TableHead>Unit</TableHead><TableHead>Unit Price</TableHead><TableHead>Tax %</TableHead><TableHead>Total</TableHead><TableHead></TableHead></TableRow>
+            <TableRow><TableHead>Group</TableHead><TableHead>Description</TableHead><TableHead>Qty</TableHead><TableHead>Unit</TableHead><TableHead>Unit Price</TableHead><TableHead>Tax %</TableHead><TableHead>Note only</TableHead><TableHead>Total</TableHead><TableHead></TableHead></TableRow>
           </TableHeader>
           <TableBody>
-            {fields.map((field, idx) => (
-              <TableRow key={field.id}>
-                <TableCell className="min-w-[200px]"><Input {...register(`items.${idx}.description`)} /></TableCell>
-                <TableCell className="w-20"><Input type="number" step="any" {...register(`items.${idx}.quantity`)} /></TableCell>
-                <TableCell className="w-20"><Input {...register(`items.${idx}.unit`)} /></TableCell>
-                <TableCell className="w-32"><Input type="number" step="any" {...register(`items.${idx}.unitPrice`)} /></TableCell>
-                <TableCell className="w-20"><Input type="number" step="any" {...register(`items.${idx}.taxPercent`)} /></TableCell>
-                <TableCell className="w-32 text-sm">{formatCurrency(totals.lineTotals[idx] ?? 0)}</TableCell>
-                <TableCell><Button type="button" size="icon" variant="ghost" onClick={() => remove(idx)} disabled={fields.length === 1}><Trash2 className="h-3.5 w-3.5" /></Button></TableCell>
-              </TableRow>
-            ))}
+            {fields.map((field, idx) => {
+              const isNote = watchedItems?.[idx]?.isNote;
+              return (
+                <TableRow key={field.id}>
+                  <TableCell className="min-w-[140px]"><Input {...register(`items.${idx}.groupLabel`)} placeholder="(leave blank to continue group)" /></TableCell>
+                  <TableCell className="min-w-[200px]"><Input {...register(`items.${idx}.description`)} /></TableCell>
+                  <TableCell className="w-20"><Input type="number" step="any" disabled={isNote} {...register(`items.${idx}.quantity`)} /></TableCell>
+                  <TableCell className="w-20"><Input disabled={isNote} {...register(`items.${idx}.unit`)} /></TableCell>
+                  <TableCell className="w-32"><Input type="number" step="any" disabled={isNote} {...register(`items.${idx}.unitPrice`)} /></TableCell>
+                  <TableCell className="w-20"><Input type="number" step="any" disabled={isNote} {...register(`items.${idx}.taxPercent`)} /></TableCell>
+                  <TableCell className="w-16"><input type="checkbox" className="h-4 w-4" {...register(`items.${idx}.isNote`)} /></TableCell>
+                  <TableCell className="w-32 text-sm">{formatCurrency(totals.lineTotals[idx] ?? 0)}</TableCell>
+                  <TableCell><Button type="button" size="icon" variant="ghost" onClick={() => remove(idx)} disabled={fields.length === 1}><Trash2 className="h-3.5 w-3.5" /></Button></TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
 
@@ -114,6 +173,11 @@ export function InvoiceForm({ customers, projects }: Props) {
           <div className="flex justify-between"><span className="text-muted-foreground">Tax</span><span>{formatCurrency(totals.tax)}</span></div>
           <div className="flex justify-between border-t border-border pt-1 font-semibold"><span>Grand Total</span><span>{formatCurrency(totals.grandTotal)}</span></div>
         </div>
+      </div>
+
+      <div className="rounded-lg border border-border bg-card p-4">
+        <Label>Note (optional, printed on PDF)</Label>
+        <Textarea {...register("notes")} rows={4} placeholder={"1. Harga sudah termasuk:\n   a. ...\n2. Semua sparepart yang diganti..."} className="mt-1" />
       </div>
 
       <div className="flex justify-end gap-2">
