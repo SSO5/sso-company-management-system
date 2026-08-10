@@ -1,0 +1,144 @@
+import Link from "next/link";
+import type { ReactNode } from "react";
+import { Badge } from "@/components/ui/badge";
+import { formatCurrency, formatDate, formatRevisedNumber } from "@/lib/utils";
+import { FileDown, FileText } from "lucide-react";
+
+interface Quotation { id: string; number: string; revision: number; grandTotal: unknown }
+interface Opportunity { id: string; number: string }
+interface CustomerPO { id: string; number: string; poDate: Date; poValue: unknown; status: string }
+interface VendorPO { id: string; number: string; vendorName: string; poDate: Date; grandTotal: unknown; status: string }
+interface InvoiceRow { id: string; number: string; invoiceDate: Date; grandTotal: unknown; paidAmount: unknown; status: string }
+
+interface Props {
+  opportunity: Opportunity | null;
+  quotation: Quotation | null;
+  purchaseOrders: CustomerPO[];
+  vendorPurchaseOrders: VendorPO[];
+  invoices: InvoiceRow[];
+}
+
+const CUSTOMER_PO_VARIANT: Record<string, "default" | "secondary" | "success" | "warning" | "destructive" | "outline"> = {
+  PENDING: "warning", RECEIVED: "outline", VERIFIED: "success", CANCELLED: "destructive",
+};
+const VENDOR_PO_VARIANT: Record<string, "default" | "secondary" | "success" | "warning" | "destructive" | "outline"> = {
+  DRAFT: "secondary", SENT: "warning", CONFIRMED: "success", CANCELLED: "destructive",
+};
+const INVOICE_VARIANT: Record<string, "default" | "secondary" | "success" | "warning" | "destructive" | "outline"> = {
+  DRAFT: "secondary", ISSUED: "outline", PARTIALLY_PAID: "warning", PAID: "success", OVERDUE: "destructive", CANCELLED: "destructive",
+};
+
+function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+  return (
+    <div className="rounded-lg border border-border bg-card p-4">
+      <div className="mb-3 flex items-baseline justify-between">
+        <h3 className="text-sm font-semibold">{title}</h3>
+        {hint && <span className="text-[11px] text-muted-foreground">{hint}</span>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * This is the one screen where the two sides of a job actually meet: the
+ * customer's own Purchase Order (what THEY sent to SSO to confirm the deal)
+ * and every Vendor Purchase Order (what SSO sent to suppliers to fulfill
+ * it) both live under the same Project — see getProjectDetail's `include`.
+ * Nothing here is text-matched; every link below follows a real foreign key
+ * (projectId on both PurchaseOrder and VendorPurchaseOrder).
+ */
+export function DocumentsPanel({ opportunity, quotation, purchaseOrders, vendorPurchaseOrders, invoices }: Props) {
+  return (
+    <div className="space-y-4">
+      <Section title="Sales Origin" hint="Where this project came from">
+        {!opportunity && !quotation ? (
+          <p className="text-sm text-muted-foreground">No linked Opportunity/Quotation (project was created manually).</p>
+        ) : (
+          <div className="flex flex-wrap gap-3 text-sm">
+            {opportunity && (
+              <Link href={`/sales/opportunities/${opportunity.id}`} className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 hover:bg-accent">
+                <FileText className="h-3.5 w-3.5 text-muted-foreground" /> Opportunity {opportunity.number}
+              </Link>
+            )}
+            {quotation && (
+              <Link href={`/sales/quotations/${quotation.id}`} className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 hover:bg-accent">
+                <FileText className="h-3.5 w-3.5 text-muted-foreground" /> Quotation {formatRevisedNumber(quotation.number, quotation.revision)}
+                <span className="text-muted-foreground">· {formatCurrency(Number(quotation.grandTotal))}</span>
+              </Link>
+            )}
+          </div>
+        )}
+      </Section>
+
+      <Section title="Customer Purchase Order" hint="What the customer sent SSO to confirm this job">
+        {purchaseOrders.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No customer PO recorded for this project yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {purchaseOrders.map((po) => (
+              <div key={po.id} className="flex items-center justify-between rounded-md border border-border p-3 text-sm">
+                <div>
+                  <p className="font-mono text-xs">{po.number}</p>
+                  <p className="text-xs text-muted-foreground">{formatDate(po.poDate)}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="font-medium">{formatCurrency(Number(po.poValue))}</span>
+                  <Badge variant={CUSTOMER_PO_VARIANT[po.status]}>{po.status}</Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Section>
+
+      <Section title="Vendor Purchase Orders" hint="What SSO sent to suppliers to fulfill this job">
+        {vendorPurchaseOrders.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No vendor PO issued for this project yet — create one from Procurement &gt; Vendor Purchase Orders and pick this project under &quot;Linked Project&quot;.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {vendorPurchaseOrders.map((po) => (
+              <div key={po.id} className="flex items-center justify-between rounded-md border border-border p-3 text-sm">
+                <div>
+                  <Link href={`/procurement/vendor-po/${po.id}`} className="font-mono text-xs hover:underline">{po.number}</Link>
+                  <p className="text-xs text-muted-foreground">{po.vendorName} · {formatDate(po.poDate)}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="font-medium">{formatCurrency(Number(po.grandTotal))}</span>
+                  <Badge variant={VENDOR_PO_VARIANT[po.status]}>{po.status}</Badge>
+                  <a href={`/api/procurement/vendor-po/${po.id}/pdf`} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-foreground">
+                    <FileDown className="h-4 w-4" />
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Section>
+
+      <Section title="Invoices to Customer">
+        {invoices.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No invoice issued for this project yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {invoices.map((inv) => (
+              <div key={inv.id} className="flex items-center justify-between rounded-md border border-border p-3 text-sm">
+                <div>
+                  <Link href={`/finance/invoices/${inv.id}`} className="font-mono text-xs hover:underline">{inv.number}</Link>
+                  <p className="text-xs text-muted-foreground">{formatDate(inv.invoiceDate)}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="font-medium">{formatCurrency(Number(inv.grandTotal))}</span>
+                  <span className="text-xs text-muted-foreground">Paid {formatCurrency(Number(inv.paidAmount))}</span>
+                  <Badge variant={INVOICE_VARIANT[inv.status]}>{inv.status}</Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Section>
+    </div>
+  );
+}

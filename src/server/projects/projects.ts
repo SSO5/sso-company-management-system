@@ -30,6 +30,8 @@ export async function getProjectDetail(id: string) {
       where: { id },
       include: {
         customer: true,
+        opportunity: { select: { id: true, number: true } },
+        quotation: { select: { id: true, number: true, revision: true, grandTotal: true } },
         projectManager: { select: { id: true, name: true } },
         salesPic: { select: { id: true, name: true } },
         tasks: { where: { deletedAt: null }, orderBy: { createdAt: "asc" }, include: { assignedTo: { select: { name: true } } } },
@@ -37,6 +39,21 @@ export async function getProjectDetail(id: string) {
         expenses: { where: { deletedAt: null }, orderBy: { date: "desc" }, include: { createdBy: { select: { name: true } } } },
         invoices: { where: { deletedAt: null }, orderBy: { createdAt: "desc" }, include: { payments: true } },
         folders: { where: { parentId: null }, take: 1 },
+        // The whole point of a Project as the shared hub: the customer's own
+        // PurchaseOrder (Sales side) and every VendorPurchaseOrder (SSO ->
+        // supplier, Procurement side) both carry this same project's id.
+        // Pulling both here is what makes that relation actually visible
+        // instead of just existing in the schema — see DocumentsPanel.
+        purchaseOrders: {
+          where: { deletedAt: null },
+          orderBy: { poDate: "desc" },
+          select: { id: true, number: true, poDate: true, poValue: true, status: true },
+        },
+        vendorPurchaseOrders: {
+          where: { deletedAt: null },
+          orderBy: { createdAt: "desc" },
+          select: { id: true, number: true, vendorName: true, poDate: true, grandTotal: true, status: true },
+        },
       },
     }),
     calculateProjectProfitability(id),

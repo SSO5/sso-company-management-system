@@ -6,6 +6,7 @@ import { TaskPanel } from "@/components/projects/task-panel";
 import { MilestonePanel } from "@/components/projects/milestone-panel";
 import { ExpensePanel } from "@/components/projects/expense-panel";
 import { ClosingPanel } from "@/components/projects/closing-panel";
+import { DocumentsPanel } from "@/components/projects/documents-panel";
 import { formatCurrency } from "@/lib/utils";
 import type { TaskStatus } from "@prisma/client";
 
@@ -22,10 +23,16 @@ interface Props {
   expenses: { id: string; number: string; category: string; description: string; date: Date; total: unknown; paymentStatus: string; createdBy: { name: string } }[];
   assignees: { id: string; name: string }[];
   closing: { checklist: { key: string; label: string; passed: boolean }[]; canClose: boolean };
+  opportunity: { id: string; number: string } | null;
+  quotation: { id: string; number: string; revision: number; grandTotal: unknown } | null;
+  purchaseOrders: { id: string; number: string; poDate: Date; poValue: unknown; status: string }[];
+  vendorPurchaseOrders: { id: string; number: string; vendorName: string; poDate: Date; grandTotal: unknown; status: string }[];
+  invoices: { id: string; number: string; invoiceDate: Date; grandTotal: unknown; paidAmount: unknown; status: string }[];
 }
 
 const TABS = [
   { value: "overview", label: "Overview" },
+  { value: "documents", label: "Documents" },
   { value: "tasks", label: "Tasks" },
   { value: "milestones", label: "Milestones" },
   { value: "costs", label: "Costs" },
@@ -62,6 +69,15 @@ export function ProjectDetailTabs(props: Props) {
         </div>
       )}
 
+      {active === "documents" && (
+        <DocumentsPanel
+          opportunity={props.opportunity}
+          quotation={props.quotation}
+          purchaseOrders={props.purchaseOrders}
+          vendorPurchaseOrders={props.vendorPurchaseOrders}
+          invoices={props.invoices}
+        />
+      )}
       {active === "tasks" && <TaskPanel projectId={props.projectId} tasks={props.tasks} assignees={props.assignees} />}
       {active === "milestones" && <MilestonePanel projectId={props.projectId} milestones={props.milestones} />}
       {active === "costs" && <ExpensePanel projectId={props.projectId} expenses={props.expenses} />}
