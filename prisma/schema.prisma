@@ -161,6 +161,20 @@ enum NumberEntityType {
   COSTING
   JOB_ORDER
   GENERAL_DOCUMENT
+  VENDOR_PO
+}
+
+// Outbound procurement PO — SSO buying from a supplier/vendor to fulfill a
+// job (e.g. "PT ATHENA TEKNIK PERKASA"). NOT the same document as
+// PurchaseOrder above, which is the customer's PO confirming a deal TO SSO
+// (spec/Sales pipeline "5. PO" folder). This one belongs in "04 Procurement".
+// Verified against a real issued PO ("001/PO/PRO/VII/2026") — note the
+// prefix is PO/PRO (Procurement), distinct from the Sales-side poPrefix.
+enum VendorPurchaseOrderStatus {
+  DRAFT
+  SENT
+  CONFIRMED
+  CANCELLED
 }
 
 enum CostingStatus {
@@ -240,6 +254,9 @@ model User {
   createdPurchaseOrders   PurchaseOrder[]   @relation("POCreatedBy")
   createdContracts        Contract[]        @relation("ContractCreatedBy")
   createdTasks            ProjectTask[]     @relation("TaskCreatedBy")
+  invoicesAsSalesPic      Invoice[]         @relation("InvoiceSalesPic")
+  createdVendorPOs        VendorPurchaseOrder[] @relation("VendorPOCreatedBy")
+  vendorPOsSigned         VendorPurchaseOrder[] @relation("VendorPOSigner")
 
   @@index([role])
 }
@@ -282,6 +299,7 @@ model Customer {
   projects       Project[]
   invoices       Invoice[]
   payments       Payment[]
+  vendorPurchaseOrders VendorPurchaseOrder[]
 
   @@index([companyName])
   @@index([status])
@@ -308,6 +326,7 @@ model Contact {
 
   opportunities Opportunity[]
   quotations    Quotation[]
+  invoices      Invoice[]
 
   @@index([customerId])
 }
@@ -628,6 +647,81 @@ model Contract {
 }
 
 // ---------------------------------------------------------------------------
+// PROCUREMENT: VENDOR PURCHASE ORDER (SSO -> Vendor, distinct from the
+// customer-received PurchaseOrder above)
+// ---------------------------------------------------------------------------
+
+model VendorPurchaseOrder {
+  id     String @id @default(cuid())
+  number String @unique // 001/PO/PRO/VII/2026
+
+  vendorName    String
+  vendorAddress String?
+  vendorEmail   String?
+  vendorAttn    String?
+
+  // Ship-to block — often the end customer's site (drop-ship), not SSO's
+  // own office, matching the real PO's "DELIVERY ADDRESS" box.
+  deliveryName    String?
+  deliveryAddress String?
+  deliveryAttn    String?
+
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+  projectId  String?
+  project    Project?  @relation(fields: [projectId], references: [id])
+
+  poDate        DateTime @default(now())
+  quotationRef  String? // vendor's own quotation number, free text
+  projectRef    String? // internal job/project reference shown on the PO
+  paymentTerms  String?
+  deliveryTerms String?
+
+  subtotal   Decimal @db.Decimal(18, 2) @default(0)
+  discount   Decimal @db.Decimal(18, 2) @default(0)
+  taxPercent Decimal @db.Decimal(5, 2) @default(11)
+  tax        Decimal @db.Decimal(18, 2) @default(0)
+  grandTotal Decimal @db.Decimal(18, 2) @default(0)
+
+  notes  String? // "Note / Ketentuan" block, freeform (numbered by the user)
+  status VendorPurchaseOrderStatus @default(DRAFT)
+
+  signerId String?
+  signer   User?   @relation("VendorPOSigner", fields: [signerId], references: [id])
+
+  createdById String
+  createdBy   User      @relation("VendorPOCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  items VendorPurchaseOrderItem[]
+
+  @@index([status])
+  @@index([projectId])
+  @@index([customerId])
+}
+
+model VendorPurchaseOrderItem {
+  id                    String              @id @default(cuid())
+  vendorPurchaseOrderId String
+  vendorPurchaseOrder   VendorPurchaseOrder @relation(fields: [vendorPurchaseOrderId], references: [id], onDelete: Cascade)
+
+  // Bold section header shared by several lines, e.g. "1  MOTOR 55 KW 75 HP"
+  // — only printed on the PDF when it changes from the previous row, same
+  // convention as CostingLineItem.groupLabel.
+  groupLabel  String?
+  description String
+  quantity    Decimal @db.Decimal(18, 4) @default(1)
+  unit        String  @default("lot")
+  unitPrice   Decimal @db.Decimal(18, 2) @default(0)
+  amount      Decimal @db.Decimal(18, 2) @default(0)
+  sortOrder   Int     @default(0)
+
+  @@index([vendorPurchaseOrderId])
+}
+
+// ---------------------------------------------------------------------------
 // PROJECT (auto-created when Quotation -> WON)
 // ---------------------------------------------------------------------------
 
@@ -680,6 +774,7 @@ model Project {
   invoices       Invoice[]
   payments       Payment[]
   folders        Folder[]
+  vendorPurchaseOrders VendorPurchaseOrder[]
 
   @@index([status])
   @@index([customerId])
@@ -769,6 +864,8 @@ model Invoice {
   project    Project?  @relation(fields: [projectId], references: [id])
   quotationId String?
   quotation   Quotation? @relation(fields: [quotationId], references: [id])
+  contactId  String?
+  contact    Contact?  @relation(fields: [contactId], references: [id])
 
   invoiceDate DateTime      @default(now())
   dueDate     DateTime
@@ -778,6 +875,27 @@ model Invoice {
   grandTotal  Decimal       @db.Decimal(18, 2) @default(0)
   paidAmount  Decimal       @db.Decimal(18, 2) @default(0)
   status      InvoiceStatus @default(DRAFT)
+
+  // Fields verified against a real issued invoice ("001/INV/FIN/VIII/2026")
+  // so the PDF can carry the same header block: the customer's own PO
+  // reference/date, an expected delivery date, who from Sales owns the
+  // deal, and the internal Job Order number. All optional — filled in as
+  // known, never block issuing the invoice.
+  customerPO   String?
+  poDate       DateTime?
+  deliveryDate DateTime?
+  jobNo        String?
+  salesPicId   String?
+  salesPic     User?     @relation("InvoiceSalesPic", fields: [salesPicId], references: [id])
+  // Free-text "NOTE:" block on the PDF (scope inclusions, spare-part
+  // conditions, etc.) — kept freeform like Quotation.notes/CostingSheet.notes
+  // since real invoices vary too much in structure to force into a rigid
+  // titled-list schema.
+  notes        String?
+  // Set when this invoice only bills a percentage of the job (a down
+  // payment / termin), matching the real invoice's "TOTAL AMOUNT DUE (DP
+  // 20% inc. VAT)" line. Null/0 = this invoice bills the full grandTotal.
+  dpPercent    Decimal?  @db.Decimal(5, 2)
 
   createdById String
   createdBy   User     @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
@@ -806,6 +924,16 @@ model InvoiceItem {
   taxPercent  Decimal @db.Decimal(5, 2) @default(0)
   total       Decimal @db.Decimal(18, 2)
   sortOrder   Int     @default(0)
+
+  // Real invoices group several priced/unpriced lines under one bold
+  // section header (e.g. "1. OVERHOUL GEARBOX DODGE MAGNEGEAR 100K") — see
+  // the real "001/INV/FIN/VIII/2026". groupLabel repeats on every row that
+  // shares the heading; the PDF only prints it when it changes from the
+  // previous row. isNote marks a line as a plain scope-description bullet
+  // with no quantity/price of its own (rendered as description-only text,
+  // quantity/unitPrice/total on that row are just 0 placeholders).
+  groupLabel String?
+  isNote     Boolean @default(false)
 
   @@index([invoiceId])
 }
@@ -1036,7 +1164,20 @@ model CompanySettings {
   costingPrefix     String @default("CST/MKT")
   jobOrderPrefix        String @default("JO/MKT")
   generalDocumentPrefix String @default("SSO-SURAT")
+  // Outbound vendor/procurement PO — verified against a real issued PO
+  // ("001/PO/PRO/VII/2026"). Deliberately separate from poPrefix above,
+  // which is the customer-received PO in the Sales pipeline.
+  vendorPoPrefix    String @default("PO/PRO")
   numberPadding     Int    @default(3)
+
+  // "PAYMENT INSTRUCTIONS" bank block printed on the Invoice PDF (spec:
+  // matches the real invoice's "Bank Transfer Info" box exactly). All
+  // optional — the invoice just omits the box until these are filled in
+  // under Settings > Company.
+  bankName          String?
+  bankBranch        String?
+  bankAccountName   String?
+  bankAccountNumber String?
 
   projectClosingChecklist Json @default("[\"All project tasks completed\",\"Final deliverables uploaded\",\"BAST uploaded\",\"Final report uploaded\",\"All invoices created\",\"Payment status reviewed\",\"Project expenses recorded\",\"Project financial result calculated\",\"Customer documents complete\"]")
 

@@ -109,6 +109,43 @@ export const purchaseOrderSchema = z.object({
 });
 export type PurchaseOrderInput = z.infer<typeof purchaseOrderSchema>;
 
+// Outbound procurement PO — SSO buying from a vendor/supplier, distinct
+// from purchaseOrderSchema above (the customer-received PO). Items support
+// an optional groupLabel so several lines can share one bold section
+// header on the PDF (e.g. "1  MOTOR 55 KW 75 HP"), matching a real issued
+// PO exactly.
+export const vendorPoItemSchema = z.object({
+  groupLabel: z.string().optional().nullable(),
+  description: z.string().min(1, "Description is required."),
+  quantity: z.coerce.number().positive("Quantity must be greater than 0."),
+  unit: z.string().default("lot"),
+  unitPrice: z.coerce.number().nonnegative(),
+});
+export type VendorPoItemInput = z.infer<typeof vendorPoItemSchema>;
+
+export const vendorPurchaseOrderSchema = z.object({
+  vendorName: z.string().min(2, "Vendor name is required."),
+  vendorAddress: z.string().optional().nullable(),
+  vendorEmail: z.string().email().optional().or(z.literal("")).nullable(),
+  vendorAttn: z.string().optional().nullable(),
+  deliveryName: z.string().optional().nullable(),
+  deliveryAddress: z.string().optional().nullable(),
+  deliveryAttn: z.string().optional().nullable(),
+  customerId: z.string().optional().nullable(),
+  projectId: z.string().optional().nullable(),
+  poDate: z.coerce.date(),
+  quotationRef: z.string().optional().nullable(),
+  projectRef: z.string().optional().nullable(),
+  paymentTerms: z.string().optional().nullable(),
+  deliveryTerms: z.string().optional().nullable(),
+  discount: z.coerce.number().nonnegative().default(0),
+  taxPercent: z.coerce.number().min(0).max(100).default(11),
+  notes: z.string().optional().nullable(),
+  signerId: z.string().optional().nullable(),
+  items: z.array(vendorPoItemSchema).min(1, "Add at least one item."),
+});
+export type VendorPurchaseOrderInput = z.infer<typeof vendorPurchaseOrderSchema>;
+
 export const contractSchema = z.object({
   customerId: z.string().min(1),
   quotationId: z.string().optional().nullable(),

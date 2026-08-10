@@ -15,6 +15,7 @@ const PREFIX_SETTING_KEY: Record<NumberEntityType, string> = {
   COSTING: "costingPrefix",
   JOB_ORDER: "jobOrderPrefix",
   GENERAL_DOCUMENT: "generalDocumentPrefix",
+  VENDOR_PO: "vendorPoPrefix",
 };
 
 const ROMAN_MONTHS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];

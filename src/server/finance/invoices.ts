@@ -24,6 +24,8 @@ export async function getInvoice(id: string) {
     where: { id },
     include: {
       customer: true, project: { select: { id: true, number: true } },
+      contact: { select: { id: true, name: true } },
+      salesPic: { select: { id: true, name: true } },
       items: { orderBy: { sortOrder: "asc" } },
       payments: { orderBy: { paymentDate: "desc" } },
     },

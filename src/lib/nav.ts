@@ -53,6 +53,14 @@ export const NAV: NavGroup[] = [
     ],
   },
   {
+    // Outbound vendor/procurement PO (SSO -> Vendor) — distinct from the
+    // Sales-side "5. PO" (customer's PO to SSO, still reachable from inside
+    // an Opportunity's own folders).
+    label: "Procurement",
+    icon: "ShoppingCart",
+    items: [{ label: "Vendor Purchase Orders", href: "/procurement/vendor-po" }],
+  },
+  {
     label: "Documents",
     icon: "FileText",
     items: [

@@ -295,6 +295,7 @@ const ENTITY_TO_ROUTE_KEY: Record<string, string> = {
   BAST: "CLOSING/BAST",
   FINAL_REPORT: "CLOSING/FINAL_REPORT",
   PROJECT_CLOSURE: "CLOSING/PROJECT_CLOSURE",
+  VENDOR_PO: "PROCUREMENT",
 };
 
 export async function resolveDestinationFolder(

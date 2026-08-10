@@ -62,6 +62,29 @@ export function round2(n: number): number {
 }
 
 /**
+ * Vendor/procurement PO math (spec: matches a real issued PO exactly —
+ * "001/PO/PRO/VII/2026"): each line is simply qty * unitPrice (no per-line
+ * discount/tax, unlike Quotation items). Sub Total - Discount = Netto, then
+ * TAX% is applied on Netto (not Sub Total) to get TOTAL AMOUNT.
+ */
+export interface VendorPoLineInput {
+  quantity: number;
+  unitPrice: number;
+}
+export function calcVendorPoLine(item: VendorPoLineInput): number {
+  return round2(item.quantity * item.unitPrice);
+}
+export function calcVendorPoTotals(items: VendorPoLineInput[], discount: number, taxPercent: number) {
+  const lineTotals = items.map((i) => calcVendorPoLine(i));
+  const subtotal = round2(lineTotals.reduce((sum, t) => sum + t, 0));
+  const discountAmt = round2(discount ?? 0);
+  const netto = round2(subtotal - discountAmt);
+  const tax = round2(netto * ((taxPercent ?? 0) / 100));
+  const grandTotal = round2(netto + tax);
+  return { subtotal, discount: discountAmt, netto, tax, grandTotal, lineTotals };
+}
+
+/**
  * Costing line math (spec: dynamic sections/line-items, per-line margin so
  * PICs can cross-subsidize between items). Formula verified line-by-line
  * against SSO's real "COSTING JPC - GEARBOX" reference sheet:
