@@ -14,12 +14,31 @@ export type LoginInput = z.infer<typeof loginSchema>;
 // input with a datalist instead of a strict dropdown.
 export const TITLE_OPTIONS = ["Director", "Marketing Manager", "Procurement", "Finance Manager"] as const;
 
+// WhatsApp number for outbound notifications (see lib/notifications/whatsapp.ts)
+// — accepts common human-entered formats ("0812...", "+62812...", "62812...")
+// and normalizes to Fonnte's expected international-no-plus format.
+const whatsappNumberSchema = z
+  .string()
+  .optional()
+  .nullable()
+  .transform((v) => {
+    if (!v) return null;
+    const digits = v.replace(/[^\d]/g, "");
+    if (!digits) return null;
+    if (digits.startsWith("0")) return `62${digits.slice(1)}`;
+    return digits;
+  })
+  .refine((v) => v === null || (v.length >= 9 && v.length <= 15), {
+    message: "Enter a valid WhatsApp number (e.g. 0812xxxxxxx or +62812xxxxxxx).",
+  });
+
 export const createUserSchema = z.object({
   name: z.string().min(2, "Name is required."),
   email: z.string().email(),
   password: z.string().min(8, "Password must be at least 8 characters."),
   role: z.enum(["ADMIN", "SALES", "FINANCE", "PROJECT_MANAGER"]),
   title: z.string().optional().nullable(),
+  whatsappNumber: whatsappNumberSchema,
 });
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 
@@ -29,6 +48,7 @@ export const updateUserSchema = z.object({
   email: z.string().email(),
   role: z.enum(["ADMIN", "SALES", "FINANCE", "PROJECT_MANAGER"]),
   title: z.string().optional().nullable(),
+  whatsappNumber: whatsappNumberSchema,
   isActive: z.coerce.boolean().default(true),
   password: z.string().min(8, "Password must be at least 8 characters.").optional().or(z.literal("")),
 });

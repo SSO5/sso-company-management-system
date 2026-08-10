@@ -130,8 +130,21 @@ enum ExpensePaymentStatus {
   PAID
 }
 
+// Maker-checker approval state for a ProjectExpense — separate from
+// ExpensePaymentStatus (which tracks whether it's been paid out). An expense
+// must be APPROVED before it counts toward project cost control / P&L.
+enum ExpenseApprovalStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
 enum InvoiceStatus {
   DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
   ISSUED
   PARTIALLY_PAID
   PAID
@@ -172,6 +185,9 @@ enum NumberEntityType {
 // prefix is PO/PRO (Procurement), distinct from the Sales-side poPrefix.
 enum VendorPurchaseOrderStatus {
   DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
   SENT
   CONFIRMED
   CANCELLED
@@ -228,6 +244,11 @@ model User {
   // points into private storage's branding/ area (see lib/storage.ts).
   title             String?
   signatureImageUrl String?
+  // WhatsApp number for outbound approval/deadline notifications (see
+  // lib/notifications/whatsapp.ts) — international format without "+",
+  // e.g. "6281234567890". Null = WA notifications skipped for this user,
+  // falls back to email only.
+  whatsappNumber    String?
 
   opportunitiesAsSalesPic Opportunity[]     @relation("OpportunitySalesPic")
   quotationsCreated       Quotation[]       @relation("QuotationCreatedBy")
@@ -249,7 +270,13 @@ model User {
   numberRegistryEntriesCreated NumberRegistryEntry[] @relation("NumberRegistryCreatedBy")
   numberRegistryEntriesVoided  NumberRegistryEntry[] @relation("NumberRegistryVoidedBy")
   createdExpenses         ProjectExpense[]  @relation("ExpenseCreatedBy")
+  expensesSubmitted       ProjectExpense[]  @relation("ExpenseSubmittedBy")
+  expensesApproved        ProjectExpense[]  @relation("ExpenseApprovedBy")
+  expensesRejected        ProjectExpense[]  @relation("ExpenseRejectedBy")
   createdInvoices         Invoice[]         @relation("InvoiceCreatedBy")
+  invoicesSubmitted       Invoice[]         @relation("InvoiceSubmittedBy")
+  invoicesApproved        Invoice[]         @relation("InvoiceApprovedBy")
+  invoicesRejected        Invoice[]         @relation("InvoiceRejectedBy")
   createdPayments         Payment[]         @relation("PaymentCreatedBy")
   createdPurchaseOrders   PurchaseOrder[]   @relation("POCreatedBy")
   createdContracts        Contract[]        @relation("ContractCreatedBy")
@@ -257,6 +284,9 @@ model User {
   invoicesAsSalesPic      Invoice[]         @relation("InvoiceSalesPic")
   createdVendorPOs        VendorPurchaseOrder[] @relation("VendorPOCreatedBy")
   vendorPOsSigned         VendorPurchaseOrder[] @relation("VendorPOSigner")
+  vendorPOsSubmitted      VendorPurchaseOrder[] @relation("VendorPOSubmittedBy")
+  vendorPOsApproved       VendorPurchaseOrder[] @relation("VendorPOApprovedBy")
+  vendorPOsRejected       VendorPurchaseOrder[] @relation("VendorPORejectedBy")
 
   @@index([role])
 }
@@ -685,9 +715,23 @@ model VendorPurchaseOrder {
 
   notes  String? // "Note / Ketentuan" block, freeform (numbered by the user)
   status VendorPurchaseOrderStatus @default(DRAFT)
+  // Maker-checker: once submitted, isLocked prevents the maker from editing
+  // until approved/rejected — mirrors Quotation's pattern exactly.
+  isLocked Boolean @default(false)
 
   signerId String?
   signer   User?   @relation("VendorPOSigner", fields: [signerId], references: [id])
+
+  submittedAt    DateTime?
+  submittedById  String?
+  submittedBy    User?     @relation("VendorPOSubmittedBy", fields: [submittedById], references: [id])
+  approvedAt     DateTime?
+  approvedById   String?
+  approvedBy     User?     @relation("VendorPOApprovedBy", fields: [approvedById], references: [id])
+  rejectedAt     DateTime?
+  rejectedById   String?
+  rejectedBy     User?     @relation("VendorPORejectedBy", fields: [rejectedById], references: [id])
+  rejectionReason String?
 
   createdById String
   createdBy   User      @relation("VendorPOCreatedBy", fields: [createdById], references: [id])
@@ -839,7 +883,20 @@ model ProjectExpense {
   amount        Decimal         @db.Decimal(18, 2)
   tax           Decimal         @db.Decimal(18, 2) @default(0)
   total         Decimal         @db.Decimal(18, 2)
-  paymentStatus ExpensePaymentStatus @default(UNPAID)
+  paymentStatus ExpensePaymentStatus  @default(UNPAID)
+  approvalStatus ExpenseApprovalStatus @default(DRAFT)
+  isLocked       Boolean               @default(false)
+
+  submittedAt    DateTime?
+  submittedById  String?
+  submittedBy    User?     @relation("ExpenseSubmittedBy", fields: [submittedById], references: [id])
+  approvedAt     DateTime?
+  approvedById   String?
+  approvedBy     User?     @relation("ExpenseApprovedBy", fields: [approvedById], references: [id])
+  rejectedAt     DateTime?
+  rejectedById   String?
+  rejectedBy     User?     @relation("ExpenseRejectedBy", fields: [rejectedById], references: [id])
+  rejectionReason String?
 
   createdById String
   createdBy   User     @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
@@ -849,6 +906,7 @@ model ProjectExpense {
 
   @@index([projectId])
   @@index([category])
+  @@index([approvalStatus])
 }
 
 // ---------------------------------------------------------------------------
@@ -875,6 +933,20 @@ model Invoice {
   grandTotal  Decimal       @db.Decimal(18, 2) @default(0)
   paidAmount  Decimal       @db.Decimal(18, 2) @default(0)
   status      InvoiceStatus @default(DRAFT)
+  // Maker-checker: locked while awaiting Direktur approval, same pattern as
+  // Quotation/VendorPurchaseOrder — the maker cannot edit or self-approve.
+  isLocked    Boolean       @default(false)
+
+  submittedAt    DateTime?
+  submittedById  String?
+  submittedBy    User?     @relation("InvoiceSubmittedBy", fields: [submittedById], references: [id])
+  approvedAt     DateTime?
+  approvedById   String?
+  approvedBy     User?     @relation("InvoiceApprovedBy", fields: [approvedById], references: [id])
+  rejectedAt     DateTime?
+  rejectedById   String?
+  rejectedBy     User?     @relation("InvoiceRejectedBy", fields: [rejectedById], references: [id])
+  rejectionReason String?
 
   // Fields verified against a real issued invoice ("001/INV/FIN/VIII/2026")
   // so the PDF can carry the same header block: the customer's own PO

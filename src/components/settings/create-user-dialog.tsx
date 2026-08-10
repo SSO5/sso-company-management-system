@@ -49,6 +49,10 @@ export function CreateUserDialog() {
               {TITLE_OPTIONS.map((t) => <option key={t} value={t} />)}
             </datalist>
           </div>
+          <div className="space-y-1">
+            <Label>WhatsApp <span className="text-muted-foreground">(optional, untuk notifikasi approval/deadline)</span></Label>
+            <Input name="whatsappNumber" type="tel" placeholder="0812xxxxxxxxx" />
+          </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button type="submit" disabled={pending}>{pending ? "Saving..." : "Create User"}</Button>

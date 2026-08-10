@@ -18,6 +18,7 @@ interface Props {
     email: string;
     role: string;
     title: string | null;
+    whatsappNumber: string | null;
     isActive: boolean;
     signatureImageUrl: string | null;
   };
@@ -98,6 +99,10 @@ export function EditUserDialog({ user, isSelf }: Props) {
             <datalist id="title-options">
               {TITLE_OPTIONS.map((t) => <option key={t} value={t} />)}
             </datalist>
+          </div>
+          <div className="space-y-1">
+            <Label>WhatsApp <span className="text-muted-foreground">(untuk notifikasi approval/deadline)</span></Label>
+            <Input name="whatsappNumber" type="tel" defaultValue={user.whatsappNumber ?? ""} placeholder="0812xxxxxxxxx" />
           </div>
           <div className="space-y-1">
             <Label>Status</Label>

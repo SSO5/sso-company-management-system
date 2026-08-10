@@ -1,14 +1,17 @@
 import { getInvoice } from "@/server/finance/invoices";
+import { requireUser } from "@/lib/auth/current-user";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { RecordPaymentDialog } from "@/components/finance/record-payment-dialog";
+import { InvoiceActions } from "@/components/finance/invoice-actions";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { FileDown } from "lucide-react";
 
 export default async function InvoiceDetailPage({ params }: { params: { id: string } }) {
-  const inv = await getInvoice(params.id);
+  const [inv, actor] = await Promise.all([getInvoice(params.id), requireUser()]);
   const outstanding = Number(inv.grandTotal) - Number(inv.paidAmount);
+  const canRecordPayment = ["ISSUED", "PARTIALLY_PAID", "OVERDUE"].includes(inv.status);
   let lastGroup: string | null = null;
 
   return (
@@ -19,17 +22,22 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
           <h1 className="text-xl font-semibold">{inv.customer.companyName}</h1>
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <Badge>{inv.status}</Badge>
+            {inv.isLocked && <Badge variant="outline">Locked</Badge>}
             {inv.project && <span className="text-xs text-muted-foreground">Project {inv.project.number}</span>}
             {inv.contact && <span className="text-xs text-muted-foreground">Attn: {inv.contact.name}</span>}
           </div>
+          {inv.status === "REJECTED" && inv.rejectionReason && (
+            <p className="mt-1 text-xs text-destructive">Rejected{inv.rejectedBy ? ` by ${inv.rejectedBy.name}` : ""}: {inv.rejectionReason}</p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <a href={`/api/invoices/${inv.id}/pdf`} target="_blank" rel="noreferrer">
             <Button size="sm" variant="outline"><FileDown className="h-4 w-4" /> Download PDF</Button>
           </a>
-          {outstanding > 0 && inv.status !== "CANCELLED" && (
+          {outstanding > 0 && canRecordPayment && (
             <RecordPaymentDialog invoiceId={inv.id} outstanding={outstanding} trigger={<Button>Record Payment</Button>} />
           )}
+          <InvoiceActions id={inv.id} status={inv.status} role={actor.role} />
         </div>
       </div>
 

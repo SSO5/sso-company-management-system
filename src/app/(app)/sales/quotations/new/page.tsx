@@ -11,7 +11,7 @@ export default async function NewQuotationPage({ searchParams }: { searchParams:
   const [customers, contacts, opportunities, salesUsers, allUsers] = await Promise.all([
     prisma.customer.findMany({ where: { deletedAt: null }, select: { id: true, companyName: true, number: true }, orderBy: { companyName: "asc" } }),
     prisma.contact.findMany({ select: { id: true, customerId: true, name: true } }),
-    prisma.opportunity.findMany({ where: { deletedAt: null }, select: { id: true, customerId: true, number: true, name: true } }),
+    prisma.opportunity.findMany({ where: { deletedAt: null }, select: { id: true, customerId: true, number: true, name: true, salesPicId: true, contactId: true } }),
     listUsersForPicker("SALES"),
     listUsersForPicker(),
   ]);
@@ -39,7 +39,19 @@ export default async function NewQuotationPage({ searchParams }: { searchParams:
         opportunities={opportunities}
         salesUsers={salesUsers}
         signerUsers={allUsers}
-        defaultValues={lockedOpportunity ? { customerId: lockedOpportunity.customerId, opportunityId: lockedOpportunity.id } : undefined}
+        defaultValues={
+          lockedOpportunity
+            ? {
+                customerId: lockedOpportunity.customerId,
+                opportunityId: lockedOpportunity.id,
+                // Inherit PIC/contact straight from the Opportunity — this
+                // used to sit blank, forcing a reselect every single time
+                // even though the deal already has an owner and a contact.
+                salesPicId: lockedOpportunity.salesPicId ?? undefined,
+                contactId: lockedOpportunity.contactId ?? undefined,
+              }
+            : undefined
+        }
       />
     </div>
   );

@@ -77,11 +77,41 @@ export function requirePermission(role: UserRole, module: Module, action: Action
   }
 }
 
-/** Quotation approval is Admin-only regardless of the general "sales" matrix. */
-export function requireQuotationApprover(role: UserRole) {
+/**
+ * Maker-checker guard shared by every approval flow (Quotation, Vendor PO,
+ * Project Expense, Invoice): the approver must hold the approver role AND
+ * must never be the same person who submitted the request — even an Admin
+ * cannot approve their own submission. "Direktur" currently maps onto the
+ * ADMIN role (SSO has no separate Director role yet); if that changes, only
+ * the role check below needs updating, every call site stays the same.
+ */
+function requireApprover(role: UserRole, actorId: string, submittedById: string | null, label: string) {
   if (role !== "ADMIN") {
-    throw new ForbiddenError("Only Admin can approve or reject a quotation.");
+    throw new ForbiddenError(`Only Admin (Direktur) can approve or reject ${label}.`);
   }
+  if (submittedById && actorId === submittedById) {
+    throw new ForbiddenError(`You cannot approve your own ${label} submission. Ask another Admin (Direktur) to review it.`);
+  }
+}
+
+/** Quotation approval is Admin-only regardless of the general "sales" matrix. */
+export function requireQuotationApprover(role: UserRole, actorId: string, submittedById: string | null = null) {
+  requireApprover(role, actorId, submittedById, "a quotation");
+}
+
+/** Vendor PO approval — same rule as Quotation, applied to procurement. */
+export function requireVendorPOApprover(role: UserRole, actorId: string, submittedById: string | null = null) {
+  requireApprover(role, actorId, submittedById, "a vendor purchase order");
+}
+
+/** Project Expense approval — same rule, applied to project cost control. */
+export function requireExpenseApprover(role: UserRole, actorId: string, submittedById: string | null = null) {
+  requireApprover(role, actorId, submittedById, "a project expense");
+}
+
+/** Invoice approval — same rule, applied before an invoice can be sent. */
+export function requireInvoiceApprover(role: UserRole, actorId: string, submittedById: string | null = null) {
+  requireApprover(role, actorId, submittedById, "an invoice");
 }
 
 /** Only Admin or the assigned Project Manager may close a project. */

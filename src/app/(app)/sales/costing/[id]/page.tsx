@@ -73,7 +73,13 @@ export default async function CostingDetailPage({ params }: { params: { id: stri
               <ReviseCostingButton costingId={sheet.id} />
             </>
           )}
-          {sheet.status === "CONVERTED" && sheet.quotation ? (
+          {sheet.quotation ? (
+            // Once linked to a quotation, stays linked — even after a
+            // revision reopens this sheet back to DRAFT for editing (see
+            // reviseQuotation in lib/workflows/quotation.ts). Re-showing the
+            // "Convert" dialog here would offer to spawn a second quotation
+            // from the same costing sheet, which the unique quotationId FK
+            // doesn't even allow.
             <Link href={`/sales/quotations/${sheet.quotation.id}`}>
               <Button variant="outline">View Quotation {formatRevisedNumber(sheet.quotation.number, sheet.quotation.revision)}</Button>
             </Link>

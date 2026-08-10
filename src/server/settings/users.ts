@@ -36,7 +36,10 @@ export async function createUser(input: unknown): Promise<ActionResult<{ id: str
     const passwordHash = await hashPassword(data.password);
     const user = await prisma.$transaction(async (tx) => {
       const created = await tx.user.create({
-        data: { name: data.name, email: data.email, role: data.role, title: data.title || null, passwordHash },
+        data: {
+          name: data.name, email: data.email, role: data.role, title: data.title || null,
+          whatsappNumber: data.whatsappNumber, passwordHash,
+        },
       });
       await logActivity(tx, {
         userId: actor.userId, action: "CREATE", entityType: "USER", entityId: created.id,
@@ -84,6 +87,7 @@ export async function updateUserAction(formData: FormData): Promise<ActionResult
       email: formData.get("email"),
       role: formData.get("role"),
       title: formData.get("title") || null,
+      whatsappNumber: formData.get("whatsappNumber") || null,
       isActive: formData.get("isActive") === "on" || formData.get("isActive") === "true",
       password: formData.get("password") || "",
     });
@@ -106,6 +110,7 @@ export async function updateUserAction(formData: FormData): Promise<ActionResult
           email: data.email,
           role: data.role,
           title: data.title || null,
+          whatsappNumber: data.whatsappNumber,
           isActive: data.isActive,
           ...(passwordHash ? { passwordHash } : {}),
           ...(signatureImageUrl ? { signatureImageUrl } : {}),

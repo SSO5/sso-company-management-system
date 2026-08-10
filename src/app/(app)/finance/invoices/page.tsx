@@ -8,7 +8,8 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { Plus } from "lucide-react";
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "success" | "warning" | "destructive" | "outline"> = {
-  DRAFT: "secondary", ISSUED: "outline", PARTIALLY_PAID: "warning", PAID: "success", OVERDUE: "destructive", CANCELLED: "secondary",
+  DRAFT: "secondary", SUBMITTED: "warning", APPROVED: "success", REJECTED: "destructive",
+  ISSUED: "outline", PARTIALLY_PAID: "warning", PAID: "success", OVERDUE: "destructive", CANCELLED: "secondary",
 };
 
 export default async function InvoicesPage() {

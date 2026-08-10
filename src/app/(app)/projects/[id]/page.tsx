@@ -43,6 +43,7 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
         projectId={project.id}
         status={project.status}
         canManage={canManage}
+        role={actor.role}
         profitability={profitability}
         tasks={project.tasks}
         milestones={project.milestones}

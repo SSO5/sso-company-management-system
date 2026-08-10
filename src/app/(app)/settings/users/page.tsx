@@ -29,7 +29,7 @@ export default async function UsersSettingsPage() {
               <TableCell>
                 <div className="flex items-center justify-end gap-1">
                   <EditUserDialog
-                    user={{ id: u.id, name: u.name, email: u.email, role: u.role, title: u.title, isActive: u.isActive, signatureImageUrl: u.signatureImageUrl }}
+                    user={{ id: u.id, name: u.name, email: u.email, role: u.role, title: u.title, whatsappNumber: u.whatsappNumber, isActive: u.isActive, signatureImageUrl: u.signatureImageUrl }}
                     isSelf={u.id === actor.userId}
                   />
                   <UserActiveToggle id={u.id} isActive={u.isActive} />

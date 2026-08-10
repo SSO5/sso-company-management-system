@@ -8,19 +8,24 @@ import { ExpensePanel } from "@/components/projects/expense-panel";
 import { ClosingPanel } from "@/components/projects/closing-panel";
 import { DocumentsPanel } from "@/components/projects/documents-panel";
 import { formatCurrency } from "@/lib/utils";
-import type { TaskStatus } from "@prisma/client";
+import type { TaskStatus, UserRole } from "@prisma/client";
 
 interface Props {
   projectId: string;
   status: string;
   canManage: boolean;
+  role: UserRole;
   profitability: {
     contractValue: number; budget: number; actualCost: number; budgetRemaining: number;
     totalInvoiced: number; totalPaid: number; outstanding: number; grossProfit: number; grossMargin: number;
   };
   tasks: { id: string; title: string; status: TaskStatus; priority: string; dueDate: Date | null; progressPercent: number; assignedTo: { name: string } | null }[];
   milestones: { id: string; name: string; status: string; dueDate: Date | null; progressPercent: number }[];
-  expenses: { id: string; number: string; category: string; description: string; date: Date; total: unknown; paymentStatus: string; createdBy: { name: string } }[];
+  expenses: {
+    id: string; number: string; category: string; description: string; date: Date; total: unknown;
+    paymentStatus: string; approvalStatus: string; submittedById: string | null; rejectionReason: string | null;
+    createdBy: { name: string };
+  }[];
   assignees: { id: string; name: string }[];
   closing: { checklist: { key: string; label: string; passed: boolean }[]; canClose: boolean };
   opportunity: { id: string; number: string } | null;
@@ -80,7 +85,7 @@ export function ProjectDetailTabs(props: Props) {
       )}
       {active === "tasks" && <TaskPanel projectId={props.projectId} tasks={props.tasks} assignees={props.assignees} />}
       {active === "milestones" && <MilestonePanel projectId={props.projectId} milestones={props.milestones} />}
-      {active === "costs" && <ExpensePanel projectId={props.projectId} expenses={props.expenses} />}
+      {active === "costs" && <ExpensePanel projectId={props.projectId} expenses={props.expenses} role={props.role} />}
       {active === "closing" && (
         <ClosingPanel
           projectId={props.projectId}

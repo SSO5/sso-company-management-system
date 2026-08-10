@@ -211,9 +211,9 @@ export async function submitQuotationForApproval(quotationId: string, actor: Ses
 }
 
 export async function approveQuotation(quotationId: string, actor: SessionPayload) {
-  requireQuotationApprover(actor.role);
   return prisma.$transaction(async (tx) => {
     const existing = await tx.quotation.findUniqueOrThrow({ where: { id: quotationId } });
+    requireQuotationApprover(actor.role, actor.userId, existing.submittedById);
     if (!["SUBMITTED", "UNDER_REVIEW"].includes(existing.status)) {
       throw new Error("Only submitted quotations can be approved.");
     }
@@ -244,8 +244,9 @@ export async function approveQuotation(quotationId: string, actor: SessionPayloa
 }
 
 export async function rejectQuotation(quotationId: string, reason: string, actor: SessionPayload) {
-  requireQuotationApprover(actor.role);
   return prisma.$transaction(async (tx) => {
+    const existing = await tx.quotation.findUniqueOrThrow({ where: { id: quotationId } });
+    requireQuotationApprover(actor.role, actor.userId, existing.submittedById);
     const quotation = await tx.quotation.update({
       where: { id: quotationId },
       data: {
@@ -409,6 +410,29 @@ export async function reviseQuotation(quotationId: string, actor: SessionPayload
       if (opp && opp.status !== "WON" && opp.status !== "LOST") {
         await tx.opportunity.update({ where: { id: quotation.opportunityId }, data: { status: "QUALIFIED" } });
       }
+    }
+
+    // Reopen the Costing Sheet this quotation came from, if any. Revisions
+    // driven by client feedback are almost always a pricing change (supplier
+    // quote moved, margin renegotiated, scope trimmed) — without this, the
+    // costing sheet stayed permanently CONVERTED/locked the moment it was
+    // first turned into a quotation, so there was no way back into the
+    // margin/cost math that produced the numbers, even though the quotation
+    // itself could be revised. Its own revision counter is bumped in lockstep
+    // so the printed costing number ("CST-....R1") tracks the quotation's.
+    const linkedCosting = await tx.costingSheet.findUnique({ where: { quotationId: quotation.id } });
+    if (linkedCosting && linkedCosting.status === "CONVERTED") {
+      await tx.costingSheet.update({
+        where: { id: linkedCosting.id },
+        data: { status: "DRAFT", revision: { increment: 1 } },
+      });
+      await logActivity(tx, {
+        userId: actor.userId,
+        action: "UPDATE",
+        entityType: "COSTING",
+        entityId: linkedCosting.id,
+        description: `${linkedCosting.number}: Reopened for editing (quotation ${quotation.number} was revised to R${quotation.revision})`,
+      });
     }
 
     return quotation;

@@ -1,21 +1,29 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getVendorPurchaseOrder } from "@/server/sales/vendor-purchase-orders";
+import { requireUser } from "@/lib/auth/current-user";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { VendorPOActions } from "@/components/sales/vendor-po-actions";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { FileDown } from "lucide-react";
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "success" | "warning" | "destructive" | "outline"> = {
   DRAFT: "secondary",
+  SUBMITTED: "warning",
+  APPROVED: "success",
+  REJECTED: "destructive",
   SENT: "warning",
   CONFIRMED: "success",
   CANCELLED: "destructive",
 };
 
 export default async function VendorPoDetailPage({ params }: { params: { id: string } }) {
-  const po = await getVendorPurchaseOrder(params.id).catch(() => null);
+  const [po, actor] = await Promise.all([
+    getVendorPurchaseOrder(params.id).catch(() => null),
+    requireUser(),
+  ]);
   if (!po) notFound();
 
   let lastGroup: string | null = null;
@@ -30,12 +38,16 @@ export default async function VendorPoDetailPage({ params }: { params: { id: str
             {po.project ? <>Project <Link href={`/projects/${po.project.id}`} className="underline">{po.project.number}</Link> · </> : null}
             {po.customer ? po.customer.companyName : null}
           </p>
+          {po.status === "REJECTED" && po.rejectionReason && (
+            <p className="mt-1 text-xs text-destructive">Rejected{po.rejectedBy ? ` by ${po.rejectedBy.name}` : ""}: {po.rejectionReason}</p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <Badge variant={STATUS_VARIANT[po.status] ?? "default"}>{po.status}</Badge>
           <a href={`/api/procurement/vendor-po/${po.id}/pdf`} target="_blank" rel="noreferrer">
             <Button size="sm" variant="outline"><FileDown className="h-4 w-4" /> Download PDF</Button>
           </a>
+          <VendorPOActions id={po.id} status={po.status} role={actor.role} />
         </div>
       </div>
 

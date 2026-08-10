@@ -4,7 +4,13 @@ import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/current-user";
 import { requirePermission } from "@/lib/permissions";
 import { vendorPurchaseOrderSchema } from "@/lib/validation/sales";
-import { createVendorPurchaseOrder } from "@/lib/workflows/vendor-po";
+import {
+  createVendorPurchaseOrder,
+  submitVendorPOForApproval,
+  approveVendorPO,
+  rejectVendorPO,
+  markVendorPOSent,
+} from "@/lib/workflows/vendor-po";
 import { runAction, type ActionResult } from "@/lib/action-helpers";
 
 export async function listVendorPurchaseOrders() {
@@ -28,6 +34,9 @@ export async function getVendorPurchaseOrder(id: string) {
       items: { orderBy: { sortOrder: "asc" } },
       signer: { select: { name: true, title: true, signatureImageUrl: true } },
       createdBy: { select: { name: true } },
+      submittedBy: { select: { name: true } },
+      approvedBy: { select: { name: true } },
+      rejectedBy: { select: { name: true } },
     },
   });
 }
@@ -40,5 +49,43 @@ export async function createVendorPurchaseOrderAction(input: unknown): Promise<A
     const po = await createVendorPurchaseOrder(data, actor);
     revalidatePath("/procurement/vendor-po");
     return { id: po.id };
+  });
+}
+
+export async function submitVendorPOAction(id: string): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const actor = await requireUserOrThrow();
+    requirePermission(actor.role, "sales", "update");
+    await submitVendorPOForApproval(id, actor);
+    revalidatePath(`/procurement/vendor-po/${id}`);
+    return { id };
+  });
+}
+
+export async function approveVendorPOAction(id: string): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const actor = await requireUserOrThrow();
+    await approveVendorPO(id, actor);
+    revalidatePath(`/procurement/vendor-po/${id}`);
+    return { id };
+  });
+}
+
+export async function rejectVendorPOAction(id: string, reason: string): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const actor = await requireUserOrThrow();
+    await rejectVendorPO(id, reason, actor);
+    revalidatePath(`/procurement/vendor-po/${id}`);
+    return { id };
+  });
+}
+
+export async function markVendorPOSentAction(id: string): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const actor = await requireUserOrThrow();
+    requirePermission(actor.role, "sales", "update");
+    await markVendorPOSent(id, actor);
+    revalidatePath(`/procurement/vendor-po/${id}`);
+    return { id };
   });
 }

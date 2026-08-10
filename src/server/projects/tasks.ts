@@ -7,6 +7,7 @@ import { logActivity } from "@/lib/workflows/audit";
 import { taskSchema, milestoneSchema, expenseSchema } from "@/lib/validation/project";
 import { generateNumber } from "@/lib/numbering";
 import { runAction, type ActionResult } from "@/lib/action-helpers";
+import { submitExpenseForApproval, approveExpense, rejectExpense } from "@/lib/workflows/expense";
 import type { TaskStatus } from "@prisma/client";
 
 export async function createTask(input: unknown): Promise<ActionResult<{ id: string }>> {
@@ -92,5 +93,33 @@ export async function createExpense(input: unknown): Promise<ActionResult<{ id: 
 
     revalidatePath(`/projects/${data.projectId}`);
     return { id: expense.id };
+  });
+}
+
+export async function submitExpenseAction(id: string, projectId: string): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const actor = await requireUserOrThrow();
+    requirePermission(actor.role, "project", "update");
+    await submitExpenseForApproval(id, actor);
+    revalidatePath(`/projects/${projectId}`);
+    return { id };
+  });
+}
+
+export async function approveExpenseAction(id: string, projectId: string): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const actor = await requireUserOrThrow();
+    await approveExpense(id, actor);
+    revalidatePath(`/projects/${projectId}`);
+    return { id };
+  });
+}
+
+export async function rejectExpenseAction(id: string, projectId: string, reason: string): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const actor = await requireUserOrThrow();
+    await rejectExpense(id, reason, actor);
+    revalidatePath(`/projects/${projectId}`);
+    return { id };
   });
 }

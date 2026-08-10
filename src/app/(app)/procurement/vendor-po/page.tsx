@@ -9,6 +9,9 @@ import { Plus, FileDown } from "lucide-react";
 
 const STATUS_LABEL: Record<string, string> = {
   DRAFT: "Draft",
+  SUBMITTED: "Awaiting Approval",
+  APPROVED: "Approved",
+  REJECTED: "Rejected",
   SENT: "Sent",
   CONFIRMED: "Confirmed",
   CANCELLED: "Cancelled",
