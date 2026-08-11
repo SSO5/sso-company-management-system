@@ -1,4 +1,11 @@
-import "server-only";
+// NOTE: deliberately no "server-only" import here (see whatsapp.ts/email.ts
+// for the same note) — this module is only ever reached from workflows/*.ts
+// (server-side business logic), never from a client component, but the
+// "server-only" package itself unconditionally throws when loaded outside
+// Next.js's webpack pipeline (e.g. `tsx prisma/seed.ts`), which broke
+// `npm run db:seed` entirely. Next.js's own server/client boundary checks
+// (the "use server"/"use client" directives elsewhere) already prevent this
+// from leaking into client bundles, so this marker was redundant anyway.
 import { prisma } from "@/lib/db";
 import { sendEmail } from "@/lib/notifications/email";
 import { sendWhatsApp } from "@/lib/notifications/whatsapp";

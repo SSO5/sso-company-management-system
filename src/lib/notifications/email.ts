@@ -1,5 +1,6 @@
-import "server-only";
-
+// NOTE: no "server-only" import (see dispatch.ts for why) — this file is
+// only imported from server-side code, and the package itself crashes when
+// loaded outside Next.js's build pipeline (e.g. standalone tsx scripts).
 /**
  * Outbound email via Gmail SMTP + nodemailer (spec point #4: "koneksikan
  * aplikasi ke email dan WA user"). Deliberately isolated behind this one

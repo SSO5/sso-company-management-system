@@ -1,5 +1,6 @@
-import "server-only";
-
+// NOTE: no "server-only" import (see dispatch.ts for why) — this file is
+// only imported from server-side code, and the package itself crashes when
+// loaded outside Next.js's build pipeline (e.g. standalone tsx scripts).
 /**
  * Outbound WhatsApp via Fonnte (fonnte.com) — chosen over Wablas/Starsender
  * for SSO because it has a pay-as-you-go plan with no monthly minimum, a
