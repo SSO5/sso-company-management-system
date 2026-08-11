@@ -24,6 +24,7 @@ const FIELDS: { key: keyof CompanySettings; label: string; example: string }[] =
   { key: "expensePrefix", label: "Expense", example: "001/EXP/FIN/VII/2026" },
   { key: "costingPrefix", label: "Costing", example: "001/CST/MKT/VII/2026" },
   { key: "vendorPoPrefix", label: "Vendor PO (Procurement)", example: "001/PO/PRO/VII/2026" },
+  { key: "progressReportPrefix", label: "Progress Report", example: "001/ENG-REP/OPS/VII/2026" },
 ];
 
 export function NumberingForm({ settings }: { settings: CompanySettings }) {

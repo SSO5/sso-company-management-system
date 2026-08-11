@@ -104,6 +104,7 @@ const numberingSchema = z.object({
   expensePrefix: z.string().min(1),
   costingPrefix: z.string().min(1),
   vendorPoPrefix: z.string().min(1),
+  progressReportPrefix: z.string().min(1),
   numberPadding: z.coerce.number().int().min(2).max(8),
 });
 

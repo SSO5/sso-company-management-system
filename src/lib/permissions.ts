@@ -55,6 +55,17 @@ const MATRIX: PermissionMatrix = {
     documents: ["view", "create"],
     reports: ["view"],
   },
+  // Non-operational oversight role (e.g. Direktur who isn't day-to-day
+  // executive): can see everything relevant, cannot create/edit/approve/
+  // delete/manage/close anything. Deliberately excludes "users"/"settings"/
+  // "activityLog" — this is a reporting/oversight seat, not an admin seat.
+  VIEWER: {
+    sales: ["view"],
+    finance: ["view"],
+    project: ["view"],
+    documents: ["view"],
+    reports: ["view"],
+  },
 };
 
 export class ForbiddenError extends Error {
@@ -81,9 +92,17 @@ export function requirePermission(role: UserRole, module: Module, action: Action
  * Maker-checker guard shared by every approval flow (Quotation, Vendor PO,
  * Project Expense, Invoice): the approver must hold the approver role AND
  * must never be the same person who submitted the request — even an Admin
- * cannot approve their own submission. "Direktur" currently maps onto the
- * ADMIN role (SSO has no separate Director role yet); if that changes, only
- * the role check below needs updating, every call site stays the same.
+ * cannot approve their own submission.
+ *
+ * Org note (Aug 2026): SSO's real Direktur-level people (Dirut, CFO+COO,
+ * General Manager) are all mapped onto the ADMIN role below, so any one of
+ * them may approve another's submission — this is intentional (no single
+ * point of failure/bottleneck), not a bug. A Direktur who is NOT part of
+ * daily operations should get VIEWER instead, which cannot approve anything.
+ * If SSO later wants a stricter "only the Dirut personally" or a value-based
+ * two-tier approval, that needs a dedicated check here (e.g. against
+ * User.title or a value threshold) — flag this to the founder before
+ * changing, since it re-introduces a single-person dependency.
  */
 function requireApprover(role: UserRole, actorId: string, submittedById: string | null, label: string) {
   if (role !== "ADMIN") {

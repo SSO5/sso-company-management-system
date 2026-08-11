@@ -55,6 +55,11 @@ export async function getProjectDetail(id: string) {
           orderBy: { createdAt: "desc" },
           select: { id: true, number: true, vendorName: true, poDate: true, grandTotal: true, status: true },
         },
+        progressReports: {
+          where: { deletedAt: null },
+          orderBy: { inspectionDate: "desc" },
+          include: { preparedBy: { select: { name: true } }, items: { orderBy: { sortOrder: "asc" } } },
+        },
       },
     }),
     calculateProjectProfitability(id),

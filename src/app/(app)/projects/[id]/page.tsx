@@ -56,6 +56,7 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
         purchaseOrders={project.purchaseOrders}
         vendorPurchaseOrders={project.vendorPurchaseOrders}
         invoices={project.invoices}
+        progressReports={project.progressReports}
       />
     </div>
   );

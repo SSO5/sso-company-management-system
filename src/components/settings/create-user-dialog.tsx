@@ -40,6 +40,7 @@ export function CreateUserDialog() {
             <Select name="role" defaultValue="SALES">
               <option value="ADMIN">Admin</option><option value="SALES">Sales</option>
               <option value="FINANCE">Finance</option><option value="PROJECT_MANAGER">Project Manager</option>
+              <option value="VIEWER">Viewer (view-only)</option>
             </Select>
           </div>
           <div className="space-y-1">

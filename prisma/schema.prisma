@@ -24,6 +24,10 @@ enum UserRole {
   SALES
   FINANCE
   PROJECT_MANAGER
+  // View-only role for non-operational oversight (e.g. a Director who is not
+  // day-to-day executive) — can see Sales/Finance/Project/Reports but cannot
+  // create, edit, approve, or manage anything. See lib/permissions.ts MATRIX.
+  VIEWER
 }
 
 enum CustomerType {
@@ -175,6 +179,7 @@ enum NumberEntityType {
   JOB_ORDER
   GENERAL_DOCUMENT
   VENDOR_PO
+  PROGRESS_REPORT
 }
 
 // Outbound procurement PO — SSO buying from a supplier/vendor to fulfill a
@@ -287,6 +292,8 @@ model User {
   vendorPOsSubmitted      VendorPurchaseOrder[] @relation("VendorPOSubmittedBy")
   vendorPOsApproved       VendorPurchaseOrder[] @relation("VendorPOApprovedBy")
   vendorPOsRejected       VendorPurchaseOrder[] @relation("VendorPORejectedBy")
+  progressReportsCreated  ProgressReport[]      @relation("ProgressReportCreatedBy")
+  progressReportsPrepared ProgressReport[]      @relation("ProgressReportPreparedBy")
 
   @@index([role])
 }
@@ -819,6 +826,7 @@ model Project {
   payments       Payment[]
   folders        Folder[]
   vendorPurchaseOrders VendorPurchaseOrder[]
+  progressReports ProgressReport[]
 
   @@index([status])
   @@index([customerId])
@@ -916,6 +924,62 @@ model ProjectExpense {
   @@index([projectId])
   @@index([category])
   @@index([approvalStatus])
+}
+
+// Field engineering progress/inspection report — real template found in
+// SSO's WhatsApp field-report archive (doc no. "ENG-REP-004"): per visit,
+// engineer logs a dated checklist of parts inspected/repaired, each with a
+// before photo, an after photo, and a note. Intentionally NOT part of the
+// maker-checker approval chain like Quotation/Invoice/Expense — this is an
+// internal field record, not a commercial document requiring Direktur
+// sign-off. isDone on each item is a deliberately simple manual flag for
+// now (spec: could later roll up into ProjectMilestone.completedAt to
+// auto-drive the Kurva S "Realisasi" line, but that link is intentionally
+// deferred until this base feature is proven in real use).
+model ProgressReport {
+  id        String  @id @default(cuid())
+  number    String  @unique // ENG-REP/OPS-2026-0001 style, via generateNumber(PROGRESS_REPORT)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  inspectionDate DateTime
+  location       String?
+
+  preparedById String
+  preparedBy   User   @relation("ProgressReportPreparedBy", fields: [preparedById], references: [id])
+
+  createdById String
+  createdBy   User      @relation("ProgressReportCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  items ProgressReportItem[]
+
+  @@index([projectId])
+}
+
+model ProgressReportItem {
+  id               String         @id @default(cuid())
+  progressReportId String
+  progressReport   ProgressReport @relation(fields: [progressReportId], references: [id], onDelete: Cascade)
+
+  partName  String // "Bagian yang dicek"
+  notes     String? // "Keterangan"
+  isDone    Boolean @default(false)
+  sortOrder Int     @default(0)
+
+  // Private storage keys (see lib/storage.ts) — never a public URL, always
+  // streamed through a session-gated route, same pattern as branding assets.
+  photoBeforeKey  String?
+  photoBeforeSize Int?
+  photoAfterKey   String?
+  photoAfterSize  Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([progressReportId])
 }
 
 // ---------------------------------------------------------------------------
@@ -1254,6 +1318,13 @@ model CompanySettings {
   // ("001/PO/PRO/VII/2026"). Deliberately separate from poPrefix above,
   // which is the customer-received PO in the Sales pipeline.
   vendorPoPrefix    String @default("PO/PRO")
+  // Field engineering progress/inspection reports (spec: real internal
+  // template found in SSO's WhatsApp archive, doc no. "ENG-REP-004" —
+  // photo-based before/after checklist per project). Kept as its own
+  // configurable prefix like every other document type rather than
+  // hardcoding "ENG-REP", consistent with how quotationPrefix/costingPrefix
+  // etc. are all Settings-editable.
+  progressReportPrefix String @default("ENG-REP/OPS")
   numberPadding     Int    @default(3)
 
   // "PAYMENT INSTRUCTIONS" bank block printed on the Invoice PDF (spec:

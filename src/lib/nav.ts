@@ -34,7 +34,7 @@ export const NAV: NavGroup[] = [
   {
     label: "Finance",
     icon: "Wallet",
-    roles: ["ADMIN", "FINANCE"],
+    roles: ["ADMIN", "FINANCE", "VIEWER"],
     items: [
       { label: "Invoices", href: "/finance/invoices" },
       { label: "Payments", href: "/finance/payments" },

@@ -55,3 +55,20 @@ export const expenseSchema = z.object({
   paymentStatus: z.enum(["UNPAID", "PAID"]).default("UNPAID"),
 });
 export type ExpenseInput = z.infer<typeof expenseSchema>;
+
+export const progressReportSchema = z.object({
+  projectId: z.string().min(1),
+  inspectionDate: z.coerce.date(),
+  location: z.string().optional().nullable(),
+  preparedById: z.string().min(1, "Prepared by is required."),
+});
+export type ProgressReportInput = z.infer<typeof progressReportSchema>;
+
+export const progressReportItemSchema = z.object({
+  progressReportId: z.string().min(1),
+  partName: z.string().min(2, "Part/checkpoint name is required."),
+  notes: z.string().optional().nullable(),
+  isDone: z.coerce.boolean().default(false),
+  sortOrder: z.coerce.number().int().default(0),
+});
+export type ProgressReportItemInput = z.infer<typeof progressReportItemSchema>;

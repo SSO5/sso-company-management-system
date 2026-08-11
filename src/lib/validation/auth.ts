@@ -12,7 +12,16 @@ export type LoginInput = z.infer<typeof loginSchema>;
 // locked enum — existing users already carry freeform titles like "Sales
 // Manager" / "Sales Engineer" from real seed data, so the field stays a text
 // input with a datalist instead of a strict dropdown.
-export const TITLE_OPTIONS = ["Director", "Marketing Manager", "Procurement", "Finance Manager"] as const;
+export const TITLE_OPTIONS = [
+  "Direktur Utama",
+  "CFO & COO",
+  "General Manager",
+  "Direktur",
+  "Sales Engineer",
+  "Marketing Manager",
+  "Procurement",
+  "Finance Manager",
+] as const;
 
 // WhatsApp number for outbound notifications (see lib/notifications/whatsapp.ts)
 // — accepts common human-entered formats ("0812...", "+62812...", "62812...")
@@ -36,7 +45,7 @@ export const createUserSchema = z.object({
   name: z.string().min(2, "Name is required."),
   email: z.string().email(),
   password: z.string().min(8, "Password must be at least 8 characters."),
-  role: z.enum(["ADMIN", "SALES", "FINANCE", "PROJECT_MANAGER"]),
+  role: z.enum(["ADMIN", "SALES", "FINANCE", "PROJECT_MANAGER", "VIEWER"]),
   title: z.string().optional().nullable(),
   whatsappNumber: whatsappNumberSchema,
 });
@@ -46,7 +55,7 @@ export const updateUserSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(2, "Name is required."),
   email: z.string().email(),
-  role: z.enum(["ADMIN", "SALES", "FINANCE", "PROJECT_MANAGER"]),
+  role: z.enum(["ADMIN", "SALES", "FINANCE", "PROJECT_MANAGER", "VIEWER"]),
   title: z.string().optional().nullable(),
   whatsappNumber: whatsappNumberSchema,
   isActive: z.coerce.boolean().default(true),

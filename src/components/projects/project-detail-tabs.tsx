@@ -8,6 +8,7 @@ import { ExpensePanel } from "@/components/projects/expense-panel";
 import { ClosingPanel } from "@/components/projects/closing-panel";
 import { DocumentsPanel } from "@/components/projects/documents-panel";
 import { SCurvePanel } from "@/components/projects/s-curve-panel";
+import { ProgressReportPanel } from "@/components/projects/progress-report-panel";
 import { formatCurrency } from "@/lib/utils";
 import type { TaskStatus, UserRole } from "@prisma/client";
 import type { SCurvePoint } from "@/lib/workflows/calculations";
@@ -36,6 +37,11 @@ interface Props {
   purchaseOrders: { id: string; number: string; poDate: Date; poValue: unknown; status: string }[];
   vendorPurchaseOrders: { id: string; number: string; vendorName: string; poDate: Date; grandTotal: unknown; status: string }[];
   invoices: { id: string; number: string; invoiceDate: Date; grandTotal: unknown; paidAmount: unknown; status: string }[];
+  progressReports: {
+    id: string; number: string; inspectionDate: Date; location: string | null;
+    preparedBy: { name: string };
+    items: { id: string; partName: string; notes: string | null; isDone: boolean; photoBeforeKey: string | null; photoAfterKey: string | null }[];
+  }[];
 }
 
 const TABS = [
@@ -44,6 +50,7 @@ const TABS = [
   { value: "tasks", label: "Tasks" },
   { value: "milestones", label: "Milestones" },
   { value: "scurve", label: "S-Curve" },
+  { value: "progress", label: "Progress Report" },
   { value: "costs", label: "Costs" },
   { value: "closing", label: "Closing" },
 ];
@@ -90,6 +97,7 @@ export function ProjectDetailTabs(props: Props) {
       {active === "tasks" && <TaskPanel projectId={props.projectId} tasks={props.tasks} assignees={props.assignees} />}
       {active === "milestones" && <MilestonePanel projectId={props.projectId} milestones={props.milestones} />}
       {active === "scurve" && <SCurvePanel points={props.sCurve.points} totalWeight={props.sCurve.totalWeight} asOfToday={props.sCurve.asOfToday} />}
+      {active === "progress" && <ProgressReportPanel projectId={props.projectId} reports={props.progressReports} assignees={props.assignees} />}
       {active === "costs" && <ExpensePanel projectId={props.projectId} expenses={props.expenses} role={props.role} />}
       {active === "closing" && (
         <ClosingPanel
