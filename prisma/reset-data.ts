@@ -20,6 +20,13 @@ export async function resetTransactionalData(prisma: PrismaClient) {
   await prisma.purchaseOrder.deleteMany({});
   await prisma.contract.deleteMany({});
   await prisma.costingSheet.deleteMany({}); // cascades CostingSection/CostingLineItem
+  // VendorPurchaseOrder.projectId has no onDelete:Cascade (it's an optional
+  // FK), so it must be cleared before Project rows are deleted below or the
+  // deleteMany would fail on a foreign key constraint. ProgressReport DOES
+  // cascade from Project, but deleting it explicitly first is cheap and
+  // keeps this list correct even if that cascade is ever removed.
+  await prisma.vendorPurchaseOrder.deleteMany({}); // cascades VendorPurchaseOrderItem
+  await prisma.progressReport.deleteMany({}); // cascades ProgressReportItem
   await prisma.project.deleteMany({}); // cascades ProjectTask/ProjectMilestone
   await prisma.quotation.deleteMany({}); // cascades QuotationItem
   await prisma.opportunity.deleteMany({});
