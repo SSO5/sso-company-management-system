@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { getDashboardData } from "@/server/dashboard";
+import { getMyActionItems } from "@/server/action-items";
+import { ActionItemsPanel } from "@/components/dashboard/action-items-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { AlertTriangle } from "lucide-react";
 
 export default async function DashboardPage() {
-  const { kpis, alerts } = await getDashboardData();
+  const [{ kpis, alerts }, myActionItems] = await Promise.all([getDashboardData(), getMyActionItems()]);
 
   const kpiCards = [
     { label: "Total Revenue", value: formatCurrency(kpis.totalRevenue) },
@@ -54,6 +56,8 @@ export default async function DashboardPage() {
           </Card>
         ))}
       </div>
+
+      <ActionItemsPanel items={myActionItems} />
 
       {alertItems.length > 0 && (
         <Card>
