@@ -224,9 +224,15 @@ async function main() {
       create: { name: "Galang", email: "sales@sso.demo", whatsappNumber: "6285281673393", role: "VIEWER", passwordHash: demoPassword, title: "Director", signatureImageUrl: "branding/signature-galang.png" },
       update: { name: "Galang", whatsappNumber: "6285281673393", role: "VIEWER", title: "Director", signatureImageUrl: "branding/signature-galang.png" },
     }),
+    // Yohana logs in with saranasinergi.optima@gmail.com, NOT her personal
+    // address — that is the account key here on purpose. Keying this upsert on
+    // yohanamunthe555@gmail.com (as an earlier version did) took the `create`
+    // branch and produced a SECOND account, splitting her transaction history
+    // away from the login she actually uses. The upsert key must always be the
+    // address the person signs in with, not the nicest-looking one.
     prisma.user.upsert({
-      where: { email: "yohanamunthe555@gmail.com" },
-      create: { name: "Yohana S Munthe", email: "yohanamunthe555@gmail.com", whatsappNumber: "628128276234", role: "SALES", passwordHash: demoPassword, title: "Sales Engineer" },
+      where: { email: "saranasinergi.optima@gmail.com" },
+      create: { name: "Yohana S Munthe", email: "saranasinergi.optima@gmail.com", whatsappNumber: "628128276234", role: "SALES", passwordHash: demoPassword, title: "Sales Engineer" },
       update: { name: "Yohana S Munthe", whatsappNumber: "628128276234", role: "SALES", title: "Sales Engineer" },
     }),
     prisma.user.upsert({
