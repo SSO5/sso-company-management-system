@@ -15,7 +15,13 @@ export async function loginAction(_prev: LoginFormState, formData: FormData): Pr
     return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
   }
 
-  const user = await prisma.user.findUnique({ where: { email: parsed.data.email } });
+  // Case-insensitive lookup: loginSchema already lowercases what the person
+  // typed, but rows created before that normalization can still hold mixed
+  // case (e.g. "Sultonmuch96@gmail.com"). findUnique is exact-match and would
+  // silently miss those, producing a misleading "wrong password" error.
+  const user = await prisma.user.findFirst({
+    where: { email: { equals: parsed.data.email, mode: "insensitive" } },
+  });
   if (!user || !user.isActive) {
     return { error: "Invalid email or password." };
   }

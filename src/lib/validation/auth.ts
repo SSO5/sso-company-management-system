@@ -1,7 +1,18 @@
 import { z } from "zod";
 
+// Email is normalized (trimmed + lowercased) before it ever reaches the
+// database lookup. Mobile keyboards auto-capitalize the first letter, and
+// people copy addresses with trailing spaces — without this, a perfectly
+// correct password still returns "Invalid email or password" because the
+// exact-match lookup never finds the row. See loginAction, which also does
+// a case-insensitive query as a second line of defense for rows that were
+// stored with mixed case before this normalization existed.
 export const loginSchema = z.object({
-  email: z.string().email("Enter a valid email address."),
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email("Enter a valid email address."),
   password: z.string().min(1, "Password is required."),
 });
 export type LoginInput = z.infer<typeof loginSchema>;
