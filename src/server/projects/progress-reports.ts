@@ -59,6 +59,7 @@ export async function addProgressReportItemAction(formData: FormData): Promise<A
     requirePermission(actor.role, "project", "create");
     const data = progressReportItemSchema.parse({
       progressReportId: formData.get("progressReportId"),
+      sectionName: formData.get("sectionName") || null,
       partName: formData.get("partName"),
       notes: formData.get("notes") || null,
       isDone: formData.get("isDone") === "on" || formData.get("isDone") === "true",

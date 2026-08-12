@@ -30,8 +30,27 @@ async function isDir(p: string): Promise<boolean> {
   try { return (await fs.stat(p)).isDirectory(); } catch { return false; }
 }
 
-function normalizeName(s: string): string {
-  return s.toLowerCase().replace(/^\d+\.\s*/, "").replace(/\bpt\.?\s*/g, "").replace(/[^a-z0-9]/g, "");
+// Kept identical to import-documents.ts on purpose: a diagnostic that scores
+// differently from the thing it diagnoses is worse than none.
+function words(s: string): string[] {
+  return s.toLowerCase().replace(/^\d+[.\s]*/, "").replace(/\bpt\.?\b/g, "")
+    .split(/[^a-z0-9]+/).filter((w) => w.length > 0);
+}
+function acronym(s: string): string {
+  return words(s).map((w) => w[0]).join("");
+}
+function matchScore(folderName: string, customerName: string): number {
+  const a = new Set(words(folderName));
+  const b = new Set(words(customerName));
+  if (a.size === 0 || b.size === 0) return 0;
+  if (a.size === 1) {
+    const only = [...a][0];
+    if (only === acronym(customerName) && only.length >= 2) return 1;
+  }
+  let shared = 0;
+  for (const w of a) if (b.has(w)) shared++;
+  if (shared === 0) return 0;
+  return shared / new Set([...a, ...b]).size;
 }
 
 async function countFiles(dir: string): Promise<number> {
@@ -102,13 +121,21 @@ async function main() {
   console.log("=".repeat(70));
   for (const f of folders) {
     if (/FORMAT FOLDER|ARSIP WHATSAPP/i.test(f.name)) { console.log(`    ${f.name}\n        -> sengaja dilewati`); continue; }
-    const token = normalizeName(f.name);
-    const match =
-      projects.find((p) => normalizeName(p.customer.companyName).includes(token) || token.includes(normalizeName(p.customer.companyName))) ??
-      opportunities.find((o) => normalizeName(o.customer.companyName).includes(token) || token.includes(normalizeName(o.customer.companyName)));
+    const ranked = [
+      ...projects.map((p) => ({ kind: "PROJECT", ref: p, score: matchScore(f.name, p.customer.companyName) })),
+      ...opportunities.map((o) => ({ kind: "OPPORTUNITY", ref: o, score: matchScore(f.name, o.customer.companyName) })),
+    ]
+      .filter((c) => c.score > 0 && c.ref.folders.some((x) => x.routeKey))
+      .sort((a, b) => b.score - a.score || (a.kind === "PROJECT" ? -1 : 1));
+
     console.log(`    ${f.name}`);
-    console.log(`        token: "${token}"`);
-    console.log(`        -> ${match ? `COCOK dengan ${match.number} (${match.customer.companyName})` : "TIDAK ADA YANG COCOK"}`);
+    console.log(`        kata: [${words(f.name).join(", ")}]`);
+    if (ranked.length === 0) {
+      console.log("        -> TIDAK ADA YANG COCOK");
+    } else {
+      for (const [i, c] of ranked.slice(0, 3).entries())
+        console.log(`        ${i === 0 ? "->" : "  "} ${c.score.toFixed(2)}  ${c.ref.number}  ${c.ref.customer.companyName}${i === 0 ? "   <= dipilih" : ""}`);
+    }
   }
 
   console.log("\n" + "=".repeat(70));

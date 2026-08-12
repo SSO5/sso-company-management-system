@@ -945,6 +945,12 @@ model ProgressReport {
   inspectionDate DateTime
   location       String?
 
+  // Written for management, not for the workshop. The checkpoint table answers
+  // "what was done"; these two answer "where does this job stand" — the
+  // question a director actually opens the report to settle.
+  summary        String?
+  overallPercent Int?
+
   preparedById String
   preparedBy   User   @relation("ProgressReportPreparedBy", fields: [preparedById], references: [id])
 
@@ -963,6 +969,12 @@ model ProgressReportItem {
   id               String         @id @default(cuid())
   progressReportId String
   progressReport   ProgressReport @relation(fields: [progressReportId], references: [id], onDelete: Cascade)
+
+  // Section heading in the printed report, e.g. "DINAMO MOTOR 55 KW" /
+  // "DINAMO MOTOR 45 KW". SSO's real reports group checkpoints by the unit
+  // being worked on; without this the PDF is one flat list and a reader
+  // cannot tell which motor a bearing belongs to.
+  sectionName String?
 
   partName  String // "Bagian yang dicek"
   notes     String? // "Keterangan"

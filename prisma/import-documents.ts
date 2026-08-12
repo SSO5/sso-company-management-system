@@ -127,9 +127,57 @@ async function walk(dir: string, base = dir): Promise<{ full: string; rel: strin
   return out;
 }
 
-/** Normalises "2. PT JAKARTA PRIMA CRANES" / "PT. Jakarta Prima Cranes" to a comparable token. */
-function normalizeName(s: string): string {
-  return s.toLowerCase().replace(/^\d+\.\s*/, "").replace(/\bpt\.?\s*/g, "").replace(/[^a-z0-9]/g, "");
+/**
+ * Folder-name to customer matching.
+ *
+ * The naive version — squash to one string and test substring containment —
+ * failed in both directions on real data:
+ *
+ *   "4. PT JAKARTA PRIMA CRANES - BALIKPAPAN" -> "jakartaprimacranesbalikpapan"
+ *   contains "jakartaprimacranes", so the Balikpapan folder matched the
+ *   JAKARTA project. Every Balikpapan document would have been filed under the
+ *   wrong job — worse than not importing, because it looks like it worked.
+ *
+ *   "3. PT NCS" -> "ncs" shares no substring with "Nusa Cipta Sarana", so a
+ *   folder with 20 files matched nothing at all.
+ *
+ * Word-set scoring fixes the first: "balikpapan" is a word the Jakarta
+ * customer does not have, so the Balikpapan customer scores higher and wins.
+ * Acronym matching fixes the second without a hand-maintained alias list —
+ * "NCS" is exactly the initials of "Nusa Cipta Sarana", which is why people
+ * write it that way in the first place.
+ */
+function words(s: string): string[] {
+  return s
+    .toLowerCase()
+    .replace(/^\d+[.\s]*/, "")
+    .replace(/\bpt\.?\b/g, "")
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length > 0);
+}
+
+function acronym(s: string): string {
+  return words(s).map((w) => w[0]).join("");
+}
+
+/** 0 = no relation, 1 = every word matches on both sides. */
+function matchScore(folderName: string, customerName: string): number {
+  const a = new Set(words(folderName));
+  const b = new Set(words(customerName));
+  if (a.size === 0 || b.size === 0) return 0;
+
+  // An acronym folder ("NCS") is a deliberate shorthand for the full name, so
+  // treat it as an exact match rather than as three unrelated letters.
+  if (a.size === 1) {
+    const only = [...a][0];
+    if (only === acronym(customerName) && only.length >= 2) return 1;
+  }
+
+  let shared = 0;
+  for (const w of a) if (b.has(w)) shared++;
+  if (shared === 0) return 0;
+  const union = new Set([...a, ...b]).size;
+  return shared / union; // Jaccard: extra words on EITHER side reduce the score
 }
 
 async function main() {
@@ -222,18 +270,30 @@ async function main() {
   const skipped: { file: string; why: string }[] = [];
 
   for (const dir of topLevel) {
-    const token = normalizeName(dir.name);
-    // Prefer a Project (post-Won) over an Opportunity when both match — a Won
-    // deal's folders are the ones that survive, and the Opportunity tree is
-    // deleted by mergeOpportunityFoldersIntoProject.
-    const match =
-      projects.find((p) => normalizeName(p.customer.companyName).includes(token) || token.includes(normalizeName(p.customer.companyName))) ??
-      opportunities.find((o) => normalizeName(o.customer.companyName).includes(token) || token.includes(normalizeName(o.customer.companyName)));
+    // Score every candidate and take the BEST, never the first. Order-based
+    // matching is what sent Balikpapan's documents to the Jakarta project.
+    // Candidates with no routeKey folders are excluded: a Won Opportunity's
+    // folder tree has already been merged into its Project, so "matching" it
+    // would resolve to a job with nowhere to put anything.
+    const candidates = [
+      ...projects.map((p) => ({ kind: "PROJECT" as const, ref: p, score: matchScore(dir.name, p.customer.companyName) })),
+      ...opportunities.map((o) => ({ kind: "OPPORTUNITY" as const, ref: o, score: matchScore(dir.name, o.customer.companyName) })),
+    ]
+      .filter((c) => c.score > 0 && c.ref.folders.some((f) => f.routeKey))
+      // Ties go to the Project, which is where a live job's documents belong.
+      .sort((a, b) => b.score - a.score || (a.kind === "PROJECT" ? -1 : 1));
 
-    if (!match) {
+    const best = candidates[0];
+    if (!best) {
       skipped.push({ file: dir.name, why: "no matching Project/Opportunity in the database" });
       continue;
     }
+    const match = best.ref;
+    const runnerUp = candidates[1];
+    console.log(
+      `  "${dir.name}" -> ${match.number} · ${match.customer.companyName}  (skor ${best.score.toFixed(2)}` +
+        (runnerUp ? `, kandidat berikutnya ${runnerUp.ref.number} skor ${runnerUp.score.toFixed(2)}` : "") + ")"
+    );
     const byRoute = new Map(match.folders.filter((f) => f.routeKey).map((f) => [f.routeKey as string, f.id]));
 
     for (const f of await walk(path.join(root, dir.name))) {

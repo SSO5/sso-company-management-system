@@ -61,11 +61,19 @@ export const progressReportSchema = z.object({
   inspectionDate: z.coerce.date(),
   location: z.string().optional().nullable(),
   preparedById: z.string().min(1, "Prepared by is required."),
+  // Written for management. Left optional on purpose: forcing a narrative on
+  // every daily field update is how reporting turns into a chore and stops
+  // being done at all. When it is blank the PDF states the completion count
+  // instead, which is still an answer.
+  summary: z.string().optional().nullable(),
+  overallPercent: z.coerce.number().int().min(0).max(100).optional().nullable(),
 });
 export type ProgressReportInput = z.infer<typeof progressReportSchema>;
 
 export const progressReportItemSchema = z.object({
   progressReportId: z.string().min(1),
+  // Unit heading in the printed report, e.g. "DINAMO MOTOR 55 KW".
+  sectionName: z.string().optional().nullable(),
   partName: z.string().min(2, "Part/checkpoint name is required."),
   notes: z.string().optional().nullable(),
   isDone: z.coerce.boolean().default(false),
