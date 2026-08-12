@@ -1,13 +1,25 @@
 import Link from "next/link";
 import { getDashboardData } from "@/server/dashboard";
 import { getMyActionItems } from "@/server/action-items";
+import { getJobChecklists } from "@/server/document-checklist";
+import { requireUser } from "@/lib/auth/current-user";
 import { ActionItemsPanel } from "@/components/dashboard/action-items-panel";
+import { DocumentChecklistPanel } from "@/components/dashboard/document-checklist-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { AlertTriangle } from "lucide-react";
 
 export default async function DashboardPage() {
-  const [{ kpis, alerts }, myActionItems] = await Promise.all([getDashboardData(), getMyActionItems()]);
+  const [{ kpis, alerts }, myActionItems, jobChecklists, actor] = await Promise.all([
+    getDashboardData(),
+    getMyActionItems(),
+    getJobChecklists(),
+    requireUser(),
+  ]);
+  // VIEWER is an oversight role: seeing what is outstanding is precisely its
+  // purpose, but it may not upload. Showing an upload button it cannot use
+  // would be a dead end, so the panel renders read-only for that role.
+  const canUpload = actor.role !== "VIEWER";
 
   const kpiCards = [
     { label: "Total Revenue", value: formatCurrency(kpis.totalRevenue) },
@@ -59,18 +71,20 @@ export default async function DashboardPage() {
 
       <ActionItemsPanel items={myActionItems} />
 
+      <DocumentChecklistPanel jobs={jobChecklists} canUpload={canUpload} />
+
       <div>
         <h2 className="text-sm font-semibold text-muted-foreground">Ringkasan Perusahaan</h2>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
         {kpiCards.map((k) => (
-          <Card key={k.label}>
-            <CardHeader className="pb-1">
-              <CardTitle className="text-[11px] font-medium text-muted-foreground">{k.label}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-lg font-semibold">{k.value}</p>
+          <Card key={k.label} className="transition-shadow hover:shadow-[0_2px_4px_0_rgb(16_24_40/0.06),0_4px_10px_-2px_rgb(16_24_40/0.08)]">
+            <CardContent className="p-4">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{k.label}</p>
+              {/* data-tabular: currency and counts line up across the row —
+                  see the tabular-nums rule in globals.css. */}
+              <p data-tabular className="mt-1.5 text-lg font-semibold tracking-tight">{k.value}</p>
             </CardContent>
           </Card>
         ))}

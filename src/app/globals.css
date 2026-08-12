@@ -4,7 +4,11 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    /* The page is a hair off-white while cards stay pure white. That single
+       degree of separation is what lets content read as layered panels
+       without needing heavy borders or drop shadows — the flat, modern look,
+       achieved with contrast rather than decoration. */
+    --background: 210 20% 98%;
     --foreground: 222 20% 12%;
     --card: 0 0% 100%;
     --card-foreground: 222 20% 12%;
@@ -25,7 +29,7 @@
     --border: 214 20% 90%;
     --input: 214 20% 90%;
     --ring: 222 47% 40%;
-    --radius: 0.5rem;
+    --radius: 0.75rem;
   }
 }
 
@@ -35,6 +39,24 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+
+  /* Figures line up column-to-column. In an app whose main content is rupiah
+     amounts, quantities and document numbers, proportional digits make
+     otherwise-identical values look ragged and genuinely slow down scanning a
+     column of totals. This is the single highest-value typographic change in
+     a finance UI. */
+  table, .tabular, [data-tabular] {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /* One visible, consistent focus ring everywhere. Keyboard users currently
+     get whatever the browser defaults to, which differs per element and is
+     invisible against the dark sidebar. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring/60 ring-offset-2 ring-offset-background;
   }
 }
 

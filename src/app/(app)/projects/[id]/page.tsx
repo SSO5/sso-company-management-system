@@ -1,5 +1,7 @@
 import { getProjectDetail } from "@/server/projects/projects";
 import { listUsersForPicker } from "@/server/settings/users";
+import { getJobChecklistFor } from "@/server/document-checklist";
+import { DocumentChecklistPanel } from "@/components/dashboard/document-checklist-panel";
 import { requireUser } from "@/lib/auth/current-user";
 import { Badge } from "@/components/ui/badge";
 import { ProjectDetailTabs } from "@/components/projects/project-detail-tabs";
@@ -13,10 +15,11 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "success" | "warn
 };
 
 export default async function ProjectDetailPage({ params }: { params: { id: string } }) {
-  const [{ project, profitability, closing, opportunityFolder, sCurve }, actor, assignees] = await Promise.all([
+  const [{ project, profitability, closing, opportunityFolder, sCurve }, actor, assignees, checklist] = await Promise.all([
     getProjectDetail(params.id),
     requireUser(),
     listUsersForPicker(),
+    getJobChecklistFor("PROJECT", params.id),
   ]);
 
   const canManage = actor.role === "ADMIN" || (actor.role === "PROJECT_MANAGER" && project.projectManagerId === actor.userId);
@@ -38,6 +41,11 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
           )}
         </div>
       </div>
+
+      {/* Above the tabs, not inside one: an outstanding BAST or missing PO is
+          the kind of thing that should be visible without first guessing which
+          tab hides it. */}
+      {checklist && <DocumentChecklistPanel jobs={[checklist]} canUpload={actor.role !== "VIEWER"} />}
 
       <ProjectDetailTabs
         projectId={project.id}

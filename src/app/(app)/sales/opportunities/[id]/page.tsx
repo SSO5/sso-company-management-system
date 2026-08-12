@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { getOpportunityDetail } from "@/server/sales/opportunities";
+import { getJobChecklistFor } from "@/server/document-checklist";
+import { DocumentChecklistPanel } from "@/components/dashboard/document-checklist-panel";
 import { requireUser } from "@/lib/auth/current-user";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,9 +17,10 @@ const QUOTATION_STATUS_VARIANT: Record<string, "default" | "secondary" | "succes
 };
 
 export default async function OpportunityDetailPage({ params }: { params: { id: string } }) {
-  const [{ opportunity: o, folders }, actor] = await Promise.all([
+  const [{ opportunity: o, folders }, actor, checklist] = await Promise.all([
     getOpportunityDetail(params.id),
     requireUser(),
+    getJobChecklistFor("OPPORTUNITY", params.id),
   ]);
 
   return (
@@ -47,6 +50,12 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
         <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Sales PIC</p><p className="text-sm font-medium">{o.salesPic.name}</p></CardContent></Card>
         <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Source</p><p className="text-sm font-medium">{o.source ?? "—"}</p></CardContent></Card>
       </div>
+
+      {/* The checklist comes before the raw folder grid on purpose: it answers
+          "what is still missing here?", whereas the folder grid only answers
+          "where would it go?" — a question the checklist's own upload button
+          already resolves without the person having to choose a folder. */}
+      {checklist && <DocumentChecklistPanel jobs={[checklist]} canUpload={actor.role !== "VIEWER"} />}
 
       <Card>
         <CardHeader><CardTitle className="text-sm">Folders</CardTitle></CardHeader>
