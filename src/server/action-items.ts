@@ -211,7 +211,11 @@ export async function getMyActionItems(): Promise<ActionItem[]> {
   return items;
 }
 
-/** Small helper for a per-role "who does this belong to" label in the UI. */
-export function actionItemModuleLabel(m: ActionItemModule): string {
-  return { sales: "Sales", finance: "Finance", project: "Project", procurement: "Procurement" }[m];
-}
+// NOTE: a display-label helper used to live here and broke the production
+// build — under "use server" every export must be an async function, because
+// Next.js turns each one into a callable server endpoint. A plain string
+// lookup is neither async nor something that should cross the network, so it
+// never belonged in this file. It now lives with the component that renders
+// it (components/dashboard/action-items-panel.tsx), where it is also free to
+// use the same wording as the sidebar. Keep this file to async data-fetching
+// exports only.
