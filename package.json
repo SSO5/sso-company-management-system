@@ -24,7 +24,8 @@
     "go": "tsx prisma/go.ts",
     "db:import-documents": "tsx prisma/import-documents.ts",
     "db:followups": "tsx prisma/operational-followups.ts",
-    "db:fix-login": "tsx prisma/fix-login.ts"
+    "db:fix-login": "tsx prisma/fix-login.ts",
+    "db:diagnose-import": "tsx prisma/diagnose-import.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
