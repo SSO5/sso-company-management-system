@@ -29,7 +29,14 @@ function stripQuery(href: string): string {
  */
 export function Sidebar({ role, open, onClose }: { role: UserRole; open: boolean; onClose: () => void }) {
   const pathname = usePathname();
-  const visibleGroups = NAV.filter((g) => !g.roles || g.roles.includes(role));
+  // Filter at BOTH levels. Group-level filtering alone is not enough now that
+  // nav.ts scopes individual items by role — without the item pass, a SALES
+  // user would still see all five report links even though four of them are
+  // not theirs to read. A group left with no visible items is dropped whole,
+  // so an empty accordion can never appear.
+  const visibleGroups = NAV.filter((g) => !g.roles || g.roles.includes(role))
+    .map((g) => ({ ...g, items: g.items.filter((i) => !i.roles || i.roles.includes(role)) }))
+    .filter((g) => g.items.length > 0);
 
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
@@ -90,6 +97,30 @@ export function Sidebar({ role, open, onClose }: { role: UserRole; open: boolean
           {visibleGroups.map((group) => {
             const Icon = ICONS[group.icon];
             const isExpanded = expanded[group.label] ?? false;
+
+            // A group holding one item is not a group — it's a link. Rendering
+            // it as an accordion means one extra click to reach a destination
+            // the label already named ("Beranda" > "Tugas & Ringkasan"), which
+            // is pure friction for the page people open most.
+            if (group.items.length === 1) {
+              const only = group.items[0];
+              const href = stripQuery(only.href);
+              const active = pathname === href || pathname.startsWith(`${href}/`);
+              return (
+                <Link
+                  key={group.label}
+                  href={only.href}
+                  className={cn(
+                    "flex items-center gap-2 rounded-md px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide transition-colors",
+                    active ? "bg-white/15" : "opacity-80 hover:bg-white/5"
+                  )}
+                >
+                  {Icon && <Icon className="h-3.5 w-3.5" />}
+                  {group.label}
+                </Link>
+              );
+            }
+
             return (
               <div key={group.label}>
                 <button

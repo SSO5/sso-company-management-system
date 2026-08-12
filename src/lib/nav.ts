@@ -12,82 +12,107 @@ export interface NavGroup {
   roles?: UserRole[];
 }
 
+/**
+ * Navigation is deliberately NOT a map of the data model.
+ *
+ * The first version listed one group per entity family (Sales, Finance,
+ * Project, Procurement, Documents, Reports, Numbering, Activity Log — 8 groups,
+ * 22 items). That layout is only legible to someone who already knows that
+ * Quotation, Invoice, and Project are separate tables. For a six-person
+ * company running three active jobs, it meant every new user had to learn the
+ * schema before they could do their job, which is exactly backwards.
+ *
+ * Two rules now govern this file:
+ *
+ * 1. GROUP BY THE WORK, NOT BY THE TABLE. "Pekerjaan" holds everything that
+ *    moves a job forward — prospect, quotation, project, vendor PO — because
+ *    that is one continuous piece of work to the person doing it, even though
+ *    it spans four models underneath.
+ *
+ * 2. EVERY ITEM IS ROLE-SCOPED. A nav entry a given role can never act on is
+ *    noise for that person, so it is not shown to them. Yohana sees the sales
+ *    report; Faldy sees all five. Same app, different surface area.
+ *
+ * Nothing is deleted. Routes removed from this list (numbering, the flat
+ * quotation/costing/PO/contract lists, activity log) still exist, still work,
+ * and are still reached from detail pages, dashboard deep-links, and search.
+ * Hiding an entry point is reversible; deleting a feature is not.
+ *
+ * Net effect: ADMIN sees 6 groups, everyone else sees 4-5.
+ */
 export const NAV: NavGroup[] = [
-  { label: "Dashboard", icon: "LayoutDashboard", items: [{ label: "Overview", href: "/dashboard" }] },
-  { label: "Numbering", icon: "Hash", items: [{ label: "Ambil Nomor", href: "/numbering" }] },
   {
-    // Costing, Quotations, Purchase Orders, and Contracts are intentionally
-    // NOT listed here anymore (spec: these are created and reached from
-    // inside each Opportunity's own folders — "3. Costing" / "4. Quotation"
-    // / "5. PO" / "6. Dokumen Kontrak" — not browsed as flat global lists).
-    // The routes themselves still exist (detail pages, PDF view/print, and
-    // dashboard deep-links like "quotations awaiting approval" still work),
-    // they're just no longer a primary nav entry point.
-    label: "Sales",
+    label: "Beranda",
+    icon: "LayoutDashboard",
+    items: [{ label: "Tugas & Ringkasan", href: "/dashboard" }],
+  },
+  {
+    // One group for the whole job lifecycle. Costing, Quotation, customer PO
+    // and Contract are NOT listed as separate entries on purpose — they are
+    // created and reached from inside each Opportunity's own folders
+    // ("3. Costing" / "4. Quotation" / "5. PO" / "6. Dokumen Kontrak"), which
+    // is where the person already is when they need them.
+    label: "Pekerjaan",
     icon: "Briefcase",
     items: [
-      { label: "Customers", href: "/sales/customers" },
-      { label: "Contacts", href: "/sales/contacts" },
-      { label: "Opportunities", href: "/sales/opportunities" },
+      { label: "Prospek & Penawaran", href: "/sales/opportunities" },
+      { label: "Proyek Berjalan", href: "/projects" },
+      // Outbound PO (SSO -> Vendor). Distinct from the customer's PO to SSO,
+      // which lives inside the job's own "5. PO" folder.
+      { label: "Pesanan ke Vendor", href: "/procurement/vendor-po", roles: ["ADMIN", "PROJECT_MANAGER", "VIEWER"] },
+      { label: "Pelanggan & Kontak", href: "/sales/customers", roles: ["ADMIN", "SALES", "VIEWER"] },
     ],
   },
   {
-    label: "Finance",
+    label: "Keuangan",
     icon: "Wallet",
     roles: ["ADMIN", "FINANCE", "VIEWER"],
     items: [
-      { label: "Invoices", href: "/finance/invoices" },
-      { label: "Payments", href: "/finance/payments" },
-      { label: "Expenses", href: "/finance/expenses" },
-      { label: "Receivables", href: "/finance/receivables" },
-      { label: "Finance Reports", href: "/reports/finance" },
+      { label: "Invoice", href: "/finance/invoices" },
+      { label: "Pembayaran", href: "/finance/payments" },
+      { label: "Piutang", href: "/finance/receivables" },
+      { label: "Pengeluaran", href: "/finance/expenses" },
     ],
   },
   {
-    label: "Project",
-    icon: "FolderKanban",
-    items: [
-      { label: "All Projects", href: "/projects" },
-      { label: "Project Tasks", href: "/projects?view=tasks" },
-      { label: "Project Closing", href: "/projects?view=closing" },
-    ],
-  },
-  {
-    // Outbound vendor/procurement PO (SSO -> Vendor) — distinct from the
-    // Sales-side "5. PO" (customer's PO to SSO, still reachable from inside
-    // an Opportunity's own folders).
-    label: "Procurement",
-    icon: "ShoppingCart",
-    items: [{ label: "Vendor Purchase Orders", href: "/procurement/vendor-po" }],
-  },
-  {
-    label: "Documents",
+    label: "Dokumen",
     icon: "FileText",
     items: [
-      { label: "All Documents", href: "/documents" },
-      { label: "Trash", href: "/documents/trash" },
+      { label: "Semua Dokumen", href: "/documents" },
+      // Restore-from-trash is an admin recovery action, not daily work.
+      { label: "Sampah", href: "/documents/trash", roles: ["ADMIN"] },
     ],
   },
   {
-    label: "Reports",
+    // Role-scoped so a non-admin sees exactly the one report they own,
+    // instead of a five-item list of which four are not theirs to read.
+    label: "Laporan",
     icon: "BarChart3",
     items: [
-      { label: "Sales Report", href: "/reports/sales" },
-      { label: "Finance Report", href: "/reports/finance" },
-      { label: "Project Report", href: "/reports/project" },
-      { label: "Profitability", href: "/reports/profitability" },
-      { label: "Executive Report", href: "/reports/executive" },
+      { label: "Ringkasan Eksekutif", href: "/reports/executive", roles: ["ADMIN", "VIEWER"] },
+      { label: "Profitabilitas", href: "/reports/profitability", roles: ["ADMIN", "VIEWER"] },
+      { label: "Penjualan", href: "/reports/sales", roles: ["ADMIN", "SALES", "VIEWER"] },
+      { label: "Keuangan", href: "/reports/finance", roles: ["ADMIN", "FINANCE", "VIEWER"] },
+      { label: "Proyek", href: "/reports/project", roles: ["ADMIN", "PROJECT_MANAGER", "VIEWER"] },
     ],
   },
   {
-    label: "Settings",
+    // Numbering and the Activity Log moved in here from the top level. Both
+    // are system-administration surfaces, not daily work: document numbers are
+    // issued automatically the moment a record is created, so "Ambil Nomor"
+    // being a primary menu item was asking people to do by hand what the
+    // system already does for them (see lib/numbering.ts). The page stays for
+    // the case it was actually built for — reserving a number for a document
+    // produced outside the app.
+    label: "Pengaturan",
     icon: "Settings",
     roles: ["ADMIN"],
     items: [
-      { label: "Users", href: "/settings/users" },
-      { label: "Company Settings", href: "/settings/company" },
+      { label: "Pengguna", href: "/settings/users" },
+      { label: "Data Perusahaan", href: "/settings/company" },
+      { label: "Nomor Dokumen", href: "/numbering" },
       { label: "Panduan Sistem", href: "/settings/manual" },
+      { label: "Log Aktivitas", href: "/activity-log" },
     ],
   },
-  { label: "Activity Log", icon: "History", roles: ["ADMIN"], items: [{ label: "Activity Log", href: "/activity-log" }] },
 ];

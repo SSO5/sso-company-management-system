@@ -38,10 +38,29 @@ export default async function DashboardPage() {
   ].filter(Boolean) as { text: string; href: string }[];
 
   return (
+    /**
+     * Order is the whole point of this page. It used to open with six KPI
+     * cards — numbers that tell a director how the company is doing, but tell
+     * a sales engineer nothing about what to do next. Someone who was not
+     * part of building this app landed here and had to work out, unaided,
+     * which of eight menus held their next task.
+     *
+     * So the answer comes first: what is waiting on YOU, scoped to your role
+     * (see getMyActionItems). The company-level numbers stay, one scroll down,
+     * for the people who came for them.
+     */
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold">Executive Overview</h1>
-        <p className="text-sm text-muted-foreground">Live snapshot across Sales, Finance, and Project execution.</p>
+        <h1 className="text-xl font-semibold">Tugas Saya</h1>
+        <p className="text-sm text-muted-foreground">
+          Yang menunggu tindakan Anda hari ini. Daftar ini dihitung langsung dari data — tidak perlu diperbarui manual.
+        </p>
+      </div>
+
+      <ActionItemsPanel items={myActionItems} />
+
+      <div>
+        <h2 className="text-sm font-semibold text-muted-foreground">Ringkasan Perusahaan</h2>
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
@@ -56,8 +75,6 @@ export default async function DashboardPage() {
           </Card>
         ))}
       </div>
-
-      <ActionItemsPanel items={myActionItems} />
 
       {alertItems.length > 0 && (
         <Card>
