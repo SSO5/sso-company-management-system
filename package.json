@@ -20,7 +20,11 @@
     "db:sync-numbers": "tsx prisma/sync-number-sequences.ts",
     "db:reset-financials": "tsx prisma/reset-financials.ts",
     "db:report-orphan-customers": "tsx prisma/report-orphan-customers.ts",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "go": "tsx prisma/go.ts",
+    "db:import-documents": "tsx prisma/import-documents.ts",
+    "db:followups": "tsx prisma/operational-followups.ts",
+    "db:fix-login": "tsx prisma/fix-login.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
