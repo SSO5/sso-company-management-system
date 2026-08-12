@@ -105,8 +105,34 @@ const PROGRESS_REPORTS = [
   { number: "ENG-REP-004", date: "2026-08-09", title: "Progress Pengerjaan Perbaikan Motor dan Gearbox", kind: "PROGRES" },
 ];
 
+/**
+ * Neon's serverless compute suspends after a few minutes idle. The first
+ * connection has to wake it, and that wake takes longer than Prisma's 10s pool
+ * timeout — so a cold script dies with "Timed out fetching a new connection"
+ * before the database has even finished starting. It then works on the second
+ * attempt, which makes the failure look random when it is completely
+ * predictable.
+ *
+ * A trivial query with retries absorbs the wake-up. Cheaper than telling
+ * someone to "just run it twice".
+ */
+async function warmUp(attempts = 4) {
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      if (i > 1) console.log(`(database bangun setelah percobaan ke-${i})\n`);
+      return;
+    } catch (e) {
+      if (i === attempts) throw e;
+      console.log(`Database belum siap, mencoba lagi (${i}/${attempts - 1})...`);
+      await new Promise((r) => setTimeout(r, 4000));
+    }
+  }
+}
+
 async function main() {
   console.log(APPLY ? "MENERAPKAN koreksi...\n" : "[SIMULASI — tidak ada yang ditulis]\n");
+  await warmUp();
 
   const projects = await prisma.project.findMany({
     where: { deletedAt: null },
