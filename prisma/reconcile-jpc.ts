@@ -139,16 +139,21 @@ async function main() {
     if (!APPLY) continue;
 
     const existing = await prisma.quotation.findFirst({ where: { number: q.number } });
+    // Quotation stores `tax` as an absolute amount — there is no taxPercent
+    // column — so the rate that produced it is recorded in the notes instead.
+    // That matters here: the rate genuinely changed mid-negotiation, 12% on
+    // R0-R3 and 11% from R3-final-nego onward, and without it written down the
+    // jump in tax between revisions looks like an error rather than a fact.
     const data = {
       revision: q.rev,
       quotationDate: new Date(q.date),
       subtotal: D(q.subtotal ?? 0), discount: D(q.discount ?? 0),
-      taxPercent: D(q.taxPercent), tax: D(tax ?? 0), grandTotal: D(grand ?? 0),
-      paymentTerms: q.terms,
+      tax: D(tax ?? 0), grandTotal: D(grand ?? 0),
+      terms: q.terms,
       status: (q.status === "WON" ? "WON" : q.status === "LOST" ? "LOST" : "EXPIRED") as never,
       notes: q.subtotal === null
-        ? "Angka tidak dapat diverifikasi: tabel harga pada PDF asli berupa gambar dan tidak terbaca OCR."
-        : "Diverifikasi terhadap PDF asli (OCR untuk R3/R4).",
+        ? `PPN ${q.taxPercent}%. Angka tidak dapat diverifikasi: tabel harga pada PDF asli berupa gambar dan tidak terbaca OCR.`
+        : `PPN ${q.taxPercent}%. Diverifikasi terhadap PDF asli (OCR untuk R3/R4).`,
     };
     if (existing) await prisma.quotation.update({ where: { id: existing.id }, data });
     else await prisma.quotation.create({
@@ -156,7 +161,7 @@ async function main() {
         ...data, number: q.number,
         opportunityId: opp.opportunityId, customerId: opp.customerId,
         salesPicId: opp.salesPicId, createdById: admin.id,
-        title: "Gearbox Drive Unit Maintenance & Servicing",
+        subjectLine: "Quotation — Gearbox Drive Unit Maintenance & Servicing",
         validUntil: new Date(new Date(q.date).getTime() + 14 * 864e5),
       } as never,
     });
