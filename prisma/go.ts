@@ -63,10 +63,21 @@ const STEPS: Step[] = [
     name: "import",
     label: "Impor dokumen dari folder PROSPEK 2026",
     script: "prisma/import-documents.ts",
+    // The path is passed through the ENVIRONMENT, not as an argument.
+    //
+    // npx on Windows needs `shell: true`, and Node's own deprecation warning
+    // spells out the consequence: with a shell, args are concatenated, never
+    // escaped. So "--root=C:\Users\Sulton\OneDrive - PT. Petrindo Semesta\..."
+    // was split by the shell at the first space and the script received
+    // "--root=C:\Users\Sulton\OneDrive" — a real directory containing only
+    // desktop.ini, which is exactly what it reported. Quoting would work until
+    // someone's folder contains a quote or an ampersand; an environment
+    // variable has no such failure mode.
+    //
     // This step refuses to run on a non-persistent storage driver. That refusal
     // is the gate: if it trips, the follow-up tasks below still make sense, so
     // it is not fatal — but no documents will have been imported.
-    args: (a) => [`--root=${PROSPEK}`, ...(a ? ["--apply"] : [])],
+    args: (a) => (a ? ["--apply"] : []),
     fatal: false,
   },
   {
@@ -85,6 +96,9 @@ function run(step: Step): boolean {
   const res = spawnSync("npx", ["tsx", step.script, ...step.args(APPLY)], {
     stdio: "inherit",
     shell: process.platform === "win32", // npx on Windows needs a shell
+    // Anything containing spaces travels here, never in argv — see the note
+    // on the import step for what happens otherwise.
+    env: { ...process.env, PROSPEK_PATH: PROSPEK },
   });
   return res.status === 0;
 }

@@ -182,7 +182,10 @@ function matchScore(folderName: string, customerName: string): number {
 }
 
 async function main() {
-  const root = flag("root");
+  // PROSPEK_PATH is how go.ts hands the path over: a Windows path containing
+  // spaces cannot survive a shell-invoked argv (see go.ts), so the env var is
+  // the reliable channel and --root stays for running this script directly.
+  const root = flag("root") || process.env.PROSPEK_PATH;
   const apply = flag("apply") !== undefined;
   const only = flag("only");
   const allowLocal = flag("i-know-storage-is-local") !== undefined;
