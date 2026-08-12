@@ -2,18 +2,21 @@ import Link from "next/link";
 import { getDashboardData } from "@/server/dashboard";
 import { getMyActionItems } from "@/server/action-items";
 import { getJobChecklists } from "@/server/document-checklist";
+import { getMyNotifications } from "@/server/notifications";
 import { requireUser } from "@/lib/auth/current-user";
 import { ActionItemsPanel } from "@/components/dashboard/action-items-panel";
 import { DocumentChecklistPanel } from "@/components/dashboard/document-checklist-panel";
+import { NotificationsPanel } from "@/components/dashboard/notifications-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { AlertTriangle } from "lucide-react";
 
 export default async function DashboardPage() {
-  const [{ kpis, alerts }, myActionItems, jobChecklists, actor] = await Promise.all([
+  const [{ kpis, alerts }, myActionItems, jobChecklists, notifications, actor] = await Promise.all([
     getDashboardData(),
     getMyActionItems(),
     getJobChecklists(),
+    getMyNotifications(),
     requireUser(),
   ]);
   // VIEWER is an oversight role: seeing what is outstanding is precisely its
@@ -70,6 +73,8 @@ export default async function DashboardPage() {
       </div>
 
       <ActionItemsPanel items={myActionItems} />
+
+      <NotificationsPanel items={notifications.items} unreadCount={notifications.unreadCount} />
 
       <DocumentChecklistPanel jobs={jobChecklists} canUpload={canUpload} />
 
