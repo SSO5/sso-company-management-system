@@ -110,6 +110,7 @@ export const NAV: NavGroup[] = [
     items: [
       { label: "Pengguna", href: "/settings/users" },
       { label: "Data Perusahaan", href: "/settings/company" },
+      { label: "Penyimpanan File", href: "/settings/storage" },
       { label: "Nomor Dokumen", href: "/numbering" },
       { label: "Panduan Sistem", href: "/settings/manual" },
       { label: "Log Aktivitas", href: "/activity-log" },
