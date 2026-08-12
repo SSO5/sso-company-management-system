@@ -32,6 +32,7 @@ import path from "path";
 import { PrismaClient } from "@prisma/client";
 import { uploadDocument } from "../src/lib/workflows/documents";
 import { MAX_FILE_SIZE_BYTES } from "../src/lib/storage";
+import { notifyAndSend } from "../src/lib/notifications/notify-and-send";
 import type { SessionPayload } from "../src/lib/auth/session";
 
 const prisma = new PrismaClient();
@@ -363,18 +364,17 @@ async function main() {
   // Tell the team, in the app, what just appeared. Without this the import is
   // invisible: files simply exist one day, with no cue that anything changed.
   if (done > 0) {
-    const users = await prisma.user.findMany({ where: { isActive: true }, select: { id: true } });
     const summary = [...byTarget].sort().map(([t, n]) => `${t.split(" · ")[0]} (${n})`).join(", ");
-    await prisma.notification.createMany({
-      data: users.map((u) => ({
-        userId: u.id,
+    const { recipients } = await notifyAndSend(
+      { allActive: true },
+      {
         type: "DOCUMENT_IMPORT",
         title: `${done} dokumen baru diunggah`,
         message: `Arsip PROSPEK 2026 telah dimasukkan ke aplikasi: ${summary}. Buka Kelengkapan Dokumen di beranda untuk melihat apa yang masih kurang.`,
         link: "/dashboard",
-      })),
-    });
-    console.log(`Notified ${users.length} user(s) in-app.`);
+      }
+    );
+    console.log(`Notified ${recipients} user(s) — in-app, plus WhatsApp/email where configured.`);
   }
 }
 

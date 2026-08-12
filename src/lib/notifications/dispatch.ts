@@ -30,6 +30,9 @@ import type { UserRole } from "@prisma/client";
 export interface OutboundTarget {
   role?: UserRole;
   userId?: string;
+  userIds?: string[];
+  /** Every active user. For company-wide announcements only. */
+  allActive?: boolean;
 }
 
 export interface OutboundPayload {
@@ -82,16 +85,17 @@ async function dispatchToUser(
  */
 export async function dispatchOutbound(target: OutboundTarget, payload: OutboundPayload): Promise<void> {
   try {
-    const users = target.userId
-      ? await prisma.user.findMany({
-          where: { id: target.userId, isActive: true },
-          select: { name: true, email: true, whatsappNumber: true },
-        })
+    const where = target.allActive
+      ? { isActive: true }
+      : target.userIds?.length
+      ? { id: { in: target.userIds }, isActive: true }
+      : target.userId
+      ? { id: target.userId, isActive: true }
       : target.role
-      ? await prisma.user.findMany({
-          where: { role: target.role, isActive: true },
-          select: { name: true, email: true, whatsappNumber: true },
-        })
+      ? { role: target.role, isActive: true }
+      : null;
+    const users = where
+      ? await prisma.user.findMany({ where, select: { name: true, email: true, whatsappNumber: true } })
       : [];
     await Promise.allSettled(users.map((u) => dispatchToUser(u, payload)));
   } catch (err) {

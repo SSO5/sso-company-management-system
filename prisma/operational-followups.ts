@@ -15,6 +15,7 @@
  * ProjectTask needs an optional opportunityId — a schema change, not a script.
  */
 import { PrismaClient, TaskPriority } from "@prisma/client";
+import { notifyAndSend } from "../src/lib/notifications/notify-and-send";
 
 const prisma = new PrismaClient();
 
@@ -145,15 +146,18 @@ async function main() {
         },
       });
       if (assignee) {
-        await prisma.notification.create({
-          data: {
-            userId: assignee.id,
+        // notifyAndSend, not notification.create: the person who owns this
+        // task is exactly the person who should hear about it on WhatsApp,
+        // not only when they next happen to open the app.
+        await notifyAndSend(
+          { userId: assignee.id },
+          {
             type: "PROJECT_DEADLINE",
             title: f.title,
             message: `${project.number} — jatuh tempo ${f.dueDate}. Dibuat dari hasil telaah arsip email.`,
             link: `/projects/${project.id}`,
-          },
-        });
+          }
+        );
       }
       created++;
     }
@@ -163,10 +167,8 @@ async function main() {
   for (const a of OPPORTUNITY_ALERTS) {
     console.log(`  ${apply ? "NOTIFY" : "WOULD NOTIFY"}  ${a.title}`);
     if (apply) {
-      const admins = users.filter((u) => u.role === "ADMIN" || u.role === "SALES");
-      await prisma.notification.createMany({
-        data: admins.map((u) => ({ userId: u.id, type: "PROJECT_CLOSING_INCOMPLETE", title: a.title, message: a.message, link: a.link })),
-      });
+      const admins = users.filter((u) => u.role === "ADMIN" || u.role === "SALES").map((u) => u.id);
+      await notifyAndSend({ userIds: admins }, { type: "PROJECT_CLOSING_INCOMPLETE", title: a.title, message: a.message, link: a.link });
     }
   }
 
