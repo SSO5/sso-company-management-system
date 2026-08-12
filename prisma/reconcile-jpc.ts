@@ -229,7 +229,16 @@ async function main() {
     const p = job(b.job);
     console.log(`   ${b.vendorInvoice}  ${p.number}  tagihan ${b.total.toLocaleString("id-ID")}  DP ${b.dpGross.toLocaleString("id-ID")}  PPh23 ${b.pph23.toLocaleString("id-ID")}  netto transfer ${b.dpNet.toLocaleString("id-ID")}`);
     if (!APPLY) continue;
-    const desc = `Athena ${b.vendorInvoice} — DP ${b.dpPercent}% atas PO ${b.poRef}`;
+    // ProjectExpense has no notes column, so the audit detail rides along in
+    // the description. It belongs somewhere: the withholding, the net amount
+    // actually transferred and the 70% still owed are the facts a person needs
+    // when this row is questioned months from now, and the bank detail is what
+    // lets the statement reconcile.
+    const desc =
+      `Athena ${b.vendorInvoice} — DP ${b.dpPercent}% atas PO ${b.poRef}` +
+      ` | Dibayar ${b.paidOn}, PPh 23 2% = ${b.pph23.toLocaleString("id-ID")}, netto transfer ${b.dpNet.toLocaleString("id-ID")}` +
+      ` | Transfer rekening SSO ke PT Athena Teknik Perkasa (BCA 5222258341)` +
+      ` | Sisa kewajiban 70% = ${(b.total - b.dpGross).toLocaleString("id-ID")}`;
     const existing = await prisma.projectExpense.findFirst({ where: { projectId: p.id, description: desc, deletedAt: null } });
     if (existing) continue;
     const seq = await prisma.projectExpense.count();
@@ -245,15 +254,6 @@ async function main() {
         total: D(b.dpGross),
         paymentStatus: "PAID", approvalStatus: "APPROVED",
         approvedAt: new Date(b.paidOn), approvedById: admin.id, createdById: admin.id,
-        // The bank detail is kept, not erased: the shareholder fronted this DP
-        // because of a transfer limit and has since been reimbursed, so the
-        // economic reality is SSO -> Athena. The statement still needs to
-        // reconcile, and the proof of settlement needs somewhere to attach.
-        notes:
-          `Dibayar ${b.paidOn}. PPh 23 2% = ${b.pph23.toLocaleString("id-ID")} dipotong, netto transfer ${b.dpNet.toLocaleString("id-ID")}. ` +
-          `Dicatat sebagai transfer rekening SSO ke rekening PT Athena Teknik Perkasa (BCA 5222258341). ` +
-          `Catatan: DP ini semula ditalangi pemegang saham karena limit rekening, dan telah diselesaikan — bukti menyusul. ` +
-          `Sisa kewajiban 70% = ${(b.total - b.dpGross).toLocaleString("id-ID")}.`,
       } as never,
     });
   }
