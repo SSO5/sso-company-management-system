@@ -47,11 +47,22 @@ export interface StorageDriver {
   saveAt(key: string, buffer: Buffer): Promise<void>;
 }
 
+// Video was added for a concrete operational reason: SSO's field evidence for
+// gearbox teardown and testing is shot on phones, and JPC has already been
+// sent that footage by email. If the app cannot hold it, the authoritative
+// copy of a project's evidence stays in WhatsApp — which is exactly the
+// scattering this system exists to end.
 const ALLOWED_EXTENSIONS = new Set([
   "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
-  "jpg", "jpeg", "png", "zip", "txt",
+  "jpg", "jpeg", "png", "webp", "zip", "txt",
+  "mp4", "mov", "webm",
 ]);
 
+// Note this is the STORAGE ceiling. Uploads made through the browser are
+// additionally capped by next.config.mjs's serverActions.bodySizeLimit (25MB),
+// because a Server Action carries the file in the request body. Bulk imports
+// run via prisma/import-documents.ts call the storage driver directly and
+// never touch HTTP, so they can use the full ceiling here.
 export const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB
 
 export function assertFileAllowed(originalName: string, mimeType: string, size: number) {
@@ -82,7 +93,8 @@ function guessContentType(fileName: string): string {
     doc: "application/msword", docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     xls: "application/vnd.ms-excel", xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     ppt: "application/vnd.ms-powerpoint", pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    zip: "application/zip", txt: "text/plain",
+    zip: "application/zip", txt: "text/plain", webp: "image/webp",
+    mp4: "video/mp4", mov: "video/quicktime", webm: "video/webm",
   };
   return (ext && map[ext]) || "application/octet-stream";
 }

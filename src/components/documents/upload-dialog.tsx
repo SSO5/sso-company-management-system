@@ -32,7 +32,7 @@ export function UploadDialog({ folderId }: { folderId: string }) {
         <form onSubmit={onSubmit} className="space-y-3">
           <div className="space-y-1">
             <Label htmlFor="file">File</Label>
-            <Input id="file" name="file" type="file" required accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.zip,.txt" />
+            <Input id="file" name="file" type="file" required accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.webp,.zip,.txt,.mp4,.mov,.webm" />
           </div>
           <div className="space-y-1">
             <Label htmlFor="description">Description (optional)</Label>

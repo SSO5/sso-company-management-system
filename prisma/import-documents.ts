@@ -83,14 +83,20 @@ function routeKeyFor(relPath: string): string | null {
 // .PDF-in-a-zip, stray .db files) is reported as skipped rather than failing
 // mid-run — a partial import that stops halfway is worse than a complete one
 // with a known, listed exclusion set.
-const ALLOWED = new Set(["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "jpg", "jpeg", "png", "zip", "txt"]);
+const ALLOWED = new Set([
+  "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
+  "jpg", "jpeg", "png", "webp", "zip", "txt",
+  "mp4", "mov", "webm",
+]);
 
 const MIME: Record<string, string> = {
   pdf: "application/pdf", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg",
+  webp: "image/webp",
   doc: "application/msword", docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   xls: "application/vnd.ms-excel", xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   ppt: "application/vnd.ms-powerpoint", pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   zip: "application/zip", txt: "text/plain",
+  mp4: "video/mp4", mov: "video/quicktime", webm: "video/webm",
 };
 
 async function walk(dir: string, base = dir): Promise<{ full: string; rel: string }[]> {
@@ -158,6 +164,10 @@ async function main() {
     }),
   ]);
 
+  // "0. ARSIP WHATSAPP PERUSAHAAN" is excluded deliberately: it holds the raw
+  // 567MB group-chat exports, which are company-wide rather than per-customer,
+  // exceed the 50MB ceiling anyway, and whose useful contents were already
+  // extracted into the per-job folders. FORMAT FOLDER is an empty template.
   const topLevel = (await fs.readdir(root, { withFileTypes: true }))
     .filter((d) => d.isDirectory() && !d.name.startsWith(".") && !/FORMAT FOLDER|ARSIP WHATSAPP/i.test(d.name))
     .filter((d) => !only || d.name.toLowerCase().includes(only.toLowerCase()));

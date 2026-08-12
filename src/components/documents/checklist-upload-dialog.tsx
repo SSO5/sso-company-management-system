@@ -151,7 +151,7 @@ export function ChecklistUploadDialog({
             ref={fileInput}
             type="file"
             className="hidden"
-            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.zip,.txt"
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.webp,.zip,.txt,.mp4,.mov,.webm"
             onChange={(e) => acceptFile(e.target.files?.[0] ?? null)}
           />
 
