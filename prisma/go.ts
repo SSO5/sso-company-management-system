@@ -37,6 +37,9 @@ interface Step {
   fatal: boolean;
 }
 
+console.log(`Folder PROSPEK: ${PROSPEK}`);
+console.log("(ubah dengan variabel lingkungan PROSPEK_PATH bila lokasinya berbeda)\n");
+
 const STEPS: Step[] = [
   {
     name: "login",

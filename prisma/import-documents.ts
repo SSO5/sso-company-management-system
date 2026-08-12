@@ -99,12 +99,29 @@ const MIME: Record<string, string> = {
   mp4: "video/mp4", mov: "video/quicktime", webm: "video/webm",
 };
 
+/**
+ * Directory detection uses fs.stat(), NOT Dirent.isDirectory().
+ *
+ * OneDrive Files On-Demand stores folders as reparse points. readdir returns
+ * a Dirent whose isDirectory() is false and isSymbolicLink() is true, so the
+ * obvious `entry.isDirectory()` check silently walks past every folder and
+ * reports "0 files found" against a directory tree that plainly has files in
+ * it. fs.stat() follows the reparse point and answers correctly.
+ */
+async function isDir(p: string): Promise<boolean> {
+  try {
+    return (await fs.stat(p)).isDirectory();
+  } catch {
+    return false; // cloud-only placeholder that failed to hydrate
+  }
+}
+
 async function walk(dir: string, base = dir): Promise<{ full: string; rel: string }[]> {
   const out: { full: string; rel: string }[] = [];
-  for (const entry of await fs.readdir(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name);
-    if (entry.name.startsWith(".") || /_STRUKTUR LAMA/i.test(entry.name)) continue;
-    if (entry.isDirectory()) out.push(...(await walk(full, base)));
+  for (const name of await fs.readdir(dir)) {
+    if (name.startsWith(".") || /_STRUKTUR LAMA/i.test(name)) continue;
+    const full = path.join(dir, name);
+    if (await isDir(full)) out.push(...(await walk(full, base)));
     else out.push({ full, rel: path.relative(base, full) });
   }
   return out;
@@ -168,9 +185,37 @@ async function main() {
   // 567MB group-chat exports, which are company-wide rather than per-customer,
   // exceed the 50MB ceiling anyway, and whose useful contents were already
   // extracted into the per-job folders. FORMAT FOLDER is an empty template.
-  const topLevel = (await fs.readdir(root, { withFileTypes: true }))
-    .filter((d) => d.isDirectory() && !d.name.startsWith(".") && !/FORMAT FOLDER|ARSIP WHATSAPP/i.test(d.name))
-    .filter((d) => !only || d.name.toLowerCase().includes(only.toLowerCase()));
+  console.log(`\nFolder sumber: ${root}`);
+  let rootEntries: string[];
+  try {
+    rootEntries = await fs.readdir(root);
+  } catch (e) {
+    console.error(`\nTidak bisa membaca folder tersebut: ${(e as Error).message}`);
+    console.error("Periksa path-nya, atau jalankan dengan --root=\"<path lengkap>\".\n");
+    process.exit(1);
+  }
+
+  const topLevel: { name: string }[] = [];
+  for (const name of rootEntries) {
+    if (name.startsWith(".") || !(await isDir(path.join(root, name)))) continue;
+    if (/FORMAT FOLDER|ARSIP WHATSAPP/i.test(name)) continue;
+    if (only && !name.toLowerCase().includes(only.toLowerCase())) continue;
+    topLevel.push({ name });
+  }
+
+  console.log(`Isi folder: ${rootEntries.length} entri, ${topLevel.length} folder pelanggan yang akan diproses.`);
+  if (topLevel.length === 0) {
+    // Reporting "0 files" without saying why is what made the first failed run
+    // look like an empty folder rather than a detection bug.
+    console.error(
+      "\nTidak ada folder pelanggan yang terbaca. Entri yang ditemukan di folder sumber:\n  " +
+        (rootEntries.join("\n  ") || "(kosong)") +
+        "\n\nJika nama-nama di atas terlihat benar, kemungkinan folder OneDrive masih berstatus " +
+        "cloud-only. Klik kanan folder PROSPEK 2026 di Explorer lalu pilih " +
+        "\"Always keep on this device\", tunggu sinkronisasi selesai, dan jalankan ulang.\n"
+    );
+    process.exit(1);
+  }
 
   interface PlanRow { file: string; rel: string; target: string; folderId: string; size: number }
   const plan: PlanRow[] = [];
