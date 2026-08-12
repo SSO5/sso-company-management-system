@@ -951,6 +951,13 @@ model ProgressReport {
   summary        String?
   overallPercent Int?
 
+  // SSO's real reports carry a theme per issue ("Identifikasi Bearing &
+  // Kebutuhan Spare Parts") and come in two shapes: PEMERIKSAAN lists parts,
+  // type, qty and stock; PROGRES shows before/after photos of work done. One
+  // ENG-REP series, two layouts — driven by the stage the job is in.
+  title      String?
+  reportKind String? @default("PROGRES") // "PEMERIKSAAN" | "PROGRES"
+
   preparedById String
   preparedBy   User   @relation("ProgressReportPreparedBy", fields: [preparedById], references: [id])
 

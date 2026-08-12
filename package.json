@@ -25,7 +25,8 @@
     "db:import-documents": "tsx prisma/import-documents.ts",
     "db:followups": "tsx prisma/operational-followups.ts",
     "db:fix-login": "tsx prisma/fix-login.ts",
-    "db:diagnose-import": "tsx prisma/diagnose-import.ts"
+    "db:diagnose-import": "tsx prisma/diagnose-import.ts",
+    "db:reconcile": "tsx prisma/reconcile-jpc.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
