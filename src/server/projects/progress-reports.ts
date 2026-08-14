@@ -6,6 +6,10 @@ import { requirePermission } from "@/lib/permissions";
 import { runAction, type ActionResult } from "@/lib/action-helpers";
 import { assertFileAllowed, getStorageDriver } from "@/lib/storage";
 import { progressReportSchema, progressReportItemSchema } from "@/lib/validation/project";
+import { generateNumber } from "@/lib/numbering";
+import { logActivity } from "@/lib/workflows/audit";
+import { isExtractableMimeType } from "@/lib/ai/client";
+import { extractProgressReport } from "@/lib/ai/extract-progress-report";
 import {
   createProgressReport,
   deleteProgressReport,
@@ -52,7 +56,12 @@ export async function getProgressReportDocuments(projectId: string) {
 
   const docs = await prisma.document.findMany({
     where: { folderId: folder.id, deletedAt: null },
-    include: { uploadedBy: { select: { name: true } } },
+    include: {
+      uploadedBy: { select: { name: true } },
+      // Already-generated checklist for this exact file, if any — lets the
+      // UI show it immediately instead of a per-file loading round trip.
+      progressReport: { include: { items: { orderBy: { sortOrder: "asc" } } } },
+    },
   });
 
   const DATE_PREFIX = /^(\d{4})-(\d{2})-(\d{2})\s*-\s*(.+)$/;
@@ -183,5 +192,87 @@ export async function deleteProgressReportItemAction(id: string, projectId: stri
     await deleteProgressReportItem(id, actor.userId);
     revalidatePath(`/projects/${projectId}`);
     return { id };
+  });
+}
+
+const FILE_NAME_DATE = /^(\d{4})-(\d{2})-(\d{2})\s*-\s*/;
+
+/**
+ * Reads a specific uploaded progress-report Document with Claude and turns
+ * it into a real, checkable ProgressReport + items — the checklist a reader
+ * can trust because it was generated FROM that exact file, not typed by
+ * hand from memory. Re-running this on a document that already has one
+ * replaces its items (e.g. after re-uploading a corrected scan) rather than
+ * creating a duplicate.
+ */
+export async function generateProgressReportFromDocument(
+  documentId: string,
+  projectId: string
+): Promise<ActionResult<{ progressReportId: string }>> {
+  return runAction(async () => {
+    const actor = await requireUserOrThrow();
+    requirePermission(actor.role, "project", "create");
+
+    const doc = await prisma.document.findUniqueOrThrow({ where: { id: documentId } });
+    if (!isExtractableMimeType(doc.mimeType)) {
+      throw new Error("Tipe file ini tidak didukung untuk ekstraksi otomatis (hanya PDF/gambar).");
+    }
+
+    const driver = getStorageDriver();
+    const buffer = await driver.read(doc.storagePath);
+    const extracted = await extractProgressReport(buffer, doc.mimeType, doc.originalName);
+
+    const nameMatch = doc.originalName.match(FILE_NAME_DATE);
+    const fallbackDate = nameMatch ? new Date(Number(nameMatch[1]), Number(nameMatch[2]) - 1, Number(nameMatch[3])) : doc.uploadedAt;
+    const inspectionDate = extracted.inspectionDate ? new Date(extracted.inspectionDate) : fallbackDate;
+
+    const existing = await prisma.progressReport.findUnique({ where: { sourceDocumentId: documentId } });
+
+    const report = await prisma.$transaction(async (tx) => {
+      let r;
+      if (existing) {
+        await tx.progressReportItem.deleteMany({ where: { progressReportId: existing.id } });
+        r = await tx.progressReport.update({
+          where: { id: existing.id },
+          data: {
+            inspectionDate, location: extracted.location, summary: extracted.summary,
+            overallPercent: extracted.overallPercent, aiGenerated: true,
+          },
+        });
+      } else {
+        const number = await generateNumber(tx, "PROGRESS_REPORT");
+        r = await tx.progressReport.create({
+          data: {
+            number, projectId, inspectionDate,
+            location: extracted.location, summary: extracted.summary, overallPercent: extracted.overallPercent,
+            preparedById: actor.userId, createdById: actor.userId,
+            sourceDocumentId: documentId, aiGenerated: true,
+          },
+        });
+      }
+      if (extracted.items.length > 0) {
+        await tx.progressReportItem.createMany({
+          data: extracted.items.map((it, i) => ({
+            progressReportId: r.id,
+            sectionName: it.sectionName,
+            partName: it.partName,
+            notes: it.notes,
+            isDone: it.isDone,
+            sortOrder: i,
+          })),
+        });
+      }
+      await logActivity(tx, {
+        userId: actor.userId,
+        action: existing ? "UPDATE" : "CREATE",
+        entityType: "PROGRESS_REPORT",
+        entityId: r.id,
+        description: `${existing ? "Membuat ulang" : "Membuat"} checklist AI dari "${doc.originalName}" (${extracted.items.length} item, confidence: ${extracted.confidence})`,
+      });
+      return r;
+    });
+
+    revalidatePath(`/projects/${projectId}`);
+    return { progressReportId: report.id };
   });
 }

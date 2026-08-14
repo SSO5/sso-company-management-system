@@ -977,6 +977,16 @@ model ProgressReport {
   preparedById String
   preparedBy   User   @relation("ProgressReportPreparedBy", fields: [preparedById], references: [id])
 
+  // Links this report to the real uploaded PDF/photo it was generated from
+  // (see extract-progress-report.ts + ProgressReportDocumentsPanel) — one
+  // report per source file, so the checklist can be shown as a dropdown
+  // right under that file in the timeline instead of a separate hand-typed
+  // record disconnected from the document. Null for any report created the
+  // old manual way, or if the source document is later deleted.
+  sourceDocumentId String?   @unique
+  sourceDocument   Document? @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
+  aiGenerated      Boolean   @default(false)
+
   createdById String
   createdBy   User      @relation("ProgressReportCreatedBy", fields: [createdById], references: [id])
   createdAt   DateTime  @default(now())
@@ -1220,6 +1230,10 @@ model Document {
   deletedAt   DateTime? // soft delete = Trash
   deletedById String?
   deletedBy   User?     @relation("DocumentDeletedBy", fields: [deletedById], references: [id])
+
+  // Back-relation for ProgressReport.sourceDocument (AI-generated checklist
+  // tied to this exact file, at most one per document).
+  progressReport ProgressReport?
 
   @@index([folderId])
   @@index([relatedEntityType, relatedEntityId])

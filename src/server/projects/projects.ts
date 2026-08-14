@@ -73,13 +73,21 @@ export async function getProjectDetail(id: string) {
     ? await prisma.folder.findFirst({ where: { opportunityId: project.opportunityId, parentId: null }, select: { id: true, name: true } })
     : null;
 
+  // Where an AI-assisted PO upload lands (see PoExtractUploadDialog) —
+  // fetched separately rather than added to the `folders` include above,
+  // since that one is scoped to just the root folder for a different purpose.
+  const purchaseOrderFolder = await prisma.folder.findFirst({
+    where: { projectId: id, routeKey: "SALES/PO" },
+    select: { id: true },
+  });
+
   const sCurve = computeSCurve({
     milestones: project.milestones.map((m) => ({ dueDate: m.dueDate, weightPercent: Number(m.weightPercent), completedAt: m.completedAt })),
     invoices: project.invoices.map((i) => ({ invoiceDate: i.invoiceDate, grandTotal: Number(i.grandTotal), dpPercent: i.dpPercent ? Number(i.dpPercent) : null, status: i.status })),
     contractValue: Number(project.contractValue),
   });
 
-  return { project, profitability, closing, opportunityFolder, sCurve };
+  return { project, profitability, closing, opportunityFolder, purchaseOrderFolderId: purchaseOrderFolder?.id ?? null, sCurve };
 }
 
 export async function updateProject(id: string, input: unknown): Promise<ActionResult<{ id: string }>> {

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate, formatRevisedNumber } from "@/lib/utils";
 import { invoiceDueAmount } from "@/lib/workflows/calculations";
+import { PoExtractUploadDialog } from "@/components/projects/po-extract-upload-dialog";
 import { FileDown, FileText } from "lucide-react";
 
 interface Quotation { id: string; number: string; revision: number; grandTotal: unknown }
@@ -12,6 +13,9 @@ interface VendorPO { id: string; number: string; vendorName: string; poDate: Dat
 interface InvoiceRow { id: string; number: string; invoiceDate: Date; grandTotal: unknown; dpPercent: unknown; paidAmount: unknown; status: string }
 
 interface Props {
+  projectId: string;
+  customerId: string;
+  purchaseOrderFolderId: string | null;
   opportunity: Opportunity | null;
   quotation: Quotation | null;
   purchaseOrders: CustomerPO[];
@@ -29,12 +33,15 @@ const INVOICE_VARIANT: Record<string, "default" | "secondary" | "success" | "war
   DRAFT: "secondary", ISSUED: "outline", PARTIALLY_PAID: "warning", PAID: "success", OVERDUE: "destructive", CANCELLED: "destructive",
 };
 
-function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+function Section({ title, hint, action, children }: { title: string; hint?: string; action?: ReactNode; children: ReactNode }) {
   return (
     <div className="rounded-lg border border-border bg-card p-4">
-      <div className="mb-3 flex items-baseline justify-between">
-        <h3 className="text-sm font-semibold">{title}</h3>
-        {hint && <span className="text-[11px] text-muted-foreground">{hint}</span>}
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="flex items-baseline gap-2">
+          <h3 className="text-sm font-semibold">{title}</h3>
+          {hint && <span className="text-[11px] text-muted-foreground">{hint}</span>}
+        </div>
+        {action}
       </div>
       {children}
     </div>
@@ -49,7 +56,9 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
  * Nothing here is text-matched; every link below follows a real foreign key
  * (projectId on both PurchaseOrder and VendorPurchaseOrder).
  */
-export function DocumentsPanel({ opportunity, quotation, purchaseOrders, vendorPurchaseOrders, invoices }: Props) {
+export function DocumentsPanel({
+  projectId, customerId, purchaseOrderFolderId, opportunity, quotation, purchaseOrders, vendorPurchaseOrders, invoices,
+}: Props) {
   return (
     <div className="space-y-4">
       <Section title="Sales Origin" hint="Where this project came from">
@@ -72,7 +81,11 @@ export function DocumentsPanel({ opportunity, quotation, purchaseOrders, vendorP
         )}
       </Section>
 
-      <Section title="Customer Purchase Order" hint="What the customer sent SSO to confirm this job">
+      <Section
+        title="Customer Purchase Order"
+        hint="What the customer sent SSO to confirm this job"
+        action={purchaseOrderFolderId && <PoExtractUploadDialog folderId={purchaseOrderFolderId} projectId={projectId} customerId={customerId} />}
+      >
         {purchaseOrders.length === 0 ? (
           <p className="text-sm text-muted-foreground">No customer PO recorded for this project yet.</p>
         ) : (

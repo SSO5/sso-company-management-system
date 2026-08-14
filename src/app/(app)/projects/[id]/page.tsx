@@ -16,7 +16,7 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "success" | "warn
 };
 
 export default async function ProjectDetailPage({ params }: { params: { id: string } }) {
-  const [{ project, profitability, closing, opportunityFolder, sCurve }, actor, assignees, checklist, progressReportDocs] = await Promise.all([
+  const [{ project, profitability, closing, opportunityFolder, purchaseOrderFolderId, sCurve }, actor, assignees, checklist, progressReportDocs] = await Promise.all([
     getProjectDetail(params.id),
     requireUser(),
     listUsersForPicker(),
@@ -54,6 +54,8 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
 
       <ProjectDetailTabs
         projectId={project.id}
+        customerId={project.customerId}
+        purchaseOrderFolderId={purchaseOrderFolderId}
         status={project.status}
         canManage={canManage}
         role={actor.role}

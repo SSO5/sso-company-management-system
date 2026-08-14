@@ -15,6 +15,8 @@ import type { SCurvePoint } from "@/lib/workflows/calculations";
 
 interface Props {
   projectId: string;
+  customerId: string;
+  purchaseOrderFolderId: string | null;
   status: string;
   canManage: boolean;
   role: UserRole;
@@ -41,6 +43,10 @@ interface Props {
   progressReportDocuments: {
     id: string; originalName: string; displayName: string; fileSize: number;
     reportDate: Date; dateFromFileName: boolean; uploadedBy: { name: string };
+    progressReport: {
+      id: string; summary: string | null; overallPercent: number | null; aiGenerated: boolean;
+      items: { id: string; sectionName: string | null; partName: string; notes: string | null; isDone: boolean }[];
+    } | null;
   }[];
 }
 
@@ -87,6 +93,9 @@ export function ProjectDetailTabs(props: Props) {
 
       {active === "documents" && (
         <DocumentsPanel
+          projectId={props.projectId}
+          customerId={props.customerId}
+          purchaseOrderFolderId={props.purchaseOrderFolderId}
           opportunity={props.opportunity}
           quotation={props.quotation}
           purchaseOrders={props.purchaseOrders}
@@ -98,7 +107,11 @@ export function ProjectDetailTabs(props: Props) {
       {active === "milestones" && <MilestonePanel projectId={props.projectId} milestones={props.milestones} />}
       {active === "scurve" && <SCurvePanel points={props.sCurve.points} totalWeight={props.sCurve.totalWeight} asOfToday={props.sCurve.asOfToday} />}
       {active === "progress" && (
-        <ProgressReportDocumentsPanel folderId={props.progressReportFolderId} documents={props.progressReportDocuments} />
+        <ProgressReportDocumentsPanel
+          projectId={props.projectId}
+          folderId={props.progressReportFolderId}
+          documents={props.progressReportDocuments}
+        />
       )}
       {active === "costs" && <ExpensePanel projectId={props.projectId} expenses={props.expenses} role={props.role} />}
       {active === "closing" && (
