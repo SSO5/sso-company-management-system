@@ -101,7 +101,9 @@ export const purchaseOrderSchema = z.object({
   customerId: z.string().min(1),
   quotationId: z.string().optional().nullable(),
   projectId: z.string().optional().nullable(),
-  customerPO: z.string().optional().nullable(),
+  // The customer's own PO reference, exactly as printed on their document
+  // (e.g. "EPC-L/2026-0450") — not auto-generated, see schema.prisma.
+  number: z.string().min(1, "Nomor PO dari customer wajib diisi."),
   poDate: z.coerce.date(),
   poValue: z.coerce.number().positive(),
   startDate: z.coerce.date().optional().nullable(),

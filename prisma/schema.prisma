@@ -636,7 +636,13 @@ model CostingLineItem {
 
 model PurchaseOrder {
   id         String              @id @default(cuid())
-  number     String              @unique // PO-2026-0001
+  // The customer's OWN PO reference, typed in as-is (e.g. "EPC-L/2026-0450",
+  // "2026/BPN-L-0505") — this is an inbound document SSO did not issue, so
+  // unlike Quotation/Invoice/VendorPurchaseOrder (which SSO creates and
+  // therefore numbers itself via generateNumber()), there is no SSO sequence
+  // to invent here. Uniqueness is scoped per customer, not global, since two
+  // unrelated customers' own numbering schemes could coincidentally collide.
+  number     String
   customerId String
   customer   Customer            @relation(fields: [customerId], references: [id])
   quotationId String?
@@ -650,13 +656,6 @@ model PurchaseOrder {
   endDate   DateTime?
   status    PurchaseOrderStatus @default(PENDING)
 
-  // The reference number printed ON the customer's own PO document (e.g.
-  // "EPC-L/2026-0450") — what the customer, and every email/PO copy
-  // requirement on their side, actually calls this order. `number` above is
-  // SSO's own internal sequential tracking number and means nothing to the
-  // customer. Same split as Invoice.customerPO/number.
-  customerPO String?
-
   createdById String
   createdBy   User     @relation("POCreatedBy", fields: [createdById], references: [id])
   createdAt   DateTime @default(now())
@@ -665,6 +664,7 @@ model PurchaseOrder {
 
   contracts Contract[]
 
+  @@unique([customerId, number])
   @@index([status])
   @@index([customerId])
   @@index([projectId])

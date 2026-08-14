@@ -52,8 +52,8 @@ export function PurchaseOrderFormDialog({
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>Customer PO Number</Label>
-              <Input name="customerPO" placeholder="EPC-L/2026-0450" />
+              <Label>PO Number (dari customer)</Label>
+              <Input name="number" required placeholder="EPC-L/2026-0450" />
             </div>
             <div className="space-y-1">
               <Label>PO Date</Label>

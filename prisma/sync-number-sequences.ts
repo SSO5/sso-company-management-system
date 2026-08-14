@@ -39,7 +39,9 @@ const SOURCES: { entityType: NumberEntityType; label: string; fetch: () => Promi
   { entityType: "LEAD", label: "Lead", fetch: () => prisma.lead.findMany({ select: { number: true } }) },
   { entityType: "OPPORTUNITY", label: "Opportunity", fetch: () => prisma.opportunity.findMany({ select: { number: true } }) },
   { entityType: "QUOTATION", label: "Quotation", fetch: () => prisma.quotation.findMany({ select: { number: true } }) },
-  { entityType: "PURCHASE_ORDER", label: "Purchase Order (customer)", fetch: () => prisma.purchaseOrder.findMany({ select: { number: true } }) },
+  // PURCHASE_ORDER (customer) intentionally excluded: `number` is now the
+  // customer's own PO reference, typed in as-is — not an SSO sequence, so
+  // there is nothing here for this script to re-sync.
   { entityType: "CONTRACT", label: "Contract", fetch: () => prisma.contract.findMany({ select: { number: true } }) },
   { entityType: "PROJECT", label: "Project", fetch: () => prisma.project.findMany({ select: { number: true } }) },
   { entityType: "INVOICE", label: "Invoice", fetch: () => prisma.invoice.findMany({ select: { number: true } }) },

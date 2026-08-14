@@ -24,17 +24,18 @@
  *       npx tsx prisma/backfill-customer-po.ts --apply
  */
 import { PrismaClient, Prisma } from "@prisma/client";
-import { generateNumber } from "../src/lib/numbering";
 
 const prisma = new PrismaClient();
 const APPLY = process.argv.includes("--apply");
 const D = (n: number) => new Prisma.Decimal(n);
 
-type Spec = { job: "JKT" | "BPN"; customerPO: string; poDate: string; poValue: number; label: string };
+// `number` IS the customer's own PO reference (see schema.prisma — no SSO
+// sequence is invented for a document SSO did not issue).
+type Spec = { job: "JKT" | "BPN"; number: string; poDate: string; poValue: number; label: string };
 const SPECS: Spec[] = [
-  { job: "JKT", customerPO: "EPC-L/2026-0450", poDate: "2026-07-28", poValue: 355_200_000, label: "Overhoul 3x Gearbox Dodge Magnagear + Motor Brake" },
-  { job: "BPN", customerPO: "2026/BPN-L-0505", poDate: "2026-07-20", poValue: 12_765_000, label: "Motor 45 kW 60 HP" },
-  { job: "BPN", customerPO: "2026/BPN-L-0506", poDate: "2026-07-20", poValue: 36_075_000, label: "Motor 55 kW 75 HP" },
+  { job: "JKT", number: "EPC-L/2026-0450", poDate: "2026-07-28", poValue: 355_200_000, label: "Overhoul 3x Gearbox Dodge Magnagear + Motor Brake" },
+  { job: "BPN", number: "2026/BPN-L-0505", poDate: "2026-07-20", poValue: 12_765_000, label: "Motor 45 kW 60 HP" },
+  { job: "BPN", number: "2026/BPN-L-0506", poDate: "2026-07-20", poValue: 36_075_000, label: "Motor 55 kW 75 HP" },
 ];
 
 async function warmUp(attempts = 4) {
@@ -67,36 +68,29 @@ async function main() {
   const admin = await prisma.user.findFirst({ where: { role: "ADMIN", isActive: true }, orderBy: { createdAt: "asc" } });
   if (!admin) { console.error("Tidak ada ADMIN aktif."); process.exit(1); }
 
-  const existing = await prisma.purchaseOrder.findMany({
-    where: { deletedAt: null, customerPO: { in: SPECS.map((s) => s.customerPO) } },
-    select: { customerPO: true },
-  });
-  const already = new Set(existing.map((e) => e.customerPO));
-
   for (const s of SPECS) {
     const p = proj(s.job);
-    if (already.has(s.customerPO)) {
-      console.log(`  SKIP ${s.customerPO}: sudah ada.`);
+    const dup = await prisma.purchaseOrder.findFirst({
+      where: { customerId: p.customerId, number: s.number, deletedAt: null },
+    });
+    if (dup) {
+      console.log(`  SKIP ${s.number}: sudah ada.`);
       continue;
     }
-    console.log(`  [${s.job}] CREATE  ${s.customerPO}  ${s.poDate}  Rp ${s.poValue.toLocaleString("id-ID")}  (${s.label})`);
+    console.log(`  [${s.job}] CREATE  ${s.number}  ${s.poDate}  Rp ${s.poValue.toLocaleString("id-ID")}  (${s.label})`);
     if (!APPLY) continue;
 
-    await prisma.$transaction(async (tx) => {
-      const number = await generateNumber(tx, "PURCHASE_ORDER");
-      await tx.purchaseOrder.create({
-        data: {
-          number,
-          customerPO: s.customerPO,
-          customerId: p.customerId,
-          projectId: p.id,
-          quotationId: p.quotationId ?? null,
-          poDate: new Date(s.poDate),
-          poValue: D(s.poValue),
-          status: "VERIFIED",
-          createdById: admin.id,
-        },
-      });
+    await prisma.purchaseOrder.create({
+      data: {
+        number: s.number,
+        customerId: p.customerId,
+        projectId: p.id,
+        quotationId: p.quotationId ?? null,
+        poDate: new Date(s.poDate),
+        poValue: D(s.poValue),
+        status: "VERIFIED",
+        createdById: admin.id,
+      },
     });
   }
 

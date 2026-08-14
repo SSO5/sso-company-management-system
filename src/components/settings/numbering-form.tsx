@@ -16,7 +16,6 @@ const FIELDS: { key: keyof CompanySettings; label: string; example: string }[] =
   { key: "leadPrefix", label: "Lead", example: "001/LED/MKT/VII/2026" },
   { key: "opportunityPrefix", label: "Opportunity", example: "001/OPP/MKT/VII/2026" },
   { key: "quotationPrefix", label: "Quotation", example: "004/QUO/MKT/VII/2026" },
-  { key: "poPrefix", label: "Purchase Order", example: "001/PO/MKT/VII/2026" },
   { key: "contractPrefix", label: "Contract", example: "001/CTR/MKT/VII/2026" },
   { key: "projectPrefix", label: "Project", example: "001/PRJ/OPS/VII/2026" },
   { key: "invoicePrefix", label: "Invoice", example: "001/INV/FIN/VII/2026" },

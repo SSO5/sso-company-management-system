@@ -24,9 +24,16 @@ export async function createPurchaseOrder(input: unknown): Promise<ActionResult<
     requirePermission(actor.role, "sales", "create");
     const data = purchaseOrderSchema.parse(input);
 
+    // number is the customer's own PO reference (not auto-generated — see
+    // schema.prisma), so the only real duplicate risk is re-entering the
+    // same PO for the same customer twice.
+    const dup = await prisma.purchaseOrder.findFirst({
+      where: { customerId: data.customerId, number: data.number, deletedAt: null },
+    });
+    if (dup) throw new Error(`PO "${data.number}" untuk customer ini sudah tercatat.`);
+
     const po = await prisma.$transaction(async (tx) => {
-      const number = await generateNumber(tx, "PURCHASE_ORDER");
-      const created = await tx.purchaseOrder.create({ data: { ...data, number, createdById: actor.userId } });
+      const created = await tx.purchaseOrder.create({ data: { ...data, createdById: actor.userId } });
       await logActivity(tx, {
         userId: actor.userId, action: "CREATE", entityType: "PURCHASE_ORDER", entityId: created.id,
         description: `Created PO ${created.number}`,
