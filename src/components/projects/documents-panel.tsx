@@ -7,7 +7,7 @@ import { FileDown, FileText } from "lucide-react";
 
 interface Quotation { id: string; number: string; revision: number; grandTotal: unknown }
 interface Opportunity { id: string; number: string }
-interface CustomerPO { id: string; number: string; poDate: Date; poValue: unknown; status: string }
+interface CustomerPO { id: string; number: string; customerPO: string | null; poDate: Date; poValue: unknown; status: string }
 interface VendorPO { id: string; number: string; vendorName: string; poDate: Date; grandTotal: unknown; status: string }
 interface InvoiceRow { id: string; number: string; invoiceDate: Date; grandTotal: unknown; dpPercent: unknown; paidAmount: unknown; status: string }
 
@@ -80,8 +80,8 @@ export function DocumentsPanel({ opportunity, quotation, purchaseOrders, vendorP
             {purchaseOrders.map((po) => (
               <div key={po.id} className="flex items-center justify-between rounded-md border border-border p-3 text-sm">
                 <div>
-                  <p className="font-mono text-xs">{po.number}</p>
-                  <p className="text-xs text-muted-foreground">{formatDate(po.poDate)}</p>
+                  <p className="font-medium">{po.customerPO || <span className="text-muted-foreground">(nomor PO customer belum diisi)</span>}</p>
+                  <p className="font-mono text-[11px] text-muted-foreground">{po.number} · {formatDate(po.poDate)}</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="font-medium">{formatCurrency(Number(po.poValue))}</span>

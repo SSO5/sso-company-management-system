@@ -101,6 +101,7 @@ export const purchaseOrderSchema = z.object({
   customerId: z.string().min(1),
   quotationId: z.string().optional().nullable(),
   projectId: z.string().optional().nullable(),
+  customerPO: z.string().optional().nullable(),
   poDate: z.coerce.date(),
   poValue: z.coerce.number().positive(),
   startDate: z.coerce.date().optional().nullable(),

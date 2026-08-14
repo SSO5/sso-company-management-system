@@ -650,6 +650,13 @@ model PurchaseOrder {
   endDate   DateTime?
   status    PurchaseOrderStatus @default(PENDING)
 
+  // The reference number printed ON the customer's own PO document (e.g.
+  // "EPC-L/2026-0450") — what the customer, and every email/PO copy
+  // requirement on their side, actually calls this order. `number` above is
+  // SSO's own internal sequential tracking number and means nothing to the
+  // customer. Same split as Invoice.customerPO/number.
+  customerPO String?
+
   createdById String
   createdBy   User     @relation("POCreatedBy", fields: [createdById], references: [id])
   createdAt   DateTime @default(now())
