@@ -2,6 +2,7 @@
 import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/current-user";
 import { refreshOverdueInvoices } from "@/lib/workflows/finance";
+import { invoiceDueAmount } from "@/lib/workflows/calculations";
 
 /** Powers both the home dashboard KPI cards and the alert widgets (sections 29 & 36). */
 export async function getDashboardData() {
@@ -11,13 +12,16 @@ export async function getDashboardData() {
   const in30Days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
   const [
-    revenueAgg, receivablesAgg, activeProjects, atRiskProjects, completedProjects,
+    revenueInvoices, receivableInvoices, activeProjects, atRiskProjects, completedProjects,
     overdueInvoices, quotationsAwaitingApproval, expiringContracts, projectsClosingIncomplete,
   ] = await Promise.all([
-    prisma.invoice.aggregate({ where: { deletedAt: null, status: { not: "CANCELLED" } }, _sum: { grandTotal: true } }),
-    prisma.invoice.aggregate({
+    // Fetched (not aggregated) because "revenue" for a staged DP invoice is
+    // grandTotal * dpPercent/100, not grandTotal — a per-row calculation
+    // Prisma's _sum can't express. See invoiceDueAmount().
+    prisma.invoice.findMany({ where: { deletedAt: null, status: { not: "CANCELLED" } }, select: { grandTotal: true, dpPercent: true } }),
+    prisma.invoice.findMany({
       where: { deletedAt: null, status: { in: ["ISSUED", "PARTIALLY_PAID", "OVERDUE"] } },
-      _sum: { grandTotal: true, paidAmount: true },
+      select: { grandTotal: true, dpPercent: true, paidAmount: true },
     }),
     prisma.project.count({ where: { deletedAt: null, status: "ACTIVE" } }),
     prisma.project.count({ where: { deletedAt: null, status: "AT_RISK" } }),
@@ -44,9 +48,9 @@ export async function getDashboardData() {
     }),
   ]);
 
-  const totalRevenue = Number(revenueAgg._sum.grandTotal ?? 0);
-  const totalReceivableInvoiced = Number(receivablesAgg._sum.grandTotal ?? 0);
-  const totalReceivablePaid = Number(receivablesAgg._sum.paidAmount ?? 0);
+  const totalRevenue = revenueInvoices.reduce((s, i) => s + invoiceDueAmount(i), 0);
+  const totalReceivableInvoiced = receivableInvoices.reduce((s, i) => s + invoiceDueAmount(i), 0);
+  const totalReceivablePaid = receivableInvoices.reduce((s, i) => s + Number(i.paidAmount), 0);
   const outstandingReceivables = totalReceivableInvoiced - totalReceivablePaid;
 
   const expenseAgg = await prisma.projectExpense.aggregate({ where: { deletedAt: null }, _sum: { total: true } });

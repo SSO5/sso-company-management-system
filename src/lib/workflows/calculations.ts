@@ -62,6 +62,44 @@ export function round2(n: number): number {
 }
 
 /**
+ * The amount actually billed on a given Invoice DOCUMENT — not the job's
+ * full contract value.
+ *
+ * Invoice.grandTotal always stores the FULL (100%, VAT-inclusive) contract
+ * value, even for a staged/DP invoice; Invoice.dpPercent is what the real
+ * invoice PDF prints as "TOTAL AMOUNT DUE (DP 20% inc. VAT)" — a percentage
+ * of grandTotal, not a separate figure. Every place that needs "how much
+ * does this invoice actually ask for" (outstanding balance, revenue
+ * recognized, AR aging, dashboard KPIs, the S-Curve billed line) must go
+ * through this helper instead of reading grandTotal directly — otherwise a
+ * 20% DP invoice is silently treated as if it billed 100% of the job, which
+ * is exactly the bug that made a fully-paid DP invoice look like it still
+ * had six-figure balance still owing.
+ *
+ * dpPercent null/0 = this invoice bills the full grandTotal (the normal,
+ * non-staged case), so this is a no-op there.
+ */
+// Accepts Prisma's Decimal alongside plain number/string since every caller
+// pulls these straight off an Invoice row — `unknown` here (rather than
+// importing the Prisma.Decimal type into this deliberately Prisma-free,
+// client-safe file) keeps this module free of a server-only dependency.
+type Numeric = number | string | { toString(): string };
+function n(v: Numeric | null | undefined): number {
+  return v == null ? 0 : Number(v);
+}
+
+export function invoiceDueAmount(inv: { grandTotal: Numeric; dpPercent?: Numeric | null }): number {
+  const grandTotal = n(inv.grandTotal);
+  const dpPercent = n(inv.dpPercent);
+  return dpPercent > 0 ? round2(grandTotal * (dpPercent / 100)) : grandTotal;
+}
+
+/** Outstanding balance on this specific invoice document — due amount minus what's actually been paid against it. */
+export function invoiceOutstanding(inv: { grandTotal: Numeric; dpPercent?: Numeric | null; paidAmount: Numeric }): number {
+  return round2(invoiceDueAmount(inv) - n(inv.paidAmount));
+}
+
+/**
  * Vendor/procurement PO math (spec: matches a real issued PO exactly —
  * "001/PO/PRO/VII/2026"): each line is simply qty * unitPrice (no per-line
  * discount/tax, unlike Quotation items). Sub Total - Discount = Netto, then
@@ -209,7 +247,7 @@ export interface SCurvePoint {
 }
 export interface SCurveInput {
   milestones: { dueDate: Date | null; weightPercent: number; completedAt: Date | null }[];
-  invoices: { invoiceDate: Date; grandTotal: number; status: string }[];
+  invoices: { invoiceDate: Date; grandTotal: number; dpPercent?: number | null; status: string }[];
   contractValue: number;
 }
 const SCURVE_BILLABLE_STATUSES = ["ISSUED", "PARTIALLY_PAID", "PAID", "OVERDUE"];
@@ -232,9 +270,12 @@ export function computeSCurve({ milestones, invoices, contractValue }: SCurveInp
     .map((m) => ({ date: m.completedAt as Date, weight: Number(m.weightPercent) }))
     .sort(byDateAsc);
 
+  // A 20% DP invoice must only move this line 20% of the way, not 100% —
+  // see invoiceDueAmount(). Using raw grandTotal here made the "Penagihan"
+  // curve jump to 100% the moment the first DP invoice was issued.
   const billedEvents: Event[] = invoices
     .filter((i) => SCURVE_BILLABLE_STATUSES.includes(i.status))
-    .map((i) => ({ date: i.invoiceDate, weight: contractValue > 0 ? (Number(i.grandTotal) / contractValue) * 100 : 0 }))
+    .map((i) => ({ date: i.invoiceDate, weight: contractValue > 0 ? (invoiceDueAmount(i) / contractValue) * 100 : 0 }))
     .sort(byDateAsc);
 
   const totalWeight = round2(milestones.reduce((s, m) => s + Number(m.weightPercent), 0));

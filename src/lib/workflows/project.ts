@@ -4,7 +4,7 @@ import { generateNumber } from "@/lib/numbering";
 import { logActivity } from "@/lib/workflows/audit";
 import { notifyRole } from "@/lib/workflows/notify";
 import { createProjectFolders, mergeOpportunityFoldersIntoProject } from "@/lib/workflows/folders";
-import { calcProfitability } from "@/lib/workflows/calculations";
+import { calcProfitability, invoiceDueAmount } from "@/lib/workflows/calculations";
 import type { SessionPayload } from "@/lib/auth/session";
 import { requireProjectCloser } from "@/lib/permissions";
 
@@ -152,15 +152,18 @@ export async function calculateProjectProfitability(projectId: string) {
     where: { projectId, deletedAt: null },
     _sum: { total: true },
   });
-  const invoiceAgg = await prisma.invoice.aggregate({
+  // Fetched (not aggregated) because a staged/DP invoice's actually-billed
+  // amount is grandTotal * dpPercent/100, a per-row calc _sum can't do. See
+  // invoiceDueAmount().
+  const projectInvoices = await prisma.invoice.findMany({
     where: { projectId, deletedAt: null, status: { not: "CANCELLED" } },
-    _sum: { grandTotal: true, paidAmount: true },
+    select: { grandTotal: true, dpPercent: true, paidAmount: true },
   });
 
   const revenue = Number(project.contractValue);
   const actualCost = Number(expenseAgg._sum.total ?? 0);
-  const totalInvoiced = Number(invoiceAgg._sum.grandTotal ?? 0);
-  const totalPaid = Number(invoiceAgg._sum.paidAmount ?? 0);
+  const totalInvoiced = projectInvoices.reduce((s, i) => s + invoiceDueAmount(i), 0);
+  const totalPaid = projectInvoices.reduce((s, i) => s + Number(i.paidAmount), 0);
   const { grossProfit, grossMargin } = calcProfitability({ revenue, cost: actualCost });
 
   return {
@@ -208,7 +211,7 @@ export async function validateProjectClosing(projectId: string) {
     prisma.projectExpense.count({ where: { projectId, deletedAt: null } }),
   ]);
 
-  const totalInvoiced = invoices.reduce((s, i) => s + Number(i.grandTotal), 0);
+  const totalInvoiced = invoices.reduce((s, i) => s + invoiceDueAmount(i), 0);
   const totalPaid = invoices.reduce((s, i) => s + Number(i.paidAmount), 0);
 
   const results: Record<string, boolean> = {

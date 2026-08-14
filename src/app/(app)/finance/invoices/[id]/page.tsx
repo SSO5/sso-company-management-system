@@ -6,11 +6,13 @@ import { RecordPaymentDialog } from "@/components/finance/record-payment-dialog"
 import { InvoiceActions } from "@/components/finance/invoice-actions";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { invoiceDueAmount, invoiceOutstanding } from "@/lib/workflows/calculations";
 import { FileDown } from "lucide-react";
 
 export default async function InvoiceDetailPage({ params }: { params: { id: string } }) {
   const [inv, actor] = await Promise.all([getInvoice(params.id), requireUser()]);
-  const outstanding = Number(inv.grandTotal) - Number(inv.paidAmount);
+  const dueAmount = invoiceDueAmount(inv);
+  const outstanding = invoiceOutstanding(inv);
   const canRecordPayment = ["ISSUED", "PARTIALLY_PAID", "OVERDUE"].includes(inv.status);
   let lastGroup: string | null = null;
 
@@ -52,10 +54,17 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
           {inv.salesPic && <div className="flex justify-between"><span className="text-muted-foreground">Sales PIC</span><span>{inv.salesPic.name}</span></div>}
         </CardContent></Card>
         <Card><CardHeader><CardTitle>Totals</CardTitle></CardHeader><CardContent className="space-y-1 text-sm">
-          <div className="flex justify-between"><span className="text-muted-foreground">Grand Total</span><span>{formatCurrency(Number(inv.grandTotal))}</span></div>
-          {inv.dpPercent != null && <div className="flex justify-between"><span className="text-muted-foreground">DP %</span><span>{Number(inv.dpPercent)}%</span></div>}
+          {inv.dpPercent != null && Number(inv.dpPercent) > 0 ? (
+            <>
+              <div className="flex justify-between"><span className="text-muted-foreground">Nilai Kontrak Penuh</span><span>{formatCurrency(Number(inv.grandTotal))}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">DP %</span><span>{Number(inv.dpPercent)}%</span></div>
+              <div className="flex justify-between font-medium"><span>Tagihan Invoice Ini</span><span>{formatCurrency(dueAmount)}</span></div>
+            </>
+          ) : (
+            <div className="flex justify-between"><span className="text-muted-foreground">Grand Total</span><span>{formatCurrency(dueAmount)}</span></div>
+          )}
           <div className="flex justify-between"><span className="text-muted-foreground">Paid</span><span>{formatCurrency(Number(inv.paidAmount))}</span></div>
-          <div className="flex justify-between font-semibold"><span>Outstanding</span><span>{formatCurrency(outstanding)}</span></div>
+          <div className="flex justify-between font-semibold"><span>Outstanding (tagihan ini)</span><span>{formatCurrency(outstanding)}</span></div>
         </CardContent></Card>
         <Card><CardHeader><CardTitle>Payments</CardTitle></CardHeader><CardContent className="space-y-1 text-sm">
           {inv.payments.length === 0 && <p className="text-muted-foreground">No payments yet.</p>}

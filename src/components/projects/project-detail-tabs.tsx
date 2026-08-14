@@ -36,7 +36,7 @@ interface Props {
   quotation: { id: string; number: string; revision: number; grandTotal: unknown } | null;
   purchaseOrders: { id: string; number: string; poDate: Date; poValue: unknown; status: string }[];
   vendorPurchaseOrders: { id: string; number: string; vendorName: string; poDate: Date; grandTotal: unknown; status: string }[];
-  invoices: { id: string; number: string; invoiceDate: Date; grandTotal: unknown; paidAmount: unknown; status: string }[];
+  invoices: { id: string; number: string; invoiceDate: Date; grandTotal: unknown; dpPercent: unknown; paidAmount: unknown; status: string }[];
   progressReports: {
     id: string; number: string; inspectionDate: Date; location: string | null;
     preparedBy: { name: string };

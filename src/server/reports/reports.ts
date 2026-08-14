@@ -2,6 +2,7 @@
 import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/current-user";
 import { requirePermission } from "@/lib/permissions";
+import { invoiceDueAmount } from "@/lib/workflows/calculations";
 
 function monthKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -61,10 +62,14 @@ export async function getFinanceReport() {
     prisma.projectExpense.findMany({ where: { deletedAt: null } }),
   ]);
 
-  const revenue = invoices.filter((i) => i.status !== "CANCELLED").reduce((s, i) => s + Number(i.grandTotal), 0);
+  // "Revenue" here means what was actually invoiced/billed — for a staged
+  // DP invoice that's grandTotal * dpPercent/100, not the job's full
+  // contract value. See invoiceDueAmount(); using raw grandTotal made a 20%
+  // DP invoice count as if 100% of the job had been billed.
+  const revenue = invoices.filter((i) => i.status !== "CANCELLED").reduce((s, i) => s + invoiceDueAmount(i), 0);
   const paid = invoices.reduce((s, i) => s + Number(i.paidAmount), 0);
   const outstanding = revenue - paid;
-  const overdue = invoices.filter((i) => i.status === "OVERDUE").reduce((s, i) => s + (Number(i.grandTotal) - Number(i.paidAmount)), 0);
+  const overdue = invoices.filter((i) => i.status === "OVERDUE").reduce((s, i) => s + (invoiceDueAmount(i) - Number(i.paidAmount)), 0);
   const totalExpenses = expenses.reduce((s, e) => s + Number(e.total), 0);
   const grossProfit = revenue - totalExpenses;
 
@@ -72,7 +77,7 @@ export async function getFinanceReport() {
   for (const i of invoices) {
     const key = monthKey(new Date(i.invoiceDate));
     const row = byMonth.get(key) ?? { revenue: 0, expense: 0 };
-    row.revenue += Number(i.grandTotal);
+    row.revenue += invoiceDueAmount(i);
     byMonth.set(key, row);
   }
   for (const e of expenses) {

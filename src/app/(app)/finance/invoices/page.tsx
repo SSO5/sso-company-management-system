@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { invoiceDueAmount } from "@/lib/workflows/calculations";
 import { Plus } from "lucide-react";
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "success" | "warning" | "destructive" | "outline"> = {
@@ -22,15 +23,20 @@ export default async function InvoicesPage() {
       </div>
       {invoices.length === 0 ? <EmptyState title="No invoices yet" /> : (
         <Table>
-          <TableHeader><TableRow><TableHead>Number</TableHead><TableHead>Customer</TableHead><TableHead>Project</TableHead><TableHead>Due Date</TableHead><TableHead>Grand Total</TableHead><TableHead>Paid</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Number</TableHead><TableHead>Customer</TableHead><TableHead>Project</TableHead><TableHead>Due Date</TableHead><TableHead>Tagihan Invoice</TableHead><TableHead>Paid</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
           <TableBody>
             {invoices.map((inv) => (
               <TableRow key={inv.id}>
-                <TableCell className="font-mono text-xs"><Link href={`/finance/invoices/${inv.id}`} className="hover:underline">{inv.number}</Link></TableCell>
+                <TableCell className="font-mono text-xs">
+                  <Link href={`/finance/invoices/${inv.id}`} className="hover:underline">{inv.number}</Link>
+                  {inv.dpPercent != null && Number(inv.dpPercent) > 0 && (
+                    <span className="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">DP {Number(inv.dpPercent)}%</span>
+                  )}
+                </TableCell>
                 <TableCell>{inv.customer.companyName}</TableCell>
                 <TableCell>{inv.project?.number ?? "-"}</TableCell>
                 <TableCell>{formatDate(inv.dueDate)}</TableCell>
-                <TableCell>{formatCurrency(Number(inv.grandTotal))}</TableCell>
+                <TableCell>{formatCurrency(invoiceDueAmount(inv))}</TableCell>
                 <TableCell>{formatCurrency(Number(inv.paidAmount))}</TableCell>
                 <TableCell><Badge variant={STATUS_VARIANT[inv.status]}>{inv.status}</Badge></TableCell>
               </TableRow>

@@ -3,7 +3,7 @@ import { generateNumber } from "@/lib/numbering";
 import { logActivity } from "@/lib/workflows/audit";
 import { notifyRole, notifyUser } from "@/lib/workflows/notify";
 import { dispatchOutbound } from "@/lib/notifications/dispatch";
-import { calcInvoiceTotals } from "@/lib/workflows/calculations";
+import { calcInvoiceTotals, invoiceDueAmount } from "@/lib/workflows/calculations";
 import { requireInvoiceApprover } from "@/lib/permissions";
 import type { InvoiceInput, PaymentInput } from "@/lib/validation/finance";
 import type { SessionPayload } from "@/lib/auth/session";
@@ -84,7 +84,13 @@ export async function recordPayment(input: PaymentInput, actor: SessionPayload) 
       throw new Error("Payments can only be recorded against an issued invoice (it must be approved and issued first).");
     }
 
-    const outstanding = Number(invoice.grandTotal) - Number(invoice.paidAmount);
+    // Outstanding is measured against what THIS document actually bills —
+    // grandTotal * dpPercent/100 for a staged/DP invoice, not the full
+    // contract value — otherwise a fully-paid 20% DP invoice would happily
+    // accept another payment up to the other 80% it was never meant to
+    // collect. See invoiceDueAmount().
+    const dueAmount = invoiceDueAmount(invoice);
+    const outstanding = dueAmount - Number(invoice.paidAmount);
     if (input.amount > outstanding + 0.01) {
       throw new Error(
         `Payment amount (${input.amount}) exceeds the outstanding invoice balance (${outstanding}).`
@@ -109,7 +115,7 @@ export async function recordPayment(input: PaymentInput, actor: SessionPayload) 
     });
 
     const newPaidAmount = Number(invoice.paidAmount) + input.amount;
-    const newStatus = newPaidAmount >= Number(invoice.grandTotal) ? "PAID" : "PARTIALLY_PAID";
+    const newStatus = newPaidAmount >= dueAmount ? "PAID" : "PARTIALLY_PAID";
 
     await tx.invoice.update({
       where: { id: invoice.id },

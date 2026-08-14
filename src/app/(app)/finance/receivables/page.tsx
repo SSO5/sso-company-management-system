@@ -29,15 +29,20 @@ export default async function ReceivablesPage() {
 
       {rows.length === 0 ? <EmptyState title="No receivables to show" /> : (
         <Table>
-          <TableHeader><TableRow><TableHead>Customer</TableHead><TableHead>Invoice</TableHead><TableHead>Invoice Date</TableHead><TableHead>Due Date</TableHead><TableHead>Amount</TableHead><TableHead>Paid</TableHead><TableHead>Outstanding</TableHead><TableHead>Days Overdue</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Customer</TableHead><TableHead>Invoice</TableHead><TableHead>Invoice Date</TableHead><TableHead>Due Date</TableHead><TableHead>Tagihan Invoice</TableHead><TableHead>Paid</TableHead><TableHead>Outstanding</TableHead><TableHead>Days Overdue</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
           <TableBody>
             {rows.map((r) => (
               <TableRow key={r.id}>
                 <TableCell>{r.customer.companyName}</TableCell>
-                <TableCell><Link href={`/finance/invoices/${r.id}`} className="font-mono text-xs hover:underline">{r.number}</Link></TableCell>
+                <TableCell>
+                  <Link href={`/finance/invoices/${r.id}`} className="font-mono text-xs hover:underline">{r.number}</Link>
+                  {r.dpPercent != null && Number(r.dpPercent) > 0 && (
+                    <span className="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">DP {Number(r.dpPercent)}%</span>
+                  )}
+                </TableCell>
                 <TableCell>{formatDate(r.invoiceDate)}</TableCell>
                 <TableCell>{formatDate(r.dueDate)}</TableCell>
-                <TableCell>{formatCurrency(Number(r.grandTotal))}</TableCell>
+                <TableCell>{formatCurrency(r.dueAmount)}</TableCell>
                 <TableCell>{formatCurrency(Number(r.paidAmount))}</TableCell>
                 <TableCell>{formatCurrency(r.outstanding)}</TableCell>
                 <TableCell>{r.indicator === "overdue" ? r.daysOverdue : "-"}</TableCell>

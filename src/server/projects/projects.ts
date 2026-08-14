@@ -75,7 +75,7 @@ export async function getProjectDetail(id: string) {
 
   const sCurve = computeSCurve({
     milestones: project.milestones.map((m) => ({ dueDate: m.dueDate, weightPercent: Number(m.weightPercent), completedAt: m.completedAt })),
-    invoices: project.invoices.map((i) => ({ invoiceDate: i.invoiceDate, grandTotal: Number(i.grandTotal), status: i.status })),
+    invoices: project.invoices.map((i) => ({ invoiceDate: i.invoiceDate, grandTotal: Number(i.grandTotal), dpPercent: i.dpPercent ? Number(i.dpPercent) : null, status: i.status })),
     contractValue: Number(project.contractValue),
   });
 

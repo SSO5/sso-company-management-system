@@ -2,13 +2,14 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate, formatRevisedNumber } from "@/lib/utils";
+import { invoiceDueAmount } from "@/lib/workflows/calculations";
 import { FileDown, FileText } from "lucide-react";
 
 interface Quotation { id: string; number: string; revision: number; grandTotal: unknown }
 interface Opportunity { id: string; number: string }
 interface CustomerPO { id: string; number: string; poDate: Date; poValue: unknown; status: string }
 interface VendorPO { id: string; number: string; vendorName: string; poDate: Date; grandTotal: unknown; status: string }
-interface InvoiceRow { id: string; number: string; invoiceDate: Date; grandTotal: unknown; paidAmount: unknown; status: string }
+interface InvoiceRow { id: string; number: string; invoiceDate: Date; grandTotal: unknown; dpPercent: unknown; paidAmount: unknown; status: string }
 
 interface Props {
   opportunity: Opportunity | null;
@@ -130,7 +131,10 @@ export function DocumentsPanel({ opportunity, quotation, purchaseOrders, vendorP
                   <p className="text-xs text-muted-foreground">{formatDate(inv.invoiceDate)}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="font-medium">{formatCurrency(Number(inv.grandTotal))}</span>
+                  {inv.dpPercent != null && Number(inv.dpPercent) > 0 && (
+                    <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">DP {Number(inv.dpPercent)}%</span>
+                  )}
+                  <span className="font-medium">{formatCurrency(invoiceDueAmount({ grandTotal: Number(inv.grandTotal), dpPercent: inv.dpPercent as number | null }))}</span>
                   <span className="text-xs text-muted-foreground">Paid {formatCurrency(Number(inv.paidAmount))}</span>
                   <Badge variant={INVOICE_VARIANT[inv.status]}>{inv.status}</Badge>
                 </div>
