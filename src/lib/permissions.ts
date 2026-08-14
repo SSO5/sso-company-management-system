@@ -66,6 +66,42 @@ const MATRIX: PermissionMatrix = {
     documents: ["view"],
     reports: ["view"],
   },
+  // Technical/data-integrity seat (Aug 2026): can view+edit+delete records
+  // across every operational module, and has full control ("manage") over
+  // Documents specifically — renaming, re-filing, and renumbering are exactly
+  // what this role exists for, since automated import/OCR occasionally reads
+  // an upload wrong and nobody else is allowed to touch a submitted/locked
+  // record to fix it.
+  //
+  // Two things are deliberately withheld, on purpose, not by oversight:
+  //  - "approve": financial/commercial sign-off (Quotation, Vendor PO,
+  //    Invoice, Expense) must stay a business decision made by ADMIN
+  //    (Direktur) alone — see requireApprover(). A technical role correcting
+  //    a document number must never be able to also wave it through.
+  //  - "users": account creation/role changes stay an organizational
+  //    decision for ADMIN, not a technical one — IT can still VIEW the user
+  //    list (e.g. to know who to route a fix to) via the "users" grant below,
+  //    add separately in the matrix note.
+  // The actual override of the "only DRAFT records are editable" rule lives
+  // in lib/workflows/corrections.ts, gated by requireDataCorrector() — this
+  // matrix grant alone does not unlock editing a SENT/WON quotation; it only
+  // covers ordinary CRUD on records still in an editable state.
+  IT: {
+    sales: ["view", "update", "delete", "manage"],
+    finance: ["view", "update", "delete", "manage"],
+    project: ["view", "update", "delete", "manage"],
+    documents: ["view", "create", "update", "delete", "manage"],
+    reports: ["view"],
+    users: ["view"],
+    // "manage" deliberately withheld: settings/company.ts uses this same
+    // grant for letterhead/tax-default/numbering-prefix changes, which are
+    // company policy decisions for ADMIN, not a technical correction. IT's
+    // actual settings surface (Storage Health, Numbering lookup, Koreksi
+    // Dokumen) is either view-only or checked by its own dedicated guard —
+    // see storage-health.ts and requireDataCorrector().
+    settings: ["view"],
+    activityLog: ["view"],
+  },
 };
 
 export class ForbiddenError extends Error {
@@ -137,5 +173,28 @@ export function requireInvoiceApprover(role: UserRole, actorId: string, submitte
 export function requireProjectCloser(role: UserRole, isAssignedPM: boolean) {
   if (role !== "ADMIN" && !(role === "PROJECT_MANAGER" && isAssignedPM)) {
     throw new ForbiddenError("Only Admin or the assigned Project Manager can close this project.");
+  }
+}
+
+/**
+ * Gate for lib/workflows/corrections.ts — the ONLY place in the app allowed
+ * to edit a document's identity (its number, its file name, which
+ * folder/project it's filed under) after that document is no longer in
+ * DRAFT/editable state. Every other workflow (quotation.ts, vendor-po.ts,
+ * finance.ts, progress-reports.ts) refuses to touch a submitted/approved/won
+ * record — that lock is what keeps a financial document trustworthy once
+ * it's out the door. This function is the single, explicit, logged exception
+ * to that lock, and it exists only to fix mistakes the automated import/OCR
+ * pipeline made (duplicate numbers, a report filed under the wrong project,
+ * a mis-OCR'd file name) — not to let anyone quietly rewrite history.
+ *
+ * Restricted to ADMIN and IT. Both roles are logged by name on every use via
+ * logActivity — this is corrective, not silent.
+ */
+export function requireDataCorrector(role: UserRole) {
+  if (role !== "ADMIN" && role !== "IT") {
+    throw new ForbiddenError(
+      "Only Admin or IT can correct a document's number, file name, or filing after it has been submitted."
+    );
   }
 }

@@ -4,7 +4,7 @@ import { StorageHealthCard } from "@/components/settings/storage-health-card";
 
 export default async function StorageSettingsPage() {
   const actor = await requireUser();
-  if (actor.role !== "ADMIN") redirect("/dashboard");
+  if (actor.role !== "ADMIN" && actor.role !== "IT") redirect("/dashboard");
 
   return (
     <div className="space-y-4">

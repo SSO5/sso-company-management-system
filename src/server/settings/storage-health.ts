@@ -20,9 +20,9 @@ import { runAction, type ActionResult } from "@/lib/action-helpers";
  * delete. That is the only check that actually proves storage works, because
  * it exercises the same code path uploads use.
  *
- * ADMIN only, and it deliberately reports whether each S3_* variable is SET —
- * never its value. Confirming a secret exists is useful; echoing it back into
- * a browser is not.
+ * ADMIN or IT only, and it deliberately reports whether each S3_* variable is
+ * SET — never its value. Confirming a secret exists is useful; echoing it
+ * back into a browser is not.
  */
 
 export interface StorageHealth {
@@ -39,7 +39,7 @@ export interface StorageHealth {
 export async function checkStorageHealth(): Promise<ActionResult<StorageHealth>> {
   return runAction(async () => {
     const actor = await requireUserOrThrow();
-    if (actor.role !== "ADMIN") throw new Error("Only an ADMIN may run the storage check.");
+    if (actor.role !== "ADMIN" && actor.role !== "IT") throw new Error("Only an ADMIN or IT may run the storage check.");
 
     const driver = process.env.STORAGE_DRIVER || "local";
     const envPresent = {

@@ -29,7 +29,10 @@ export function VendorPOActions({ id, status, role }: { id: string; status: Vend
   }
 
   const isAdmin = role === "ADMIN";
-  const canEditSales = role === "ADMIN" || role === "SALES";
+  // IT gets the same edit surface as Sales (not Approve/Reject — that stays
+  // Admin-only) so a still-DRAFT vendor PO can be corrected directly; see
+  // lib/permissions.ts MATRIX.IT.
+  const canEditSales = role === "ADMIN" || role === "SALES" || role === "IT";
 
   return (
     <div className="flex flex-wrap gap-2">

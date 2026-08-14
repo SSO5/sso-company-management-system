@@ -59,14 +59,14 @@ export const NAV: NavGroup[] = [
       { label: "Proyek Berjalan", href: "/projects" },
       // Outbound PO (SSO -> Vendor). Distinct from the customer's PO to SSO,
       // which lives inside the job's own "5. PO" folder.
-      { label: "Pesanan ke Vendor", href: "/procurement/vendor-po", roles: ["ADMIN", "PROJECT_MANAGER", "VIEWER"] },
-      { label: "Pelanggan & Kontak", href: "/sales/customers", roles: ["ADMIN", "SALES", "VIEWER"] },
+      { label: "Pesanan ke Vendor", href: "/procurement/vendor-po", roles: ["ADMIN", "PROJECT_MANAGER", "VIEWER", "IT"] },
+      { label: "Pelanggan & Kontak", href: "/sales/customers", roles: ["ADMIN", "SALES", "VIEWER", "IT"] },
     ],
   },
   {
     label: "Keuangan",
     icon: "Wallet",
-    roles: ["ADMIN", "FINANCE", "VIEWER"],
+    roles: ["ADMIN", "FINANCE", "VIEWER", "IT"],
     items: [
       { label: "Invoice", href: "/finance/invoices" },
       { label: "Pembayaran", href: "/finance/payments" },
@@ -79,8 +79,10 @@ export const NAV: NavGroup[] = [
     icon: "FileText",
     items: [
       { label: "Semua Dokumen", href: "/documents" },
-      // Restore-from-trash is an admin recovery action, not daily work.
-      { label: "Sampah", href: "/documents/trash", roles: ["ADMIN"] },
+      // Restore-from-trash is an admin recovery action, not daily work — IT
+      // gets it too since restoring/permanently-clearing a wrongly-trashed
+      // or true-duplicate file is exactly their job.
+      { label: "Sampah", href: "/documents/trash", roles: ["ADMIN", "IT"] },
     ],
   },
   {
@@ -104,14 +106,21 @@ export const NAV: NavGroup[] = [
     // system already does for them (see lib/numbering.ts). The page stays for
     // the case it was actually built for — reserving a number for a document
     // produced outside the app.
+    //
+    // IT sees this group too (storage health, numbering, activity log, and
+    // Koreksi Dokumen are squarely their territory) but NOT "Pengguna" —
+    // account creation/role changes stay an organizational decision for
+    // ADMIN, so that one item keeps its own roles override below.
     label: "Pengaturan",
     icon: "Settings",
-    roles: ["ADMIN"],
+    roles: ["ADMIN", "IT"],
     items: [
-      { label: "Pengguna", href: "/settings/users" },
-      { label: "Data Perusahaan", href: "/settings/company" },
+      { label: "Pengguna", href: "/settings/users", roles: ["ADMIN"] },
+      { label: "Data Perusahaan", href: "/settings/company", roles: ["ADMIN"] },
       { label: "Penyimpanan File", href: "/settings/storage" },
       { label: "Nomor Dokumen", href: "/numbering" },
+      // The IT correction tool — see lib/workflows/corrections.ts.
+      { label: "Koreksi Dokumen", href: "/settings/document-correction" },
       { label: "Panduan Sistem", href: "/settings/manual" },
       { label: "Log Aktivitas", href: "/activity-log" },
     ],

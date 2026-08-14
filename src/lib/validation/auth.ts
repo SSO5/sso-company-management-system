@@ -56,7 +56,7 @@ export const createUserSchema = z.object({
   name: z.string().min(2, "Name is required."),
   email: z.string().email(),
   password: z.string().min(8, "Password must be at least 8 characters."),
-  role: z.enum(["ADMIN", "SALES", "FINANCE", "PROJECT_MANAGER", "VIEWER"]),
+  role: z.enum(["ADMIN", "SALES", "FINANCE", "PROJECT_MANAGER", "VIEWER", "IT"]),
   title: z.string().optional().nullable(),
   whatsappNumber: whatsappNumberSchema,
 });
@@ -66,7 +66,7 @@ export const updateUserSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(2, "Name is required."),
   email: z.string().email(),
-  role: z.enum(["ADMIN", "SALES", "FINANCE", "PROJECT_MANAGER", "VIEWER"]),
+  role: z.enum(["ADMIN", "SALES", "FINANCE", "PROJECT_MANAGER", "VIEWER", "IT"]),
   title: z.string().optional().nullable(),
   whatsappNumber: whatsappNumberSchema,
   isActive: z.coerce.boolean().default(true),

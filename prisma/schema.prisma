@@ -28,6 +28,15 @@ enum UserRole {
   // day-to-day executive) — can see Sales/Finance/Project/Reports but cannot
   // create, edit, approve, or manage anything. See lib/permissions.ts MATRIX.
   VIEWER
+  // Technical/data-integrity role. Can edit almost any record (Costing,
+  // Quotation, Project, Invoice, Vendor PO, Documents) across every module —
+  // this is the role that fixes what the automatic import/numbering pipeline
+  // got wrong (duplicate or reversed document numbers, misfiled uploads,
+  // wrong project match) when nobody else is allowed to touch a locked
+  // record. Deliberately excluded from "approve" everywhere (financial
+  // sign-off stays a business decision for ADMIN/Direktur, never a technical
+  // one) — see lib/permissions.ts MATRIX and requireDataCorrector().
+  IT
 }
 
 enum CustomerType {

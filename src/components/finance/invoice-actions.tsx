@@ -29,7 +29,10 @@ export function InvoiceActions({ id, status, role }: { id: string; status: Invoi
   }
 
   const isAdmin = role === "ADMIN";
-  const canEditFinance = role === "ADMIN" || role === "FINANCE";
+  // IT gets the same edit surface as Finance (not Approve/Reject — that
+  // stays Admin-only) so a wrong DRAFT invoice can be fixed without waiting
+  // on Finance; see lib/permissions.ts MATRIX.IT.
+  const canEditFinance = role === "ADMIN" || role === "FINANCE" || role === "IT";
 
   return (
     <div className="flex flex-wrap gap-2">

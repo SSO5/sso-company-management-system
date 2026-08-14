@@ -36,7 +36,7 @@ export default async function QuotationDetailPage({ params }: { params: { id: st
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {q.status === "DRAFT" && (actor.role === "ADMIN" || actor.role === "SALES") && (
+          {q.status === "DRAFT" && (actor.role === "ADMIN" || actor.role === "SALES" || actor.role === "IT") && (
             <Link href={`/sales/quotations/${q.id}/edit`}>
               <Button variant="outline"><Pencil className="h-4 w-4" /> Edit</Button>
             </Link>

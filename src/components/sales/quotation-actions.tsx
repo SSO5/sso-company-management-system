@@ -49,7 +49,10 @@ export function QuotationActions({
   }
 
   const isAdmin = role === "ADMIN";
-  const canEditSales = role === "ADMIN" || role === "SALES";
+  // IT gets the same edit surface as Sales (not Approve/Reject — that stays
+  // Admin-only) so a still-DRAFT quotation can be corrected directly; see
+  // lib/permissions.ts MATRIX.IT.
+  const canEditSales = role === "ADMIN" || role === "SALES" || role === "IT";
   const isRevisable = ["SUBMITTED", "UNDER_REVIEW", "APPROVED", "REJECTED", "SENT"].includes(status);
 
   async function reviseAndEdit() {

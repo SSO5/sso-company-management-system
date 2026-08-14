@@ -92,6 +92,7 @@ export function EditUserDialog({ user, isSelf }: Props) {
               <option value="ADMIN">Admin</option><option value="SALES">Sales</option>
               <option value="FINANCE">Finance</option><option value="PROJECT_MANAGER">Project Manager</option>
               <option value="VIEWER">Viewer (view-only)</option>
+              <option value="IT">IT (koreksi data & dokumen)</option>
             </Select>
           </div>
           <div className="space-y-1">

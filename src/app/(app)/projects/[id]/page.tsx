@@ -22,7 +22,10 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
     getJobChecklistFor("PROJECT", params.id),
   ]);
 
-  const canManage = actor.role === "ADMIN" || (actor.role === "PROJECT_MANAGER" && project.projectManagerId === actor.userId);
+  const canManage =
+    actor.role === "ADMIN" ||
+    actor.role === "IT" ||
+    (actor.role === "PROJECT_MANAGER" && project.projectManagerId === actor.userId);
 
   return (
     <div className="space-y-4">
