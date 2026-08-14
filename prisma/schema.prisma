@@ -1070,6 +1070,17 @@ model Invoice {
   // 20% inc. VAT)" line. Null/0 = this invoice bills the full grandTotal.
   dpPercent    Decimal?  @db.Decimal(5, 2)
 
+  // Cumulative PPh 23 (or other withholding) the CUSTOMER deducted before
+  // paying — a legal deduction the customer is entitled to make, not a
+  // shortfall. It settles the invoice just as much as cash does: SSO holds
+  // a Bukti Potong for this amount, which is a tax credit against SSO's own
+  // liability, not money still owed by the customer. Mirrors paidAmount —
+  // incremented alongside it whenever a payment records a withholding, kept
+  // as a separate field (rather than folded into paidAmount) so cash
+  // actually received in the bank and tax credited are never conflated.
+  // See lib/workflows/calculations.ts:invoiceOutstanding().
+  withholdingTax Decimal @db.Decimal(18, 2) @default(0)
+
   createdById String
   createdBy   User     @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
   createdAt   DateTime @default(now())
@@ -1127,6 +1138,10 @@ model Payment {
   referenceNumber String?
   bankAccount     String?
   notes           String?
+  // PPh 23 (or similar) the customer withheld before transferring this
+  // specific payment — see Invoice.withholdingTax for why this counts as
+  // settling the invoice rather than leaving it outstanding.
+  withholdingTax  Decimal       @db.Decimal(18, 2) @default(0)
 
   createdById String
   createdBy   User     @relation("PaymentCreatedBy", fields: [createdById], references: [id])

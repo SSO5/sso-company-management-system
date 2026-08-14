@@ -2,7 +2,7 @@
 import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/current-user";
 import { requirePermission } from "@/lib/permissions";
-import { invoiceDueAmount } from "@/lib/workflows/calculations";
+import { invoiceDueAmount, invoiceOutstanding } from "@/lib/workflows/calculations";
 
 function monthKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -68,8 +68,12 @@ export async function getFinanceReport() {
   // DP invoice count as if 100% of the job had been billed.
   const revenue = invoices.filter((i) => i.status !== "CANCELLED").reduce((s, i) => s + invoiceDueAmount(i), 0);
   const paid = invoices.reduce((s, i) => s + Number(i.paidAmount), 0);
-  const outstanding = revenue - paid;
-  const overdue = invoices.filter((i) => i.status === "OVERDUE").reduce((s, i) => s + (invoiceDueAmount(i) - Number(i.paidAmount)), 0);
+  // PPh 23 the customer withheld — a tax credit that settles the invoice
+  // just like cash does, so it must reduce "outstanding" the same way. See
+  // invoiceOutstanding().
+  const withholdingTax = invoices.reduce((s, i) => s + Number(i.withholdingTax), 0);
+  const outstanding = revenue - paid - withholdingTax;
+  const overdue = invoices.filter((i) => i.status === "OVERDUE").reduce((s, i) => s + invoiceOutstanding(i), 0);
   const totalExpenses = expenses.reduce((s, e) => s + Number(e.total), 0);
   const grossProfit = revenue - totalExpenses;
 
@@ -88,7 +92,7 @@ export async function getFinanceReport() {
   }
   const monthly = Array.from(byMonth.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([month, v]) => ({ month, ...v }));
 
-  return { revenue, paid, outstanding, overdue, totalExpenses, grossProfit, monthly };
+  return { revenue, paid, withholdingTax, outstanding, overdue, totalExpenses, grossProfit, monthly };
 }
 
 export async function getProjectReport() {

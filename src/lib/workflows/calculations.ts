@@ -94,9 +94,23 @@ export function invoiceDueAmount(inv: { grandTotal: Numeric; dpPercent?: Numeric
   return dpPercent > 0 ? round2(grandTotal * (dpPercent / 100)) : grandTotal;
 }
 
-/** Outstanding balance on this specific invoice document — due amount minus what's actually been paid against it. */
-export function invoiceOutstanding(inv: { grandTotal: Numeric; dpPercent?: Numeric | null; paidAmount: Numeric }): number {
-  return round2(invoiceDueAmount(inv) - n(inv.paidAmount));
+/**
+ * Outstanding balance on this specific invoice document — due amount minus
+ * cash actually paid AND minus any PPh 23 the customer legally withheld.
+ *
+ * Withholding is not a shortfall: the customer deducted it because the law
+ * requires them to, and SSO holds a Bukti Potong for that amount as a tax
+ * credit against its own liability. Treating it as still "outstanding"
+ * makes a fully-settled DP invoice look permanently overdue by exactly the
+ * withheld amount — which is what happened before this field existed.
+ */
+export function invoiceOutstanding(inv: {
+  grandTotal: Numeric;
+  dpPercent?: Numeric | null;
+  paidAmount: Numeric;
+  withholdingTax?: Numeric | null;
+}): number {
+  return round2(invoiceDueAmount(inv) - n(inv.paidAmount) - n(inv.withholdingTax));
 }
 
 /**

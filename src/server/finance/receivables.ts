@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/current-user";
 import { requirePermission } from "@/lib/permissions";
 import { refreshOverdueInvoices } from "@/lib/workflows/finance";
-import { invoiceDueAmount } from "@/lib/workflows/calculations";
+import { invoiceDueAmount, invoiceOutstanding } from "@/lib/workflows/calculations";
 
 export async function getReceivables() {
   const actor = await requireUserOrThrow();
@@ -19,7 +19,7 @@ export async function getReceivables() {
   const now = new Date();
   return invoices.map((inv) => {
     const dueAmount = invoiceDueAmount(inv);
-    const outstanding = dueAmount - Number(inv.paidAmount);
+    const outstanding = invoiceOutstanding(inv);
     const daysOverdue = Math.max(0, Math.floor((now.getTime() - new Date(inv.dueDate).getTime()) / (1000 * 60 * 60 * 24)));
     let indicator: "not_due" | "due_soon" | "overdue" | "paid" = "not_due";
     if (inv.status === "PAID") indicator = "paid";

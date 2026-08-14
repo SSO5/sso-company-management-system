@@ -27,6 +27,47 @@ export async function getProgressReports(projectId: string) {
   });
 }
 
+/**
+ * A field-typed checklist (partName/isDone re-keyed by hand) turned out to be
+ * a second, lossier copy of what the real inspection/progress PDF already
+ * says — someone has to open the PDF to write the checklist, then a reader
+ * has to trust the checklist matches it. The real report IS the record.
+ *
+ * This reads the project's "03 Project / Progress Report" folder directly —
+ * same Document rows the Documents module and the bulk importer
+ * (prisma/import-documents.ts) already use — and orders them the way SSO's
+ * own field team already names files: "YYYY-MM-DD - <title>.pdf". A file
+ * without that prefix falls back to its upload date, so nothing is dropped
+ * for not following the convention, it just sorts by when it landed in the
+ * app instead of when the visit happened.
+ */
+export async function getProgressReportDocuments(projectId: string) {
+  const actor = await requireUserOrThrow();
+  requirePermission(actor.role, "documents", "view");
+
+  const folder = await prisma.folder.findFirst({
+    where: { projectId, routeKey: "PROJECT/PROGRESS_REPORT" },
+  });
+  if (!folder) return { folderId: null, documents: [] };
+
+  const docs = await prisma.document.findMany({
+    where: { folderId: folder.id, deletedAt: null },
+    include: { uploadedBy: { select: { name: true } } },
+  });
+
+  const DATE_PREFIX = /^(\d{4})-(\d{2})-(\d{2})\s*-\s*(.+)$/;
+  const documents = docs
+    .map((d) => {
+      const m = d.originalName.match(DATE_PREFIX);
+      const reportDate = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : d.uploadedAt;
+      const displayName = m ? m[4] : d.originalName;
+      return { ...d, reportDate, displayName, dateFromFileName: Boolean(m) };
+    })
+    .sort((a, b) => a.reportDate.getTime() - b.reportDate.getTime());
+
+  return { folderId: folder.id, documents };
+}
+
 export async function createProgressReportAction(input: unknown): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
     const actor = await requireUserOrThrow();

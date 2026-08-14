@@ -34,13 +34,17 @@ export function RecordPaymentDialog({ invoiceId, outstanding, trigger }: { invoi
         <form onSubmit={onSubmit} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1"><Label>Payment Date</Label><Input name="paymentDate" type="date" required defaultValue={new Date().toISOString().slice(0,10)} /></div>
-            <div className="space-y-1"><Label>Amount (IDR)</Label><Input name="amount" type="number" min={0} max={outstanding} required /></div>
+            <div className="space-y-1"><Label>Amount diterima (tunai)</Label><Input name="amount" type="number" min={0} max={outstanding} required /></div>
             <div className="space-y-1">
               <Label>Method</Label>
               <Select name="method" defaultValue="BANK_TRANSFER">
                 <option value="BANK_TRANSFER">Bank Transfer</option><option value="CASH">Cash</option>
                 <option value="CHECK">Check</option><option value="CREDIT_CARD">Credit Card</option><option value="OTHER">Other</option>
               </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>PPh 23 dipotong <span className="text-muted-foreground">(opsional)</span></Label>
+              <Input name="withholdingTax" type="number" min={0} max={outstanding} defaultValue={0} />
             </div>
             <div className="space-y-1"><Label>Reference Number</Label><Input name="referenceNumber" /></div>
             <div className="col-span-2 space-y-1"><Label>Bank Account</Label><Input name="bankAccount" /></div>

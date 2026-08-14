@@ -21,7 +21,7 @@ export async function getDashboardData() {
     prisma.invoice.findMany({ where: { deletedAt: null, status: { not: "CANCELLED" } }, select: { grandTotal: true, dpPercent: true } }),
     prisma.invoice.findMany({
       where: { deletedAt: null, status: { in: ["ISSUED", "PARTIALLY_PAID", "OVERDUE"] } },
-      select: { grandTotal: true, dpPercent: true, paidAmount: true },
+      select: { grandTotal: true, dpPercent: true, paidAmount: true, withholdingTax: true },
     }),
     prisma.project.count({ where: { deletedAt: null, status: "ACTIVE" } }),
     prisma.project.count({ where: { deletedAt: null, status: "AT_RISK" } }),
@@ -51,7 +51,10 @@ export async function getDashboardData() {
   const totalRevenue = revenueInvoices.reduce((s, i) => s + invoiceDueAmount(i), 0);
   const totalReceivableInvoiced = receivableInvoices.reduce((s, i) => s + invoiceDueAmount(i), 0);
   const totalReceivablePaid = receivableInvoices.reduce((s, i) => s + Number(i.paidAmount), 0);
-  const outstandingReceivables = totalReceivableInvoiced - totalReceivablePaid;
+  // Tax the customer legally withheld settles the invoice like cash does —
+  // see invoiceOutstanding().
+  const totalReceivableWithheld = receivableInvoices.reduce((s, i) => s + Number(i.withholdingTax), 0);
+  const outstandingReceivables = totalReceivableInvoiced - totalReceivablePaid - totalReceivableWithheld;
 
   const expenseAgg = await prisma.projectExpense.aggregate({ where: { deletedAt: null }, _sum: { total: true } });
   const grossProfit = totalRevenue - Number(expenseAgg._sum.total ?? 0);

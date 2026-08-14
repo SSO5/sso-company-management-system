@@ -49,5 +49,9 @@ export const paymentSchema = z.object({
   referenceNumber: z.string().optional().nullable(),
   bankAccount: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
+  // PPh 23 (or similar) the customer withheld before sending this payment.
+  // Counts toward settling the invoice (see invoiceOutstanding()) without
+  // being counted as cash received.
+  withholdingTax: z.coerce.number().nonnegative().default(0),
 });
 export type PaymentInput = z.infer<typeof paymentSchema>;

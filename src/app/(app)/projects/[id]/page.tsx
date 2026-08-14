@@ -1,6 +1,7 @@
 import { getProjectDetail } from "@/server/projects/projects";
 import { listUsersForPicker } from "@/server/settings/users";
 import { getJobChecklistFor } from "@/server/document-checklist";
+import { getProgressReportDocuments } from "@/server/projects/progress-reports";
 import { DocumentChecklistPanel } from "@/components/dashboard/document-checklist-panel";
 import { requireUser } from "@/lib/auth/current-user";
 import { Badge } from "@/components/ui/badge";
@@ -15,11 +16,12 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "success" | "warn
 };
 
 export default async function ProjectDetailPage({ params }: { params: { id: string } }) {
-  const [{ project, profitability, closing, opportunityFolder, sCurve }, actor, assignees, checklist] = await Promise.all([
+  const [{ project, profitability, closing, opportunityFolder, sCurve }, actor, assignees, checklist, progressReportDocs] = await Promise.all([
     getProjectDetail(params.id),
     requireUser(),
     listUsersForPicker(),
     getJobChecklistFor("PROJECT", params.id),
+    getProgressReportDocuments(params.id),
   ]);
 
   const canManage =
@@ -67,7 +69,8 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
         purchaseOrders={project.purchaseOrders}
         vendorPurchaseOrders={project.vendorPurchaseOrders}
         invoices={project.invoices}
-        progressReports={project.progressReports}
+        progressReportFolderId={progressReportDocs.folderId}
+        progressReportDocuments={progressReportDocs.documents}
       />
     </div>
   );

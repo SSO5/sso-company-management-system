@@ -86,14 +86,17 @@ export async function recordPayment(input: PaymentInput, actor: SessionPayload) 
 
     // Outstanding is measured against what THIS document actually bills —
     // grandTotal * dpPercent/100 for a staged/DP invoice, not the full
-    // contract value — otherwise a fully-paid 20% DP invoice would happily
-    // accept another payment up to the other 80% it was never meant to
-    // collect. See invoiceDueAmount().
+    // contract value — minus cash already paid AND tax already withheld
+    // (see invoiceOutstanding()). Otherwise a fully-paid 20% DP invoice
+    // would happily accept another payment up to the other 80% it was
+    // never meant to collect, or reject a legitimate net-of-WHT payment as
+    // "exceeding" a balance that never accounted for the withholding.
     const dueAmount = invoiceDueAmount(invoice);
-    const outstanding = dueAmount - Number(invoice.paidAmount);
-    if (input.amount > outstanding + 0.01) {
+    const outstanding = dueAmount - Number(invoice.paidAmount) - Number(invoice.withholdingTax);
+    const settling = input.amount + (input.withholdingTax ?? 0);
+    if (settling > outstanding + 0.01) {
       throw new Error(
-        `Payment amount (${input.amount}) exceeds the outstanding invoice balance (${outstanding}).`
+        `Payment + withholding (${settling}) exceeds the outstanding invoice balance (${outstanding}).`
       );
     }
 
@@ -110,16 +113,18 @@ export async function recordPayment(input: PaymentInput, actor: SessionPayload) 
         referenceNumber: input.referenceNumber,
         bankAccount: input.bankAccount,
         notes: input.notes,
+        withholdingTax: input.withholdingTax ?? 0,
         createdById: actor.userId,
       },
     });
 
     const newPaidAmount = Number(invoice.paidAmount) + input.amount;
-    const newStatus = newPaidAmount >= dueAmount ? "PAID" : "PARTIALLY_PAID";
+    const newWithholdingTax = Number(invoice.withholdingTax) + (input.withholdingTax ?? 0);
+    const newStatus = newPaidAmount + newWithholdingTax >= dueAmount ? "PAID" : "PARTIALLY_PAID";
 
     await tx.invoice.update({
       where: { id: invoice.id },
-      data: { paidAmount: newPaidAmount, status: newStatus },
+      data: { paidAmount: newPaidAmount, withholdingTax: newWithholdingTax, status: newStatus },
     });
 
     await logActivity(tx, {

@@ -7,7 +7,8 @@ export default async function FinanceReportPage() {
   const r = await getFinanceReport();
   const kpis = [
     { label: "Revenue (Invoiced)", value: formatCurrency(r.revenue) },
-    { label: "Paid", value: formatCurrency(r.paid) },
+    { label: "Paid (Tunai)", value: formatCurrency(r.paid) },
+    { label: "PPh 23 Dipotong", value: formatCurrency(r.withholdingTax) },
     { label: "Outstanding", value: formatCurrency(r.outstanding) },
     { label: "Overdue", value: formatCurrency(r.overdue) },
     { label: "Total Expenses", value: formatCurrency(r.totalExpenses) },

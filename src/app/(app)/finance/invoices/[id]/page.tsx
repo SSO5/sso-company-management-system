@@ -63,13 +63,23 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
           ) : (
             <div className="flex justify-between"><span className="text-muted-foreground">Grand Total</span><span>{formatCurrency(dueAmount)}</span></div>
           )}
-          <div className="flex justify-between"><span className="text-muted-foreground">Paid</span><span>{formatCurrency(Number(inv.paidAmount))}</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">Dibayar (tunai)</span><span>{formatCurrency(Number(inv.paidAmount))}</span></div>
+          {Number(inv.withholdingTax) > 0 && (
+            <div className="flex justify-between"><span className="text-muted-foreground">Dipotong PPh 23 (kredit pajak)</span><span>{formatCurrency(Number(inv.withholdingTax))}</span></div>
+          )}
           <div className="flex justify-between font-semibold"><span>Outstanding (tagihan ini)</span><span>{formatCurrency(outstanding)}</span></div>
         </CardContent></Card>
         <Card><CardHeader><CardTitle>Payments</CardTitle></CardHeader><CardContent className="space-y-1 text-sm">
           {inv.payments.length === 0 && <p className="text-muted-foreground">No payments yet.</p>}
           {inv.payments.map((p) => (
-            <div key={p.id} className="flex justify-between"><span>{p.number}</span><span>{formatCurrency(Number(p.amount))} · {formatDate(p.paymentDate)}</span></div>
+            <div key={p.id} className="flex justify-between">
+              <span>{p.number}</span>
+              <span>
+                {formatCurrency(Number(p.amount))}
+                {Number(p.withholdingTax) > 0 && <span className="text-xs text-muted-foreground"> + PPh23 {formatCurrency(Number(p.withholdingTax))}</span>}
+                {" "}· {formatDate(p.paymentDate)}
+              </span>
+            </div>
           ))}
         </CardContent></Card>
       </div>
