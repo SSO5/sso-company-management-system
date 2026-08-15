@@ -48,7 +48,7 @@ export async function getProjectDetail(id: string) {
         purchaseOrders: {
           where: { deletedAt: null },
           orderBy: { poDate: "desc" },
-          select: { id: true, number: true, poDate: true, poValue: true, status: true },
+          select: { id: true, number: true, poDate: true, poValue: true, status: true, paymentTerms: true, estimatedDeliveryDate: true },
         },
         vendorPurchaseOrders: {
           where: { deletedAt: null },

@@ -109,6 +109,9 @@ export const purchaseOrderSchema = z.object({
   startDate: z.coerce.date().optional().nullable(),
   endDate: z.coerce.date().optional().nullable(),
   status: z.enum(["PENDING", "RECEIVED", "VERIFIED", "CANCELLED"]).default("PENDING"),
+  paymentTerms: z.string().optional().nullable(),
+  deliveryTerms: z.string().optional().nullable(),
+  estimatedDeliveryDate: z.coerce.date().optional().nullable(),
 });
 export type PurchaseOrderInput = z.infer<typeof purchaseOrderSchema>;
 

@@ -8,7 +8,10 @@ import { FileDown, FileText } from "lucide-react";
 
 interface Quotation { id: string; number: string; revision: number; grandTotal: unknown }
 interface Opportunity { id: string; number: string }
-interface CustomerPO { id: string; number: string; poDate: Date; poValue: unknown; status: string }
+interface CustomerPO {
+  id: string; number: string; poDate: Date; poValue: unknown; status: string;
+  paymentTerms: string | null; estimatedDeliveryDate: Date | null;
+}
 interface VendorPO { id: string; number: string; vendorName: string; poDate: Date; grandTotal: unknown; status: string }
 interface InvoiceRow { id: string; number: string; invoiceDate: Date; grandTotal: unknown; dpPercent: unknown; paidAmount: unknown; status: string }
 
@@ -59,8 +62,61 @@ function Section({ title, hint, action, children }: { title: string; hint?: stri
 export function DocumentsPanel({
   projectId, customerId, purchaseOrderFolderId, opportunity, quotation, purchaseOrders, vendorPurchaseOrders, invoices,
 }: Props) {
+  // "Sisa penagihan" — the persistent, always-visible answer to "what's the
+  // next billing stage", computed from real data instead of a one-off chat
+  // calculation nobody can see again. Total PO value (what the customer
+  // actually committed to) minus what's already been invoiced (dpPercent-
+  // aware, same helper the rest of the app uses for "due amount") — not
+  // "outstanding", which only covers invoices that already exist.
+  const activePOs = purchaseOrders.filter((po) => po.status !== "CANCELLED");
+  const totalPoValue = activePOs.reduce((s, po) => s + Number(po.poValue), 0);
+  const totalInvoiced = invoices
+    .filter((i) => i.status !== "CANCELLED")
+    .reduce((s, i) => s + invoiceDueAmount({ grandTotal: Number(i.grandTotal), dpPercent: i.dpPercent as number | null }), 0);
+  const remainingToBill = totalPoValue - totalInvoiced;
+  const termsToShow = activePOs.filter((po) => po.paymentTerms);
+
   return (
     <div className="space-y-4">
+      {activePOs.length > 0 && (
+        <Section title="Sisa Penagihan" hint="Total nilai PO dikurangi invoice yang sudah diterbitkan">
+          <div className="grid grid-cols-3 gap-3 text-sm">
+            <div>
+              <p className="text-xs text-muted-foreground">Total Nilai PO</p>
+              <p className="font-semibold">{formatCurrency(totalPoValue)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Sudah Ditagih</p>
+              <p className="font-semibold">{formatCurrency(totalInvoiced)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Sisa Belum Ditagih</p>
+              <p className={`font-semibold ${remainingToBill > 0 ? "text-warning" : "text-success"}`}>
+                {formatCurrency(Math.max(remainingToBill, 0))}
+              </p>
+            </div>
+          </div>
+          {termsToShow.length > 0 && (
+            <div className="mt-3 space-y-1 border-t border-border pt-3">
+              {termsToShow.map((po) => (
+                <p key={po.id} className="text-xs text-muted-foreground">
+                  <span className="font-mono">{po.number}</span> — Term of Payment: {po.paymentTerms}
+                  {po.estimatedDeliveryDate && (
+                    <span className="text-warning"> · Perkiraan tagihan berikutnya: {formatDate(po.estimatedDeliveryDate)}</span>
+                  )}
+                </p>
+              ))}
+            </div>
+          )}
+          {termsToShow.length === 0 && remainingToBill > 0 && (
+            <p className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">
+              Term of Payment belum tercatat untuk PO ini — tidak bisa menentukan tahap penagihan berikutnya secara
+              otomatis. Lengkapi lewat &quot;Upload PO (AI-assisted)&quot; atau edit manual.
+            </p>
+          )}
+        </Section>
+      )}
+
       <Section title="Sales Origin" hint="Where this project came from">
         {!opportunity && !quotation ? (
           <p className="text-sm text-muted-foreground">No linked Opportunity/Quotation (project was created manually).</p>
@@ -95,6 +151,10 @@ export function DocumentsPanel({
                 <div>
                   <p className="font-mono text-xs">{po.number}</p>
                   <p className="text-xs text-muted-foreground">{formatDate(po.poDate)}</p>
+                  {po.paymentTerms && <p className="mt-0.5 text-xs text-muted-foreground">TOP: {po.paymentTerms}</p>}
+                  {po.estimatedDeliveryDate && (
+                    <p className="mt-0.5 text-xs text-muted-foreground">Perkiraan selesai/kirim: {formatDate(po.estimatedDeliveryDate)}</p>
+                  )}
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="font-medium">{formatCurrency(Number(po.poValue))}</span>

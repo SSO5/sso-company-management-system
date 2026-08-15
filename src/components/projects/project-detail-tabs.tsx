@@ -36,7 +36,10 @@ interface Props {
   closing: { checklist: { key: string; label: string; passed: boolean }[]; canClose: boolean };
   opportunity: { id: string; number: string } | null;
   quotation: { id: string; number: string; revision: number; grandTotal: unknown } | null;
-  purchaseOrders: { id: string; number: string; poDate: Date; poValue: unknown; status: string }[];
+  purchaseOrders: {
+    id: string; number: string; poDate: Date; poValue: unknown; status: string;
+    paymentTerms: string | null; estimatedDeliveryDate: Date | null;
+  }[];
   vendorPurchaseOrders: { id: string; number: string; vendorName: string; poDate: Date; grandTotal: unknown; status: string }[];
   invoices: { id: string; number: string; invoiceDate: Date; grandTotal: unknown; dpPercent: unknown; paidAmount: unknown; status: string }[];
   progressReportFolderId: string | null;

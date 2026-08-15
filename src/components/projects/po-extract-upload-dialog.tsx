@@ -70,6 +70,9 @@ export function PoExtractUploadDialog({
       number: fd.get("number"),
       poDate: fd.get("poDate"),
       poValue: fd.get("poValue"),
+      paymentTerms: fd.get("paymentTerms") || null,
+      deliveryTerms: fd.get("deliveryTerms") || null,
+      estimatedDeliveryDate: fd.get("estimatedDeliveryDate") || null,
       status: "VERIFIED",
     });
     setPending(false);
@@ -142,13 +145,24 @@ export function PoExtractUploadDialog({
                 <Input id="po-value" name="poValue" type="number" min={0} required defaultValue={extracted?.poValue ?? ""} />
               </div>
             </div>
-            {(extracted?.paymentTerms || extracted?.deliveryTerms) && (
-              <div className="rounded-md border border-border bg-muted/40 p-2.5 text-xs text-muted-foreground">
-                {extracted.paymentTerms && <p><span className="font-medium text-foreground">Term of Payment:</span> {extracted.paymentTerms}</p>}
-                {extracted.deliveryTerms && <p><span className="font-medium text-foreground">Term of Delivery:</span> {extracted.deliveryTerms}</p>}
-                <p className="mt-1">Belum ada kolom tersimpan untuk ini — dicatat di sini sebagai referensi saja, bukan disimpan ke record PO.</p>
-              </div>
-            )}
+            <div className="space-y-1">
+              <Label htmlFor="po-payment-terms">Term of Payment (opsional)</Label>
+              <Input id="po-payment-terms" name="paymentTerms" defaultValue={extracted?.paymentTerms ?? ""} placeholder="40% DP, 50% Before Delivered, 10% Retention" />
+              <p className="text-[11px] text-muted-foreground">Dipakai untuk menghitung sisa penagihan di tab Documents.</p>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="po-delivery-terms">Term of Delivery (opsional)</Label>
+              <Input id="po-delivery-terms" name="deliveryTerms" defaultValue={extracted?.deliveryTerms ?? ""} placeholder="ETA MAX 6 Weeks ARO" />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="po-est-delivery">Perkiraan Tanggal Selesai/Kirim (opsional)</Label>
+              <Input id="po-est-delivery" name="estimatedDeliveryDate" type="date" defaultValue={extracted?.estimatedDeliveryDate ?? ""} />
+              <p className="text-[11px] text-muted-foreground">
+                {extracted?.estimatedDeliveryDate
+                  ? "Dihitung AI dari Term of Delivery + tanggal PO — periksa ulang, ini perkiraan."
+                  : "AI tidak bisa menghitung tanggal dari Term of Delivery — isi manual kalau tahu."}
+              </p>
+            </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Tutup</Button>
               <Button type="submit" disabled={pending}>{pending ? "Menyimpan..." : "Simpan sebagai PO"}</Button>

@@ -656,6 +656,23 @@ model PurchaseOrder {
   endDate   DateTime?
   status    PurchaseOrderStatus @default(PENDING)
 
+  // Term of Payment / Term of Delivery exactly as printed on the real PO
+  // (e.g. "40% DP, 50% Before Delivered, 10% Retention") — captured by the
+  // AI extraction step (extract-purchase-order.ts) or typed in manually.
+  // This is what makes "what's the next billing stage" answerable from the
+  // app itself instead of a one-off chat calculation nobody can see again.
+  paymentTerms  String?
+  deliveryTerms String?
+
+  // A real calendar date, resolved once (at extraction/entry time) from
+  // deliveryTerms + poDate — e.g. "ETA MAX 6 Weeks ARO" from a PO dated
+  // 20 Jul 2026 becomes 31 Aug 2026. deliveryTerms stays the source of
+  // truth text; this is what lets the UI show an actual date instead of
+  // making a human re-do that arithmetic by hand every time. Nullable and
+  // editable — not every term of delivery resolves to one exact date, and
+  // this is an estimate the human confirms, not a contractual guarantee.
+  estimatedDeliveryDate DateTime?
+
   createdById String
   createdBy   User     @relation("POCreatedBy", fields: [createdById], references: [id])
   createdAt   DateTime @default(now())

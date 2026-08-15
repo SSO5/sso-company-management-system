@@ -71,6 +71,19 @@ export function PurchaseOrderFormDialog({
               <Label>End Date</Label>
               <Input name="endDate" type="date" />
             </div>
+            <div className="space-y-1 col-span-2">
+              <Label>Term of Payment (opsional)</Label>
+              <Input name="paymentTerms" placeholder="40% DP, 50% Before Delivered, 10% Retention" />
+            </div>
+            <div className="space-y-1 col-span-2">
+              <Label>Term of Delivery (opsional)</Label>
+              <Input name="deliveryTerms" placeholder="ETA MAX 6 Weeks ARO" />
+            </div>
+            <div className="space-y-1 col-span-2">
+              <Label>Perkiraan Tanggal Selesai/Kirim (opsional)</Label>
+              <Input name="estimatedDeliveryDate" type="date" />
+              <p className="text-[11px] text-muted-foreground">Dipakai untuk perkiraan tanggal tagihan berikutnya di tab Documents.</p>
+            </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>

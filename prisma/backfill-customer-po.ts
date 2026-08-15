@@ -17,8 +17,22 @@
  * Status VERIFIED for all three — each is the real, already-confirmed basis
  * of work actively in progress (not a pending/unconfirmed PO).
  *
- * Requires PurchaseOrder.customerPO to exist — run AFTER
- * `npx prisma db push && npx prisma generate` on this schema change.
+ * paymentTerms/deliveryTerms are read straight off the same real PO PDFs
+ * (OCR'd earlier this session) — this is what makes the "Sisa Penagihan"
+ * card on the Documents tab able to show what the next billing stage
+ * actually is, instead of that being a one-off chat answer. estimatedDeliveryDate
+ * is a calendar date derived from deliveryTerms + poDate (same rule the AI
+ * extractor uses) so the UI can show a concrete next-billing target date
+ * instead of just the raw term text.
+ *
+ * Safe to re-run: if a PO already exists (e.g. from an earlier run before
+ * paymentTerms/estimatedDeliveryDate existed), it fills in whichever of the
+ * two is still missing instead of skipping — never touches poValue/poDate/
+ * status on an existing row.
+ *
+ * Requires PurchaseOrder.paymentTerms/deliveryTerms/estimatedDeliveryDate to
+ * exist — run AFTER `npx prisma db push && npx prisma generate` on this
+ * schema change.
  *
  * Run:  npx tsx prisma/backfill-customer-po.ts          (dry run)
  *       npx tsx prisma/backfill-customer-po.ts --apply
@@ -31,11 +45,35 @@ const D = (n: number) => new Prisma.Decimal(n);
 
 // `number` IS the customer's own PO reference (see schema.prisma — no SSO
 // sequence is invented for a document SSO did not issue).
-type Spec = { job: "JKT" | "BPN"; number: string; poDate: string; poValue: number; label: string };
+type Spec = {
+  job: "JKT" | "BPN"; number: string; poDate: string; poValue: number; label: string;
+  paymentTerms: string; deliveryTerms: string; estimatedDeliveryDate: string;
+};
 const SPECS: Spec[] = [
-  { job: "JKT", number: "EPC-L/2026-0450", poDate: "2026-07-28", poValue: 355_200_000, label: "Overhoul 3x Gearbox Dodge Magnagear + Motor Brake" },
-  { job: "BPN", number: "2026/BPN-L-0505", poDate: "2026-07-20", poValue: 12_765_000, label: "Motor 45 kW 60 HP" },
-  { job: "BPN", number: "2026/BPN-L-0506", poDate: "2026-07-20", poValue: 36_075_000, label: "Motor 55 kW 75 HP" },
+  {
+    job: "JKT", number: "EPC-L/2026-0450", poDate: "2026-07-28", poValue: 355_200_000,
+    label: "Overhoul 3x Gearbox Dodge Magnagear + Motor Brake",
+    paymentTerms: "20% DP; 80% Cash Before Delivery",
+    deliveryTerms: "Pekerjaan selesai Minggu ke 2 bulan Agustus 2026",
+    // "Minggu ke 2 Agustus 2026" — tidak presisi tanggal, dipakai tanggal 14
+    // sebagai representasi (sama seperti aturan yang dipakai AI extractor).
+    estimatedDeliveryDate: "2026-08-14",
+  },
+  {
+    job: "BPN", number: "2026/BPN-L-0505", poDate: "2026-07-20", poValue: 12_765_000,
+    label: "Motor 45 kW 60 HP",
+    paymentTerms: "40% DP, 50% Before Delivered, & 10% Retention",
+    deliveryTerms: "ETA MAX 6 Weeks ARO",
+    // ARO = After Receipt of Order -> poDate + 6 minggu = 31 Agustus 2026.
+    estimatedDeliveryDate: "2026-08-31",
+  },
+  {
+    job: "BPN", number: "2026/BPN-L-0506", poDate: "2026-07-20", poValue: 36_075_000,
+    label: "Motor 55 kW 75 HP",
+    paymentTerms: "40% DP, 50% Before Delivered, & 10% Retention",
+    deliveryTerms: "ETA MAX 6 Weeks ARO",
+    estimatedDeliveryDate: "2026-08-31",
+  },
 ];
 
 async function warmUp(attempts = 4) {
@@ -70,13 +108,28 @@ async function main() {
 
   for (const s of SPECS) {
     const p = proj(s.job);
-    const dup = await prisma.purchaseOrder.findFirst({
+    const existing = await prisma.purchaseOrder.findFirst({
       where: { customerId: p.customerId, number: s.number, deletedAt: null },
     });
-    if (dup) {
-      console.log(`  SKIP ${s.number}: sudah ada.`);
+
+    if (existing) {
+      if (existing.paymentTerms && existing.estimatedDeliveryDate) {
+        console.log(`  SKIP ${s.number}: sudah ada, term of payment & perkiraan tanggal sudah terisi.`);
+        continue;
+      }
+      console.log(`  [${s.job}] UPDATE  ${s.number}  -> mengisi payment/delivery terms + perkiraan tanggal`);
+      if (!APPLY) continue;
+      await prisma.purchaseOrder.update({
+        where: { id: existing.id },
+        data: {
+          paymentTerms: existing.paymentTerms ?? s.paymentTerms,
+          deliveryTerms: existing.deliveryTerms ?? s.deliveryTerms,
+          estimatedDeliveryDate: existing.estimatedDeliveryDate ?? new Date(s.estimatedDeliveryDate),
+        },
+      });
       continue;
     }
+
     console.log(`  [${s.job}] CREATE  ${s.number}  ${s.poDate}  Rp ${s.poValue.toLocaleString("id-ID")}  (${s.label})`);
     if (!APPLY) continue;
 
@@ -88,6 +141,9 @@ async function main() {
         quotationId: p.quotationId ?? null,
         poDate: new Date(s.poDate),
         poValue: D(s.poValue),
+        paymentTerms: s.paymentTerms,
+        deliveryTerms: s.deliveryTerms,
+        estimatedDeliveryDate: new Date(s.estimatedDeliveryDate),
         status: "VERIFIED",
         createdById: admin.id,
       },

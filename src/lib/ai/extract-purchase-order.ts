@@ -7,6 +7,7 @@ export interface ExtractedPurchaseOrder {
   poValue: number | null;
   paymentTerms: string | null;
   deliveryTerms: string | null;
+  estimatedDeliveryDate: string | null; // ISO yyyy-mm-dd, computed — see prompt
   confidence: "high" | "low";
   notes: string | null;
 }
@@ -20,10 +21,16 @@ Ekstrak field berikut dan balas HANYA dengan JSON valid, tanpa teks lain, tanpa 
   "poDate": string atau null,        // tanggal PO/Dated, format YYYY-MM-DD
   "poValue": number atau null,       // nilai TOTAL/Grand Total/Total Amount PO (setelah PPN jika ada), angka murni tanpa titik/koma/mata uang
   "paymentTerms": string atau null,  // Term of Payment persis seperti tertulis, contoh "40% DP, 50% Before Delivered, 10% Retention"
-  "deliveryTerms": string atau null, // Term of Delivery persis seperti tertulis
+  "deliveryTerms": string atau null, // Term of Delivery persis seperti tertulis, contoh "ETA MAX 6 Weeks ARO" atau "Pekerjaan selesai Minggu ke 2 bulan Agustus 2026"
+  "estimatedDeliveryDate": string atau null, // TANGGAL KALENDER hasil hitunganmu sendiri dari deliveryTerms + poDate, format YYYY-MM-DD — lihat aturan di bawah
   "confidence": "high" atau "low",   // "low" jika dokumen buram, terpotong, atau kamu ragu terhadap salah satu angka di atas
   "notes": string atau null          // catatan singkat 1 kalimat jika ada hal yang perlu diperiksa manusia, misal "Halaman 2 terpotong, item tidak lengkap"
 }
+
+Cara mengisi estimatedDeliveryDate:
+- Jika deliveryTerms berbentuk jangka waktu relatif terhadap PO ("ETA MAX 6 Weeks ARO" = After Receipt of Order, "2 minggu setelah DP", dsb), hitung sendiri: poDate + jangka waktu tersebut.
+- Jika deliveryTerms menyebut target kalender langsung tapi tidak presisi tanggal ("Minggu ke 2 bulan Agustus 2026", "akhir September 2026"), pilih satu tanggal representatif dalam rentang itu (mis. untuk "minggu ke-2" pakai tanggal 14 pada bulan tsb) dan sebutkan di "notes" bahwa ini perkiraan, bukan tanggal pasti.
+- Jika deliveryTerms kosong atau tidak bisa dihitung sama sekali, isi null — jangan mengarang.
 
 Jika sebuah field benar-benar tidak ada di dokumen, isi null — jangan mengira-ngira.`;
 
@@ -58,6 +65,10 @@ export async function extractPurchaseOrder(
     poValue: typeof parsed.poValue === "number" && parsed.poValue > 0 ? parsed.poValue : null,
     paymentTerms: typeof parsed.paymentTerms === "string" ? parsed.paymentTerms : null,
     deliveryTerms: typeof parsed.deliveryTerms === "string" ? parsed.deliveryTerms : null,
+    estimatedDeliveryDate:
+      typeof parsed.estimatedDeliveryDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsed.estimatedDeliveryDate)
+        ? parsed.estimatedDeliveryDate
+        : null,
     confidence: parsed.confidence === "low" ? "low" : "high",
     notes: typeof parsed.notes === "string" ? parsed.notes : null,
   };
