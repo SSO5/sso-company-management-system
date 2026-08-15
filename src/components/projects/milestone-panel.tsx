@@ -7,24 +7,52 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
-import { createMilestone, updateMilestoneStatus } from "@/server/projects/tasks";
+import { createMilestone, updateMilestone, updateMilestoneStatus, deleteMilestone } from "@/server/projects/tasks";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
-import { Plus, CheckCircle2, Circle, Clock } from "lucide-react";
+import { Plus, CheckCircle2, Circle, Clock, Pencil, Trash2 } from "lucide-react";
 
-interface Milestone { id: string; name: string; status: string; dueDate: Date | null; progressPercent: number; weightPercent: unknown }
+interface Milestone {
+  id: string; name: string; status: string; dueDate: Date | null;
+  progressPercent: number; weightPercent: unknown; description: string | null;
+}
+
+function toDateInputValue(d: Date | null): string {
+  if (!d) return "";
+  return new Date(d).toISOString().slice(0, 10);
+}
 
 export function MilestonePanel({ projectId, milestones }: { projectId: string; milestones: Milestone[] }) {
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Milestone | null>(null);
+  const [pending, setPending] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function onCreate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const res = await createMilestone({ ...Object.fromEntries(fd.entries()), projectId });
     if (res.ok) { toast({ title: "Milestone added", variant: "success" }); setOpen(false); router.refresh(); }
     else toast({ title: "Unable to add milestone", description: res.error, variant: "destructive" });
+  }
+
+  async function onEdit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!editing) return;
+    const fd = new FormData(e.currentTarget);
+    setPending(true);
+    const res = await updateMilestone(editing.id, projectId, Object.fromEntries(fd.entries()));
+    setPending(false);
+    if (res.ok) { toast({ title: "Milestone diperbarui", variant: "success" }); setEditing(null); router.refresh(); }
+    else toast({ title: "Tidak bisa memperbarui", description: res.error, variant: "destructive" });
+  }
+
+  async function onDelete(m: Milestone) {
+    if (!window.confirm(`Hapus milestone "${m.name}"? Bobotnya akan hilang dari Kurva S.`)) return;
+    const res = await deleteMilestone(m.id, projectId);
+    if (res.ok) { toast({ title: "Milestone dihapus", variant: "success" }); router.refresh(); }
+    else toast({ title: "Tidak bisa menghapus", description: res.error, variant: "destructive" });
   }
 
   const totalWeight = milestones.reduce((s, m) => s + Number(m.weightPercent), 0);
@@ -48,6 +76,7 @@ export function MilestonePanel({ projectId, milestones }: { projectId: string; m
               <div>
                 <p className="text-sm font-medium">{m.name}</p>
                 <p className="text-xs text-muted-foreground">{m.dueDate ? `Due ${formatDate(m.dueDate)}` : "No due date"}</p>
+                {m.description && <p className="text-xs text-muted-foreground">{m.description}</p>}
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -63,6 +92,12 @@ export function MilestonePanel({ projectId, milestones }: { projectId: string; m
               >
                 <option value="PENDING">Pending</option><option value="IN_PROGRESS">In Progress</option><option value="COMPLETED">Completed</option><option value="DELAYED">Delayed</option>
               </Select>
+              <Button size="icon" variant="ghost" title="Edit" onClick={() => setEditing(m)}>
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+              <Button size="icon" variant="ghost" title="Hapus" onClick={() => onDelete(m)}>
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
             </div>
           </div>
         ))}
@@ -70,18 +105,44 @@ export function MilestonePanel({ projectId, milestones }: { projectId: string; m
       </div>
 
       <Dialog open={open} onOpenChange={setOpen} title="New Milestone">
-        <form onSubmit={onSubmit} className="space-y-3">
+        <form onSubmit={onCreate} className="space-y-3">
           <div className="space-y-1"><Label>Name</Label><Input name="name" required /></div>
           <div className="space-y-1"><Label>Due Date</Label><Input name="dueDate" type="date" /></div>
           <div className="space-y-1">
             <Label>Bobot (% dari total project) <span className="text-muted-foreground">— untuk Kurva S</span></Label>
             <Input name="weightPercent" type="number" min={0} max={100} step="0.01" defaultValue={0} />
           </div>
+          <div className="space-y-1"><Label>Keterangan (opsional)</Label><Input name="description" /></div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button type="submit">Add Milestone</Button>
           </div>
         </form>
+      </Dialog>
+
+      {/* Manual editing — nama/tanggal/bobot semuanya bisa diubah di sini, dan
+          begitu disimpan otomatis ikut ke Kurva S / dashboard karena
+          computeSCurve selalu membaca data terbaru, tidak ada langkah
+          "hitung ulang" terpisah. */}
+      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)} title="Edit Milestone">
+        {editing && (
+          <form key={editing.id} onSubmit={onEdit} className="space-y-3">
+            <div className="space-y-1"><Label>Jenis Pekerjaan / Nama</Label><Input name="name" required defaultValue={editing.name} /></div>
+            <div className="space-y-1">
+              <Label>Tanggal (mis. tanggal DP — dasar penagihan)</Label>
+              <Input name="dueDate" type="date" defaultValue={toDateInputValue(editing.dueDate)} />
+            </div>
+            <div className="space-y-1">
+              <Label>Bobot (% dari total project) <span className="text-muted-foreground">— untuk Kurva S</span></Label>
+              <Input name="weightPercent" type="number" min={0} max={100} step="0.01" defaultValue={Number(editing.weightPercent)} />
+            </div>
+            <div className="space-y-1"><Label>Keterangan (opsional)</Label><Input name="description" defaultValue={editing.description ?? ""} /></div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setEditing(null)}>Batal</Button>
+              <Button type="submit" disabled={pending}>{pending ? "Menyimpan..." : "Simpan Perubahan"}</Button>
+            </div>
+          </form>
+        )}
       </Dialog>
     </div>
   );

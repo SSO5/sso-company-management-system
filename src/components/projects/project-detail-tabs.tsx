@@ -25,7 +25,10 @@ interface Props {
     totalInvoiced: number; totalPaid: number; outstanding: number; grossProfit: number; grossMargin: number;
   };
   tasks: { id: string; title: string; status: TaskStatus; priority: string; dueDate: Date | null; progressPercent: number; assignedTo: { name: string } | null }[];
-  milestones: { id: string; name: string; status: string; dueDate: Date | null; progressPercent: number; weightPercent: unknown }[];
+  milestones: {
+    id: string; name: string; status: string; dueDate: Date | null;
+    progressPercent: number; weightPercent: unknown; description: string | null;
+  }[];
   sCurve: { points: SCurvePoint[]; totalWeight: number; asOfToday: { planned: number; actual: number; billed: number } };
   expenses: {
     id: string; number: string; category: string; description: string; date: Date; total: unknown;

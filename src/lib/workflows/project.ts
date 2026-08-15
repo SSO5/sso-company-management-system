@@ -26,18 +26,10 @@ const DEFAULT_TASK_TEMPLATE = [
   { title: "Set up project documentation folder", priority: "LOW" as const },
 ];
 
-const DEFAULT_MILESTONE_TEMPLATE = [
-  { name: "Milestone 1 — Planning", sortOrder: 1 },
-  { name: "Milestone 2 — Development", sortOrder: 2 },
-  { name: "Milestone 3 — Delivery", sortOrder: 3 },
-  { name: "Milestone 4 — Acceptance", sortOrder: 4 },
-  { name: "Milestone 5 — Closing", sortOrder: 5 },
-];
-
 /**
  * Deal-Won automation (spec sections 11 & 38). Runs entirely inside the
- * caller's transaction: Project -> folders -> default tasks -> milestones ->
- * activity log. If ANY step throws, Prisma rolls back the whole transaction
+ * caller's transaction: Project -> folders -> default tasks -> activity log
+ * (no default milestones — see the comment further down). If ANY step throws, Prisma rolls back the whole transaction
  * and the quotation status change that triggered this is undone too — there
  * is no partially-created project left behind.
  *
@@ -98,14 +90,17 @@ export async function convertQuotationToProject(
     })),
   });
 
-  await tx.projectMilestone.createMany({
-    data: DEFAULT_MILESTONE_TEMPLATE.map((m) => ({
-      projectId: project.id,
-      name: m.name,
-      sortOrder: m.sortOrder,
-      status: "PENDING",
-    })),
-  });
+  // No default milestone template is auto-created here anymore (removed Aug
+  // 2026 — founder feedback: a generic "Planning/Development/Delivery/
+  // Acceptance/Closing" set with 0% weight and no due date on every single
+  // project was pure clutter, not a real plan, and it was never filterable
+  // out of the S-Curve/Milestones UI since it looked identical to real
+  // entries). Real milestones now come from either the customer PO's actual
+  // payment terms (see prisma/backfill-milestones.ts for the pattern — DP/
+  // delivery/retention stages with real dates and weights) or manual entry
+  // via the Milestones tab, which now supports full edit too (see
+  // updateMilestone in server/projects/tasks.ts) — guessing five fake
+  // stages up front added noise a human then had to clean up, not value.
 
   pendingNotifications.push({
     role: "FINANCE",

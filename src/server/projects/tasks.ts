@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/current-user";
 import { requirePermission } from "@/lib/permissions";
 import { logActivity } from "@/lib/workflows/audit";
-import { taskSchema, milestoneSchema, expenseSchema } from "@/lib/validation/project";
+import { taskSchema, milestoneSchema, milestoneUpdateSchema, expenseSchema } from "@/lib/validation/project";
 import { generateNumber } from "@/lib/numbering";
 import { runAction, type ActionResult } from "@/lib/action-helpers";
 import { submitExpenseForApproval, approveExpense, rejectExpense } from "@/lib/workflows/expense";
@@ -77,6 +77,52 @@ export async function updateMilestoneStatus(
         data: { status, completedAt, ...(progressPercent !== undefined ? { progressPercent } : {}) },
       });
       await logActivity(tx, { userId: actor.userId, action: "STATUS_CHANGE", entityType: "PROJECT_MILESTONE", entityId: id, description: `Milestone -> ${status}` });
+    });
+    revalidatePath(`/projects/${projectId}`);
+    return { id };
+  });
+}
+
+/**
+ * Full manual edit of an existing milestone (Aug 2026 — founder request:
+ * name/date/percentage should all be changeable by hand, with the S-Curve
+ * updating automatically off whatever is saved here — see computeSCurve,
+ * which always reads live weightPercent/dueDate/completedAt, no separate
+ * "recalculate" step needed). Status is intentionally NOT editable through
+ * this action — see updateMilestoneStatus for why completedAt needs its own
+ * dedicated path.
+ */
+export async function updateMilestone(id: string, projectId: string, input: unknown): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const actor = await requireUserOrThrow();
+    requirePermission(actor.role, "project", "update");
+    const data = milestoneUpdateSchema.parse(input);
+    await prisma.$transaction(async (tx) => {
+      const updated = await tx.projectMilestone.update({ where: { id }, data });
+      await logActivity(tx, {
+        userId: actor.userId, action: "UPDATE", entityType: "PROJECT_MILESTONE", entityId: id,
+        description: `Updated milestone "${updated.name}"`,
+      });
+    });
+    revalidatePath(`/projects/${projectId}`);
+    return { id };
+  });
+}
+
+/** Removes a milestone entirely — e.g. the generic "Planning/Development/..."
+ * placeholders that used to be auto-created on every Won deal (see
+ * lib/workflows/project.ts) and never meant anything for a specific job. */
+export async function deleteMilestone(id: string, projectId: string): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const actor = await requireUserOrThrow();
+    requirePermission(actor.role, "project", "update");
+    const existing = await prisma.projectMilestone.findUniqueOrThrow({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      await tx.projectMilestone.delete({ where: { id } });
+      await logActivity(tx, {
+        userId: actor.userId, action: "DELETE", entityType: "PROJECT_MILESTONE", entityId: id,
+        description: `Deleted milestone "${existing.name}"`,
+      });
     });
     revalidatePath(`/projects/${projectId}`);
     return { id };

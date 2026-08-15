@@ -41,6 +41,22 @@ export const milestoneSchema = z.object({
 });
 export type MilestoneInput = z.infer<typeof milestoneSchema>;
 
+/**
+ * Editing an existing milestone (Aug 2026 — founder request: "semuanya
+ * dapat saya ubah secara manual"). Deliberately narrower than milestoneSchema:
+ * projectId/sortOrder never change after creation, and status has its own
+ * dedicated action (updateMilestoneStatus) because changing status has a
+ * side effect — stamping/clearing completedAt, which feeds the S-Curve's
+ * "Realisasi" line — that a plain field edit must not accidentally trigger.
+ */
+export const milestoneUpdateSchema = z.object({
+  name: z.string().min(2, "Milestone name is required."),
+  dueDate: z.coerce.date().optional().nullable(),
+  weightPercent: z.coerce.number().min(0).max(100).default(0),
+  description: z.string().optional().nullable(),
+});
+export type MilestoneUpdateInput = z.infer<typeof milestoneUpdateSchema>;
+
 export const expenseSchema = z.object({
   projectId: z.string().min(1),
   category: z.enum([
