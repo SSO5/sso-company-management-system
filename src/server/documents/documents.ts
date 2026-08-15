@@ -6,13 +6,12 @@ import { requirePermission } from "@/lib/permissions";
 import {
   uploadDocument, moveDocumentToTrash, restoreDocumentFromTrash, permanentlyDeleteDocument,
 } from "@/lib/workflows/documents";
-import { ensureCompanyFolders, entityTypeForRouteKey } from "@/lib/workflows/folders";
+import { entityTypeForRouteKey } from "@/lib/workflows/folders";
 import { runAction, type ActionResult } from "@/lib/action-helpers";
 
 export async function getFolderView(folderId: string | null) {
   const actor = await requireUserOrThrow();
   requirePermission(actor.role, "documents", "view");
-  await prisma.$transaction((tx) => ensureCompanyFolders(tx));
 
   const folder = folderId
     ? await prisma.folder.findUniqueOrThrow({
@@ -80,21 +79,31 @@ async function buildBreadcrumbs(folderId: string | null) {
   return chain;
 }
 
-export async function getDocumentRoots() {
+/**
+ * Aug 2026: this used to also return `companyFolders` (Administrasi, HR,
+ * Legal, etc.) alongside these. That whole "Company Documents" grid was
+ * removed at the founder's request — it sat unused since launch (see
+ * prisma/delete-company-folders.ts) and having a second, no-longer-existing
+ * document root just created a page nobody needed. Project folders are the
+ * only thing that lived under the old global /documents page worth keeping,
+ * so they moved to /projects/folders — reached from "Pekerjaan" in the nav,
+ * where the rest of the job lifecycle already lives.
+ */
+export async function getProjectFolders() {
   const actor = await requireUserOrThrow();
   requirePermission(actor.role, "documents", "view");
-  await prisma.$transaction((tx) => ensureCompanyFolders(tx));
 
-  // Opportunity folders are intentionally NOT listed here anymore (spec:
-  // they live inside each Opportunity's own card at /sales/opportunities/[id]
-  // pre-Won, then automatically migrate into the matching Project folder the
-  // moment the deal is Won — see mergeOpportunityFoldersIntoProject). Listing
-  // them here too would just be a second, soon-stale path to the same data.
-  const [companyFolders, projectFolders] = await Promise.all([
-    prisma.folder.findMany({ where: { kind: "COMPANY", parentId: null }, orderBy: { name: "asc" } }),
-    prisma.folder.findMany({ where: { kind: "PROJECT", parentId: null }, include: { project: { select: { number: true, status: true } } }, orderBy: { createdAt: "desc" } }),
-  ]);
-  return { companyFolders, projectFolders };
+  // Opportunity folders are intentionally NOT listed here (spec: they live
+  // inside each Opportunity's own card at /sales/opportunities/[id] pre-Won,
+  // then automatically migrate into the matching Project folder the moment
+  // the deal is Won — see mergeOpportunityFoldersIntoProject). Listing them
+  // here too would just be a second, soon-stale path to the same data.
+  const projectFolders = await prisma.folder.findMany({
+    where: { kind: "PROJECT", parentId: null },
+    include: { project: { select: { number: true, status: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+  return { projectFolders };
 }
 
 export async function uploadDocumentToFolder(folderId: string, formData: FormData): Promise<ActionResult<{ id: string }>> {

@@ -61,6 +61,13 @@ export const NAV: NavGroup[] = [
       // which lives inside the job's own "5. PO" folder.
       { label: "Pesanan ke Vendor", href: "/procurement/vendor-po", roles: ["ADMIN", "PROJECT_MANAGER", "VIEWER", "IT"] },
       { label: "Pelanggan & Kontak", href: "/sales/customers", roles: ["ADMIN", "SALES", "VIEWER", "IT"] },
+      // Moved here from the old standalone "Dokumen" group (Aug 2026) — the
+      // only thing that lived there worth keeping was the per-project folder
+      // tree, and browsing project documents is squarely "Pekerjaan" work.
+      // The old "Company Documents" grid (Administrasi/HR/Legal/etc., never
+      // populated) was removed outright, not just hidden — see
+      // lib/workflows/folders.ts's COMPANY_FOLDER_TEMPLATE, no longer called.
+      { label: "Dokumen Proyek", href: "/projects/folders" },
     ],
   },
   {
@@ -72,17 +79,6 @@ export const NAV: NavGroup[] = [
       { label: "Pembayaran", href: "/finance/payments" },
       { label: "Piutang", href: "/finance/receivables" },
       { label: "Pengeluaran", href: "/finance/expenses" },
-    ],
-  },
-  {
-    label: "Dokumen",
-    icon: "FileText",
-    items: [
-      { label: "Semua Dokumen", href: "/documents" },
-      // Restore-from-trash is an admin recovery action, not daily work — IT
-      // gets it too since restoring/permanently-clearing a wrongly-trashed
-      // or true-duplicate file is exactly their job.
-      { label: "Sampah", href: "/documents/trash", roles: ["ADMIN", "IT"] },
     ],
   },
   {
@@ -121,6 +117,12 @@ export const NAV: NavGroup[] = [
       { label: "Nomor Dokumen", href: "/numbering" },
       // The IT correction tool — see lib/workflows/corrections.ts.
       { label: "Koreksi Dokumen", href: "/settings/document-correction" },
+      // Moved from the old standalone "Dokumen" group (Aug 2026) when that
+      // group was removed — restoring/permanently-clearing a document stays
+      // exactly the same ADMIN/IT-only recovery action it always was, just
+      // filed alongside Koreksi Dokumen instead of orphaned with no entry
+      // point in the nav.
+      { label: "Sampah Dokumen", href: "/documents/trash", roles: ["ADMIN", "IT"] },
       { label: "Panduan Sistem", href: "/settings/manual" },
       { label: "Log Aktivitas", href: "/activity-log" },
     ],
