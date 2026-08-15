@@ -386,3 +386,11 @@ export function entityTypeForRouteKey(routeKey: string | null | undefined): stri
   if (!routeKey) return undefined;
   return ROUTE_KEY_TO_ENTITY[routeKey];
 }
+
+// The AI upload classifier's menu of valid destinations lives in
+// lib/document-folder-options.ts, not here — that file has zero Node/Prisma
+// dependencies (this one imports "crypto" for createTree), so client
+// components can import the option list directly without pulling in a
+// server-only module. Re-exported here too since some server-side code may
+// reasonably look for it alongside the rest of the folder-routing logic.
+export { DOCUMENT_FOLDER_OPTIONS, type DocumentFolderOption } from "@/lib/document-folder-options";

@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/auth/current-user";
 import { ActionItemsPanel } from "@/components/dashboard/action-items-panel";
 import { DocumentChecklistPanel } from "@/components/dashboard/document-checklist-panel";
 import { NotificationsPanel } from "@/components/dashboard/notifications-panel";
+import { AiSmartUploadCard } from "@/components/dashboard/ai-smart-upload-card";
 import { BillingScheduleCard } from "@/components/finance/billing-schedule-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
@@ -80,6 +81,12 @@ export default async function DashboardPage() {
       <ActionItemsPanel items={myActionItems} />
 
       <NotificationsPanel items={notifications.items} unreadCount={notifications.unreadCount} />
+
+      {/* Beda dari DocumentChecklistPanel di bawah (yang isi slot checklist
+          yang SUDAH diketahui per job): ini pintu masuk untuk file apa saja
+          yang belum jelas masuk kategori mana — AI yang membaca isinya dan
+          menentukan project + foldernya. */}
+      {canUpload && <AiSmartUploadCard />}
 
       <DocumentChecklistPanel jobs={jobChecklists} canUpload={canUpload} />
 
