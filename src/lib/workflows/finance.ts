@@ -3,7 +3,7 @@ import { generateNumber } from "@/lib/numbering";
 import { logActivity } from "@/lib/workflows/audit";
 import { notifyRole, notifyUser } from "@/lib/workflows/notify";
 import { dispatchOutbound } from "@/lib/notifications/dispatch";
-import { calcInvoiceTotals, invoiceDueAmount } from "@/lib/workflows/calculations";
+import { calcInvoiceTotals, invoiceDueAmount, computeBillingSchedule } from "@/lib/workflows/calculations";
 import { requireInvoiceApprover } from "@/lib/permissions";
 import type { InvoiceInput, PaymentInput } from "@/lib/validation/finance";
 import type { SessionPayload } from "@/lib/auth/session";
@@ -296,4 +296,63 @@ export async function refreshOverdueInvoices() {
   });
 
   return candidates.length;
+}
+
+/**
+ * Same idea as refreshOverdueInvoices, for the "next billing stage" concept
+ * built for the Documents tab (Aug 2026) — surfaces it as a real
+ * notification instead of something only visible to whoever happens to open
+ * a specific project's Documents tab. Runs on every load of a page that
+ * calls getBillingSchedule() (receivables, invoices, payments, dashboard),
+ * same "batch job safe to call on page load" pattern as overdue invoices —
+ * there is no real cron in this deployment.
+ *
+ * De-duped by checking for an existing BILLING_DUE_SOON notification that
+ * already mentions this project's number within the last 3 days, since
+ * (unlike overdue invoices) there's no status-transition to naturally
+ * prevent re-notifying on every single page load.
+ */
+export async function refreshBillingSchedule() {
+  const projects = await prisma.project.findMany({
+    where: { deletedAt: null },
+    select: {
+      id: true,
+      number: true,
+      customer: { select: { companyName: true } },
+      purchaseOrders: {
+        where: { deletedAt: null },
+        select: { id: true, number: true, poValue: true, status: true, paymentTerms: true, estimatedDeliveryDate: true },
+      },
+      invoices: { where: { deletedAt: null }, select: { grandTotal: true, dpPercent: true, status: true } },
+    },
+  });
+  const schedule = computeBillingSchedule(projects);
+
+  const in7Days = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const dueSoon = schedule.filter((r) => r.nextBillingDate && r.nextBillingDate <= in7Days);
+  if (dueSoon.length === 0) return 0;
+
+  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+  let notifiedCount = 0;
+
+  for (const row of dueSoon) {
+    const alreadyNotified = await prisma.notification.findFirst({
+      where: { type: "BILLING_DUE_SOON", message: { contains: row.projectNumber }, createdAt: { gt: threeDaysAgo } },
+    });
+    if (alreadyNotified) continue;
+
+    const title = `Penagihan jatuh tempo: ${row.projectNumber}`;
+    const message = `${row.customerName} — sisa Rp ${row.remainingToBill.toLocaleString("id-ID")} dari project ${row.projectNumber}, target ${
+      row.nextBillingDate ? row.nextBillingDate.toLocaleDateString("id-ID") : "-"
+    }.`;
+    const link = "/finance/receivables";
+
+    await prisma.$transaction((tx) => notifyRole(tx, "FINANCE", { type: "BILLING_DUE_SOON", title, message, link }));
+    await dispatchOutbound({ role: "FINANCE" }, { title, message, link }).catch((err) =>
+      console.error("[refreshBillingSchedule] dispatchOutbound failed:", err)
+    );
+    notifiedCount++;
+  }
+
+  return notifiedCount;
 }

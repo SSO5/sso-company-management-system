@@ -1,12 +1,13 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Search, LogOut, Bell, Menu } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 export function Topbar({
-  userName, role, onMenuClick,
-}: { userName: string; role: string; onMenuClick?: () => void }) {
+  userName, role, unreadCount = 0, onMenuClick,
+}: { userName: string; role: string; unreadCount?: number; onMenuClick?: () => void }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
 
@@ -39,9 +40,21 @@ export function Topbar({
         </form>
       </div>
       <div className="flex shrink-0 items-center gap-2 sm:gap-4">
-        <button className="relative rounded-md p-2 hover:bg-accent" aria-label="Notifications">
+        {/* Used to be a dead placeholder button — no data, no click target.
+            Real unread count now, linking to where NotificationsPanel
+            actually lives (there's no separate notifications page). */}
+        <Link
+          href="/dashboard"
+          className="relative rounded-md p-2 hover:bg-accent"
+          aria-label={unreadCount > 0 ? `Notifications (${unreadCount} belum dibaca)` : "Notifications"}
+        >
           <Bell className="h-4 w-4" />
-        </button>
+          {unreadCount > 0 && (
+            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-medium leading-none text-destructive-foreground">
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
+          )}
+        </Link>
         <div className="hidden text-right leading-tight sm:block">
           <p className="text-sm font-medium">{userName}</p>
           <p className="text-[11px] text-muted-foreground">{role.replace("_", " ")}</p>

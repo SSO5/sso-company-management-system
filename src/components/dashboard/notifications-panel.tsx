@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { markAllNotificationsRead, markNotificationRead } from "@/server/notifications";
-import { Bell, BellOff, Upload, ShieldCheck, AlertTriangle, CalendarClock, Info } from "lucide-react";
+import { Bell, BellOff, Upload, ShieldCheck, AlertTriangle, CalendarClock, Banknote, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface NotificationRow {
@@ -29,6 +29,7 @@ const TYPE_ICON: Record<string, typeof Bell> = {
   INVOICE_APPROVAL: ShieldCheck,
   EXPENSE_APPROVAL: ShieldCheck,
   INVOICE_OVERDUE: AlertTriangle,
+  BILLING_DUE_SOON: Banknote,
   CONTRACT_EXPIRING: CalendarClock,
   PROJECT_DEADLINE: CalendarClock,
   PROJECT_CLOSING_INCOMPLETE: AlertTriangle,

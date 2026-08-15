@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { getReceivables } from "@/server/finance/receivables";
+import { getBillingSchedule } from "@/server/finance/billing-schedule";
+import { BillingScheduleCard } from "@/components/finance/billing-schedule-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 
 const INDICATOR_STYLES: Record<string, string> = {
@@ -16,7 +17,7 @@ const INDICATOR_LABEL: Record<string, string> = {
 };
 
 export default async function ReceivablesPage() {
-  const rows = await getReceivables();
+  const [rows, billingSchedule] = await Promise.all([getReceivables(), getBillingSchedule()]);
   const totalOutstanding = rows.filter((r) => r.indicator !== "paid").reduce((s, r) => s + r.outstanding, 0);
   const overdueCount = rows.filter((r) => r.indicator === "overdue").length;
 
@@ -26,6 +27,13 @@ export default async function ReceivablesPage() {
         <h1 className="text-xl font-semibold">Accounts Receivable</h1>
         <p className="text-sm text-muted-foreground">{formatCurrency(totalOutstanding)} outstanding · {overdueCount} overdue</p>
       </div>
+
+      {/* Sudah ditagih tapi belum dibayar (di atas) vs BELUM ditagih sama
+          sekali (di sini) — dua hal yang berbeda, keduanya perlu terlihat di
+          halaman yang sama supaya Finance tidak harus buka tab Documents tiap
+          project satu-satu untuk tahu kapan tahap penagihan berikutnya jatuh
+          tempo. */}
+      <BillingScheduleCard rows={billingSchedule} />
 
       {rows.length === 0 ? <EmptyState title="No receivables to show" /> : (
         <Table>

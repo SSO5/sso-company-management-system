@@ -30,6 +30,16 @@ export async function getMyNotifications(limit = 12) {
   return { items, unreadCount };
 }
 
+/**
+ * Just the count — used by the topbar bell, which renders on every single
+ * page (not just /dashboard), so it deliberately doesn't pull the full
+ * getMyNotifications() list on every navigation.
+ */
+export async function getUnreadNotificationCount(): Promise<number> {
+  const actor = await requireUserOrThrow();
+  return prisma.notification.count({ where: { userId: actor.userId, isRead: false } });
+}
+
 export async function markAllNotificationsRead(): Promise<ActionResult<{ count: number }>> {
   return runAction(async () => {
     const actor = await requireUserOrThrow();

@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { listInvoices } from "@/server/finance/invoices";
+import { getBillingSchedule } from "@/server/finance/billing-schedule";
+import { BillingScheduleCard } from "@/components/finance/billing-schedule-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -14,13 +16,20 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "success" | "warn
 };
 
 export default async function InvoicesPage() {
-  const invoices = await listInvoices();
+  const [invoices, billingSchedule] = await Promise.all([listInvoices(), getBillingSchedule()]);
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div><h1 className="text-xl font-semibold">Invoices</h1><p className="text-sm text-muted-foreground">{invoices.length} invoice(s)</p></div>
         <Link href="/finance/invoices/new"><Button><Plus className="h-4 w-4" /> New Invoice</Button></Link>
       </div>
+
+      {/* Belum ditagih sama sekali — bukan invoice yang sudah ada di tabel
+          bawah, justru sebaliknya: project mana yang PO-nya masih punya sisa
+          yang belum pernah dibuatkan invoice. Konteks yang paling relevan
+          persis sebelum menekan "New Invoice". */}
+      <BillingScheduleCard rows={billingSchedule} compact title="Belum Dibuatkan Invoice" />
+
       {invoices.length === 0 ? <EmptyState title="No invoices yet" /> : (
         <Table>
           <TableHeader><TableRow><TableHead>Number</TableHead><TableHead>Customer</TableHead><TableHead>Project</TableHead><TableHead>Due Date</TableHead><TableHead>Tagihan Invoice</TableHead><TableHead>Paid</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>

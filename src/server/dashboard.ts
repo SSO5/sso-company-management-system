@@ -2,7 +2,8 @@
 import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/current-user";
 import { refreshOverdueInvoices } from "@/lib/workflows/finance";
-import { invoiceDueAmount } from "@/lib/workflows/calculations";
+import { invoiceDueAmount, computeSCurve, round2 } from "@/lib/workflows/calculations";
+import { getBillingSchedule } from "@/server/finance/billing-schedule";
 
 /** Powers both the home dashboard KPI cards and the alert widgets (sections 29 & 36). */
 export async function getDashboardData() {
@@ -14,6 +15,7 @@ export async function getDashboardData() {
   const [
     revenueInvoices, receivableInvoices, activeProjects, atRiskProjects, completedProjects,
     overdueInvoices, quotationsAwaitingApproval, expiringContracts, projectsClosingIncomplete,
+    billingSchedule, progressProjects,
   ] = await Promise.all([
     // Fetched (not aggregated) because "revenue" for a staged DP invoice is
     // grandTotal * dpPercent/100, not grandTotal — a per-row calculation
@@ -46,7 +48,50 @@ export async function getDashboardData() {
       select: { id: true, number: true },
       take: 20,
     }),
+    // "Belum ditagih, dan kapan" — the same computeBillingSchedule roll-up
+    // now shown on Receivables/Invoices/Payments, surfaced here too so a
+    // director sees it without opening Finance at all.
+    getBillingSchedule(),
+    // Real project-progress data (Aug 2026) — planned/actual/billed % as of
+    // today, the same numbers each project's own S-Curve tab shows, rolled
+    // up here so "kemajuan project" is visible company-wide without opening
+    // every project one at a time. Needs real Milestones to mean anything
+    // (see backfill-milestones.ts) — a project with none just shows 0%,
+    // which is honest: no plan has been entered for it yet, not a bug.
+    prisma.project.findMany({
+      where: { deletedAt: null, status: { in: ["ACTIVE", "AT_RISK"] } },
+      select: {
+        id: true, number: true, contractValue: true,
+        customer: { select: { companyName: true } },
+        milestones: { select: { dueDate: true, weightPercent: true, completedAt: true } },
+        invoices: { where: { deletedAt: null }, select: { invoiceDate: true, grandTotal: true, dpPercent: true, status: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+    }),
   ]);
+
+  const projectProgress = progressProjects.map((p) => {
+    const sCurve = computeSCurve({
+      milestones: p.milestones.map((m) => ({ dueDate: m.dueDate, weightPercent: Number(m.weightPercent), completedAt: m.completedAt })),
+      invoices: p.invoices.map((i) => ({
+        invoiceDate: i.invoiceDate, grandTotal: Number(i.grandTotal),
+        dpPercent: i.dpPercent != null ? Number(i.dpPercent) : null, status: i.status,
+      })),
+      contractValue: Number(p.contractValue),
+    });
+    return {
+      projectId: p.id,
+      projectNumber: p.number,
+      customerName: p.customer.companyName,
+      planned: sCurve.asOfToday.planned,
+      actual: sCurve.asOfToday.actual,
+      billed: sCurve.asOfToday.billed,
+      // Positive = ahead of schedule, negative = behind — the single number
+      // that answers "is this project on track" without reading a chart.
+      scheduleGap: round2(sCurve.asOfToday.actual - sCurve.asOfToday.planned),
+    };
+  });
 
   const totalRevenue = revenueInvoices.reduce((s, i) => s + invoiceDueAmount(i), 0);
   const totalReceivableInvoiced = receivableInvoices.reduce((s, i) => s + invoiceDueAmount(i), 0);
@@ -73,6 +118,13 @@ export async function getDashboardData() {
       quotationsAwaitingApproval,
       expiringContracts,
       projectsAtRiskCount: atRiskProjects,
+      billingDueSoon: billingSchedule.filter((r) => {
+        if (!r.nextBillingDate) return false;
+        const days = (r.nextBillingDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+        return days <= 7;
+      }),
     },
+    billingSchedule,
+    projectProgress,
   };
 }

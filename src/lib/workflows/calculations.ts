@@ -325,3 +325,90 @@ export function computeSCurve({ milestones, invoices, contractValue }: SCurveInp
 
   return { points, totalWeight, asOfToday };
 }
+
+/**
+ * Company-wide "what's left to bill, and roughly when" — the same
+ * remainingToBill math that's lived on a single project's Documents tab
+ * (DocumentsPanel's "Sisa Penagihan" card) since Aug 2026, generalized here
+ * so Accounts Receivable, Invoices, Payments, the dashboard, and
+ * notifications can all read the same number instead of four separate
+ * one-off calculations quietly drifting apart from each other.
+ *
+ * Deliberately per-PROJECT, not per-PO: Invoice only carries a project-level
+ * link (no PurchaseOrder foreign key — see PurchaseOrder.number's own doc
+ * comment), so when a project has more than one PO (e.g. two motors on
+ * separate customer POs billed together, like BPN) there is no way to say
+ * which specific PO a given invoice covers. remainingToBill is the honest
+ * number this data model can support: total committed PO value for the
+ * project minus total invoiced so far. nextBillingDate is the earliest
+ * estimatedDeliveryDate among that project's still-active POs — a signal of
+ * urgency, not a claim about which exact PO it belongs to.
+ */
+export interface BillingScheduleRow {
+  projectId: string;
+  projectNumber: string;
+  customerName: string;
+  totalPoValue: number;
+  totalInvoiced: number;
+  remainingToBill: number;
+  nextBillingDate: Date | null;
+  pos: { id: string; number: string; paymentTerms: string | null; estimatedDeliveryDate: Date | null }[];
+}
+export interface BillingScheduleProjectInput {
+  id: string;
+  number: string;
+  customer: { companyName: string };
+  purchaseOrders: {
+    id: string;
+    number: string;
+    poValue: Numeric;
+    status: string;
+    paymentTerms: string | null;
+    estimatedDeliveryDate: Date | null;
+  }[];
+  invoices: { grandTotal: Numeric; dpPercent?: Numeric | null; status: string }[];
+}
+
+export function computeBillingSchedule(projects: BillingScheduleProjectInput[]): BillingScheduleRow[] {
+  const rows = projects.map((p) => {
+    const activePOs = p.purchaseOrders.filter((po) => po.status !== "CANCELLED");
+    const totalPoValue = round2(activePOs.reduce((s, po) => s + n(po.poValue), 0));
+    const totalInvoiced = round2(
+      p.invoices.filter((i) => i.status !== "CANCELLED").reduce((s, i) => s + invoiceDueAmount(i), 0)
+    );
+    const remainingToBill = round2(totalPoValue - totalInvoiced);
+    const upcomingDates = activePOs
+      .map((po) => po.estimatedDeliveryDate)
+      .filter((d): d is Date => d != null)
+      .sort((a, b) => a.getTime() - b.getTime());
+
+    return {
+      projectId: p.id,
+      projectNumber: p.number,
+      customerName: p.customer.companyName,
+      totalPoValue,
+      totalInvoiced,
+      remainingToBill,
+      nextBillingDate: upcomingDates[0] ?? null,
+      pos: activePOs.map((po) => ({
+        id: po.id,
+        number: po.number,
+        paymentTerms: po.paymentTerms,
+        estimatedDeliveryDate: po.estimatedDeliveryDate,
+      })),
+    };
+  });
+
+  // Only projects that still have something to bill, soonest deadline first
+  // (undated ones — no estimatedDeliveryDate captured yet — sort last, by
+  // remaining amount descending, so a big unscheduled balance still surfaces
+  // near the top instead of vanishing off the bottom).
+  return rows
+    .filter((r) => r.remainingToBill > 0)
+    .sort((a, b) => {
+      if (a.nextBillingDate && b.nextBillingDate) return a.nextBillingDate.getTime() - b.nextBillingDate.getTime();
+      if (a.nextBillingDate) return -1;
+      if (b.nextBillingDate) return 1;
+      return b.remainingToBill - a.remainingToBill;
+    });
+}
