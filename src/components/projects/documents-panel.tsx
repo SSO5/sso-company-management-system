@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate, formatRevisedNumber } from "@/lib/utils";
 import { invoiceDueAmount } from "@/lib/workflows/calculations";
 import { PoExtractUploadDialog } from "@/components/projects/po-extract-upload-dialog";
+import { PoRowActions } from "@/components/projects/po-row-actions";
 import { FileDown, FileText } from "lucide-react";
 
 interface Quotation { id: string; number: string; revision: number; grandTotal: unknown }
@@ -159,6 +160,7 @@ export function DocumentsPanel({
                 <div className="flex items-center gap-3">
                   <span className="font-medium">{formatCurrency(Number(po.poValue))}</span>
                   <Badge variant={CUSTOMER_PO_VARIANT[po.status]}>{po.status}</Badge>
+                  <PoRowActions id={po.id} number={po.number} />
                 </div>
               </div>
             ))}

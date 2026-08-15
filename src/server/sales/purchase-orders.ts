@@ -51,6 +51,36 @@ export async function createPurchaseOrder(input: unknown): Promise<ActionResult<
 }
 
 /**
+ * Soft-deletes a wrongly-entered PurchaseOrder — e.g. a duplicate created
+ * with an SSO-invented number before the "number = customer's own PO
+ * reference" rule existed, sitting alongside the real one and double-
+ * counting the project's PO total. Soft delete (deletedAt), not a hard
+ * delete, so the mistake stays visible in the audit trail via logActivity
+ * rather than silently vanishing.
+ */
+export async function deletePurchaseOrder(id: string): Promise<ActionResult<{ id: string; projectId: string | null }>> {
+  return runAction(async () => {
+    const actor = await requireUserOrThrow();
+    requirePermission(actor.role, "sales", "delete");
+
+    const po = await prisma.purchaseOrder.findUniqueOrThrow({ where: { id } });
+    if (po.deletedAt) throw new Error("PO ini sudah dihapus sebelumnya.");
+
+    await prisma.$transaction(async (tx) => {
+      await tx.purchaseOrder.update({ where: { id }, data: { deletedAt: new Date() } });
+      await logActivity(tx, {
+        userId: actor.userId, action: "DELETE", entityType: "PURCHASE_ORDER", entityId: id,
+        description: `Deleted PO ${po.number}`,
+      });
+    });
+
+    revalidatePath("/sales/purchase-orders");
+    if (po.projectId) revalidatePath(`/projects/${po.projectId}`);
+    return { id, projectId: po.projectId };
+  });
+}
+
+/**
  * Step 1 of the AI-assisted PO flow (titik masuk pertama — spec: read the
  * document once, let a person confirm before anything financial is saved).
  * Uploads the real file as a Document (same as any other upload — it's
