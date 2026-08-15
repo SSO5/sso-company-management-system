@@ -15,7 +15,14 @@ import { Plus, CheckCircle2, Circle, Clock, Pencil, Trash2 } from "lucide-react"
 interface Milestone {
   id: string; name: string; status: string; dueDate: Date | null;
   progressPercent: number; weightPercent: unknown; description: string | null;
+  sourcePurchaseOrderId: string | null; dateBasis: string | null;
+  sourcePurchaseOrder: { number: string } | null;
 }
+
+const DATE_BASIS_LABEL: Record<string, string> = {
+  PO_DATE: "tanggal PO (DP)",
+  ESTIMATED_DELIVERY: "perkiraan tanggal kirim",
+};
 
 function toDateInputValue(d: Date | null): string {
   if (!d) return "";
@@ -76,6 +83,11 @@ export function MilestonePanel({ projectId, milestones }: { projectId: string; m
               <div>
                 <p className="text-sm font-medium">{m.name}</p>
                 <p className="text-xs text-muted-foreground">{m.dueDate ? `Due ${formatDate(m.dueDate)}` : "No due date"}</p>
+                {m.sourcePurchaseOrder && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Mengikuti {m.dateBasis ? DATE_BASIS_LABEL[m.dateBasis] ?? "PO" : "PO"} {m.sourcePurchaseOrder.number}
+                  </p>
+                )}
                 {m.description && <p className="text-xs text-muted-foreground">{m.description}</p>}
               </div>
             </div>
@@ -130,7 +142,18 @@ export function MilestonePanel({ projectId, milestones }: { projectId: string; m
             <div className="space-y-1"><Label>Jenis Pekerjaan / Nama</Label><Input name="name" required defaultValue={editing.name} /></div>
             <div className="space-y-1">
               <Label>Tanggal (mis. tanggal DP — dasar penagihan)</Label>
-              <Input name="dueDate" type="date" defaultValue={toDateInputValue(editing.dueDate)} />
+              {editing.sourcePurchaseOrder ? (
+                <>
+                  <Input type="date" defaultValue={toDateInputValue(editing.dueDate)} disabled />
+                  <p className="text-[11px] text-muted-foreground">
+                    Tanggal ini mengikuti {editing.dateBasis ? DATE_BASIS_LABEL[editing.dateBasis] ?? "PO" : "PO"}{" "}
+                    {editing.sourcePurchaseOrder.number} — ubah dari tombol Edit PO di tab Documents, bukan di sini, supaya
+                    tidak ada dua sumber tanggal yang berbeda.
+                  </p>
+                </>
+              ) : (
+                <Input name="dueDate" type="date" defaultValue={toDateInputValue(editing.dueDate)} />
+              )}
             </div>
             <div className="space-y-1">
               <Label>Bobot (% dari total project) <span className="text-muted-foreground">— untuk Kurva S</span></Label>

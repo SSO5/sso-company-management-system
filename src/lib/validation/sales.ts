@@ -115,6 +115,27 @@ export const purchaseOrderSchema = z.object({
 });
 export type PurchaseOrderInput = z.infer<typeof purchaseOrderSchema>;
 
+/**
+ * Editing an existing PurchaseOrder (Aug 2026 — founder request: correcting
+ * the real DP/delivery date here must cascade to everything downstream —
+ * billing schedule, alerts, linked Milestones — see updatePurchaseOrder()).
+ * customerId/quotationId/projectId are deliberately excluded — reassigning a
+ * PO to a different customer or project is a bigger operation than a field
+ * correction and isn't supported by this action.
+ */
+export const purchaseOrderUpdateSchema = z.object({
+  number: z.string().min(1, "Nomor PO dari customer wajib diisi."),
+  poDate: z.coerce.date(),
+  poValue: z.coerce.number().positive(),
+  startDate: z.coerce.date().optional().nullable(),
+  endDate: z.coerce.date().optional().nullable(),
+  status: z.enum(["PENDING", "RECEIVED", "VERIFIED", "CANCELLED"]).default("PENDING"),
+  paymentTerms: z.string().optional().nullable(),
+  deliveryTerms: z.string().optional().nullable(),
+  estimatedDeliveryDate: z.coerce.date().optional().nullable(),
+});
+export type PurchaseOrderUpdateInput = z.infer<typeof purchaseOrderUpdateSchema>;
+
 // Outbound procurement PO — SSO buying from a vendor/supplier, distinct
 // from purchaseOrderSchema above (the customer-received PO). Items support
 // an optional groupLabel so several lines can share one bold section

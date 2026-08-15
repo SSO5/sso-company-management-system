@@ -5,7 +5,7 @@ import { requireUserOrThrow } from "@/lib/auth/current-user";
 import { requirePermission } from "@/lib/permissions";
 import { generateNumber } from "@/lib/numbering";
 import { logActivity } from "@/lib/workflows/audit";
-import { purchaseOrderSchema, contractSchema } from "@/lib/validation/sales";
+import { purchaseOrderSchema, purchaseOrderUpdateSchema, contractSchema } from "@/lib/validation/sales";
 import { runAction, type ActionResult } from "@/lib/action-helpers";
 import { uploadDocument } from "@/lib/workflows/documents";
 import { isExtractableMimeType } from "@/lib/ai/client";
@@ -47,6 +47,92 @@ export async function createPurchaseOrder(input: unknown): Promise<ActionResult<
     revalidatePath("/sales/purchase-orders");
     if (data.projectId) revalidatePath(`/projects/${data.projectId}`);
     return { id: po.id };
+  });
+}
+
+/**
+ * Edits an existing PurchaseOrder — the missing piece that made "correct the
+ * real DP date" impossible before Aug 2026 (only create/delete existed).
+ *
+ * The whole point: when poDate or estimatedDeliveryDate actually changes,
+ * every linked ProjectMilestone (see backfill-milestones.ts / the schema
+ * comment on ProjectMilestone.sourcePurchaseOrderId) is cascade-updated in
+ * the SAME transaction, so the Milestones tab / S-Curve / dashboard progress
+ * card never drift out of sync with the PO that's their source of truth.
+ *
+ * Everything else that depends on these dates — Sisa Penagihan, Accounts
+ * Receivable, Invoices/Payments' "belum ditagih" banner, the dashboard's
+ * billing-schedule card, and the BILLING_DUE_SOON notification — reads
+ * PurchaseOrder fresh on every request (see computeBillingSchedule), so
+ * those update automatically with zero extra code once this write lands;
+ * they were never a second copy of the date to begin with.
+ *
+ * Already-ISSUED Invoice documents are deliberately NOT touched here — an
+ * invoice's own due date is a real commercial commitment already sent to
+ * the customer, and silently rewriting it would be wrong. Only the
+ * forward-looking "what's next / not yet invoiced" numbers move.
+ */
+export async function updatePurchaseOrder(id: string, input: unknown): Promise<ActionResult<{ id: string; projectId: string | null }>> {
+  return runAction(async () => {
+    const actor = await requireUserOrThrow();
+    requirePermission(actor.role, "sales", "update");
+
+    const existing = await prisma.purchaseOrder.findUniqueOrThrow({ where: { id } });
+    if (existing.deletedAt) throw new Error("PO ini sudah dihapus.");
+    const data = purchaseOrderUpdateSchema.parse(input);
+
+    if (data.number !== existing.number) {
+      const dup = await prisma.purchaseOrder.findFirst({
+        where: { customerId: existing.customerId, number: data.number, deletedAt: null, id: { not: id } },
+      });
+      if (dup) throw new Error(`PO "${data.number}" untuk customer ini sudah tercatat.`);
+    }
+
+    const poDateChanged = data.poDate.getTime() !== existing.poDate.getTime();
+    const deliveryDateChanged =
+      (data.estimatedDeliveryDate?.getTime() ?? null) !== (existing.estimatedDeliveryDate?.getTime() ?? null);
+
+    await prisma.$transaction(async (tx) => {
+      const updated = await tx.purchaseOrder.update({ where: { id }, data });
+
+      if (poDateChanged) {
+        const linked = await tx.projectMilestone.findMany({ where: { sourcePurchaseOrderId: id, dateBasis: "PO_DATE" } });
+        for (const m of linked) {
+          await tx.projectMilestone.update({
+            where: { id: m.id },
+            data: {
+              dueDate: updated.poDate,
+              // completedAt on a PO_DATE-linked milestone was itself derived
+              // from the (now-corrected) poDate, never a separately-recorded
+              // real event — keep it in lockstep so "Realisasi" on the
+              // S-Curve doesn't silently disagree with the PO.
+              ...(m.status === "COMPLETED" ? { completedAt: updated.poDate } : {}),
+            },
+          });
+        }
+      }
+      if (deliveryDateChanged) {
+        const linked = await tx.projectMilestone.findMany({
+          where: { sourcePurchaseOrderId: id, dateBasis: "ESTIMATED_DELIVERY" },
+        });
+        for (const m of linked) {
+          await tx.projectMilestone.update({ where: { id: m.id }, data: { dueDate: updated.estimatedDeliveryDate } });
+        }
+      }
+
+      await logActivity(tx, {
+        userId: actor.userId, action: "UPDATE", entityType: "PURCHASE_ORDER", entityId: id,
+        description: `Updated PO ${updated.number}${poDateChanged || deliveryDateChanged ? " (tanggal berubah, milestone terkait ikut diperbarui)" : ""}`,
+      });
+    });
+
+    revalidatePath("/sales/purchase-orders");
+    revalidatePath("/finance/receivables");
+    revalidatePath("/finance/invoices");
+    revalidatePath("/finance/payments");
+    revalidatePath("/dashboard");
+    if (existing.projectId) revalidatePath(`/projects/${existing.projectId}`);
+    return { id, projectId: existing.projectId };
   });
 }
 

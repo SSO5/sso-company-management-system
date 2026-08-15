@@ -1,6 +1,7 @@
 "use server";
 import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/current-user";
+import { computeBillingSchedule } from "@/lib/workflows/calculations";
 import type { SessionPayload } from "@/lib/auth/session";
 
 /**
@@ -52,7 +53,7 @@ export async function getMyActionItems(): Promise<ActionItem[]> {
   const [
     quotationApprovals, vendorPoApprovals, expenseApprovals, invoiceApprovals,
     overdueInvoices, dueSoonInvoices, staleQuotations,
-    overdueMilestones, openProgressReports, unassignedProjects,
+    overdueMilestones, openProgressReports, unassignedProjects, billingProjects,
   ] = await Promise.all([
     isApprover
       ? prisma.quotation.findMany({
@@ -131,7 +132,30 @@ export async function getMyActionItems(): Promise<ActionItem[]> {
           select: { id: true, number: true, name: true },
         })
       : Promise.resolve([]),
+    // "Tugas juga [harus menyesuaikan]" — a project whose next billing stage
+    // is due soon shows up here as a real action item, computed live off the
+    // same PurchaseOrder data as Sisa Penagihan/Receivables/notifications
+    // (see computeBillingSchedule), not a separately-maintained task someone
+    // has to remember to create or update by hand.
+    seesFinance
+      ? prisma.project.findMany({
+          where: { deletedAt: null },
+          select: {
+            id: true, number: true,
+            customer: { select: { companyName: true } },
+            purchaseOrders: {
+              where: { deletedAt: null },
+              select: { id: true, number: true, poValue: true, status: true, paymentTerms: true, estimatedDeliveryDate: true },
+            },
+            invoices: { where: { deletedAt: null }, select: { grandTotal: true, dpPercent: true, status: true } },
+          },
+        })
+      : Promise.resolve([]),
   ]);
+
+  const billingDueSoon = computeBillingSchedule(billingProjects).filter(
+    (r) => r.nextBillingDate && r.nextBillingDate.getTime() - now.getTime() <= DAYS_7
+  );
 
   for (const q of quotationApprovals) {
     items.push({
@@ -203,6 +227,14 @@ export async function getMyActionItems(): Promise<ActionItem[]> {
       id: `proj-nopm-${p.id}`, module: "project", severity: "attention",
       title: `Project ${p.number} belum ada PM`, subtitle: p.name,
       href: `/projects/${p.id}`, dueDate: null,
+    });
+  }
+  for (const r of billingDueSoon) {
+    const overdue = r.nextBillingDate ? r.nextBillingDate < now : false;
+    items.push({
+      id: `billing-duesoon-${r.projectId}`, module: "finance", severity: overdue ? "overdue" : "due_soon",
+      title: `${overdue ? "Lewat target" : "Segera"} tagih ${r.projectNumber} — Rp ${r.remainingToBill.toLocaleString("id-ID")}`,
+      subtitle: r.customerName, href: "/finance/receivables", dueDate: r.nextBillingDate,
     });
   }
 

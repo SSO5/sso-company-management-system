@@ -39,7 +39,19 @@
  *
  * Idempotent: matches existing milestones by (projectId, name) since there's
  * no DB-level unique constraint on that pair; skips a milestone that already
- * exists, never touches one manually edited since.
+ * exists — EXCEPT it will still link an existing-but-unlinked row to its
+ * source PO (see sourcePurchaseOrderId below) if that's the only thing
+ * missing, so re-running this after the Aug 2026 PO-linkage schema change
+ * fixes up rows created before it existed.
+ *
+ * PO linkage (Aug 2026 — founder request: editing a PO's date must cascade
+ * to its milestone automatically): JKT's two milestones link cleanly to its
+ * one PO. BPN's three milestones are deliberately left UNLINKED
+ * (sourcePurchaseOrderId null) — BPN has TWO real POs (0505 and 0506) on one
+ * project, and ProjectMilestone can only point at ONE PurchaseOrder. Linking
+ * to either PO alone would make the milestone silently ignore edits to the
+ * other one, which is worse than staying manual. Edit BPN milestone dates
+ * directly via the Milestones tab if either PO's terms change.
  *
  * Run:  npx tsx prisma/backfill-milestones.ts          (dry run)
  *       npx tsx prisma/backfill-milestones.ts --apply
@@ -58,6 +70,11 @@ type Spec = {
   status: "PENDING" | "COMPLETED";
   completedAt: string | null;
   description: string | null;
+  // Which real PO this milestone's date should track live, and via which of
+  // that PO's fields — null means "stays a manually-edited date" (see BPN
+  // note above the SPECS array's header comment).
+  poNumber: string | null;
+  dateBasis: "PO_DATE" | "ESTIMATED_DELIVERY" | null;
 };
 
 const SPECS: Spec[] = [
@@ -65,26 +82,31 @@ const SPECS: Spec[] = [
     job: "JKT", name: "DP 20% - PO EPC-L/2026-0450", weightPercent: 20, dueDate: "2026-07-28",
     status: "COMPLETED", completedAt: "2026-07-28",
     description: "DP invoice sudah diterbitkan berdasarkan PO customer.",
+    poNumber: "EPC-L/2026-0450", dateBasis: "PO_DATE",
   },
   {
     job: "JKT", name: "Cash Before Delivery 80% - PO EPC-L/2026-0450", weightPercent: 80, dueDate: "2026-08-14",
     status: "PENDING", completedAt: null,
     description: "Tanggal dari estimatedDeliveryDate PO (perkiraan AI dari \"Minggu ke 2 Agustus 2026\").",
+    poNumber: "EPC-L/2026-0450", dateBasis: "ESTIMATED_DELIVERY",
   },
   {
     job: "BPN", name: "DP 40% - PO 2026/BPN-L-0505 & 0506", weightPercent: 40, dueDate: "2026-07-20",
     status: "COMPLETED", completedAt: "2026-07-20",
     description: "DP invoice sudah diterbitkan berdasarkan kedua PO customer.",
+    poNumber: null, dateBasis: null,
   },
   {
     job: "BPN", name: "Before Delivered 50% - PO 2026/BPN-L-0505 & 0506", weightPercent: 50, dueDate: "2026-08-31",
     status: "PENDING", completedAt: null,
     description: "Tanggal dari estimatedDeliveryDate PO (poDate + 6 minggu ARO).",
+    poNumber: null, dateBasis: null,
   },
   {
     job: "BPN", name: "Retention 10% - PO 2026/BPN-L-0505 & 0506", weightPercent: 10, dueDate: "2026-11-29",
     status: "PENDING", completedAt: null,
     description: "PERKIRAAN — tanggal retention TIDAK tercantum di PO asli, diisi 90 hari setelah estimasi kirim sebagai placeholder. Sesuaikan dengan kesepakatan retention period yang sebenarnya dengan JPC.",
+    poNumber: null, dateBasis: null,
   },
 ];
 
@@ -108,7 +130,10 @@ async function main() {
 
   const projects = await prisma.project.findMany({
     where: { deletedAt: null },
-    select: { id: true, contractValue: true, customer: { select: { companyName: true } } },
+    select: {
+      id: true, contractValue: true, customer: { select: { companyName: true } },
+      purchaseOrders: { where: { deletedAt: null }, select: { id: true, number: true } },
+    },
   });
   const jkt = projects.find((p) => /jakarta prima/i.test(p.customer.companyName) && !/balikpapan/i.test(p.customer.companyName));
   const bpn = projects.find((p) => /balikpapan/i.test(p.customer.companyName));
@@ -126,10 +151,26 @@ async function main() {
   let sortOrder = 0;
   for (const s of SPECS) {
     const p = proj(s.job);
+    const sourcePurchaseOrderId = s.poNumber ? p.purchaseOrders.find((po) => po.number === s.poNumber)?.id ?? null : null;
+    if (s.poNumber && !sourcePurchaseOrderId) {
+      console.error(`  [${s.job}] PO "${s.poNumber}" tidak ditemukan untuk project ini — jalankan backfill-customer-po.ts dulu.`);
+      process.exit(1);
+    }
+
     const existing = await prisma.projectMilestone.findFirst({ where: { projectId: p.id, name: s.name } });
 
     if (existing) {
-      console.log(`  SKIP [${s.job}] "${s.name}": sudah ada.`);
+      if (sourcePurchaseOrderId && !existing.sourcePurchaseOrderId) {
+        console.log(`  [${s.job}] LINK  "${s.name}"  -> PO ${s.poNumber} (${s.dateBasis})`);
+        if (APPLY) {
+          await prisma.projectMilestone.update({
+            where: { id: existing.id },
+            data: { sourcePurchaseOrderId, dateBasis: s.dateBasis },
+          });
+        }
+      } else {
+        console.log(`  SKIP [${s.job}] "${s.name}": sudah ada${sourcePurchaseOrderId ? " dan sudah terhubung ke PO" : ""}.`);
+      }
       sortOrder++;
       continue;
     }
@@ -148,6 +189,8 @@ async function main() {
         completedAt: s.completedAt ? new Date(s.completedAt) : null,
         description: s.description,
         sortOrder,
+        sourcePurchaseOrderId,
+        dateBasis: s.dateBasis,
       },
     });
     sortOrder++;

@@ -5,13 +5,14 @@ import { formatCurrency, formatDate, formatRevisedNumber } from "@/lib/utils";
 import { invoiceDueAmount } from "@/lib/workflows/calculations";
 import { PoExtractUploadDialog } from "@/components/projects/po-extract-upload-dialog";
 import { PoRowActions } from "@/components/projects/po-row-actions";
+import { PoEditDialog } from "@/components/projects/po-edit-dialog";
 import { FileDown, FileText } from "lucide-react";
 
 interface Quotation { id: string; number: string; revision: number; grandTotal: unknown }
 interface Opportunity { id: string; number: string }
 interface CustomerPO {
   id: string; number: string; poDate: Date; poValue: unknown; status: string;
-  paymentTerms: string | null; estimatedDeliveryDate: Date | null;
+  paymentTerms: string | null; deliveryTerms: string | null; estimatedDeliveryDate: Date | null;
 }
 interface VendorPO { id: string; number: string; vendorName: string; poDate: Date; grandTotal: unknown; status: string }
 interface InvoiceRow { id: string; number: string; invoiceDate: Date; grandTotal: unknown; dpPercent: unknown; paidAmount: unknown; status: string }
@@ -160,6 +161,7 @@ export function DocumentsPanel({
                 <div className="flex items-center gap-3">
                   <span className="font-medium">{formatCurrency(Number(po.poValue))}</span>
                   <Badge variant={CUSTOMER_PO_VARIANT[po.status]}>{po.status}</Badge>
+                  <PoEditDialog po={po} />
                   <PoRowActions id={po.id} number={po.number} />
                 </div>
               </div>

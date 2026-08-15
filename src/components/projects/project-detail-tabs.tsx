@@ -28,6 +28,8 @@ interface Props {
   milestones: {
     id: string; name: string; status: string; dueDate: Date | null;
     progressPercent: number; weightPercent: unknown; description: string | null;
+    sourcePurchaseOrderId: string | null; dateBasis: string | null;
+    sourcePurchaseOrder: { number: string } | null;
   }[];
   sCurve: { points: SCurvePoint[]; totalWeight: number; asOfToday: { planned: number; actual: number; billed: number } };
   expenses: {
@@ -41,7 +43,7 @@ interface Props {
   quotation: { id: string; number: string; revision: number; grandTotal: unknown } | null;
   purchaseOrders: {
     id: string; number: string; poDate: Date; poValue: unknown; status: string;
-    paymentTerms: string | null; estimatedDeliveryDate: Date | null;
+    paymentTerms: string | null; deliveryTerms: string | null; estimatedDeliveryDate: Date | null;
   }[];
   vendorPurchaseOrders: { id: string; number: string; vendorName: string; poDate: Date; grandTotal: unknown; status: string }[];
   invoices: { id: string; number: string; invoiceDate: Date; grandTotal: unknown; dpPercent: unknown; paidAmount: unknown; status: string }[];

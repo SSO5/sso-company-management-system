@@ -679,7 +679,8 @@ model PurchaseOrder {
   updatedAt   DateTime @updatedAt
   deletedAt   DateTime?
 
-  contracts Contract[]
+  contracts  Contract[]
+  milestones ProjectMilestone[]
 
   @@unique([customerId, number])
   @@index([status])
@@ -913,6 +914,24 @@ model ProjectMilestone {
   // milestone itu tidak ikut dihitung ke kurva sampai bobotnya diisi.
   weightPercent Decimal   @db.Decimal(5, 2) @default(0)
   completedAt   DateTime?
+
+  // Links this milestone back to the real customer PO stage it represents
+  // (Aug 2026 — founder request: editing the PO's DP/delivery date must
+  // cascade to everything downstream, not sit as a disconnected snapshot).
+  // When set, dueDate is NOT a free-standing fact a PM edits directly here —
+  // it's kept in sync by updatePurchaseOrder() whenever the linked PO's
+  // poDate/estimatedDeliveryDate changes (see server/sales/purchase-orders.ts).
+  // dateBasis says WHICH PO field this milestone tracks:
+  //   "PO_DATE"            — e.g. the DP stage, tied to when the PO/DP itself
+  //                          landed (PurchaseOrder.poDate).
+  //   "ESTIMATED_DELIVERY" — e.g. Before Delivery/Retention stages, tied to
+  //                          PurchaseOrder.estimatedDeliveryDate.
+  // Null sourcePurchaseOrderId (the common case for a manually-added
+  // milestone) means dueDate stays a plain, directly-editable field — the
+  // two milestone "flavors" (PO-derived vs manual) coexist on purpose.
+  sourcePurchaseOrderId String?
+  sourcePurchaseOrder   PurchaseOrder? @relation(fields: [sourcePurchaseOrderId], references: [id], onDelete: SetNull)
+  dateBasis             String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

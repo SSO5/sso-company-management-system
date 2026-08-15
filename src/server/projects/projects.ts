@@ -36,7 +36,14 @@ export async function getProjectDetail(id: string) {
         projectManager: { select: { id: true, name: true } },
         salesPic: { select: { id: true, name: true } },
         tasks: { where: { deletedAt: null }, orderBy: { createdAt: "asc" }, include: { assignedTo: { select: { name: true } } } },
-        milestones: { orderBy: { sortOrder: "asc" } },
+        milestones: {
+          orderBy: { sortOrder: "asc" },
+          // Needed so the Milestones tab can show "tanggal ini mengikuti PO
+          // X" and lock the date field instead of letting two disconnected
+          // edits fight over the same fact — see PurchaseOrder.poDate cascade
+          // in updatePurchaseOrder().
+          include: { sourcePurchaseOrder: { select: { number: true } } },
+        },
         expenses: { where: { deletedAt: null }, orderBy: { date: "desc" }, include: { createdBy: { select: { name: true } } } },
         invoices: { where: { deletedAt: null }, orderBy: { createdAt: "desc" }, include: { payments: true } },
         folders: { where: { parentId: null }, take: 1 },
@@ -48,7 +55,10 @@ export async function getProjectDetail(id: string) {
         purchaseOrders: {
           where: { deletedAt: null },
           orderBy: { poDate: "desc" },
-          select: { id: true, number: true, poDate: true, poValue: true, status: true, paymentTerms: true, estimatedDeliveryDate: true },
+          select: {
+            id: true, number: true, poDate: true, poValue: true, status: true,
+            paymentTerms: true, deliveryTerms: true, estimatedDeliveryDate: true,
+          },
         },
         vendorPurchaseOrders: {
           where: { deletedAt: null },
