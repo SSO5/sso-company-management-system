@@ -8,6 +8,7 @@ import { taskSchema, milestoneSchema, milestoneUpdateSchema, expenseSchema } fro
 import { generateNumber } from "@/lib/numbering";
 import { runAction, type ActionResult } from "@/lib/action-helpers";
 import { submitExpenseForApproval, approveExpense, rejectExpense } from "@/lib/workflows/expense";
+import { uploadDocument } from "@/lib/workflows/documents";
 import type { TaskStatus } from "@prisma/client";
 
 export async function createTask(input: unknown): Promise<ActionResult<{ id: string }>> {
@@ -65,6 +66,22 @@ export async function updateMilestoneStatus(
   return runAction(async () => {
     const actor = await requireUserOrThrow();
     requirePermission(actor.role, "project", "update");
+
+    // A delivery milestone (dateBasis "ESTIMATED_DELIVERY" — the stage a
+    // customer PO's estimatedDeliveryDate tracks) can't be marked Completed
+    // from this plain dropdown: real evidence (surat jalan/BAST for that
+    // shipment) must be uploaded in the same step — see
+    // completeDeliveryMilestoneAction below (spec: "evidence before the
+    // system treats something as done"). Every other transition, and every
+    // other milestone flavor (PO_DATE/DP, or a manual PM-added one), is
+    // unaffected.
+    if (status === "COMPLETED") {
+      const milestone = await prisma.projectMilestone.findUniqueOrThrow({ where: { id }, select: { dateBasis: true } });
+      if (milestone.dateBasis === "ESTIMATED_DELIVERY") {
+        throw new Error('Milestone pengiriman ini butuh bukti (surat jalan/BAST) — gunakan tombol "Tandai Selesai (upload bukti)", bukan dropdown ini.');
+      }
+    }
+
     const progressPercent = status === "COMPLETED" ? 100 : undefined;
     // completedAt feeds the "Realisasi" line on the S-Curve — stamp it the
     // moment a milestone is actually marked done, and clear it if someone
@@ -78,6 +95,64 @@ export async function updateMilestoneStatus(
       });
       await logActivity(tx, { userId: actor.userId, action: "STATUS_CHANGE", entityType: "PROJECT_MILESTONE", entityId: id, description: `Milestone -> ${status}` });
     });
+    revalidatePath(`/projects/${projectId}`);
+    return { id };
+  });
+}
+
+/**
+ * The only path to Completed for a delivery milestone (dateBasis
+ * "ESTIMATED_DELIVERY") — uploads the real surat jalan/BAST for that
+ * shipment in the same step, same atomic pattern as activateContractAction.
+ * DP-stage (PO_DATE) and manually-added milestones don't go through this;
+ * DP's own real evidence is the bukti-transfer-gated Invoice payment (see
+ * recordPayment), and a manual milestone has no PO-linked document type to
+ * anchor evidence to in the first place.
+ */
+export async function completeDeliveryMilestoneAction(
+  id: string,
+  projectId: string,
+  formData: FormData
+): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const actor = await requireUserOrThrow();
+    requirePermission(actor.role, "project", "update");
+    requirePermission(actor.role, "documents", "create");
+
+    const milestone = await prisma.projectMilestone.findUniqueOrThrow({ where: { id } });
+    if (milestone.status === "COMPLETED") {
+      throw new Error("Milestone ini sudah Completed.");
+    }
+
+    const file = formData.get("file") as File | null;
+    if (!file || file.size === 0) throw new Error("Upload bukti pengiriman (surat jalan/BAST) terlebih dahulu.");
+
+    const doc = await uploadDocument(
+      {
+        buffer: Buffer.from(await file.arrayBuffer()),
+        originalName: file.name,
+        mimeType: file.type || "application/octet-stream",
+        projectId,
+        relatedEntityType: "DELIVERY_EVIDENCE",
+        relatedEntityId: id,
+      },
+      actor
+    );
+
+    await prisma.$transaction(async (tx) => {
+      await tx.projectMilestone.update({
+        where: { id },
+        data: { status: "COMPLETED", completedAt: new Date(), progressPercent: 100 },
+      });
+      await logActivity(tx, {
+        userId: actor.userId,
+        action: "STATUS_CHANGE",
+        entityType: "PROJECT_MILESTONE",
+        entityId: id,
+        description: `Milestone "${milestone.name}" -> COMPLETED (bukti pengiriman: "${doc.originalName}")`,
+      });
+    });
+
     revalidatePath(`/projects/${projectId}`);
     return { id };
   });

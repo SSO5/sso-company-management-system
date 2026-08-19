@@ -354,6 +354,11 @@ const ENTITY_TO_ROUTE_KEY: Record<string, string> = {
   FINAL_REPORT: "CLOSING/FINAL_REPORT",
   PROJECT_CLOSURE: "CLOSING/PROJECT_CLOSURE",
   VENDOR_PO: "PROCUREMENT",
+  // Proof a specific delivery milestone (dateBasis "ESTIMATED_DELIVERY")
+  // actually happened — surat jalan / partial BAST for that shipment. Kept
+  // distinct from BAST above, which is specifically the final project
+  // closing handover that validateProjectClosing() gates on.
+  DELIVERY_EVIDENCE: "PROJECT/DELIVERABLES",
 };
 
 export async function resolveDestinationFolder(

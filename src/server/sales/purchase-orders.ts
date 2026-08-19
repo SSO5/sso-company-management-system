@@ -281,6 +281,12 @@ export async function createContract(input: unknown): Promise<ActionResult<{ id:
     const actor = await requireUserOrThrow();
     requirePermission(actor.role, "sales", "create");
     const data = contractSchema.parse(input);
+    // "Active" is only reachable through activateContractAction below, which
+    // requires the actually-signed document — never set directly here, even
+    // if a caller bypasses the create form's own restriction.
+    if (data.status === "ACTIVE") {
+      throw new Error('Kontrak tidak bisa langsung dibuat berstatus Active — gunakan tombol "Aktifkan" setelah kontrak dibuat, yang mewajibkan upload dokumen kontrak yang sudah ditandatangani.');
+    }
 
     const contract = await prisma.$transaction(async (tx) => {
       const number = await generateNumber(tx, "CONTRACT");
@@ -294,5 +300,56 @@ export async function createContract(input: unknown): Promise<ActionResult<{ id:
 
     revalidatePath("/sales/contracts");
     return { id: contract.id };
+  });
+}
+
+/**
+ * Draft -> Active, gated on the actually-signed document being uploaded
+ * right here (spec: "evidence before the system treats something as done").
+ * Unlike the PO-before-Won gate, this one is a single atomic step — the
+ * upload and the status change happen in the same action — rather than a
+ * separate check against whatever might already be on file, since a
+ * contract can only ever be activated once (no re-activation path exists).
+ */
+export async function activateContractAction(id: string, formData: FormData): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const actor = await requireUserOrThrow();
+    requirePermission(actor.role, "sales", "update");
+    requirePermission(actor.role, "documents", "create");
+
+    const contract = await prisma.contract.findUniqueOrThrow({ where: { id } });
+    if (contract.status !== "DRAFT") {
+      throw new Error(`Kontrak ${contract.number} berstatus ${contract.status}, bukan Draft — tidak bisa diaktifkan dari sini.`);
+    }
+
+    const file = formData.get("file") as File | null;
+    if (!file || file.size === 0) throw new Error("Upload dokumen kontrak yang sudah ditandatangani terlebih dahulu.");
+
+    const doc = await uploadDocument(
+      {
+        buffer: Buffer.from(await file.arrayBuffer()),
+        originalName: file.name,
+        mimeType: file.type || "application/octet-stream",
+        projectId: contract.projectId,
+        relatedEntityType: "CONTRACT",
+        relatedEntityId: contract.id,
+      },
+      actor
+    );
+
+    await prisma.$transaction(async (tx) => {
+      await tx.contract.update({ where: { id }, data: { status: "ACTIVE" } });
+      await logActivity(tx, {
+        userId: actor.userId,
+        action: "STATUS_CHANGE",
+        entityType: "CONTRACT",
+        entityId: id,
+        description: `${contract.number}: Draft -> Active (dokumen tertandatangani: "${doc.originalName}")`,
+      });
+    });
+
+    revalidatePath("/sales/contracts");
+    if (contract.projectId) revalidatePath(`/projects/${contract.projectId}`);
+    return { id };
   });
 }
