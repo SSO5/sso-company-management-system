@@ -152,6 +152,17 @@ export async function deleteOpportunityAction(id: string): Promise<ActionResult<
   });
 }
 
+/**
+ * Manual pipeline-stage picker (NEW/QUALIFIED/PROPOSAL/NEGOTIATION only).
+ * Won/Lost are deliberately excluded here — those are terminal, evidence-
+ * backed outcomes that must only be reachable through markQuotationWon
+ * (requires an approved/sent quotation, atomically creates the Project) and
+ * markQuotationLost (requires a reason) in lib/workflows/quotation.ts. A
+ * plain stage dropdown must never be able to fabricate a "Won" deal, or
+ * silently downgrade one that's already decided (spec: "Perbaikan Deal
+ * Stage & Revisi Costing-Quotation" — deals.stage may only change through
+ * an explicit, accountable action, never as a side effect of routine CRUD).
+ */
 export async function updateOpportunityStage(
   id: string,
   status: OpportunityStatus
@@ -160,8 +171,17 @@ export async function updateOpportunityStage(
     const actor = await requireUserOrThrow();
     requirePermission(actor.role, "sales", "update");
 
+    if (status === "WON" || status === "LOST") {
+      throw new Error(
+        'Won/Lost can\'t be set from the stage picker. Use "Mark Won" (creates the Project automatically) or "Mark Lost" (with a reason) on the deal\'s quotation instead.'
+      );
+    }
+
     await prisma.$transaction(async (tx) => {
       const before = await tx.opportunity.findUniqueOrThrow({ where: { id } });
+      if (before.status === "WON" || before.status === "LOST") {
+        throw new Error(`This deal is already ${before.status === "WON" ? "Won" : "Lost"} and its stage can no longer be changed manually.`);
+      }
       await tx.opportunity.update({ where: { id }, data: { status } });
       await logActivity(tx, {
         userId: actor.userId,

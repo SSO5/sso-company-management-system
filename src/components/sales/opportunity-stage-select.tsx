@@ -2,16 +2,25 @@
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { Select } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
 import { updateOpportunityStage } from "@/server/sales/opportunities";
 import type { OpportunityStatus } from "@prisma/client";
 
-const STAGES: OpportunityStatus[] = ["NEW", "QUALIFIED", "PROPOSAL", "NEGOTIATION", "WON", "LOST"];
+// Won/Lost are intentionally left out: they're terminal, evidence-backed
+// outcomes reachable only via "Mark Won"/"Mark Lost" on the deal's
+// quotation (see updateOpportunityStage's server-side guard), never via
+// this plain stage picker.
+const STAGES: OpportunityStatus[] = ["NEW", "QUALIFIED", "PROPOSAL", "NEGOTIATION"];
 
 export function OpportunityStageSelect({ id, status }: { id: string; status: OpportunityStatus }) {
   const router = useRouter();
   const { toast } = useToast();
   const [pending, startTransition] = useTransition();
+
+  if (status === "WON" || status === "LOST") {
+    return <Badge variant={status === "WON" ? "success" : "destructive"}>{status}</Badge>;
+  }
 
   return (
     <Select
