@@ -4,16 +4,11 @@ import { getJobChecklistFor } from "@/server/document-checklist";
 import { getProgressReportDocuments } from "@/server/projects/progress-reports";
 import { DocumentChecklistPanel } from "@/components/dashboard/document-checklist-panel";
 import { requireUser } from "@/lib/auth/current-user";
-import { Badge } from "@/components/ui/badge";
 import { ProjectDetailTabs } from "@/components/projects/project-detail-tabs";
 import { JobNumberField } from "@/components/projects/job-number-field";
+import { ProjectStatusSelect } from "@/components/projects/project-status-select";
 import Link from "next/link";
 import { FolderOpen } from "lucide-react";
-
-const STATUS_VARIANT: Record<string, "default" | "secondary" | "success" | "warning" | "destructive" | "outline"> = {
-  PLANNING: "secondary", ACTIVE: "default", ON_HOLD: "warning", AT_RISK: "destructive",
-  COMPLETED: "success", CANCELLED: "destructive", CLOSED: "outline",
-};
 
 export default async function ProjectDetailPage({ params }: { params: { id: string } }) {
   const [{ project, profitability, closing, opportunityFolder, purchaseOrderFolderId, sCurve }, actor, assignees, checklist, progressReportDocs] = await Promise.all([
@@ -35,7 +30,7 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
         <p className="font-mono text-xs text-muted-foreground">{project.number}</p>
         <h1 className="text-xl font-semibold">{project.name}</h1>
         <div className="mt-1 flex items-center gap-2">
-          <Badge variant={STATUS_VARIANT[project.status]}>{project.status}</Badge>
+          <ProjectStatusSelect projectId={project.id} status={project.status} canManage={canManage} />
           <span className="text-xs text-muted-foreground">{project.customer.companyName}</span>
           <span className="text-xs text-muted-foreground">· PM: {project.projectManager?.name ?? "Unassigned"}</span>
           <JobNumberField projectId={project.id} jobNumber={project.jobNumber} canManage={canManage} />
