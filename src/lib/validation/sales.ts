@@ -101,6 +101,14 @@ export const purchaseOrderSchema = z.object({
   customerId: z.string().min(1),
   quotationId: z.string().optional().nullable(),
   projectId: z.string().optional().nullable(),
+  // Id of the Document already saved by uploadAndExtractPurchaseOrder's
+  // upload step, if this record is being confirmed from that flow — lets
+  // createPurchaseOrder retroactively tag that Document with this PO's id
+  // (relatedEntityId), which is what markQuotationWon's "real PO file must
+  // be on file" gate checks for. Omitted when a PO is typed in by hand with
+  // no source document (still allowed to exist as a record, just won't by
+  // itself satisfy the Won gate).
+  documentId: z.string().optional().nullable(),
   // The customer's own PO reference, exactly as printed on their document
   // (e.g. "EPC-L/2026-0450") — not auto-generated, see schema.prisma.
   number: z.string().min(1, "Nomor PO dari customer wajib diisi."),

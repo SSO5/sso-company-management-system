@@ -19,6 +19,37 @@ import { ForbiddenError, requireQuotationApprover } from "@/lib/permissions";
  */
 const OPPORTUNITY_STAGE_ORDER: OpportunityStatus[] = ["NEW", "QUALIFIED", "PROPOSAL", "NEGOTIATION", "WON", "LOST"];
 
+/**
+ * Does this quotation have at least one customer PurchaseOrder record with
+ * a real uploaded PO file attached — not just typed-in numbers? Backs the
+ * markQuotationWon gate below (spec: "syarat untuk bisa Won adalah dokumen
+ * PO asli dari customer harus sudah terupload — tidak bisa semaunya
+ * mengubah status won"). A PurchaseOrder can exist without a linked
+ * Document (someone typed the number in by hand); only a Document actually
+ * tagged with that PO's id (relatedEntityType "PURCHASE_ORDER",
+ * relatedEntityId = the PO's id — set by createPurchaseOrder when it's
+ * confirmed from the upload flow) counts as "uploaded".
+ */
+export async function hasUploadedCustomerPoDocument(
+  tx: Prisma.TransactionClient,
+  quotationId: string
+): Promise<boolean> {
+  const purchaseOrders = await tx.purchaseOrder.findMany({
+    where: { quotationId, deletedAt: null },
+    select: { id: true },
+  });
+  if (purchaseOrders.length === 0) return false;
+  const doc = await tx.document.findFirst({
+    where: {
+      relatedEntityType: "PURCHASE_ORDER",
+      relatedEntityId: { in: purchaseOrders.map((p) => p.id) },
+      deletedAt: null,
+    },
+    select: { id: true },
+  });
+  return doc != null;
+}
+
 async function advanceOpportunityStage(
   tx: Prisma.TransactionClient,
   opportunityId: string | null | undefined,
@@ -318,6 +349,11 @@ export async function markQuotationWon(
     });
     if (!["SENT", "APPROVED"].includes(quotation.status)) {
       throw new Error("Only an approved/sent quotation can be marked Won.");
+    }
+    if (!(await hasUploadedCustomerPoDocument(tx, quotationId))) {
+      throw new Error(
+        'Belum ada file PO asli dari customer yang ter-upload untuk quotation ini. Upload dokumen PO lewat tombol "Upload PO" dulu, baru bisa Mark Won.'
+      );
     }
 
     const won = await tx.quotation.update({

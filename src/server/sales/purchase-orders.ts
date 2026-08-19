@@ -10,6 +10,40 @@ import { runAction, type ActionResult } from "@/lib/action-helpers";
 import { uploadDocument } from "@/lib/workflows/documents";
 import { isExtractableMimeType } from "@/lib/ai/client";
 import { extractPurchaseOrder, type ExtractedPurchaseOrder } from "@/lib/ai/extract-purchase-order";
+import { hasUploadedCustomerPoDocument } from "@/lib/workflows/quotation";
+
+/**
+ * PO status for the Quotation detail page's "Customer PO" panel — same
+ * "real file, not just typed numbers" check markQuotationWon's gate uses
+ * (see hasUploadedCustomerPoDocument), plus the per-PO breakdown so the UI
+ * can show which record actually has a file versus which was hand-typed.
+ */
+export async function getCustomerPoStatusForQuotation(quotationId: string) {
+  const actor = await requireUserOrThrow();
+  requirePermission(actor.role, "sales", "view");
+
+  const pos = await prisma.purchaseOrder.findMany({
+    where: { quotationId, deletedAt: null },
+    select: { id: true, number: true, poDate: true, poValue: true, status: true },
+    orderBy: { createdAt: "desc" },
+  });
+  const poIds = pos.map((p) => p.id);
+  const docs = poIds.length
+    ? await prisma.document.findMany({
+        where: { relatedEntityType: "PURCHASE_ORDER", relatedEntityId: { in: poIds }, deletedAt: null },
+        select: { relatedEntityId: true },
+      })
+    : [];
+  const withDocument = new Set(docs.map((d) => d.relatedEntityId));
+  const purchaseOrders = pos.map((p) => ({ ...p, hasDocument: withDocument.has(p.id) }));
+
+  return {
+    purchaseOrders: JSON.parse(JSON.stringify(purchaseOrders)) as Array<{
+      id: string; number: string; poDate: string; poValue: string; status: string; hasDocument: boolean;
+    }>,
+    hasUploadedDocument: await hasUploadedCustomerPoDocument(prisma, quotationId),
+  };
+}
 
 export async function listPurchaseOrders() {
   const actor = await requireUserOrThrow();
@@ -35,11 +69,18 @@ export async function createPurchaseOrder(input: unknown): Promise<ActionResult<
     });
     if (dup) throw new Error(`PO "${data.number}" untuk customer ini sudah tercatat.`);
 
+    const { documentId, ...poData } = data;
     const po = await prisma.$transaction(async (tx) => {
-      const created = await tx.purchaseOrder.create({ data: { ...data, createdById: actor.userId } });
+      const created = await tx.purchaseOrder.create({ data: { ...poData, createdById: actor.userId } });
+      // Tag the source Document (saved earlier by uploadAndExtractPurchaseOrder)
+      // with this PO's id, so markQuotationWon's "a real PO file must be on
+      // file" gate can find it — see lib/workflows/quotation.ts.
+      if (documentId) {
+        await tx.document.update({ where: { id: documentId }, data: { relatedEntityId: created.id } });
+      }
       await logActivity(tx, {
         userId: actor.userId, action: "CREATE", entityType: "PURCHASE_ORDER", entityId: created.id,
-        description: `Created PO ${created.number}`,
+        description: `Created PO ${created.number}${documentId ? " (dengan file PO terupload)" : ""}`,
       });
       return created;
     });
@@ -174,9 +215,15 @@ export async function deletePurchaseOrder(id: string): Promise<ActionResult<{ id
  * succeeds, returns suggested field values for the UI to pre-fill a
  * createPurchaseOrder() confirmation form. This action never creates a
  * PurchaseOrder row itself.
+ *
+ * `projectId` is optional because this now also runs pre-Won, from a
+ * Quotation/Opportunity that has no Project yet (see markQuotationWon's
+ * "real PO file must be on file" gate) — the caller passes the right
+ * `folderId` either way (the Project's or the Opportunity's own "5. PO"
+ * folder), so projectId here is only used when it's actually available.
  */
 export async function uploadAndExtractPurchaseOrder(
-  params: { folderId: string; projectId: string; customerId: string },
+  params: { folderId: string; customerId: string; projectId?: string },
   formData: FormData
 ): Promise<ActionResult<{ documentId: string; extracted: ExtractedPurchaseOrder | null; extractionError: string | null }>> {
   return runAction(async () => {
@@ -214,7 +261,7 @@ export async function uploadAndExtractPurchaseOrder(
       }
     }
 
-    revalidatePath(`/projects/${params.projectId}`);
+    if (params.projectId) revalidatePath(`/projects/${params.projectId}`);
     return { documentId: doc.id, extracted, extractionError };
   });
 }
