@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import { Pencil, Search } from "lucide-react";
+import { formatCurrency, formatRevisedNumber } from "@/lib/utils";
 import {
   correctQuotationNumberAction,
   correctVendorPONumberAction,
@@ -21,6 +22,7 @@ import {
   renameDocumentAction,
   relocateDocumentAction,
   searchDocumentsForCorrection,
+  correctOpportunityStageAction,
 } from "@/server/corrections";
 
 type Quotation = { id: string; number: string; revision: number; status: string; quotationDate: string; customer: { companyName: string } | null };
@@ -29,6 +31,13 @@ type Invoice = { id: string; number: string; status: string; invoiceDate: string
 type ProgressReport = { id: string; number: string; title: string | null; reportKind: string | null; inspectionDate: string; project: { number: string } | null };
 type FolderOpt = { id: string; path: string };
 type DocRow = { id: string; originalName: string; mimeType: string; uploadedAt: string; relatedEntityType: string | null; folder: { id: string; path: string } | null };
+type WonLostOpportunity = {
+  id: string; number: string; name: string; status: string; updatedAt: string;
+  customer: { companyName: string } | null;
+  quotations: { id: string; number: string; revision: number; status: string; grandTotal: string }[];
+  costingSheets: { id: string; number: string; revision: number; status: string; quotationId: string | null }[];
+  projects: { id: string; number: string }[];
+};
 
 interface Props {
   quotations: Quotation[];
@@ -36,6 +45,7 @@ interface Props {
   invoices: Invoice[];
   progressReports: ProgressReport[];
   folders: FolderOpt[];
+  wonLostOpportunities: WonLostOpportunity[];
 }
 
 const TABS = [
@@ -44,6 +54,7 @@ const TABS = [
   { value: "invoice", label: "Invoice" },
   { value: "progress", label: "Progress Report" },
   { value: "document", label: "Dokumen (Nama & Lokasi)" },
+  { value: "opportunity", label: "Status Deal (Won/Lost)" },
 ];
 
 function useFilter<T>(rows: T[], toText: (r: T) => string) {
@@ -65,7 +76,7 @@ function SearchBox({ value, onChange, placeholder }: { value: string; onChange: 
   );
 }
 
-export function DocumentCorrectionPanel({ quotations, vendorPOs, invoices, progressReports, folders }: Props) {
+export function DocumentCorrectionPanel({ quotations, vendorPOs, invoices, progressReports, folders, wonLostOpportunities }: Props) {
   const [tab, setTab] = useState("quotation");
   return (
     <div className="space-y-4">
@@ -75,6 +86,7 @@ export function DocumentCorrectionPanel({ quotations, vendorPOs, invoices, progr
       {tab === "invoice" && <InvoiceTab rows={invoices} />}
       {tab === "progress" && <ProgressReportTab rows={progressReports} />}
       {tab === "document" && <DocumentTab folders={folders} />}
+      {tab === "opportunity" && <OpportunityStageTab rows={wonLostOpportunities} />}
     </div>
   );
 }
@@ -416,6 +428,130 @@ function DocumentCorrectionDialog({ row, folders, onClose }: { row: DocRow; fold
         <div className="flex justify-end gap-2 border-t border-border pt-3">
           <Button type="button" variant="outline" onClick={onClose}>Batal</Button>
           <Button type="button" disabled={pending || !reason.trim() || unchanged} onClick={onSave}>{pending ? "Menyimpan..." : "Simpan Koreksi"}</Button>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
+// ------------------------------------------------------------- Opportunity
+function OpportunityStageTab({ rows }: { rows: WonLostOpportunity[] }) {
+  const { q, setQ, filtered } = useFilter(rows, (r) => `${r.number} ${r.name} ${r.customer?.companyName ?? ""}`);
+  const [editing, setEditing] = useState<WonLostOpportunity | null>(null);
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-muted-foreground">
+        Hanya deal yang sedang berstatus Won/Lost muncul di sini. Untuk deal yang masih berjalan, ubah
+        stage-nya langsung dari halaman Opportunity — pemindahan ke Won/Lost sendiri hanya bisa lewat
+        tombol &quot;Mark Won&quot;/&quot;Mark Lost&quot; pada quotation-nya, bukan dari sini.
+      </p>
+      <SearchBox value={q} onChange={setQ} placeholder="Cari nomor deal, nama, atau pelanggan..." />
+      {filtered.length === 0 ? (
+        <EmptyState title="Tidak ada deal Won/Lost" description="Coba kata kunci lain, atau memang belum ada yang perlu dikoreksi." />
+      ) : (
+        <Table>
+          <TableHeader><TableRow><TableHead>Deal</TableHead><TableHead>Pelanggan</TableHead><TableHead>Status</TableHead><TableHead>Quotation</TableHead><TableHead>Project</TableHead><TableHead /></TableRow></TableHeader>
+          <TableBody>
+            {filtered.map((r) => (
+              <TableRow key={r.id}>
+                <TableCell className="font-medium">{r.number} — {r.name}</TableCell>
+                <TableCell>{r.customer?.companyName ?? "-"}</TableCell>
+                <TableCell><Badge variant={r.status === "WON" ? "success" : "destructive"}>{r.status}</Badge></TableCell>
+                <TableCell className="text-xs text-muted-foreground">{r.quotations.length} ({r.quotations.filter((q) => q.status !== "WON" && q.status !== "LOST").length} masih terbuka)</TableCell>
+                <TableCell className="text-xs text-muted-foreground">{r.projects.length > 0 ? r.projects.map((p) => p.number).join(", ") : "-"}</TableCell>
+                <TableCell><Button size="icon" variant="ghost" onClick={() => setEditing(r)}><Pencil className="h-3.5 w-3.5" /></Button></TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+      {editing && <OpportunityStageCorrectionDialog row={editing} onClose={() => setEditing(null)} />}
+    </div>
+  );
+}
+
+function OpportunityStageCorrectionDialog({ row, onClose }: { row: WonLostOpportunity; onClose: () => void }) {
+  const [reason, setReason] = useState("");
+  const [pending, setPending] = useState(false);
+  const router = useRouter();
+  const { toast } = useToast();
+
+  async function onSave() {
+    setPending(true);
+    const res = await correctOpportunityStageAction(row.id, reason);
+    setPending(false);
+    if (res.ok) {
+      toast({ title: `${row.number} dikembalikan ke Negotiation`, variant: "success" });
+      onClose();
+      router.refresh();
+    } else {
+      toast({ title: "Gagal koreksi", description: res.error, variant: "destructive" });
+    }
+  }
+
+  const openQuotations = row.quotations.filter((q) => q.status !== "WON" && q.status !== "LOST");
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(v) => !v && onClose()}
+      title={`Koreksi Status Deal — ${row.number}`}
+      description={`${row.name}${row.customer ? ` — ${row.customer.companyName}` : ""}. Status saat ini: ${row.status}.`}
+    >
+      <div className="space-y-3">
+        <div className="space-y-1.5 rounded-md border border-border p-2.5 text-xs">
+          <p className="font-medium text-foreground">Quotation ({row.quotations.length}):</p>
+          {row.quotations.length === 0 ? (
+            <p className="text-muted-foreground">(tidak ada)</p>
+          ) : (
+            row.quotations.map((qn) => (
+              <p key={qn.id} className="text-muted-foreground">
+                {formatRevisedNumber(qn.number, qn.revision)} — {qn.status} — {formatCurrency(qn.grandTotal)}
+              </p>
+            ))
+          )}
+          <p className="pt-1 font-medium text-foreground">Costing Sheet ({row.costingSheets.length}):</p>
+          {row.costingSheets.length === 0 ? (
+            <p className="text-muted-foreground">(tidak ada)</p>
+          ) : (
+            row.costingSheets.map((c) => (
+              <p key={c.id} className="text-muted-foreground">
+                {formatRevisedNumber(c.number, c.revision)} — {c.status}{c.quotationId ? "" : " (tidak terhubung quotation manapun)"}
+              </p>
+            ))
+          )}
+          <p className="pt-1 font-medium text-foreground">Project: {row.projects.length > 0 ? row.projects.map((p) => p.number).join(", ") : "(belum ada)"}</p>
+        </div>
+
+        {openQuotations.length > 1 && (
+          <p className="rounded bg-warning/10 px-2 py-1.5 text-xs text-muted-foreground">
+            Deal ini punya {openQuotations.length} quotation yang sama-sama masih terbuka. Koreksi ini hanya
+            mengembalikan stage deal ke Negotiation — penggabungan nomor quotation yang terlanjur ganda perlu
+            diputuskan manual (quotation mana yang jadi acuan), lalu revisi berikutnya di-convert lewat
+            &quot;Convert to Quotation&quot; -&gt; &quot;Ya, Jadikan Revisi&quot; pada quotation tersebut.
+          </p>
+        )}
+        {row.projects.length > 0 && (
+          <p className="rounded bg-warning/10 px-2 py-1.5 text-xs text-muted-foreground">
+            Deal ini sudah punya {row.projects.length} Project yang terlanjur dibuat. Koreksi ini TIDAK
+            menghapus/mengarsipkan Project tersebut — kalau memang salah dibuat, itu perlu ditangani terpisah.
+          </p>
+        )}
+
+        <div className="space-y-1">
+          <Label>Alasan koreksi <span className="text-destructive">*</span></Label>
+          <Textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="mis. Status ter-set Won lewat stage picker saat masih negosiasi, seharusnya belum ada PO/kontrak."
+            rows={3}
+          />
+        </div>
+        <div className="flex justify-end gap-2 border-t border-border pt-3">
+          <Button type="button" variant="outline" onClick={onClose}>Batal</Button>
+          <Button type="button" variant="destructive" disabled={pending || !reason.trim()} onClick={onSave}>
+            {pending ? "Menyimpan..." : "Kembalikan ke Negotiation"}
+          </Button>
         </div>
       </div>
     </Dialog>

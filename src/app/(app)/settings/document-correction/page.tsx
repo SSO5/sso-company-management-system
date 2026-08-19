@@ -6,6 +6,7 @@ import {
   listInvoicesForCorrection,
   listProgressReportsForCorrection,
   listFoldersForCorrection,
+  listWonLostOpportunitiesForCorrection,
 } from "@/server/corrections";
 import { DocumentCorrectionPanel } from "@/components/settings/document-correction-panel";
 
@@ -20,12 +21,13 @@ export default async function DocumentCorrectionPage() {
   const actor = await requireUser();
   if (actor.role !== "ADMIN" && actor.role !== "IT") redirect("/dashboard");
 
-  const [quotations, vendorPOs, invoices, progressReports, folders] = await Promise.all([
+  const [quotations, vendorPOs, invoices, progressReports, folders, wonLostOpportunities] = await Promise.all([
     listQuotationsForCorrection(),
     listVendorPOsForCorrection(),
     listInvoicesForCorrection(),
     listProgressReportsForCorrection(),
     listFoldersForCorrection(),
+    listWonLostOpportunitiesForCorrection(),
   ]);
 
   return (
@@ -34,8 +36,9 @@ export default async function DocumentCorrectionPage() {
         <h1 className="text-xl font-semibold">Koreksi Dokumen</h1>
         <p className="text-sm text-muted-foreground">
           Untuk memperbaiki nomor, nama, atau lokasi dokumen setelah otomatisasi salah membaca uploadan —
-          termasuk dokumen yang sudah terkirim/disetujui dan biasanya terkunci. Setiap koreksi wajib diberi
-          alasan dan tercatat di Log Aktivitas.
+          termasuk dokumen yang sudah terkirim/disetujui dan biasanya terkunci — atau membatalkan status
+          Won/Lost sebuah deal yang keliru ter-set. Setiap koreksi wajib diberi alasan dan tercatat di Log
+          Aktivitas.
         </p>
       </div>
       <DocumentCorrectionPanel
@@ -44,6 +47,7 @@ export default async function DocumentCorrectionPage() {
         invoices={JSON.parse(JSON.stringify(invoices))}
         progressReports={JSON.parse(JSON.stringify(progressReports))}
         folders={folders}
+        wonLostOpportunities={wonLostOpportunities}
       />
     </div>
   );
