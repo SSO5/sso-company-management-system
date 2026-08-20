@@ -4,8 +4,6 @@ import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate, formatRevisedNumber } from "@/lib/utils";
 import { invoiceDueAmount } from "@/lib/workflows/calculations";
 import { PoExtractUploadDialog } from "@/components/projects/po-extract-upload-dialog";
-import { PoRowActions } from "@/components/projects/po-row-actions";
-import { PoEditDialog } from "@/components/projects/po-edit-dialog";
 import { FileDown, FileText } from "lucide-react";
 
 interface Quotation { id: string; number: string; revision: number; grandTotal: unknown }
@@ -141,7 +139,7 @@ export function DocumentsPanel({
 
       <Section
         title="Customer Purchase Order"
-        hint="What the customer sent SSO to confirm this job"
+        hint="What the customer sent SSO to confirm this job — read-only here, sourced from Sales"
         action={purchaseOrderFolderId && <PoExtractUploadDialog folderId={purchaseOrderFolderId} projectId={projectId} customerId={customerId} />}
       >
         {purchaseOrders.length === 0 ? (
@@ -161,13 +159,14 @@ export function DocumentsPanel({
                 <div className="flex items-center gap-3">
                   <span className="font-medium">{formatCurrency(Number(po.poValue))}</span>
                   <Badge variant={CUSTOMER_PO_VARIANT[po.status]}>{po.status}</Badge>
-                  <PoEditDialog po={po} />
-                  <PoRowActions id={po.id} number={po.number} />
                 </div>
               </div>
             ))}
           </div>
         )}
+        <p className="mt-3 border-t border-border pt-2 text-[11px] text-muted-foreground">
+          Data PO ini hanya bisa dikoreksi oleh Sales, lewat <Link href="/sales/purchase-orders" className="text-primary hover:underline">Sales &gt; Purchase Orders</Link> — bukan di sini.
+        </p>
       </Section>
 
       <Section title="Vendor Purchase Orders" hint="What SSO sent to suppliers to fulfill this job">

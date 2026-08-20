@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
-import { createExpense, submitExpenseAction, approveExpenseAction, rejectExpenseAction } from "@/server/projects/tasks";
+import { createExpense, submitExpenseAction, approveExpenseAction, rejectExpenseAction, markExpensePaidAction } from "@/server/projects/tasks";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { Plus } from "lucide-react";
 import type { UserRole } from "@prisma/client";
@@ -31,11 +31,17 @@ export function ExpensePanel({ projectId, expenses, role }: { projectId: string;
   const [open, setOpen] = useState(false);
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
+  const [payId, setPayId] = useState<string | null>(null);
+  const [payFile, setPayFile] = useState<File | null>(null);
   const [pending, setPending] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
   const isAdmin = role === "ADMIN";
+  // Recording an expense is a PM's job; actually disbursing/confirming
+  // payment against it (and attaching the receipt) is Finance's — kept
+  // separate from `isAdmin` so this isn't accidentally an Admin-only gate.
+  const canMarkPaid = role === "ADMIN" || role === "FINANCE" || role === "IT";
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -43,6 +49,19 @@ export function ExpensePanel({ projectId, expenses, role }: { projectId: string;
     const res = await createExpense({ ...Object.fromEntries(fd.entries()), projectId });
     if (res.ok) { toast({ title: "Expense recorded", variant: "success" }); setOpen(false); router.refresh(); }
     else toast({ title: "Unable to record expense", description: res.error, variant: "destructive" });
+  }
+
+  async function onMarkPaid(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!payId) return;
+    const fd = new FormData(e.currentTarget);
+    fd.set("id", payId);
+    fd.set("projectId", projectId);
+    setPending(true);
+    const res = await markExpensePaidAction(fd);
+    setPending(false);
+    if (res.ok) { toast({ title: "Expense marked as paid", variant: "success" }); setPayId(null); setPayFile(null); router.refresh(); }
+    else toast({ title: "Unable to mark as paid", description: res.error, variant: "destructive" });
   }
 
   async function run(fn: () => Promise<{ ok: boolean; error?: string }>) {
@@ -89,6 +108,9 @@ export function ExpensePanel({ projectId, expenses, role }: { projectId: string;
                       <Button size="sm" variant="destructive" disabled={pending} onClick={() => setRejectId(e.id)}>Reject</Button>
                     </>
                   )}
+                  {e.approvalStatus === "APPROVED" && e.paymentStatus !== "PAID" && canMarkPaid && (
+                    <Button size="sm" disabled={pending} onClick={() => setPayId(e.id)}>Mark as Paid</Button>
+                  )}
                 </div>
               </TableCell>
             </TableRow>
@@ -117,6 +139,28 @@ export function ExpensePanel({ projectId, expenses, role }: { projectId: string;
         </div>
       </Dialog>
 
+      <Dialog
+        open={!!payId}
+        onOpenChange={(v) => { if (!v) { setPayId(null); setPayFile(null); } }}
+        title="Mark Expense as Paid"
+        description="Upload kwitansi/bukti transfer — expense tidak bisa ditandai Paid tanpa bukti bayar."
+      >
+        <form onSubmit={onMarkPaid} className="space-y-3">
+          <div className="space-y-1">
+            <Label>Bukti Bayar <span className="text-destructive">*</span></Label>
+            <Input
+              name="file" type="file" required accept=".pdf,.jpg,.jpeg,.png,.webp"
+              onChange={(ev) => setPayFile(ev.target.files?.[0] ?? null)}
+            />
+            <p className="text-[11px] text-muted-foreground">Foto/PDF kwitansi atau bukti transfer wajib diupload.</p>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => { setPayId(null); setPayFile(null); }}>Cancel</Button>
+            <Button type="submit" disabled={pending || !payFile}>{pending ? "Saving..." : "Mark as Paid"}</Button>
+          </div>
+        </form>
+      </Dialog>
+
       <Dialog open={open} onOpenChange={setOpen} title="Record Project Expense">
         <form onSubmit={onSubmit} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
@@ -130,13 +174,11 @@ export function ExpensePanel({ projectId, expenses, role }: { projectId: string;
             <div className="space-y-1"><Label>Amount (IDR)</Label><Input name="amount" type="number" min={0} required /></div>
             <div className="space-y-1"><Label>Tax (IDR)</Label><Input name="tax" type="number" min={0} defaultValue={0} /></div>
             <div className="space-y-1"><Label>Vendor</Label><Input name="vendor" /></div>
-            <div className="space-y-1">
-              <Label>Payment Status</Label>
-              <Select name="paymentStatus" defaultValue="UNPAID">
-                <option value="UNPAID">Unpaid</option><option value="PAID">Paid</option>
-              </Select>
-            </div>
           </div>
+          <p className="text-[11px] text-muted-foreground">
+            Setiap expense baru dimulai sebagai Unpaid — status Paid hanya bisa diberikan setelah expense disetujui,
+            lewat tombol &quot;Mark as Paid&quot; dengan bukti bayar terlampir.
+          </p>
           <div className="space-y-1"><Label>Description</Label><Textarea name="description" rows={2} required /></div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
