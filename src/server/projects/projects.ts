@@ -5,7 +5,7 @@ import { requireUserOrThrow } from "@/lib/auth/current-user";
 import { requirePermission } from "@/lib/permissions";
 import { logActivity } from "@/lib/workflows/audit";
 import { calculateProjectProfitability, validateProjectClosing, closeProject, markProjectCompleted, refreshDelayedMilestones, refreshProjectRiskNotifications } from "@/lib/workflows/project";
-import { computeSCurve, computeProjectRiskSignals } from "@/lib/workflows/calculations";
+import { computeSCurve, computeProjectRiskSignals, computeBillingTimeline } from "@/lib/workflows/calculations";
 import { projectUpdateSchema } from "@/lib/validation/project";
 import { runAction, type ActionResult } from "@/lib/action-helpers";
 
@@ -113,6 +113,8 @@ export async function getProjectDetail(id: string) {
     select: { id: true },
   });
 
+  const salesOrigin = await getSalesOriginCompleteness(id);
+
   const sCurve = computeSCurve({
     milestones: project.milestones.map((m) => ({ dueDate: m.dueDate, weightPercent: Number(m.weightPercent), completedAt: m.completedAt })),
     invoices: project.invoices.map((i) => ({ invoiceDate: i.invoiceDate, grandTotal: Number(i.grandTotal), dpPercent: i.dpPercent ? Number(i.dpPercent) : null, status: i.status })),
@@ -127,7 +129,67 @@ export async function getProjectDetail(id: string) {
     sCurveAsOfToday: sCurve.asOfToday,
   });
 
-  return { project, profitability, closing, opportunityFolder, purchaseOrderFolderId: purchaseOrderFolder?.id ?? null, sCurve, riskSignals };
+  const billingTimeline = computeBillingTimeline({
+    purchaseOrders: project.purchaseOrders,
+    invoices: project.invoices,
+  });
+
+  return {
+    project, profitability, closing, opportunityFolder, purchaseOrderFolderId: purchaseOrderFolder?.id ?? null,
+    sCurve, riskSignals, salesOrigin, billingTimeline,
+  };
+}
+
+/**
+ * "Sales Origin" completeness (spec: opportunity + costing + Won quotation
+ * documents must all be on file, or a red flag + where-to-upload hint shows
+ * instead). Folder occupancy is the honest signal here — none of these three
+ * stages have a dedicated upload action that tags relatedEntityType the way
+ * PO/Invoice/Payment do (see ENTITY_TO_ROUTE_KEY in lib/workflows/folders.ts),
+ * they're plain drag-into-folder uploads — so "does this project's own
+ * folder have at least one file in it" is what spec section 24 (folder
+ * structure as the real source of truth) actually gives us to check.
+ * "Opportunity" is satisfied by either Data Input or Engineering Concept
+ * having a file — those are the two pre-Costing prospect-stage folders.
+ */
+async function getSalesOriginCompleteness(projectId: string) {
+  const salesSection = await prisma.folder.findFirst({
+    where: { projectId, routeKey: "SALES_SECTION" },
+    select: {
+      children: {
+        select: { id: true, routeKey: true, _count: { select: { documents: { where: { deletedAt: null } } } } },
+      },
+    },
+  });
+  const byRoute = new Map((salesSection?.children ?? []).map((f) => [f.routeKey, f]));
+  const hasDocs = (routeKey: string) => (byRoute.get(routeKey)?._count.documents ?? 0) > 0;
+  const folderId = (routeKey: string) => byRoute.get(routeKey)?.id ?? null;
+
+  const dataInputId = folderId("SALES/DATA_INPUT");
+  const engineeringId = folderId("SALES/ENGINEERING");
+
+  const items = [
+    {
+      key: "OPPORTUNITY" as const,
+      label: "Dokumen Opportunity",
+      complete: hasDocs("SALES/DATA_INPUT") || hasDocs("SALES/ENGINEERING"),
+      folderId: dataInputId ?? engineeringId,
+    },
+    {
+      key: "COSTING" as const,
+      label: "Dokumen Costing",
+      complete: hasDocs("SALES/COSTING"),
+      folderId: folderId("SALES/COSTING"),
+    },
+    {
+      key: "QUOTATION" as const,
+      label: "Dokumen Quotation (Won)",
+      complete: hasDocs("SALES/QUOTATION"),
+      folderId: folderId("SALES/QUOTATION"),
+    },
+  ];
+
+  return { items, complete: items.every((i) => i.complete) };
 }
 
 export async function updateProject(id: string, input: unknown): Promise<ActionResult<{ id: string }>> {
