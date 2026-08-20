@@ -40,7 +40,7 @@ export function ProfileForm({ profile }: { profile: OwnProfile }) {
       <div className="flex items-center gap-4">
         {preview ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={preview} alt="Foto profil" className="h-16 w-16 rounded-full border border-border object-cover" />
+          <img src={preview} alt="Foto profil" className="h-16 w-16 rounded-full border border-border object-cover object-top" />
         ) : (
           <div className="flex h-16 w-16 items-center justify-center rounded-full border border-border bg-muted text-lg font-semibold text-muted-foreground">
             {profile.name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()}

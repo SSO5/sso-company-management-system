@@ -65,7 +65,7 @@ export function Topbar({
         <Link href="/settings/profile" title="Profil Saya">
           {avatarSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatarSrc} alt={userName} className="h-8 w-8 rounded-full object-cover" />
+            <img src={avatarSrc} alt={userName} className="h-8 w-8 rounded-full object-cover object-top" />
           ) : (
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">
               {initials}

@@ -48,7 +48,7 @@ export function ProfileHub(p: ProfileHubProps) {
         <div className={cn("flex flex-col gap-5 sm:flex-row sm:items-end", bgSrc && "-mt-16 sm:-mt-20")}>
           {avatarSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatarSrc} alt={p.name} className="h-32 w-32 shrink-0 rounded-full border-4 border-card object-cover shadow-md sm:h-[168px] sm:w-[168px]" />
+            <img src={avatarSrc} alt={p.name} className="h-32 w-32 shrink-0 rounded-full border-4 border-card object-cover object-top shadow-md sm:h-[168px] sm:w-[168px]" />
           ) : (
             <div className="flex h-32 w-32 shrink-0 items-center justify-center rounded-full border-4 border-card bg-primary text-4xl font-bold text-primary-foreground shadow-md sm:h-[168px] sm:w-[168px]">
               {initials}
