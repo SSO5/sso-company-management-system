@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { logActivity } from "@/lib/workflows/audit";
 import { entityTypeForRouteKey } from "@/lib/workflows/folders";
+import { uploadDocument } from "@/lib/workflows/documents";
 import type { SessionPayload } from "@/lib/auth/session";
 import { requireDataCorrector } from "@/lib/permissions";
 
@@ -298,6 +299,102 @@ export async function archiveWonArtifacts(opportunityId: string, reason: string,
 
     return { revertedQuotations, archivedProjects };
   });
+}
+
+/**
+ * Revert a Contract sitting at ACTIVE with no signed document on file back
+ * to DRAFT — the retroactive counterpart to activateContractAction's gate
+ * (spec: "sistem yang perlu dokumen asli... berlaku untuk proyek existing
+ * dan baru... konsisten ke semuanya"), for contracts that reached Active
+ * before that gate existed (or any other way around it). Same explicit/
+ * logged-exception contract as the rest of this file.
+ */
+export async function revertContractToDraft(id: string, reason: string, actor: SessionPayload) {
+  requireDataCorrector(actor.role);
+  if (!reason.trim()) throw new Error("Alasan koreksi wajib diisi — ini akan tercatat di Log Aktivitas.");
+
+  return prisma.$transaction(async (tx) => {
+    const contract = await tx.contract.findUniqueOrThrow({ where: { id } });
+    if (contract.status !== "ACTIVE") {
+      throw new Error(`${contract.number} berstatus ${contract.status}, bukan Active — tidak ada yang perlu dikoreksi.`);
+    }
+    await tx.contract.update({ where: { id }, data: { status: "DRAFT" } });
+    await logActivity(tx, {
+      userId: actor.userId,
+      action: "STATUS_CHANGE",
+      entityType: "CONTRACT",
+      entityId: id,
+      description: `[Koreksi IT] ${contract.number}: Active -> Draft (belum ada dokumen kontrak tertandatangan ter-upload). Alasan: ${reason.trim()}`,
+      metadata: { correction: "CONTRACT_REVERT_NO_EVIDENCE", reason: reason.trim(), correctedBy: actor.name, correctedByRole: actor.role },
+    });
+    return { id, number: contract.number };
+  });
+}
+
+/**
+ * Revert a delivery milestone marked Completed with no bukti pengiriman on
+ * file back to Pending — retroactive counterpart to
+ * completeDeliveryMilestoneAction's gate, same reasoning as
+ * revertContractToDraft above.
+ */
+export async function revertMilestoneToPending(id: string, reason: string, actor: SessionPayload) {
+  requireDataCorrector(actor.role);
+  if (!reason.trim()) throw new Error("Alasan koreksi wajib diisi — ini akan tercatat di Log Aktivitas.");
+
+  return prisma.$transaction(async (tx) => {
+    const milestone = await tx.projectMilestone.findUniqueOrThrow({ where: { id } });
+    if (milestone.status !== "COMPLETED") {
+      throw new Error(`Milestone "${milestone.name}" berstatus ${milestone.status}, bukan Completed — tidak ada yang perlu dikoreksi.`);
+    }
+    await tx.projectMilestone.update({ where: { id }, data: { status: "PENDING", completedAt: null, progressPercent: 0 } });
+    await logActivity(tx, {
+      userId: actor.userId,
+      action: "STATUS_CHANGE",
+      entityType: "PROJECT_MILESTONE",
+      entityId: id,
+      description: `[Koreksi IT] Milestone "${milestone.name}": Completed -> Pending (belum ada bukti pengiriman ter-upload). Alasan: ${reason.trim()}`,
+      metadata: { correction: "MILESTONE_REVERT_NO_EVIDENCE", reason: reason.trim(), correctedBy: actor.name, correctedByRole: actor.role },
+    });
+    return { id };
+  });
+}
+
+/**
+ * Attaches a bukti transfer file to a Payment that predates the
+ * recordPayment evidence gate (or otherwise ended up without one) —
+ * backfill, not revert. Deliberately does NOT touch Invoice.status or
+ * paidAmount: unlike Contract/Milestone, an Invoice's paid status has real
+ * money already reflected in it, so silently flipping it back to unpaid
+ * while paidAmount stays put would misrepresent an invoice that may well
+ * have been genuinely collected as fully outstanding again — a real risk
+ * of double-billing a customer who already paid. This just closes the
+ * paperwork gap.
+ */
+export async function attachPaymentEvidence(paymentId: string, file: {
+  buffer: Buffer; originalName: string; mimeType: string;
+}, actor: SessionPayload) {
+  requireDataCorrector(actor.role);
+  const payment = await prisma.payment.findUniqueOrThrow({ where: { id: paymentId } });
+  const doc = await uploadDocument(
+    {
+      buffer: file.buffer,
+      originalName: file.originalName,
+      mimeType: file.mimeType,
+      projectId: payment.projectId,
+      relatedEntityType: "PAYMENT",
+      relatedEntityId: payment.id,
+    },
+    actor
+  );
+  await logActivity(prisma, {
+    userId: actor.userId,
+    action: "UPLOAD",
+    entityType: "PAYMENT",
+    entityId: payment.id,
+    description: `[Koreksi IT] Bukti transfer "${doc.originalName}" ditambahkan ke pembayaran ${payment.number} (data lama, sebelum bukti transfer diwajibkan).`,
+    metadata: { correction: "PAYMENT_EVIDENCE_BACKFILL", documentId: doc.id, correctedBy: actor.name, correctedByRole: actor.role },
+  });
+  return { documentId: doc.id };
 }
 
 /**
