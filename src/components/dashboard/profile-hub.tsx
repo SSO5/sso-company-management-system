@@ -43,12 +43,26 @@ export function ProfileHub(p: ProfileHubProps) {
       )}
       {/* Avatar sits OUTSIDE the hero band's own overflow-hidden wrapper
           above (not inside it) so it's never clipped by the band's rounded
-          corners — it overlaps on top, in normal flow, via negative margin. */}
+          corners — it overlaps on top, in normal flow, via negative margin.
+          The hero band above is `position: relative` (it needs to be, as the
+          containing block for its absolute gradient overlay), and a
+          positioned element always paints above normal-flow siblings
+          regardless of DOM order — so without `relative` here too, the hero
+          band paints over the top half of this overlapping row instead of
+          under it. `relative` promotes this row into the same stacking
+          phase, where DOM order (this row comes after) wins instead. */}
       <div className={bgSrc ? "bg-card px-5 pb-5 sm:px-6" : "p-5 sm:p-6"}>
-        <div className={cn("flex flex-col gap-5 sm:flex-row sm:items-end", bgSrc && "-mt-16 sm:-mt-20")}>
+        <div className={cn("relative flex flex-col gap-5 sm:flex-row sm:items-end", bgSrc && "-mt-16 sm:-mt-20")}>
           {avatarSrc ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatarSrc} alt={p.name} className="h-32 w-32 shrink-0 rounded-full border-4 border-card object-cover object-top shadow-md sm:h-[168px] sm:w-[168px]" />
+            // Circular clip lives on this wrapper (overflow-hidden), not on
+            // the <img> itself — border-radius applied directly to a replaced
+            // element (img) together with object-fit is unreliable on
+            // WebKit/Safari and can paint only part of the circle. A wrapper
+            // div is the resilient way to clip it.
+            <div className="h-32 w-32 shrink-0 overflow-hidden rounded-full border-4 border-card bg-muted shadow-md sm:h-[168px] sm:w-[168px]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={avatarSrc} alt={p.name} className="h-full w-full object-cover object-top" />
+            </div>
           ) : (
             <div className="flex h-32 w-32 shrink-0 items-center justify-center rounded-full border-4 border-card bg-primary text-4xl font-bold text-primary-foreground shadow-md sm:h-[168px] sm:w-[168px]">
               {initials}

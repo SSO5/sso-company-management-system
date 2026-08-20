@@ -103,8 +103,13 @@ export function Sidebar({
           className="mx-3.5 mb-3.5 flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.06] p-3 transition-colors hover:bg-white/10"
         >
           {avatarSrc ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatarSrc} alt={userName} className="h-9 w-9 shrink-0 rounded-full object-cover object-top" />
+            // Wrapper does the circular clip (see profile-hub.tsx for why:
+            // border-radius directly on an <img> with object-fit is
+            // unreliable on WebKit/Safari).
+            <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-white/10">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={avatarSrc} alt={userName} className="h-full w-full object-cover object-top" />
+            </div>
           ) : (
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-warning text-xs font-bold text-primary">
               {initials}
