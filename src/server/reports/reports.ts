@@ -2,7 +2,7 @@
 import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/current-user";
 import { requirePermission } from "@/lib/permissions";
-import { invoiceDueAmount, invoiceOutstanding } from "@/lib/workflows/calculations";
+import { invoiceDueAmount, invoiceOutstanding, computeSCurve, computeProjectRiskSignals } from "@/lib/workflows/calculations";
 
 function monthKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -99,20 +99,68 @@ export async function getProjectReport() {
   const actor = await requireUserOrThrow();
   requirePermission(actor.role, "reports", "view");
 
-  const projects = await prisma.project.findMany({ where: { deletedAt: null } });
+  const projects = await prisma.project.findMany({
+    where: { deletedAt: null },
+    include: {
+      customer: { select: { companyName: true } },
+      milestones: { select: { name: true, status: true, dueDate: true, weightPercent: true, completedAt: true } },
+      invoices: { where: { deletedAt: null }, select: { invoiceDate: true, grandTotal: true, dpPercent: true, status: true } },
+      expenses: { where: { deletedAt: null, approvalStatus: "APPROVED" }, select: { total: true } },
+    },
+  });
   const byStatus = new Map<string, number>();
   for (const p of projects) byStatus.set(p.status, (byStatus.get(p.status) ?? 0) + 1);
 
   const delayed = projects.filter((p) => p.endDate && new Date(p.endDate) < new Date() && !["COMPLETED", "CLOSED", "CANCELLED"].includes(p.status));
+
+  // Per-project risk + schedule-deviation + budget-vs-cost, computed once
+  // here and reused for both the "needs attention" list and the budget
+  // chart below, instead of the old pie-chart-only view that couldn't say
+  // WHICH project or WHY.
+  const activeRows = projects
+    .filter((p) => p.status === "ACTIVE")
+    .map((p) => {
+      const cost = p.expenses.reduce((s, e) => s + Number(e.total), 0);
+      const sCurve = computeSCurve({
+        milestones: p.milestones.map((m) => ({ dueDate: m.dueDate, weightPercent: Number(m.weightPercent), completedAt: m.completedAt })),
+        invoices: p.invoices.map((i) => ({ invoiceDate: i.invoiceDate, grandTotal: Number(i.grandTotal), dpPercent: i.dpPercent ? Number(i.dpPercent) : null, status: i.status })),
+        contractValue: Number(p.contractValue),
+      });
+      const signals = computeProjectRiskSignals({
+        status: p.status,
+        milestones: p.milestones,
+        budget: Number(p.budget),
+        approvedExpenseTotal: cost,
+        sCurveAsOfToday: sCurve.asOfToday,
+      });
+      return {
+        id: p.id, number: p.number, customerName: p.customer.companyName,
+        budget: Number(p.budget), cost, scheduleGap: Math.max(0, sCurve.asOfToday.planned - sCurve.asOfToday.actual),
+        signals,
+      };
+    });
+
+  const riskyProjects = activeRows.filter((r) => r.signals.length > 0).sort((a, b) => b.signals.length - a.signals.length);
+  const avgScheduleDeviation = activeRows.length
+    ? Math.round(activeRows.reduce((s, r) => s + r.scheduleGap, 0) / activeRows.length)
+    : 0;
+  const budgetVsCost = activeRows
+    .map((r) => ({ name: r.number, budget: r.budget, cost: r.cost }))
+    .sort((a, b) => b.cost - a.cost)
+    .slice(0, 10);
 
   return {
     total: projects.length,
     active: projects.filter((p) => p.status === "ACTIVE").length,
     completed: projects.filter((p) => ["COMPLETED", "CLOSED"].includes(p.status)).length,
     atRisk: projects.filter((p) => p.status === "AT_RISK").length,
+    signalsDetected: riskyProjects.length,
     delayed: delayed.length,
     statusBreakdown: Array.from(byStatus.entries()).map(([name, value]) => ({ name, value })),
     avgProgress: projects.length ? Math.round(projects.reduce((s, p) => s + p.progressPercent, 0) / projects.length) : 0,
+    avgScheduleDeviation,
+    riskyProjects: riskyProjects.map((r) => ({ number: r.number, customerName: r.customerName, signals: r.signals })),
+    budgetVsCost,
   };
 }
 

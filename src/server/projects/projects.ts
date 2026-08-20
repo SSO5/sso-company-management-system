@@ -4,28 +4,50 @@ import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/current-user";
 import { requirePermission } from "@/lib/permissions";
 import { logActivity } from "@/lib/workflows/audit";
-import { calculateProjectProfitability, validateProjectClosing, closeProject, markProjectCompleted } from "@/lib/workflows/project";
-import { computeSCurve } from "@/lib/workflows/calculations";
+import { calculateProjectProfitability, validateProjectClosing, closeProject, markProjectCompleted, refreshDelayedMilestones, refreshProjectRiskNotifications } from "@/lib/workflows/project";
+import { computeSCurve, computeProjectRiskSignals } from "@/lib/workflows/calculations";
 import { projectUpdateSchema } from "@/lib/validation/project";
 import { runAction, type ActionResult } from "@/lib/action-helpers";
 
 export async function listProjects() {
   const actor = await requireUserOrThrow();
   requirePermission(actor.role, "project", "view");
-  return prisma.project.findMany({
+  await refreshProjectRiskNotifications();
+
+  const projects = await prisma.project.findMany({
     where: { deletedAt: null },
     include: {
       customer: { select: { companyName: true } },
       projectManager: { select: { name: true } },
       _count: { select: { tasks: true, invoices: true } },
+      milestones: { select: { name: true, status: true, dueDate: true, weightPercent: true, completedAt: true } },
+      invoices: { where: { deletedAt: null }, select: { invoiceDate: true, grandTotal: true, dpPercent: true, status: true } },
+      expenses: { where: { deletedAt: null, approvalStatus: "APPROVED" }, select: { total: true } },
     },
     orderBy: { createdAt: "desc" },
+  });
+
+  return projects.map((p) => {
+    const sCurve = computeSCurve({
+      milestones: p.milestones.map((m) => ({ dueDate: m.dueDate, weightPercent: Number(m.weightPercent), completedAt: m.completedAt })),
+      invoices: p.invoices.map((i) => ({ invoiceDate: i.invoiceDate, grandTotal: Number(i.grandTotal), dpPercent: i.dpPercent ? Number(i.dpPercent) : null, status: i.status })),
+      contractValue: Number(p.contractValue),
+    });
+    const riskSignals = computeProjectRiskSignals({
+      status: p.status,
+      milestones: p.milestones,
+      budget: Number(p.budget),
+      approvedExpenseTotal: p.expenses.reduce((s, e) => s + Number(e.total), 0),
+      sCurveAsOfToday: sCurve.asOfToday,
+    });
+    return { ...p, riskSignals };
   });
 }
 
 export async function getProjectDetail(id: string) {
   const actor = await requireUserOrThrow();
   requirePermission(actor.role, "project", "view");
+  await refreshDelayedMilestones();
   const [project, profitability, closing] = await Promise.all([
     prisma.project.findUniqueOrThrow({
       where: { id },
@@ -97,7 +119,15 @@ export async function getProjectDetail(id: string) {
     contractValue: Number(project.contractValue),
   });
 
-  return { project, profitability, closing, opportunityFolder, purchaseOrderFolderId: purchaseOrderFolder?.id ?? null, sCurve };
+  const riskSignals = computeProjectRiskSignals({
+    status: project.status,
+    milestones: project.milestones.map((m) => ({ name: m.name, status: m.status, dueDate: m.dueDate })),
+    budget: Number(project.budget),
+    approvedExpenseTotal: project.expenses.filter((e) => e.approvalStatus === "APPROVED").reduce((s, e) => s + Number(e.total), 0),
+    sCurveAsOfToday: sCurve.asOfToday,
+  });
+
+  return { project, profitability, closing, opportunityFolder, purchaseOrderFolderId: purchaseOrderFolder?.id ?? null, sCurve, riskSignals };
 }
 
 export async function updateProject(id: string, input: unknown): Promise<ActionResult<{ id: string }>> {

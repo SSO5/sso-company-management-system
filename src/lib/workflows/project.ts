@@ -2,9 +2,9 @@ import type { Prisma, Quotation, Customer, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { generateNumber } from "@/lib/numbering";
 import { logActivity } from "@/lib/workflows/audit";
-import { notifyRole } from "@/lib/workflows/notify";
+import { notifyRole, notifyUser } from "@/lib/workflows/notify";
 import { createProjectFolders, mergeOpportunityFoldersIntoProject } from "@/lib/workflows/folders";
-import { calcProfitability, invoiceDueAmount } from "@/lib/workflows/calculations";
+import { calcProfitability, invoiceDueAmount, computeSCurve, computeProjectRiskSignals } from "@/lib/workflows/calculations";
 import type { SessionPayload } from "@/lib/auth/session";
 import { requireProjectCloser } from "@/lib/permissions";
 
@@ -304,4 +304,109 @@ export async function markProjectCompleted(projectId: string, actor: SessionPayl
     });
     return updated;
   });
+}
+
+/**
+ * Batch job (safe to call on page load, same pattern as
+ * refreshOverdueInvoices) that flips a milestone still PENDING/IN_PROGRESS
+ * past its own due date to DELAYED. Until now DELAYED only existed as a
+ * dropdown option nobody was ever prompted to pick — this is what makes it a
+ * real signal instead of decoration, and it's what computeProjectRiskSignals
+ * actually reads for its "milestone terlambat" flag.
+ */
+export async function refreshDelayedMilestones() {
+  const now = new Date();
+  const candidates = await prisma.projectMilestone.findMany({
+    where: { status: { in: ["PENDING", "IN_PROGRESS"] }, dueDate: { lt: now }, project: { deletedAt: null } },
+    include: { project: { select: { id: true, number: true, projectManagerId: true } } },
+  });
+  if (candidates.length === 0) return 0;
+
+  await prisma.$transaction(async (tx) => {
+    for (const m of candidates) {
+      await tx.projectMilestone.update({ where: { id: m.id }, data: { status: "DELAYED" } });
+      await logActivity(tx, {
+        action: "STATUS_CHANGE",
+        entityType: "PROJECT_MILESTONE",
+        entityId: m.id,
+        description: `Milestone "${m.name}" (${m.project.number}): jatuh tempo terlewati, otomatis ditandai Delayed`,
+      });
+      if (m.project.projectManagerId) {
+        await notifyUser(tx, {
+          userId: m.project.projectManagerId,
+          type: "MILESTONE_DELAYED",
+          title: "Milestone terlambat",
+          message: `"${m.name}" pada ${m.project.number} sudah melewati jatuh tempo dan ditandai Delayed.`,
+          link: `/projects/${m.project.id}`,
+        });
+      }
+    }
+  });
+
+  return candidates.length;
+}
+
+/**
+ * Company-wide "which ACTIVE projects need attention, and why" — runs
+ * computeProjectRiskSignals per project and notifies ADMIN + the assigned PM
+ * the first time a project shows a risk signal, de-duped the same way
+ * refreshBillingSchedule is (an existing PROJECT_AT_RISK notification
+ * mentioning this project's number within the last 3 days skips re-sending).
+ * Never writes to Project.status — see computeProjectRiskSignals' doc
+ * comment for why that stays a human decision.
+ */
+export async function refreshProjectRiskNotifications() {
+  await refreshDelayedMilestones();
+
+  const projects = await prisma.project.findMany({
+    where: { deletedAt: null, status: "ACTIVE" },
+    select: {
+      id: true,
+      number: true,
+      projectManagerId: true,
+      budget: true,
+      milestones: { select: { name: true, status: true, dueDate: true, weightPercent: true, completedAt: true } },
+      invoices: { where: { deletedAt: null }, select: { invoiceDate: true, grandTotal: true, dpPercent: true, status: true } },
+      expenses: { where: { deletedAt: null, approvalStatus: "APPROVED" }, select: { total: true } },
+      contractValue: true,
+    },
+  });
+
+  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+  let notifiedCount = 0;
+
+  for (const p of projects) {
+    const sCurve = computeSCurve({
+      milestones: p.milestones.map((m) => ({ dueDate: m.dueDate, weightPercent: Number(m.weightPercent), completedAt: m.completedAt })),
+      invoices: p.invoices.map((i) => ({ invoiceDate: i.invoiceDate, grandTotal: Number(i.grandTotal), dpPercent: i.dpPercent ? Number(i.dpPercent) : null, status: i.status })),
+      contractValue: Number(p.contractValue),
+    });
+    const signals = computeProjectRiskSignals({
+      status: "ACTIVE",
+      milestones: p.milestones.map((m) => ({ name: m.name, status: m.status, dueDate: m.dueDate })),
+      budget: Number(p.budget),
+      approvedExpenseTotal: p.expenses.reduce((s, e) => s + Number(e.total), 0),
+      sCurveAsOfToday: sCurve.asOfToday,
+    });
+    if (signals.length === 0) continue;
+
+    const alreadyNotified = await prisma.notification.findFirst({
+      where: { type: "PROJECT_AT_RISK", message: { contains: p.number }, createdAt: { gt: threeDaysAgo } },
+    });
+    if (alreadyNotified) continue;
+
+    const title = `${p.number} butuh perhatian`;
+    const message = `${p.number}: ${signals.map((s) => s.message).join("; ")}`;
+    const link = `/projects/${p.id}`;
+
+    await prisma.$transaction(async (tx) => {
+      await notifyRole(tx, "ADMIN", { type: "PROJECT_AT_RISK", title, message, link });
+      if (p.projectManagerId) {
+        await notifyUser(tx, { userId: p.projectManagerId, type: "PROJECT_AT_RISK", title, message, link });
+      }
+    });
+    notifiedCount++;
+  }
+
+  return notifiedCount;
 }
