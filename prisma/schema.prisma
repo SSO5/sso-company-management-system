@@ -781,6 +781,9 @@ model VendorPurchaseOrder {
   deletedAt   DateTime?
 
   items VendorPurchaseOrderItem[]
+  // The Finance-side half of this PO's cost — see ProjectExpense.
+  // vendorPurchaseOrderId for how/when it's created (markVendorPOSent).
+  expense ProjectExpense?
 
   @@index([status])
   @@index([projectId])
@@ -955,6 +958,14 @@ model ProjectExpense {
   paymentStatus ExpensePaymentStatus  @default(UNPAID)
   approvalStatus ExpenseApprovalStatus @default(DRAFT)
   isLocked       Boolean               @default(false)
+
+  // Set when this expense IS a Vendor PO's cost, not a manually-typed one —
+  // auto-created by markVendorPOSent (lib/workflows/vendor-po.ts) so a Vendor
+  // PO's payment goes through the same evidence-gated Approve -> Mark as Paid
+  // flow as every other project cost, instead of a separate parallel payment
+  // system. @unique enforces the 1:1 (one Vendor PO, one linked Expense).
+  vendorPurchaseOrderId String?              @unique
+  vendorPurchaseOrder   VendorPurchaseOrder? @relation(fields: [vendorPurchaseOrderId], references: [id])
 
   submittedAt    DateTime?
   submittedById  String?
