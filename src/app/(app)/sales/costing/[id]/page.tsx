@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth/current-user";
-import { getCostingSheet } from "@/server/sales/costing";
+import { getCostingSheet, getOpportunityActiveQuotation } from "@/server/sales/costing";
 import { listUsersForPicker } from "@/server/settings/users";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,10 +37,17 @@ export default async function CostingDetailPage({ params }: { params: { id: stri
     }
   );
 
-  const [users, contacts] = await Promise.all([
+  const [users, contacts, activeQuotation] = await Promise.all([
     listUsersForPicker(),
     prisma.contact.findMany({ where: { customerId: sheet.customerId }, select: { id: true, name: true } }),
+    sheet.opportunityId && !sheet.quotation ? getOpportunityActiveQuotation(sheet.opportunityId) : Promise.resolve(null),
   ]);
+
+  // Deal isn't decided yet (quotation not Won/Lost) — the sheet can be
+  // reopened directly via "Buat Revisi" even though it's CONVERTED. Once
+  // Won/Lost it stays permanently locked as the final record.
+  const dealDecided = sheet.quotation ? ["WON", "LOST"].includes(sheet.quotation.status) : false;
+  const canReviseConverted = sheet.status === "CONVERTED" && sheet.quotation != null && !dealDecided;
 
   return (
     <div className="space-y-4">
@@ -73,6 +80,11 @@ export default async function CostingDetailPage({ params }: { params: { id: stri
               <ReviseCostingButton costingId={sheet.id} />
             </>
           )}
+          {canReviseConverted && (
+            // Deal is still open (quotation not Won/Lost) — reopen this
+            // same sheet for editing instead of forcing a brand new one.
+            <ReviseCostingButton costingId={sheet.id} />
+          )}
           {sheet.quotation ? (
             // Once linked to a quotation, stays linked — even after a
             // revision reopens this sheet back to DRAFT for editing (see
@@ -84,7 +96,13 @@ export default async function CostingDetailPage({ params }: { params: { id: stri
               <Button variant="outline">View Quotation {formatRevisedNumber(sheet.quotation.number, sheet.quotation.revision)}</Button>
             </Link>
           ) : (
-            <ConvertCostingDialog costingId={sheet.id} users={users} contacts={contacts} defaultSalesPicId={users.find((u) => u.role === "SALES")?.id} />
+            <ConvertCostingDialog
+              costingId={sheet.id}
+              users={users}
+              contacts={contacts}
+              defaultSalesPicId={users.find((u) => u.role === "SALES")?.id}
+              existingQuotation={activeQuotation}
+            />
           )}
         </div>
       </div>

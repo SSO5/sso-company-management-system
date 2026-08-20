@@ -12,6 +12,8 @@ import {
   reviseCostingSheet,
   deleteCostingSheet,
   convertCostingToQuotation,
+  convertCostingToQuotationAsRevision,
+  getActiveQuotationForOpportunity,
 } from "@/lib/workflows/costing";
 
 export async function listCostingSheets() {
@@ -37,10 +39,17 @@ export async function getCostingSheet(id: string) {
       customer: true,
       opportunity: true,
       createdBy: { select: { name: true } },
-      quotation: { select: { id: true, number: true, revision: true } },
+      quotation: { select: { id: true, number: true, revision: true, status: true } },
       sections: { orderBy: { sortOrder: "asc" }, include: { items: { orderBy: { sortOrder: "asc" } } } },
     },
   });
+}
+
+/** Used by the "Convert to Quotation" dialog to offer revising the deal's existing quotation instead of forking a new one (spec 3.2). */
+export async function getOpportunityActiveQuotation(opportunityId: string) {
+  const actor = await requireUserOrThrow();
+  requirePermission(actor.role, "sales", "view");
+  return getActiveQuotationForOpportunity(opportunityId);
 }
 
 export async function createCostingSheetAction(input: unknown): Promise<ActionResult<{ id: string }>> {
@@ -97,7 +106,7 @@ export async function deleteCostingSheetAction(id: string): Promise<ActionResult
 
 export async function convertCostingToQuotationAction(
   id: string,
-  opts: { salesPicId: string; signerId?: string; contactId?: string; validUntil?: string }
+  opts: { salesPicId: string; signerId?: string; contactId?: string; validUntil?: string; confirmedSeparate?: boolean }
 ): Promise<ActionResult<{ quotationId: string }>> {
   return runAction(async () => {
     const actor = await requireUserOrThrow();
@@ -109,10 +118,27 @@ export async function convertCostingToQuotationAction(
         signerId: opts.signerId,
         contactId: opts.contactId,
         validUntil: opts.validUntil ? new Date(opts.validUntil) : undefined,
+        confirmedSeparate: opts.confirmedSeparate,
       },
       actor
     );
     revalidatePath(`/sales/costing/${id}`);
+    revalidatePath("/sales/quotations");
+    return { quotationId: quotation.id };
+  });
+}
+
+/** Convert-as-revision path (spec 3.2): attaches this costing sheet's numbers to an existing open quotation on the same deal instead of creating a new one. */
+export async function convertCostingToQuotationAsRevisionAction(
+  id: string,
+  targetQuotationId: string
+): Promise<ActionResult<{ quotationId: string }>> {
+  return runAction(async () => {
+    const actor = await requireUserOrThrow();
+    requirePermission(actor.role, "sales", "create");
+    const quotation = await convertCostingToQuotationAsRevision(id, targetQuotationId, actor);
+    revalidatePath(`/sales/costing/${id}`);
+    revalidatePath(`/sales/quotations/${targetQuotationId}`);
     revalidatePath("/sales/quotations");
     return { quotationId: quotation.id };
   });

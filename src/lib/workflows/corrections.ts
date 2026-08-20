@@ -190,6 +190,49 @@ export async function renameDocumentFile(documentId: string, newOriginalName: st
 }
 
 /**
+ * Revert an Opportunity wrongly stuck on WON or LOST back to NEGOTIATION —
+ * the correction for a deal's stage having been set directly (e.g. through
+ * the plain stage picker, before that hole was closed) instead of through
+ * markQuotationWon/markQuotationLost in lib/workflows/quotation.ts. Same
+ * "explicit, logged exception" contract as the rest of this file: ADMIN/IT
+ * only, reason required, audited.
+ *
+ * Deliberately does NOT touch any Project/Invoice/Task already generated
+ * from a wrongly-Won deal, and does NOT attempt to merge multiple open
+ * Quotations on the same deal into one — both are judgment calls for a
+ * human, not something safe to automate here.
+ */
+export async function correctOpportunityStage(id: string, reason: string, actor: SessionPayload) {
+  requireDataCorrector(actor.role);
+  if (!reason.trim()) throw new Error("Alasan koreksi wajib diisi — ini akan tercatat di Log Aktivitas.");
+
+  return prisma.$transaction(async (tx) => {
+    const opp = await tx.opportunity.findUniqueOrThrow({ where: { id } });
+    if (opp.status !== "WON" && opp.status !== "LOST") {
+      throw new Error(`${opp.number} sedang berstatus ${opp.status}, bukan Won/Lost — tidak ada yang perlu dikoreksi.`);
+    }
+    const newStatus = "NEGOTIATION" as const;
+    await tx.opportunity.update({ where: { id }, data: { status: newStatus } });
+    await logActivity(tx, {
+      userId: actor.userId,
+      action: "STATUS_CHANGE",
+      entityType: "OPPORTUNITY",
+      entityId: id,
+      description: `[Koreksi IT] ${opp.number}: ${opp.status} -> ${newStatus}. Alasan: ${reason.trim()}`,
+      metadata: {
+        correction: "OPPORTUNITY_STAGE",
+        oldStatus: opp.status,
+        newStatus,
+        reason: reason.trim(),
+        correctedBy: actor.name,
+        correctedByRole: actor.role,
+      },
+    });
+    return { id, number: opp.number, oldStatus: opp.status, newStatus };
+  });
+}
+
+/**
  * Re-file a document into a different folder — the fix for the exact
  * failure mode described: automation matched a folder to the wrong
  * project/customer, so an upload lands in the wrong job's tree. Also

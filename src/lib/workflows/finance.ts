@@ -76,7 +76,16 @@ export async function createInvoice(input: InvoiceInput, actor: SessionPayload) 
  * profitability) reads live from Invoice/Payment, so nothing else needs to
  * be separately "synced".
  */
-export async function recordPayment(input: PaymentInput, actor: SessionPayload) {
+/**
+ * `documentId` is the bukti transfer Document already uploaded by
+ * recordPaymentAction (server/finance/payments.ts) before this runs — a
+ * real proof-of-payment file is required for every Payment now, not just
+ * typed-in amount/date/reference (spec: same "evidence before the system
+ * treats something as done" rule as the customer-PO-before-Won gate). Once
+ * the Payment row exists, its id is written back onto that Document
+ * (relatedEntityId) so it's traceable both ways.
+ */
+export async function recordPayment(input: PaymentInput, documentId: string, actor: SessionPayload) {
   return prisma.$transaction(async (tx) => {
     const invoice = await tx.invoice.findUniqueOrThrow({ where: { id: input.invoiceId } });
 
@@ -117,6 +126,8 @@ export async function recordPayment(input: PaymentInput, actor: SessionPayload) 
         createdById: actor.userId,
       },
     });
+
+    await tx.document.update({ where: { id: documentId }, data: { relatedEntityId: payment.id } });
 
     const newPaidAmount = Number(invoice.paidAmount) + input.amount;
     const newWithholdingTax = Number(invoice.withholdingTax) + (input.withholdingTax ?? 0);

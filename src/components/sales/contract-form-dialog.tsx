@@ -57,9 +57,14 @@ export function ContractFormDialog({
             </div>
             <div className="space-y-1">
               <Label>Status</Label>
+              {/* "Active" is deliberately not selectable here — a contract only
+                  becomes Active through the "Aktifkan" action on the list page,
+                  which requires uploading the actually-signed document. This
+                  dropdown is for entering historical/edge-case records
+                  (already expired/terminated/completed), not for claiming a
+                  new contract is live without evidence. */}
               <Select name="status" defaultValue="DRAFT">
                 <option value="DRAFT">Draft</option>
-                <option value="ACTIVE">Active</option>
                 <option value="EXPIRED">Expired</option>
                 <option value="TERMINATED">Terminated</option>
                 <option value="COMPLETED">Completed</option>

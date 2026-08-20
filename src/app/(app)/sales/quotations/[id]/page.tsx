@@ -1,10 +1,13 @@
+import { prisma } from "@/lib/db";
 import { getQuotation } from "@/server/sales/quotations";
+import { getCustomerPoStatusForQuotation } from "@/server/sales/purchase-orders";
 import { listUsersForPicker } from "@/server/settings/users";
 import { requireUser } from "@/lib/auth/current-user";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { QuotationActions } from "@/components/sales/quotation-actions";
+import { CustomerPoPanel } from "@/components/sales/customer-po-panel";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate, formatDateTime, formatRevisedNumber } from "@/lib/utils";
 import Link from "next/link";
@@ -18,6 +21,16 @@ export default async function QuotationDetailPage({ params }: { params: { id: st
     listUsersForPicker("PROJECT_MANAGER"),
   ]);
   const commercialTerms = (q.commercialTerms as CommercialTermItem[] | null) ?? [];
+
+  const [poStatus, poFolder] = await Promise.all([
+    getCustomerPoStatusForQuotation(q.id),
+    q.opportunity
+      ? prisma.folder.findFirst({ where: { opportunityId: q.opportunity.id, routeKey: "SALES/PO" }, select: { id: true } })
+      : q.project
+        ? prisma.folder.findFirst({ where: { projectId: q.project.id, routeKey: "SALES/PO" }, select: { id: true } })
+        : Promise.resolve(null),
+  ]);
+  const canEditSales = actor.role === "ADMIN" || actor.role === "SALES" || actor.role === "IT";
 
   return (
     <div className="space-y-5">
@@ -47,7 +60,7 @@ export default async function QuotationDetailPage({ params }: { params: { id: st
           <a href={`/api/quotations/${q.id}/pdf`} target="_blank" rel="noreferrer">
             <Button variant="outline" size="icon" title="Download PDF"><Download className="h-4 w-4" /></Button>
           </a>
-          <QuotationActions id={q.id} status={q.status} role={actor.role} projectManagers={pms} opportunityId={q.opportunity?.id} />
+          <QuotationActions id={q.id} status={q.status} role={actor.role} projectManagers={pms} opportunityId={q.opportunity?.id} hasUploadedPo={poStatus.hasUploadedDocument} />
         </div>
       </div>
 
@@ -55,6 +68,17 @@ export default async function QuotationDetailPage({ params }: { params: { id: st
         <div className="rounded-md border border-success/30 bg-success/10 px-3 py-2 text-sm">
           Won — Project <Link href={`/projects/${q.project.id}`} className="font-medium underline">{q.project.number}</Link> was created automatically.
         </div>
+      )}
+
+      {!["WON", "LOST"].includes(q.status) && (
+        <CustomerPoPanel
+          purchaseOrders={poStatus.purchaseOrders}
+          hasUploadedDocument={poStatus.hasUploadedDocument}
+          folderId={poFolder?.id ?? null}
+          customerId={q.customerId}
+          quotationId={q.id}
+          canUpload={canEditSales}
+        />
       )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">

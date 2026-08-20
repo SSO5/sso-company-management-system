@@ -9,6 +9,7 @@ import {
   correctProgressReportDetails,
   renameDocumentFile,
   relocateDocument,
+  correctOpportunityStage,
 } from "@/lib/workflows/corrections";
 
 /**
@@ -67,6 +68,56 @@ export async function listProgressReportsForCorrection() {
       project: { select: { number: true } },
     },
     orderBy: { createdAt: "desc" },
+  });
+}
+
+/**
+ * Deals currently stuck WON/LOST — the pool the "Status Deal" correction
+ * tab lets ADMIN/IT search through. Scoped to just these two statuses
+ * (rather than every Opportunity) so this stays a focused correction list,
+ * not a general deal editor.
+ */
+export async function listWonLostOpportunitiesForCorrection() {
+  await assertCorrector();
+  const rows = await prisma.opportunity.findMany({
+    where: { deletedAt: null, status: { in: ["WON", "LOST"] } },
+    select: {
+      id: true,
+      number: true,
+      name: true,
+      status: true,
+      updatedAt: true,
+      customer: { select: { companyName: true } },
+      quotations: {
+        where: { deletedAt: null },
+        select: { id: true, number: true, revision: true, status: true, grandTotal: true },
+        orderBy: { createdAt: "asc" },
+      },
+      costingSheets: {
+        where: { deletedAt: null },
+        select: { id: true, number: true, revision: true, status: true, quotationId: true },
+        orderBy: { createdAt: "asc" },
+      },
+      projects: { select: { id: true, number: true } },
+    },
+    orderBy: { updatedAt: "desc" },
+  });
+  // Decimal (grandTotal) and Date (updatedAt) don't survive the client-component boundary as-is.
+  return JSON.parse(JSON.stringify(rows)) as Array<Omit<(typeof rows)[number], "quotations" | "updatedAt"> & {
+    updatedAt: string;
+    quotations: Array<Omit<(typeof rows)[number]["quotations"][number], "grandTotal"> & { grandTotal: string }>;
+  }>;
+}
+
+export async function correctOpportunityStageAction(id: string, reason: string): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const actor = await requireUserOrThrow();
+    const res = await correctOpportunityStage(id, reason, actor);
+    revalidatePath("/settings/document-correction");
+    revalidatePath("/sales/opportunities");
+    revalidatePath(`/sales/opportunities/${id}`);
+    revalidatePath("/activity-log");
+    return res;
   });
 }
 

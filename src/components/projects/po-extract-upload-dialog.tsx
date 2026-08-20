@@ -18,19 +18,31 @@ type Step = "upload" | "confirm";
  * confirm before a PurchaseOrder record is actually created. The file is
  * saved as a Document either way, even if extraction fails or is skipped —
  * uploading the source document is never blocked on the AI step working.
+ *
+ * Also runs pre-Won, from the Quotation detail page (pass `quotationId`
+ * instead of `projectId`) — that's what lets markQuotationWon's "real PO
+ * file must be on file" gate actually be satisfiable: a Project doesn't
+ * exist yet at that point, so the file has to land in the Opportunity's own
+ * "5. PO" folder and get tagged onto the PurchaseOrder via `documentId`
+ * instead (see createPurchaseOrder in server/sales/purchase-orders.ts).
  */
 export function PoExtractUploadDialog({
   folderId,
   projectId,
+  quotationId,
   customerId,
+  buttonLabel,
 }: {
   folderId: string;
-  projectId: string;
   customerId: string;
+  projectId?: string;
+  quotationId?: string;
+  buttonLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("upload");
   const [pending, setPending] = useState(false);
+  const [documentId, setDocumentId] = useState<string | null>(null);
   const [extracted, setExtracted] = useState<ExtractedPurchaseOrder | null>(null);
   const [extractionError, setExtractionError] = useState<string | null>(null);
   const [fileName, setFileName] = useState("");
@@ -39,6 +51,7 @@ export function PoExtractUploadDialog({
 
   function reset() {
     setStep("upload");
+    setDocumentId(null);
     setExtracted(null);
     setExtractionError(null);
     setFileName("");
@@ -54,6 +67,7 @@ export function PoExtractUploadDialog({
     setPending(false);
     if (!res.ok) { toast({ title: "Upload gagal", description: res.error, variant: "destructive" }); return; }
     toast({ title: "File PO tersimpan", variant: "success" });
+    setDocumentId(res.data.documentId);
     setExtracted(res.data.extracted);
     setExtractionError(res.data.extractionError);
     setStep("confirm");
@@ -67,6 +81,8 @@ export function PoExtractUploadDialog({
     const res = await createPurchaseOrder({
       customerId,
       projectId,
+      quotationId,
+      documentId,
       number: fd.get("number"),
       poDate: fd.get("poDate"),
       poValue: fd.get("poValue"),
@@ -89,7 +105,7 @@ export function PoExtractUploadDialog({
   return (
     <>
       <Button size="sm" onClick={() => setOpen(true)}>
-        <Sparkles className="h-3.5 w-3.5" /> Upload PO (AI-assisted)
+        <Sparkles className="h-3.5 w-3.5" /> {buttonLabel ?? "Upload PO (AI-assisted)"}
       </Button>
 
       <Dialog

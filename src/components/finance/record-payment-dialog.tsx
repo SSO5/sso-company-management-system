@@ -21,7 +21,8 @@ export function RecordPaymentDialog({ invoiceId, outstanding, trigger }: { invoi
     e.preventDefault();
     setPending(true);
     const fd = new FormData(e.currentTarget);
-    const res = await recordPaymentAction({ ...Object.fromEntries(fd.entries()), invoiceId });
+    fd.set("invoiceId", invoiceId);
+    const res = await recordPaymentAction(fd);
     setPending(false);
     if (res.ok) { toast({ title: "Payment recorded", variant: "success" }); setOpen(false); router.refresh(); }
     else toast({ title: "Unable to record payment", description: res.error, variant: "destructive" });
@@ -48,6 +49,11 @@ export function RecordPaymentDialog({ invoiceId, outstanding, trigger }: { invoi
             </div>
             <div className="space-y-1"><Label>Reference Number</Label><Input name="referenceNumber" /></div>
             <div className="col-span-2 space-y-1"><Label>Bank Account</Label><Input name="bankAccount" /></div>
+            <div className="col-span-2 space-y-1">
+              <Label>Bukti Transfer <span className="text-destructive">*</span></Label>
+              <Input name="file" type="file" required accept=".pdf,.jpg,.jpeg,.png,.webp" />
+              <p className="text-[11px] text-muted-foreground">Foto/PDF bukti transfer wajib diupload — pembayaran tidak bisa dicatat tanpa bukti.</p>
+            </div>
             <div className="col-span-2 space-y-1"><Label>Notes</Label><Textarea name="notes" rows={2} /></div>
           </div>
           <div className="flex justify-end gap-2 pt-2">

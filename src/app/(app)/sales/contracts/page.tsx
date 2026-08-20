@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ContractFormDialog } from "@/components/sales/contract-form-dialog";
+import { ActivateContractDialog } from "@/components/sales/activate-contract-dialog";
 import { formatCurrency, formatDate, daysBetween } from "@/lib/utils";
 import { Plus } from "lucide-react";
 
@@ -24,7 +25,7 @@ export default async function ContractsPage() {
       </div>
       {contracts.length === 0 ? <EmptyState title="No contracts yet" /> : (
         <Table>
-          <TableHeader><TableRow><TableHead>Number</TableHead><TableHead>Customer</TableHead><TableHead>Value</TableHead><TableHead>End Date</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Number</TableHead><TableHead>Customer</TableHead><TableHead>Value</TableHead><TableHead>End Date</TableHead><TableHead>Status</TableHead><TableHead /></TableRow></TableHeader>
           <TableBody>
             {contracts.map((ct) => {
               const daysLeft = daysBetween(new Date(ct.endDate), now);
@@ -36,6 +37,7 @@ export default async function ContractsPage() {
                   <TableCell>{formatCurrency(Number(ct.contractValue))}</TableCell>
                   <TableCell className={expiringSoon ? "font-medium text-warning" : ""}>{formatDate(ct.endDate)}{expiringSoon && " (expiring soon)"}</TableCell>
                   <TableCell><Badge variant="outline">{ct.status}</Badge></TableCell>
+                  <TableCell>{ct.status === "DRAFT" && <ActivateContractDialog contractId={ct.id} contractNumber={ct.number} />}</TableCell>
                 </TableRow>
               );
             })}

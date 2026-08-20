@@ -7,10 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
-import { createMilestone, updateMilestone, updateMilestoneStatus, deleteMilestone } from "@/server/projects/tasks";
+import { createMilestone, updateMilestone, updateMilestoneStatus, deleteMilestone, completeDeliveryMilestoneAction } from "@/server/projects/tasks";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
-import { Plus, CheckCircle2, Circle, Clock, Pencil, Trash2 } from "lucide-react";
+import { Plus, CheckCircle2, Circle, Clock, Pencil, Trash2, Truck } from "lucide-react";
 
 interface Milestone {
   id: string; name: string; status: string; dueDate: Date | null;
@@ -32,6 +32,7 @@ function toDateInputValue(d: Date | null): string {
 export function MilestonePanel({ projectId, milestones }: { projectId: string; milestones: Milestone[] }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Milestone | null>(null);
+  const [completing, setCompleting] = useState<Milestone | null>(null);
   const [pending, setPending] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
@@ -93,17 +94,39 @@ export function MilestonePanel({ projectId, milestones }: { projectId: string; m
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="outline">{Number(m.weightPercent)}%</Badge>
-              <Select
-                className="h-7 w-32 text-xs"
-                defaultValue={m.status}
-                onChange={async (e) => {
-                  const res = await updateMilestoneStatus(m.id, projectId, e.target.value as "PENDING" | "IN_PROGRESS" | "COMPLETED" | "DELAYED");
-                  if (res.ok) router.refresh();
-                  else toast({ title: "Unable to update", description: res.error, variant: "destructive" });
-                }}
-              >
-                <option value="PENDING">Pending</option><option value="IN_PROGRESS">In Progress</option><option value="COMPLETED">Completed</option><option value="DELAYED">Delayed</option>
-              </Select>
+              {m.dateBasis === "ESTIMATED_DELIVERY" && m.status !== "COMPLETED" ? (
+                // Delivery milestones can't be marked Completed from a plain
+                // dropdown — real bukti pengiriman (surat jalan/BAST) is
+                // required, uploaded via the dialog below.
+                <>
+                  <Select
+                    className="h-7 w-28 text-xs"
+                    defaultValue={m.status}
+                    onChange={async (e) => {
+                      const res = await updateMilestoneStatus(m.id, projectId, e.target.value as "PENDING" | "IN_PROGRESS" | "DELAYED");
+                      if (res.ok) router.refresh();
+                      else toast({ title: "Unable to update", description: res.error, variant: "destructive" });
+                    }}
+                  >
+                    <option value="PENDING">Pending</option><option value="IN_PROGRESS">In Progress</option><option value="DELAYED">Delayed</option>
+                  </Select>
+                  <Button size="sm" variant="outline" onClick={() => setCompleting(m)}>
+                    <Truck className="h-3.5 w-3.5" /> Tandai Selesai (upload bukti)
+                  </Button>
+                </>
+              ) : (
+                <Select
+                  className="h-7 w-32 text-xs"
+                  defaultValue={m.status}
+                  onChange={async (e) => {
+                    const res = await updateMilestoneStatus(m.id, projectId, e.target.value as "PENDING" | "IN_PROGRESS" | "COMPLETED" | "DELAYED");
+                    if (res.ok) router.refresh();
+                    else toast({ title: "Unable to update", description: res.error, variant: "destructive" });
+                  }}
+                >
+                  <option value="PENDING">Pending</option><option value="IN_PROGRESS">In Progress</option><option value="COMPLETED">Completed</option><option value="DELAYED">Delayed</option>
+                </Select>
+              )}
               <Button size="icon" variant="ghost" title="Edit" onClick={() => setEditing(m)}>
                 <Pencil className="h-3.5 w-3.5" />
               </Button>
@@ -163,6 +186,37 @@ export function MilestonePanel({ projectId, milestones }: { projectId: string; m
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setEditing(null)}>Batal</Button>
               <Button type="submit" disabled={pending}>{pending ? "Menyimpan..." : "Simpan Perubahan"}</Button>
+            </div>
+          </form>
+        )}
+      </Dialog>
+
+      <Dialog
+        open={!!completing}
+        onOpenChange={(o) => !o && setCompleting(null)}
+        title={`Tandai Selesai — ${completing?.name ?? ""}`}
+        description="Upload bukti pengiriman (surat jalan/BAST) untuk shipment ini — status baru berubah jadi Completed setelah file ini tersimpan."
+      >
+        {completing && (
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const fd = new FormData(e.currentTarget);
+              setPending(true);
+              const res = await completeDeliveryMilestoneAction(completing.id, projectId, fd);
+              setPending(false);
+              if (res.ok) { toast({ title: "Milestone selesai", variant: "success" }); setCompleting(null); router.refresh(); }
+              else toast({ title: "Tidak bisa menandai selesai", description: res.error, variant: "destructive" });
+            }}
+            className="space-y-3"
+          >
+            <div className="space-y-1">
+              <Label>Bukti Pengiriman (surat jalan/BAST) <span className="text-destructive">*</span></Label>
+              <Input name="file" type="file" required accept=".pdf,.jpg,.jpeg,.png,.webp" />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setCompleting(null)}>Batal</Button>
+              <Button type="submit" disabled={pending}>{pending ? "Menyimpan..." : "Tandai Selesai"}</Button>
             </div>
           </form>
         )}

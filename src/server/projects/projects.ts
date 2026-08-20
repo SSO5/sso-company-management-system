@@ -105,9 +105,24 @@ export async function updateProject(id: string, input: unknown): Promise<ActionR
     const actor = await requireUserOrThrow();
     requirePermission(actor.role, "project", "update");
     const data = projectUpdateSchema.parse(input);
+    // COMPLETED and CLOSED each have their own dedicated, gated action
+    // (markCompletedAction / closeProjectAction — the latter re-validates the
+    // closing checklist server-side) with side effects this generic
+    // multi-field update doesn't apply (completedAt, closingChecklist,
+    // archival notification). Never let either be set through here — see
+    // ProjectStatusSelect, which only ever sends PLANNING/ACTIVE/ON_HOLD/
+    // AT_RISK/CANCELLED.
+    if (data.status === "COMPLETED" || data.status === "CLOSED") {
+      throw new Error(
+        `Status ${data.status} hanya bisa diset lewat tombol "${data.status === "COMPLETED" ? "Mark Completed" : "Close Project"}" di tab Closing, bukan lewat sini.`
+      );
+    }
 
     await prisma.$transaction(async (tx) => {
       const before = await tx.project.findUniqueOrThrow({ where: { id } });
+      if (data.status && data.status !== before.status && (before.status === "COMPLETED" || before.status === "CLOSED")) {
+        throw new Error(`${before.number} sudah ${before.status} — stage tidak bisa diubah lagi lewat sini.`);
+      }
       await tx.project.update({ where: { id }, data });
       await logActivity(tx, {
         userId: actor.userId, action: "UPDATE", entityType: "PROJECT", entityId: id,

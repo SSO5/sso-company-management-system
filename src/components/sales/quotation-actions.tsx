@@ -20,12 +20,18 @@ export function QuotationActions({
   role,
   projectManagers,
   opportunityId,
+  hasUploadedPo,
 }: {
   id: string;
   status: QuotationStatus;
   role: UserRole;
   projectManagers: { id: string; name: string }[];
   opportunityId?: string | null;
+  // Gate for "Mark Won" (spec: a real customer PO file must already be
+  // uploaded — see hasUploadedCustomerPoDocument in lib/workflows/quotation.ts).
+  // Server-side re-checked regardless; this only lets the button reflect it
+  // up front instead of failing after the confirm dialog.
+  hasUploadedPo: boolean;
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -102,7 +108,13 @@ export function QuotationActions({
       )}
       {["SENT", "APPROVED"].includes(status) && canEditSales && (
         <>
-          <Button disabled={pending} onClick={() => setWonOpen(true)}>Mark Won</Button>
+          <Button
+            disabled={pending || !hasUploadedPo}
+            title={hasUploadedPo ? undefined : "Upload dulu file PO asli dari customer (lihat panel Customer PO di bawah) sebelum bisa Mark Won."}
+            onClick={() => setWonOpen(true)}
+          >
+            Mark Won
+          </Button>
           <Button disabled={pending} variant="outline" onClick={() => setLostOpen(true)}>Mark Lost</Button>
         </>
       )}
