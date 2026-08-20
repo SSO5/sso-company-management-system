@@ -58,6 +58,32 @@ export default async function VendorPoDetailPage({ params }: { params: { id: str
         <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Grand Total</p><p className="text-sm font-semibold">{formatCurrency(Number(po.grandTotal))}</p></CardContent></Card>
       </div>
 
+      {/* Once Sent, this PO's cost is tracked through Finance's own
+          evidence-gated Expense flow (see markVendorPOSent) rather than a
+          separate payment system — this just surfaces that linked record's
+          status here so "sudah dibayar ke vendor atau belum" doesn't require
+          hunting through the Expenses list separately. */}
+      {po.status === "SENT" || po.status === "CONFIRMED" ? (
+        po.expense ? (
+          <Card>
+            <CardHeader><CardTitle className="text-sm">Pembayaran (Finance)</CardTitle></CardHeader>
+            <CardContent className="flex items-center justify-between text-sm">
+              <p className="text-muted-foreground">
+                Tercatat sebagai <Link href="/finance/expenses" className="font-mono text-xs text-primary hover:underline">{po.expense.number}</Link>
+                {po.project && <> di project <Link href={`/projects/${po.project.id}`} className="hover:underline">{po.project.number}</Link> (tab Costs)</>}
+              </p>
+              <Badge variant={po.expense.paymentStatus === "PAID" ? "success" : "warning"}>{po.expense.paymentStatus}</Badge>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardContent className="p-4 text-sm text-warning">
+              Belum ada Expense yang terhubung — PO ini mungkin belum terkait Project saat dikirim, jadi biayanya tidak tercatat otomatis di Finance.
+            </CardContent>
+          </Card>
+        )
+      ) : null}
+
       <Card>
         <CardHeader><CardTitle className="text-sm">Vendor &amp; Delivery</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
