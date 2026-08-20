@@ -258,6 +258,13 @@ model User {
   // points into private storage's branding/ area (see lib/storage.ts).
   title             String?
   signatureImageUrl String?
+  // Profile photo shown in the sidebar/topbar and the "Aktivitas Saya"
+  // dashboard hub — distinct from signatureImageUrl (that one is a TTD
+  // graphic printed on PDFs, this one is just how the person is recognized
+  // in the app). Self-service: any user can set their own via
+  // updateOwnProfileAction (server/settings/profile.ts), not gated behind
+  // the Admin-only "users" permission that guards signatureImageUrl.
+  avatarUrl         String?
   // WhatsApp number for outbound approval/deadline notifications (see
   // lib/notifications/whatsapp.ts) — international format without "+",
   // e.g. "6281234567890". Null = WA notifications skipped for this user,
@@ -1456,6 +1463,16 @@ model CompanySettings {
   // signatureImageUrl + title, and each Quotation picks which user signs it
   // (Quotation.signerId) so PIC/TTD is customizable per document, not fixed.
   stampImageUrl String?
+
+  // App theming (Settings > Tema): themePreset picks a named, pre-designed
+  // color palette (see lib/theme-presets.ts — never raw hex from the user,
+  // so contrast against tables/badges/status colors stays guaranteed).
+  // dashboardBackgroundUrl is an optional photo (e.g. a workshop shot) shown
+  // as a hero band behind the "Aktivitas Saya" dashboard header, with a
+  // dark-to-transparent gradient over it so text stays readable — null means
+  // the dashboard just uses the flat page background like today.
+  themePreset            String  @default("navy")
+  dashboardBackgroundUrl String?
 
   updatedAt DateTime @updatedAt
 }
