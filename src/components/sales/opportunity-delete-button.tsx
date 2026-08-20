@@ -10,8 +10,9 @@ import { useToast } from "@/components/ui/toast";
 import { deleteOpportunityAction } from "@/server/sales/opportunities";
 
 /**
- * ADMIN-only "trash" action on an Opportunity card (spec: cleaning up a
- * mistaken/trial deal shouldn't require a terminal script). Cascades to its
+ * ADMIN/IT "trash" action on an Opportunity card (spec: cleaning up a
+ * mistaken/trial deal shouldn't require a terminal script — matches the
+ * "sales":"delete" permission both roles hold, see permissions.ts). Cascades to its
  * Quotation(s), Costing Sheet(s), Project (if Won), folders, and documents —
  * so it requires typing the Opportunity's own number to confirm, the same
  * "type to confirm" pattern used for genuinely destructive actions.

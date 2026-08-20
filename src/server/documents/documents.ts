@@ -99,7 +99,12 @@ export async function getProjectFolders() {
   // the deal is Won — see mergeOpportunityFoldersIntoProject). Listing them
   // here too would just be a second, soon-stale path to the same data.
   const projectFolders = await prisma.folder.findMany({
-    where: { kind: "PROJECT", parentId: null },
+    // A Project soft-deleted (e.g. after a wrongly-Won deal is corrected —
+    // see correctOpportunityStage in lib/workflows/corrections.ts) must not
+    // keep showing up here just because its Folder row is still on disk;
+    // Folder has no deletedAt of its own, so this has to filter through the
+    // relation instead.
+    where: { kind: "PROJECT", parentId: null, project: { deletedAt: null } },
     include: { project: { select: { number: true, status: true } } },
     orderBy: { createdAt: "desc" },
   });

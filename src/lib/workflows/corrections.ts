@@ -233,6 +233,74 @@ export async function correctOpportunityStage(id: string, reason: string, actor:
 }
 
 /**
+ * Undoes the concrete artifacts a wrongly-Won deal left behind: any
+ * Quotation still sitting at WON on this Opportunity gets reverted to SENT
+ * (clears wonAt — "SENT" because that's what a real customer-facing
+ * negotiation looks like, and it's exactly what markQuotationSent already
+ * maps to Opportunity stage NEGOTIATION, so the two stay consistent), and
+ * the Project that Won automatically generated (see convertQuotationToProject)
+ * is soft-deleted so it stops appearing in Documents/project listings and
+ * the dashboard.
+ *
+ * Deliberately independent of the Opportunity's CURRENT stage — unlike
+ * correctOpportunityStage, this doesn't require status to still be WON,
+ * because reverting the stage and cleaning up its artifacts are two
+ * separate corrections that can happen at different times (e.g. someone
+ * already reverted the stage, then noticed the stray Project days later).
+ * Only touches Quotations that are still WON and Projects that aren't
+ * already deleted, so running it twice is a harmless no-op the second time.
+ */
+export async function archiveWonArtifacts(opportunityId: string, reason: string, actor: SessionPayload) {
+  requireDataCorrector(actor.role);
+  if (!reason.trim()) throw new Error("Alasan koreksi wajib diisi — ini akan tercatat di Log Aktivitas.");
+
+  return prisma.$transaction(async (tx) => {
+    const opp = await tx.opportunity.findUniqueOrThrow({ where: { id: opportunityId } });
+    const wonQuotations = await tx.quotation.findMany({
+      where: { opportunityId, status: "WON", deletedAt: null },
+      include: { project: true },
+    });
+
+    const revertedQuotations: string[] = [];
+    const archivedProjects: string[] = [];
+
+    for (const q of wonQuotations) {
+      await tx.quotation.update({ where: { id: q.id }, data: { status: "SENT", wonAt: null } });
+      revertedQuotations.push(q.number);
+      if (q.project && !q.project.deletedAt) {
+        await tx.project.update({ where: { id: q.project.id }, data: { deletedAt: new Date() } });
+        archivedProjects.push(q.project.number);
+      }
+    }
+
+    if (revertedQuotations.length === 0) {
+      throw new Error(`${opp.number} tidak punya quotation berstatus Won yang perlu dikembalikan — tidak ada yang diubah.`);
+    }
+
+    await logActivity(tx, {
+      userId: actor.userId,
+      action: "UPDATE",
+      entityType: "OPPORTUNITY",
+      entityId: opportunityId,
+      description:
+        `[Koreksi IT] ${opp.number}: Quotation dikembalikan dari Won ke Sent (${revertedQuotations.join(", ")})` +
+        (archivedProjects.length ? `, Project diarsipkan (${archivedProjects.join(", ")})` : "") +
+        `. Alasan: ${reason.trim()}`,
+      metadata: {
+        correction: "ARCHIVE_WON_ARTIFACTS",
+        revertedQuotations,
+        archivedProjects,
+        reason: reason.trim(),
+        correctedBy: actor.name,
+        correctedByRole: actor.role,
+      },
+    });
+
+    return { revertedQuotations, archivedProjects };
+  });
+}
+
+/**
  * Re-file a document into a different folder — the fix for the exact
  * failure mode described: automation matched a folder to the wrong
  * project/customer, so an upload lands in the wrong job's tree. Also

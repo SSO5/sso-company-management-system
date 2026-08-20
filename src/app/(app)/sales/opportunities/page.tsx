@@ -60,7 +60,7 @@ export default async function OpportunitiesPage() {
                               <FolderOpen className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
                             </Link>
                           )}
-                          {actor.role === "ADMIN" && <OpportunityDeleteButton id={o.id} number={o.number} />}
+                          {(actor.role === "ADMIN" || actor.role === "IT") && <OpportunityDeleteButton id={o.id} number={o.number} />}
                         </div>
                       </div>
                       <p className="text-[11px] text-muted-foreground">{o.customer.companyName}</p>

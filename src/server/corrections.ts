@@ -10,6 +10,7 @@ import {
   renameDocumentFile,
   relocateDocument,
   correctOpportunityStage,
+  archiveWonArtifacts,
 } from "@/lib/workflows/corrections";
 
 /**
@@ -72,15 +73,23 @@ export async function listProgressReportsForCorrection() {
 }
 
 /**
- * Deals currently stuck WON/LOST — the pool the "Status Deal" correction
- * tab lets ADMIN/IT search through. Scoped to just these two statuses
- * (rather than every Opportunity) so this stays a focused correction list,
- * not a general deal editor.
+ * Deals the "Status Deal" correction tab lets ADMIN/IT search through:
+ * either currently stuck WON/LOST, OR already reverted but still carrying a
+ * stray WON Quotation + live Project from before the revert (the two
+ * corrections — stage vs. artifacts — can happen at different times, see
+ * archiveWonArtifacts). Not every Opportunity, so this stays a focused
+ * correction list, not a general deal editor.
  */
 export async function listWonLostOpportunitiesForCorrection() {
   await assertCorrector();
   const rows = await prisma.opportunity.findMany({
-    where: { deletedAt: null, status: { in: ["WON", "LOST"] } },
+    where: {
+      deletedAt: null,
+      OR: [
+        { status: { in: ["WON", "LOST"] } },
+        { quotations: { some: { status: "WON", deletedAt: null, project: { deletedAt: null } } } },
+      ],
+    },
     select: {
       id: true,
       number: true,
@@ -98,7 +107,7 @@ export async function listWonLostOpportunitiesForCorrection() {
         select: { id: true, number: true, revision: true, status: true, quotationId: true },
         orderBy: { createdAt: "asc" },
       },
-      projects: { select: { id: true, number: true } },
+      projects: { where: { deletedAt: null }, select: { id: true, number: true } },
     },
     orderBy: { updatedAt: "desc" },
   });
@@ -116,6 +125,23 @@ export async function correctOpportunityStageAction(id: string, reason: string):
     revalidatePath("/settings/document-correction");
     revalidatePath("/sales/opportunities");
     revalidatePath(`/sales/opportunities/${id}`);
+    revalidatePath("/activity-log");
+    return res;
+  });
+}
+
+export async function archiveWonArtifactsAction(
+  opportunityId: string,
+  reason: string
+): Promise<ActionResult<{ revertedQuotations: string[]; archivedProjects: string[] }>> {
+  return runAction(async () => {
+    const actor = await requireUserOrThrow();
+    const res = await archiveWonArtifacts(opportunityId, reason, actor);
+    revalidatePath("/settings/document-correction");
+    revalidatePath("/sales/opportunities");
+    revalidatePath(`/sales/opportunities/${opportunityId}`);
+    revalidatePath("/projects");
+    revalidatePath("/projects/folders");
     revalidatePath("/activity-log");
     return res;
   });

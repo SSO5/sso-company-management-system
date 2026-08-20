@@ -23,6 +23,7 @@ import {
   relocateDocumentAction,
   searchDocumentsForCorrection,
   correctOpportunityStageAction,
+  archiveWonArtifactsAction,
 } from "@/server/corrections";
 
 type Quotation = { id: string; number: string; revision: number; status: string; quotationDate: string; customer: { companyName: string } | null };
@@ -441,8 +442,9 @@ function OpportunityStageTab({ rows }: { rows: WonLostOpportunity[] }) {
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        Hanya deal yang sedang berstatus Won/Lost muncul di sini. Untuk deal yang masih berjalan, ubah
-        stage-nya langsung dari halaman Opportunity — pemindahan ke Won/Lost sendiri hanya bisa lewat
+        Deal yang sedang berstatus Won/Lost, atau yang sudah dikembalikan ke stage lain tapi masih punya
+        quotation/Project sisa dari Won sebelumnya, muncul di sini. Untuk deal yang masih berjalan normal,
+        ubah stage-nya langsung dari halaman Opportunity — pemindahan ke Won/Lost sendiri hanya bisa lewat
         tombol &quot;Mark Won&quot;/&quot;Mark Lost&quot; pada quotation-nya, bukan dari sini.
       </p>
       <SearchBox value={q} onChange={setQ} placeholder="Cari nomor deal, nama, atau pelanggan..." />
@@ -489,7 +491,26 @@ function OpportunityStageCorrectionDialog({ row, onClose }: { row: WonLostOpport
     }
   }
 
+  async function onArchive() {
+    setPending(true);
+    const res = await archiveWonArtifactsAction(row.id, reason);
+    setPending(false);
+    if (res.ok) {
+      toast({
+        title: `Quotation dikembalikan ke Sent${res.data.archivedProjects.length ? ", Project diarsipkan" : ""}`,
+        description: [...res.data.revertedQuotations, ...res.data.archivedProjects].join(", "),
+        variant: "success",
+      });
+      onClose();
+      router.refresh();
+    } else {
+      toast({ title: "Gagal koreksi", description: res.error, variant: "destructive" });
+    }
+  }
+
   const openQuotations = row.quotations.filter((q) => q.status !== "WON" && q.status !== "LOST");
+  const wonQuotations = row.quotations.filter((q) => q.status === "WON");
+  const isCurrentlyDecided = row.status === "WON" || row.status === "LOST";
 
   return (
     <Dialog
@@ -531,10 +552,12 @@ function OpportunityStageCorrectionDialog({ row, onClose }: { row: WonLostOpport
             &quot;Convert to Quotation&quot; -&gt; &quot;Ya, Jadikan Revisi&quot; pada quotation tersebut.
           </p>
         )}
-        {row.projects.length > 0 && (
+        {wonQuotations.length > 0 && (
           <p className="rounded bg-warning/10 px-2 py-1.5 text-xs text-muted-foreground">
-            Deal ini sudah punya {row.projects.length} Project yang terlanjur dibuat. Koreksi ini TIDAK
-            menghapus/mengarsipkan Project tersebut — kalau memang salah dibuat, itu perlu ditangani terpisah.
+            {wonQuotations.length} quotation ({wonQuotations.map((q) => q.number).join(", ")}) masih berstatus Won
+            {row.projects.length > 0 ? `, dengan Project (${row.projects.map((p) => p.number).join(", ")}) yang otomatis terbuat darinya` : ""}.
+            Pakai tombol &quot;Arsipkan Project &amp; Kembalikan Quotation&quot; di bawah untuk membereskan ini juga —
+            mengembalikan stage deal ke Negotiation saja tidak menyentuh keduanya.
           </p>
         )}
 
@@ -547,11 +570,18 @@ function OpportunityStageCorrectionDialog({ row, onClose }: { row: WonLostOpport
             rows={3}
           />
         </div>
-        <div className="flex justify-end gap-2 border-t border-border pt-3">
+        <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-3">
           <Button type="button" variant="outline" onClick={onClose}>Batal</Button>
-          <Button type="button" variant="destructive" disabled={pending || !reason.trim()} onClick={onSave}>
-            {pending ? "Menyimpan..." : "Kembalikan ke Negotiation"}
-          </Button>
+          {wonQuotations.length > 0 && (
+            <Button type="button" variant="destructive" disabled={pending || !reason.trim()} onClick={onArchive}>
+              {pending ? "Menyimpan..." : "Arsipkan Project & Kembalikan Quotation"}
+            </Button>
+          )}
+          {isCurrentlyDecided && (
+            <Button type="button" variant="destructive" disabled={pending || !reason.trim()} onClick={onSave}>
+              {pending ? "Menyimpan..." : "Kembalikan ke Negotiation"}
+            </Button>
+          )}
         </div>
       </div>
     </Dialog>

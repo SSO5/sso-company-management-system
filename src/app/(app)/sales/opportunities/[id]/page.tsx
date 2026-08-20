@@ -34,7 +34,7 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">Stage:</span>
           <OpportunityStageSelect id={o.id} status={o.status} />
-          {actor.role === "ADMIN" && <OpportunityDeleteButton id={o.id} number={o.number} size="sm" />}
+          {(actor.role === "ADMIN" || actor.role === "IT") && <OpportunityDeleteButton id={o.id} number={o.number} size="sm" />}
         </div>
       </div>
 
