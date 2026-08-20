@@ -35,7 +35,7 @@ interface Props {
   expenses: {
     id: string; number: string; category: string; description: string; date: Date; total: unknown;
     paymentStatus: string; approvalStatus: string; submittedById: string | null; rejectionReason: string | null;
-    createdBy: { name: string };
+    createdBy: { name: string }; vendorPurchaseOrderId: string | null;
   }[];
   assignees: { id: string; name: string }[];
   closing: { checklist: { key: string; label: string; passed: boolean }[]; canClose: boolean };

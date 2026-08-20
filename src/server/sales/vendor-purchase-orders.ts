@@ -37,6 +37,9 @@ export async function getVendorPurchaseOrder(id: string) {
       submittedBy: { select: { name: true } },
       approvedBy: { select: { name: true } },
       rejectedBy: { select: { name: true } },
+      // The Finance-side half of this PO's cost — see
+      // ProjectExpense.vendorPurchaseOrderId / markVendorPOSent.
+      expense: { select: { id: true, number: true, approvalStatus: true, paymentStatus: true } },
     },
   });
 }
@@ -84,8 +87,10 @@ export async function markVendorPOSentAction(id: string): Promise<ActionResult<{
   return runAction(async () => {
     const actor = await requireUserOrThrow();
     requirePermission(actor.role, "sales", "update");
-    await markVendorPOSent(id, actor);
+    const updated = await markVendorPOSent(id, actor);
     revalidatePath(`/procurement/vendor-po/${id}`);
+    revalidatePath("/finance/expenses");
+    if (updated.projectId) revalidatePath(`/projects/${updated.projectId}`);
     return { id };
   });
 }

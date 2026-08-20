@@ -182,7 +182,17 @@ export async function rejectVendorPO(id: string, reason: string, actor: SessionP
   return po;
 }
 
-/** Approved -> Sent (PO actually dispatched to the vendor, e.g. via email/WA). */
+/**
+ * Approved -> Sent (PO actually dispatched to the vendor, e.g. via
+ * email/WA). This is also the point where the PO's cost is handed to
+ * Finance: a ProjectExpense (category VENDOR, already Approved — the PO's
+ * own approval already was the authorization decision) gets created and
+ * linked via vendorPurchaseOrderId, so paying the vendor goes through the
+ * same evidence-gated "Mark as Paid" flow (proof of payment required) as
+ * every other project cost, instead of a separate parallel payment system.
+ * Only possible once the PO is linked to a Project — one created before a
+ * project exists (or never linked) has nowhere to file the cost against yet.
+ */
 export async function markVendorPOSent(id: string, actor: SessionPayload) {
   return prisma.$transaction(async (tx) => {
     const existing = await tx.vendorPurchaseOrder.findUniqueOrThrow({ where: { id } });
@@ -194,6 +204,36 @@ export async function markVendorPOSent(id: string, actor: SessionPayload) {
       userId: actor.userId, action: "STATUS_CHANGE", entityType: "VENDOR_PO", entityId: id,
       description: `${updated.number}: Approved -> Sent to vendor`,
     });
+
+    if (updated.projectId) {
+      const number = await generateNumber(tx, "EXPENSE");
+      const expense = await tx.projectExpense.create({
+        data: {
+          number,
+          projectId: updated.projectId,
+          category: "VENDOR",
+          description: `Vendor PO ${updated.number} - ${updated.vendorName}`,
+          vendor: updated.vendorName,
+          date: updated.poDate,
+          amount: updated.grandTotal,
+          tax: 0,
+          total: updated.grandTotal,
+          approvalStatus: "APPROVED",
+          submittedAt: updated.submittedAt,
+          submittedById: updated.submittedById,
+          approvedAt: updated.approvedAt,
+          approvedById: updated.approvedById,
+          isLocked: true,
+          createdById: actor.userId,
+          vendorPurchaseOrderId: updated.id,
+        },
+      });
+      await logActivity(tx, {
+        userId: actor.userId, action: "CREATE", entityType: "PROJECT_EXPENSE", entityId: expense.id,
+        description: `${expense.number}: Auto-dibuat dari Vendor PO ${updated.number} (${updated.vendorName}) — sudah Approved, tinggal "Mark as Paid" dengan bukti transfer.`,
+      });
+    }
+
     return updated;
   });
 }

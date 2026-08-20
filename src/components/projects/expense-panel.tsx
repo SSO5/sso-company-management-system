@@ -10,15 +10,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
+import Link from "next/link";
 import { createExpense, submitExpenseAction, approveExpenseAction, rejectExpenseAction, markExpensePaidAction } from "@/server/projects/tasks";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { Plus } from "lucide-react";
+import { Plus, Truck } from "lucide-react";
 import type { UserRole } from "@prisma/client";
 
 interface Expense {
   id: string; number: string; category: string; description: string; date: Date;
   total: unknown; paymentStatus: string; approvalStatus: string; submittedById: string | null;
-  rejectionReason: string | null; createdBy: { name: string };
+  rejectionReason: string | null; createdBy: { name: string }; vendorPurchaseOrderId: string | null;
 }
 
 const CATEGORIES = ["LABOR", "MATERIALS", "TRANSPORTATION", "ACCOMMODATION", "VENDOR", "EQUIPMENT", "MARKETING", "OTHER"];
@@ -87,7 +88,14 @@ export function ExpensePanel({ projectId, expenses, role }: { projectId: string;
             <TableRow key={e.id}>
               <TableCell className="font-mono text-xs">{e.number}</TableCell>
               <TableCell>{e.category}</TableCell>
-              <TableCell>{e.description}</TableCell>
+              <TableCell>
+                {e.description}
+                {e.vendorPurchaseOrderId && (
+                  <Link href={`/procurement/vendor-po/${e.vendorPurchaseOrderId}`} className="ml-1.5 inline-flex items-center gap-0.5 text-[10px] text-primary hover:underline" title="Dari Vendor PO">
+                    <Truck className="h-3 w-3" /> PO
+                  </Link>
+                )}
+              </TableCell>
               <TableCell>{formatDate(e.date)}</TableCell>
               <TableCell>{formatCurrency(Number(e.total))}</TableCell>
               <TableCell><Badge variant={e.paymentStatus === "PAID" ? "success" : "secondary"}>{e.paymentStatus}</Badge></TableCell>
