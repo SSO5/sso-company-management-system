@@ -37,7 +37,7 @@ export const TITLE_OPTIONS = [
 // WhatsApp number for outbound notifications (see lib/notifications/whatsapp.ts)
 // — accepts common human-entered formats ("0812...", "+62812...", "62812...")
 // and normalizes to Fonnte's expected international-no-plus format.
-const whatsappNumberSchema = z
+export const whatsappNumberSchema = z
   .string()
   .optional()
   .nullable()

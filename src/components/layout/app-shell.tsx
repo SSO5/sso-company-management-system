@@ -11,15 +11,15 @@ import type { UserRole } from "@prisma/client";
  * a menu tap in Topbar actually open Sidebar.
  */
 export function AppShell({
-  role, userName, unreadCount, children,
-}: { role: UserRole; userName: string; unreadCount: number; children: React.ReactNode }) {
+  role, userName, unreadCount, avatarUrl, children,
+}: { role: UserRole; userName: string; unreadCount: number; avatarUrl: string | null; children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
     <div className="flex h-screen bg-secondary">
-      <Sidebar role={role} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar role={role} userName={userName} avatarUrl={avatarUrl} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Topbar userName={userName} role={role} unreadCount={unreadCount} onMenuClick={() => setSidebarOpen(true)} />
+        <Topbar userName={userName} role={role} avatarUrl={avatarUrl} unreadCount={unreadCount} onMenuClick={() => setSidebarOpen(true)} />
         <main className="flex-1 overflow-y-auto p-3 sm:p-6">{children}</main>
       </div>
     </div>

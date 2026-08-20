@@ -5,6 +5,16 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/** Turns a stored branding key ("branding/avatar-xyz-123.png") into the
+ * authenticated-only URL that actually serves it (see
+ * app/api/branding/[...key]/route.ts) — same pattern already duplicated in
+ * company-form.tsx/edit-user-dialog.tsx, now shared for avatarUrl and
+ * dashboardBackgroundUrl too. */
+export function brandingUrl(key: string | null | undefined): string | null {
+  if (!key) return null;
+  return `/api/branding/${key.replace(/^branding\//, "")}`;
+}
+
 export function formatCurrency(amount: number | string, currency = "IDR"): string {
   const n = typeof amount === "string" ? Number(amount) : amount;
   return new Intl.NumberFormat("id-ID", {
