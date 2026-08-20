@@ -480,3 +480,107 @@ export function computeProjectRiskSignals(input: ProjectRiskInput): ProjectRiskS
 
   return signals;
 }
+
+/**
+ * "Timeline Penagihan": PO diterima -> DP -> tiap termin sesuai TOP di
+ * quotation/PO -> Pelunasan, as one chronological sequence instead of two
+ * separate cards (Sisa Penagihan's totals, Invoices to Customer's flat
+ * table) that never told the founder specifically "belum ditagih sejak
+ * kapan" or "ini termin keberapa". Every step traces to a real row: PO
+ * steps from PurchaseOrder, billing steps from Invoice (labeled DP only for
+ * a genuinely dpPercent-staged first invoice, Pelunasan for whichever
+ * invoice actually closes out the PO's total value), payment date from
+ * Payment — never a typed-in date with nothing behind it.
+ */
+export interface BillingTimelineStep {
+  key: string;
+  kind: "PO" | "BILLING";
+  label: string;
+  date: Date | null;
+  amount: number | null;
+  status: "done" | "in_progress" | "overdue" | "upcoming";
+  detail: string | null;
+}
+export interface BillingTimelineInput {
+  purchaseOrders: { number: string; poDate: Date; poValue: Numeric; paymentTerms: string | null; status: string }[];
+  invoices: {
+    number: string; invoiceDate: Date; dueDate: Date; grandTotal: Numeric; dpPercent?: Numeric | null;
+    paidAmount: Numeric; status: string; payments: { paymentDate: Date; amount: Numeric }[];
+  }[];
+}
+
+export function computeBillingTimeline({ purchaseOrders, invoices }: BillingTimelineInput): BillingTimelineStep[] {
+  const steps: BillingTimelineStep[] = [];
+
+  const activePOs = purchaseOrders.filter((po) => po.status !== "CANCELLED").sort((a, b) => a.poDate.getTime() - b.poDate.getTime());
+  const totalPoValue = activePOs.reduce((s, po) => s + n(po.poValue), 0);
+  for (const po of activePOs) {
+    steps.push({
+      key: `po-${po.number}`,
+      kind: "PO",
+      label: `PO Diterima (${po.number})`,
+      date: po.poDate,
+      amount: n(po.poValue),
+      status: "done",
+      detail: po.paymentTerms ? `Term of Payment: ${po.paymentTerms}` : null,
+    });
+  }
+
+  const activeInvoices = invoices.filter((i) => i.status !== "CANCELLED").sort((a, b) => a.invoiceDate.getTime() - b.invoiceDate.getTime());
+  let cumulativeDue = 0;
+  activeInvoices.forEach((inv, idx) => {
+    const due = invoiceDueAmount(inv);
+    cumulativeDue = round2(cumulativeDue + due);
+    const isDp = idx === 0 && n(inv.dpPercent) > 0 && n(inv.dpPercent) < 100;
+    const isPelunasan = totalPoValue > 0 && cumulativeDue >= totalPoValue - 1;
+    const label = isPelunasan
+      ? `Pelunasan (${inv.number})`
+      : isDp
+        ? `DP ${n(inv.dpPercent)}% (${inv.number})`
+        : `Termin ${idx + 1} (${inv.number})`;
+
+    let status: BillingTimelineStep["status"] = "upcoming";
+    if (inv.status === "PAID") status = "done";
+    else if (inv.status === "OVERDUE") status = "overdue";
+    else if (inv.status === "PARTIALLY_PAID" || inv.status === "ISSUED") status = "in_progress";
+
+    const lastPayment = [...inv.payments].sort((a, b) => b.paymentDate.getTime() - a.paymentDate.getTime())[0];
+    steps.push({
+      key: `inv-${inv.number}`,
+      kind: "BILLING",
+      label,
+      date: status === "done" && lastPayment ? lastPayment.paymentDate : inv.dueDate,
+      amount: due,
+      status,
+      detail:
+        status === "done"
+          ? `Dibayar ${formatShortDate(lastPayment?.paymentDate ?? null)}`
+          : status === "overdue"
+            ? `Jatuh tempo ${formatShortDate(inv.dueDate)} — terlambat`
+            : `Jatuh tempo ${formatShortDate(inv.dueDate)}`,
+    });
+  });
+
+  // No invoice fully closes out the PO total yet — surface Pelunasan as an
+  // explicit upcoming step instead of just letting the timeline trail off,
+  // so "how far from done" is always answerable at a glance.
+  const settled = totalPoValue > 0 && activeInvoices.length > 0 && activeInvoices.every((i) => i.status === "PAID") && cumulativeDue >= totalPoValue - 1;
+  if (totalPoValue > 0 && !settled) {
+    steps.push({
+      key: "pelunasan-pending",
+      kind: "BILLING",
+      label: "Pelunasan",
+      date: null,
+      amount: round2(Math.max(0, totalPoValue - cumulativeDue)),
+      status: "upcoming",
+      detail: "Belum ada invoice yang menutup nilai PO ini",
+    });
+  }
+
+  return steps;
+}
+
+function formatShortDate(d: Date | null): string {
+  if (!d) return "-";
+  return new Date(d).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+}

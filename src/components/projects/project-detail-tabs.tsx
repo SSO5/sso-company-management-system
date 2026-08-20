@@ -11,7 +11,7 @@ import { SCurvePanel } from "@/components/projects/s-curve-panel";
 import { ProgressReportDocumentsPanel } from "@/components/projects/progress-report-documents-panel";
 import { formatCurrency } from "@/lib/utils";
 import type { TaskStatus, UserRole } from "@prisma/client";
-import type { SCurvePoint } from "@/lib/workflows/calculations";
+import type { SCurvePoint, BillingTimelineStep } from "@/lib/workflows/calculations";
 
 interface Props {
   projectId: string;
@@ -46,7 +46,12 @@ interface Props {
     paymentTerms: string | null; deliveryTerms: string | null; estimatedDeliveryDate: Date | null;
   }[];
   vendorPurchaseOrders: { id: string; number: string; vendorName: string; poDate: Date; grandTotal: unknown; status: string }[];
-  invoices: { id: string; number: string; invoiceDate: Date; grandTotal: unknown; dpPercent: unknown; paidAmount: unknown; status: string }[];
+  invoices: {
+    id: string; number: string; invoiceDate: Date; dueDate: Date; grandTotal: unknown; dpPercent: unknown;
+    paidAmount: unknown; status: string; payments: { paymentDate: Date; amount: unknown }[];
+  }[];
+  salesOrigin: { items: { key: string; label: string; complete: boolean; folderId: string | null }[]; complete: boolean };
+  billingTimeline: BillingTimelineStep[];
   progressReportFolderId: string | null;
   progressReportDocuments: {
     id: string; originalName: string; displayName: string; fileSize: number;
@@ -109,6 +114,8 @@ export function ProjectDetailTabs(props: Props) {
           purchaseOrders={props.purchaseOrders}
           vendorPurchaseOrders={props.vendorPurchaseOrders}
           invoices={props.invoices}
+          salesOrigin={props.salesOrigin}
+          billingTimeline={props.billingTimeline}
         />
       )}
       {active === "tasks" && <TaskPanel projectId={props.projectId} tasks={props.tasks} assignees={props.assignees} />}

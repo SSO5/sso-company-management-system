@@ -11,7 +11,7 @@ import Link from "next/link";
 import { FolderOpen, TriangleAlert } from "lucide-react";
 
 export default async function ProjectDetailPage({ params }: { params: { id: string } }) {
-  const [{ project, profitability, closing, opportunityFolder, purchaseOrderFolderId, sCurve, riskSignals }, actor, assignees, checklist, progressReportDocs] = await Promise.all([
+  const [{ project, profitability, closing, opportunityFolder, purchaseOrderFolderId, sCurve, riskSignals, salesOrigin, billingTimeline }, actor, assignees, checklist, progressReportDocs] = await Promise.all([
     getProjectDetail(params.id),
     requireUser(),
     listUsersForPicker(),
@@ -81,6 +81,8 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
         purchaseOrders={project.purchaseOrders}
         vendorPurchaseOrders={project.vendorPurchaseOrders}
         invoices={project.invoices}
+        salesOrigin={salesOrigin}
+        billingTimeline={billingTimeline}
         progressReportFolderId={progressReportDocs.folderId}
         progressReportDocuments={progressReportDocs.documents}
       />

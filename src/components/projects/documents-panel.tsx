@@ -1,10 +1,10 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency, formatDate, formatRevisedNumber } from "@/lib/utils";
-import { invoiceDueAmount } from "@/lib/workflows/calculations";
+import { cn, formatCurrency, formatDate, formatRevisedNumber } from "@/lib/utils";
+import { invoiceDueAmount, type BillingTimelineStep } from "@/lib/workflows/calculations";
 import { PoExtractUploadDialog } from "@/components/projects/po-extract-upload-dialog";
-import { FileDown, FileText } from "lucide-react";
+import { FileDown, FileText, CheckCircle2, CircleAlert } from "lucide-react";
 
 interface Quotation { id: string; number: string; revision: number; grandTotal: unknown }
 interface Opportunity { id: string; number: string }
@@ -13,7 +13,11 @@ interface CustomerPO {
   paymentTerms: string | null; deliveryTerms: string | null; estimatedDeliveryDate: Date | null;
 }
 interface VendorPO { id: string; number: string; vendorName: string; poDate: Date; grandTotal: unknown; status: string }
-interface InvoiceRow { id: string; number: string; invoiceDate: Date; grandTotal: unknown; dpPercent: unknown; paidAmount: unknown; status: string }
+interface InvoiceRow {
+  id: string; number: string; invoiceDate: Date; grandTotal: unknown; dpPercent: unknown;
+  paidAmount: unknown; status: string; payments: { paymentDate: Date; amount: unknown }[];
+}
+interface SalesOriginItem { key: string; label: string; complete: boolean; folderId: string | null }
 
 interface Props {
   projectId: string;
@@ -24,7 +28,13 @@ interface Props {
   purchaseOrders: CustomerPO[];
   vendorPurchaseOrders: VendorPO[];
   invoices: InvoiceRow[];
+  salesOrigin: { items: SalesOriginItem[]; complete: boolean };
+  billingTimeline: BillingTimelineStep[];
 }
+
+const TIMELINE_DOT: Record<BillingTimelineStep["status"], string> = {
+  done: "bg-success", in_progress: "bg-warning", overdue: "bg-destructive", upcoming: "bg-muted-foreground/40",
+};
 
 const CUSTOMER_PO_VARIANT: Record<string, "default" | "secondary" | "success" | "warning" | "destructive" | "outline"> = {
   PENDING: "warning", RECEIVED: "outline", VERIFIED: "success", CANCELLED: "destructive",
@@ -61,6 +71,7 @@ function Section({ title, hint, action, children }: { title: string; hint?: stri
  */
 export function DocumentsPanel({
   projectId, customerId, purchaseOrderFolderId, opportunity, quotation, purchaseOrders, vendorPurchaseOrders, invoices,
+  salesOrigin, billingTimeline,
 }: Props) {
   // "Sisa penagihan" — the persistent, always-visible answer to "what's the
   // next billing stage", computed from real data instead of a one-off chat
@@ -79,7 +90,7 @@ export function DocumentsPanel({
   return (
     <div className="space-y-4">
       {activePOs.length > 0 && (
-        <Section title="Sisa Penagihan" hint="Total nilai PO dikurangi invoice yang sudah diterbitkan">
+        <Section title="Timeline Penagihan" hint="PO → DP → tiap termin → Pelunasan, ditarik langsung dari data Keuangan">
           <div className="grid grid-cols-3 gap-3 text-sm">
             <div>
               <p className="text-xs text-muted-foreground">Total Nilai PO</p>
@@ -96,18 +107,29 @@ export function DocumentsPanel({
               </p>
             </div>
           </div>
-          {termsToShow.length > 0 && (
-            <div className="mt-3 space-y-1 border-t border-border pt-3">
-              {termsToShow.map((po) => (
-                <p key={po.id} className="text-xs text-muted-foreground">
-                  <span className="font-mono">{po.number}</span> — Term of Payment: {po.paymentTerms}
-                  {po.estimatedDeliveryDate && (
-                    <span className="text-warning"> · Perkiraan tagihan berikutnya: {formatDate(po.estimatedDeliveryDate)}</span>
-                  )}
-                </p>
+
+          {billingTimeline.length === 0 ? (
+            <p className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">
+              Belum ada invoice yang diterbitkan untuk PO ini.
+            </p>
+          ) : (
+            <div className="relative mt-4 space-y-4 border-l-2 border-border py-1 pl-5">
+              {billingTimeline.map((step) => (
+                <div key={step.key} className="relative">
+                  <span className={cn("absolute -left-[25px] top-0.5 h-3 w-3 rounded-full border-2 border-card", TIMELINE_DOT[step.status])} />
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium">{step.label}</p>
+                    {step.amount != null && <span className="text-sm font-semibold">{formatCurrency(step.amount)}</span>}
+                  </div>
+                  <p className={cn("text-xs", step.status === "overdue" ? "text-destructive" : "text-muted-foreground")}>
+                    {step.date ? formatDate(step.date) : "Belum terjadwal"}
+                    {step.detail ? ` · ${step.detail}` : ""}
+                  </p>
+                </div>
               ))}
             </div>
           )}
+
           {termsToShow.length === 0 && remainingToBill > 0 && (
             <p className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">
               Term of Payment belum tercatat untuk PO ini — tidak bisa menentukan tahap penagihan berikutnya secara
@@ -117,11 +139,32 @@ export function DocumentsPanel({
         </Section>
       )}
 
-      <Section title="Sales Origin" hint="Where this project came from">
-        {!opportunity && !quotation ? (
-          <p className="text-sm text-muted-foreground">No linked Opportunity/Quotation (project was created manually).</p>
-        ) : (
-          <div className="flex flex-wrap gap-3 text-sm">
+      <Section title="Sales Origin" hint="Opportunity, Costing, dan Quotation (Won) harus lengkap — Sales yang mengupload, read-only di sini">
+        <div className="space-y-2">
+          {salesOrigin.items.map((item) => (
+            <div key={item.key} className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
+              <div className="flex items-center gap-2">
+                {item.complete ? (
+                  <CheckCircle2 className="h-4 w-4 text-success" />
+                ) : (
+                  <CircleAlert className="h-4 w-4 text-destructive" />
+                )}
+                <span>{item.label}</span>
+              </div>
+              {!item.complete && (
+                item.folderId ? (
+                  <Link href={`/documents/${item.folderId}`} className="text-xs font-medium text-destructive hover:underline">
+                    Belum ada file — upload di sini
+                  </Link>
+                ) : (
+                  <span className="text-xs text-destructive">Belum ada file</span>
+                )
+              )}
+            </div>
+          ))}
+        </div>
+        {(opportunity || quotation) && (
+          <div className="mt-3 flex flex-wrap gap-3 border-t border-border pt-3 text-sm">
             {opportunity && (
               <Link href={`/sales/opportunities/${opportunity.id}`} className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 hover:bg-accent">
                 <FileText className="h-3.5 w-3.5 text-muted-foreground" /> Opportunity {opportunity.number}
