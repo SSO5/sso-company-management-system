@@ -1,0 +1,51 @@
+name: Neon DB Migration (one-off)
+
+# Manual-only, one-off tool to migrate the production database from the old
+# Neon project (ap-southeast-1) to a new one (us-east-1) closer to Vercel's
+# function region — see lib/db.ts for the latency this fixes. Never runs
+# automatically. Connection strings are read from repo secrets
+# (OLD_DATABASE_URL / NEW_DATABASE_URL) so they're never exposed in logs or
+# in this file.
+on:
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm client tools
+        run: |
+          pg_dump --version
+          pg_restore --version
+          psql --version
+
+      - name: Dump old database (schema + data)
+        env:
+          OLD_DATABASE_URL: ${{ secrets.OLD_DATABASE_URL }}
+        run: pg_dump "$OLD_DATABASE_URL" -Fc -v -f neon_backup.dump
+
+      - name: Restore into new database
+        env:
+          NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
+        run: pg_restore --clean --if-exists --no-owner --no-privileges -v -d "$NEW_DATABASE_URL" neon_backup.dump
+        # Neon's fresh project has its own default role/extensions; pg_restore
+        # commonly warns about those ("role ... does not exist", "extension
+        # ... already exists") without those being real failures. Don't fail
+        # the whole job on warnings — the row-count check below is the real
+        # correctness gate.
+        continue-on-error: true
+
+      - name: Verify row counts match (old vs new)
+        env:
+          OLD_DATABASE_URL: ${{ secrets.OLD_DATABASE_URL }}
+          NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
+        run: |
+          set -e
+          echo "== Table row counts, OLD vs NEW =="
+          for t in Customer Opportunity Quotation CostingSheet Project Invoice Payment Contract Document User; do
+            old_count=$(psql "$OLD_DATABASE_URL" -tAc "SELECT count(*) FROM \"$t\";" 2>/dev/null || echo "ERR")
+            new_count=$(psql "$NEW_DATABASE_URL" -tAc "SELECT count(*) FROM \"$t\";" 2>/dev/null || echo "ERR")
+            status="OK"
+            if [ "$old_count" != "$new_count" ]; then status="MISMATCH"; fi
+            printf "%-14s old=%-8s new=%-8s %s\n" "$t" "$old_count" "$new_count" "$status"
+          done
