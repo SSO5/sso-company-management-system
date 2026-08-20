@@ -412,3 +412,71 @@ export function computeBillingSchedule(projects: BillingScheduleProjectInput[]):
       return b.remainingToBill - a.remainingToBill;
     });
 }
+
+/**
+ * "At Risk" detection (Aug 2026): reads real signals already on the project
+ * — a milestone the batch job below has flipped to DELAYED, the S-Curve's
+ * own plan-vs-realisasi gap, and approved cost against budget — and turns
+ * them into a specific, attributable reason. Deliberately does NOT touch
+ * Project.status itself: per the founder's decision, "At Risk" stays a
+ * human call (a PM reading these signals and choosing to flag it), the same
+ * "Manual saja" principle already applied to every other Project.status
+ * transition except the evidence-gated ones (Won, Planning->Active). This
+ * only flags + explains, on ACTIVE projects — Planning hasn't started yet,
+ * On Hold/Completed/Cancelled/Closed are already a deliberate, separate
+ * state that risk flags would just be noise on top of.
+ */
+export interface ProjectRiskSignal {
+  type: "MILESTONE_DELAYED" | "SCHEDULE_DEVIATION" | "BUDGET_OVERRUN" | "BUDGET_NEAR_LIMIT";
+  severity: "warning" | "critical";
+  message: string;
+}
+export interface ProjectRiskInput {
+  status: string;
+  milestones: { name: string; status: string; dueDate: Date | null }[];
+  budget: number;
+  approvedExpenseTotal: number;
+  sCurveAsOfToday: { planned: number; actual: number };
+}
+const SCHEDULE_DEVIATION_THRESHOLD_PERCENT = 15;
+
+export function computeProjectRiskSignals(input: ProjectRiskInput): ProjectRiskSignal[] {
+  if (input.status !== "ACTIVE") return [];
+  const signals: ProjectRiskSignal[] = [];
+
+  const delayed = input.milestones.filter((m) => m.status === "DELAYED");
+  if (delayed.length > 0) {
+    signals.push({
+      type: "MILESTONE_DELAYED",
+      severity: "critical",
+      message: `${delayed.length} milestone terlambat: ${delayed.map((m) => m.name).join(", ")}`,
+    });
+  }
+
+  const gap = round2(input.sCurveAsOfToday.planned - input.sCurveAsOfToday.actual);
+  if (gap > SCHEDULE_DEVIATION_THRESHOLD_PERCENT) {
+    signals.push({
+      type: "SCHEDULE_DEVIATION",
+      severity: "warning",
+      message: `Realisasi tertinggal ${gap}% dari rencana (S-Curve)`,
+    });
+  }
+
+  if (input.budget > 0) {
+    if (input.approvedExpenseTotal > input.budget) {
+      signals.push({
+        type: "BUDGET_OVERRUN",
+        severity: "critical",
+        message: `Biaya sudah melebihi budget sebesar Rp ${round2(input.approvedExpenseTotal - input.budget).toLocaleString("id-ID")}`,
+      });
+    } else if (input.approvedExpenseTotal >= input.budget * 0.9) {
+      signals.push({
+        type: "BUDGET_NEAR_LIMIT",
+        severity: "warning",
+        message: `Biaya sudah mencapai ${round2((input.approvedExpenseTotal / input.budget) * 100)}% dari budget`,
+      });
+    }
+  }
+
+  return signals;
+}

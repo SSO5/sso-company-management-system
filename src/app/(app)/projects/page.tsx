@@ -29,7 +29,7 @@ export default async function ProjectsPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Number</TableHead><TableHead>Name</TableHead><TableHead>Customer</TableHead>
-              <TableHead>PM</TableHead><TableHead>Contract Value</TableHead><TableHead>Progress</TableHead><TableHead>Status</TableHead>
+              <TableHead>PM</TableHead><TableHead>Contract Value</TableHead><TableHead>Progress</TableHead><TableHead>Status</TableHead><TableHead>Risk</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -42,6 +42,15 @@ export default async function ProjectsPage() {
                 <TableCell>{formatCurrency(Number(p.contractValue))}</TableCell>
                 <TableCell>{p.progressPercent}%</TableCell>
                 <TableCell><Badge variant={STATUS_VARIANT[p.status]}>{p.status}</Badge></TableCell>
+                <TableCell>
+                  {p.riskSignals.length > 0 ? (
+                    <Badge variant={p.riskSignals.some((s) => s.severity === "critical") ? "destructive" : "warning"} title={p.riskSignals.map((s) => s.message).join(" | ")}>
+                      {p.riskSignals.length} sinyal
+                    </Badge>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">-</span>
+                  )}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

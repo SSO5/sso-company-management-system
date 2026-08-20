@@ -35,6 +35,21 @@ export function MultiLineChart({ data, lines, height = 260 }: { data: Record<str
   );
 }
 
+export function GroupedBarChart({ data, bars, height = 260 }: { data: Record<string, unknown>[]; bars: { key: string; color: string; label: string }[]; height?: number }) {
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart data={data}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+        <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+        <YAxis tick={{ fontSize: 11 }} />
+        <Tooltip />
+        <Legend wrapperStyle={{ fontSize: 11 }} />
+        {bars.map((b) => <Bar key={b.key} dataKey={b.key} name={b.label} fill={b.color} radius={[4, 4, 0, 0]} />)}
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
 export function SimplePieChart({ data, height = 260 }: { data: { name: string; value: number }[]; height?: number }) {
   return (
     <ResponsiveContainer width="100%" height={height}>

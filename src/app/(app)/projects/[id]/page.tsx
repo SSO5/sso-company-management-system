@@ -8,10 +8,10 @@ import { ProjectDetailTabs } from "@/components/projects/project-detail-tabs";
 import { JobNumberField } from "@/components/projects/job-number-field";
 import { ProjectStatusSelect } from "@/components/projects/project-status-select";
 import Link from "next/link";
-import { FolderOpen } from "lucide-react";
+import { FolderOpen, TriangleAlert } from "lucide-react";
 
 export default async function ProjectDetailPage({ params }: { params: { id: string } }) {
-  const [{ project, profitability, closing, opportunityFolder, purchaseOrderFolderId, sCurve }, actor, assignees, checklist, progressReportDocs] = await Promise.all([
+  const [{ project, profitability, closing, opportunityFolder, purchaseOrderFolderId, sCurve, riskSignals }, actor, assignees, checklist, progressReportDocs] = await Promise.all([
     getProjectDetail(params.id),
     requireUser(),
     listUsersForPicker(),
@@ -44,7 +44,22 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
 
       {/* Above the tabs, not inside one: an outstanding BAST or missing PO is
           the kind of thing that should be visible without first guessing which
-          tab hides it. */}
+          tab hides it. Same reasoning for risk signals — a delayed milestone
+          or a budget overrun shouldn't require first guessing which tab it's
+          hiding in. This never touches project.status itself (see
+          computeProjectRiskSignals) — it's information for the PM to act on,
+          not a status the system imposes. */}
+      {riskSignals.length > 0 && (
+        <div className="space-y-1.5 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2.5">
+          <p className="flex items-center gap-1.5 text-sm font-medium text-destructive">
+            <TriangleAlert className="h-4 w-4" /> Project ini butuh perhatian
+          </p>
+          <ul className="ml-5 list-disc space-y-0.5 text-xs text-muted-foreground">
+            {riskSignals.map((s, i) => <li key={i}>{s.message}</li>)}
+          </ul>
+        </div>
+      )}
+
       {checklist && <DocumentChecklistPanel jobs={[checklist]} canUpload={actor.role !== "VIEWER"} />}
 
       <ProjectDetailTabs
