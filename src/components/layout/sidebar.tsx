@@ -8,7 +8,7 @@ import {
   BarChart3, Settings, History, Hash, ChevronDown, X, ShoppingCart, type LucideIcon,
 } from "lucide-react";
 import { NAV } from "@/lib/nav";
-import { cn } from "@/lib/utils";
+import { cn, brandingUrl } from "@/lib/utils";
 import type { UserRole } from "@prisma/client";
 
 const ICONS: Record<string, LucideIcon> = {
@@ -27,8 +27,12 @@ function stripQuery(href: string): string {
  * accordion — starts expanded only if the current route is inside it — so
  * the list doesn't run far past the fold on a phone screen.
  */
-export function Sidebar({ role, open, onClose }: { role: UserRole; open: boolean; onClose: () => void }) {
+export function Sidebar({
+  role, userName, avatarUrl, open, onClose,
+}: { role: UserRole; userName: string; avatarUrl: string | null; open: boolean; onClose: () => void }) {
   const pathname = usePathname();
+  const avatarSrc = brandingUrl(avatarUrl);
+  const initials = userName.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
   // Filter at BOTH levels. Group-level filtering alone is not enough now that
   // nav.ts scopes individual items by role — without the item pass, a SALES
   // user would still see all five report links even though four of them are
@@ -93,6 +97,26 @@ export function Sidebar({ role, open, onClose }: { role: UserRole; open: boolean
             <X className="h-5 w-5" />
           </button>
         </div>
+
+        <Link
+          href="/settings/profile"
+          className="mx-3.5 mb-3.5 flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.06] p-3 transition-colors hover:bg-white/10"
+        >
+          {avatarSrc ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={avatarSrc} alt={userName} className="h-9 w-9 shrink-0 rounded-full object-cover" />
+          ) : (
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-warning text-xs font-bold text-primary">
+              {initials}
+            </div>
+          )}
+          <div className="min-w-0">
+            <p className="truncate text-[13px] font-semibold">{userName}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-white/55">{role.replace("_", " ")}</p>
+          </div>
+        </Link>
+        <div className="mx-5 mb-3 h-px bg-white/10" />
+
         <nav className="flex-1 space-y-1 px-3 pb-6">
           {visibleGroups.map((group) => {
             const Icon = ICONS[group.icon];

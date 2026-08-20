@@ -44,7 +44,13 @@ export const NAV: NavGroup[] = [
   {
     label: "Beranda",
     icon: "LayoutDashboard",
-    items: [{ label: "Tugas & Ringkasan", href: "/dashboard" }],
+    items: [
+      { label: "Tugas & Ringkasan", href: "/dashboard" },
+      // Self-service — every role can set their own photo/jabatan/WA,
+      // unlike Settings > Pengguna which stays Admin-only. Lives here (not
+      // Pengaturan) since that whole group is hidden from non-Admin/IT roles.
+      { label: "Profil Saya", href: "/settings/profile" },
+    ],
   },
   {
     // One group for the whole job lifecycle. Costing, Quotation, customer PO
@@ -113,6 +119,7 @@ export const NAV: NavGroup[] = [
     items: [
       { label: "Pengguna", href: "/settings/users", roles: ["ADMIN"] },
       { label: "Data Perusahaan", href: "/settings/company", roles: ["ADMIN"] },
+      { label: "Tema", href: "/settings/theme", roles: ["ADMIN"] },
       { label: "Penyimpanan File", href: "/settings/storage" },
       { label: "Nomor Dokumen", href: "/numbering" },
       // The IT correction tool — see lib/workflows/corrections.ts.

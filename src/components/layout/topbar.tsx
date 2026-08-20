@@ -4,10 +4,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Search, LogOut, Bell, Menu } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { brandingUrl } from "@/lib/utils";
 
 export function Topbar({
-  userName, role, unreadCount = 0, onMenuClick,
-}: { userName: string; role: string; unreadCount?: number; onMenuClick?: () => void }) {
+  userName, role, avatarUrl, unreadCount = 0, onMenuClick,
+}: { userName: string; role: string; avatarUrl: string | null; unreadCount?: number; onMenuClick?: () => void }) {
+  const avatarSrc = brandingUrl(avatarUrl);
+  const initials = userName.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
   const router = useRouter();
   const [query, setQuery] = useState("");
 
@@ -59,6 +62,16 @@ export function Topbar({
           <p className="text-sm font-medium">{userName}</p>
           <p className="text-[11px] text-muted-foreground">{role.replace("_", " ")}</p>
         </div>
+        <Link href="/settings/profile" title="Profil Saya">
+          {avatarSrc ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={avatarSrc} alt={userName} className="h-8 w-8 rounded-full object-cover" />
+          ) : (
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">
+              {initials}
+            </div>
+          )}
+        </Link>
         <form action="/api/auth/logout" method="post">
           <button className="rounded-md p-2 hover:bg-accent" aria-label="Log out" title="Log out">
             <LogOut className="h-4 w-4" />
