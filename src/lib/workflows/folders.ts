@@ -374,6 +374,47 @@ export async function resolveDestinationFolder(
   return folder?.id;
 }
 
+/**
+ * Reverse of mergeOpportunityFoldersIntoProject — used when a wrongly-Won
+ * deal's artifacts are archived (see archiveWonArtifacts in
+ * lib/workflows/corrections.ts) and the Opportunity needs a working folder
+ * tree back so the deal can be worked from Opportunity stage again (new
+ * Costing, new Quotation, etc.). Creates a fresh Opportunity folder tree
+ * (or reuses one if somehow already present), then moves every Document out
+ * of the archived Project's matching "01 Sales" child folders back into it
+ * by routeKey. The Project's own folder tree is left in place — archived
+ * alongside the Project, not deleted — only the Sales-stage documents move.
+ */
+export async function restoreOpportunityFoldersFromProject(
+  tx: Prisma.TransactionClient,
+  opportunity: { id: string; number: string },
+  projectId: string,
+  customerName: string
+) {
+  const existingRoot = await tx.folder.findFirst({
+    where: { kind: "OPPORTUNITY", opportunityId: opportunity.id, parentId: null },
+  });
+  const oppRoot = existingRoot ?? (await createOpportunityFolders(tx, opportunity, customerName));
+
+  const salesSection = await tx.folder.findFirst({
+    where: { projectId, routeKey: "SALES_SECTION" },
+    include: { children: true },
+  });
+  if (!salesSection) return oppRoot;
+
+  const oppChildren = await tx.folder.findMany({ where: { parentId: oppRoot.id } });
+  const oppByRoute = new Map(oppChildren.filter((f) => f.routeKey).map((f) => [f.routeKey as string, f]));
+
+  for (const projChild of salesSection.children) {
+    const target = projChild.routeKey ? oppByRoute.get(projChild.routeKey) : undefined;
+    if (target) {
+      await tx.document.updateMany({ where: { folderId: projChild.id }, data: { folderId: target.id } });
+    }
+  }
+
+  return oppRoot;
+}
+
 const ROUTE_KEY_TO_ENTITY: Record<string, string> = Object.fromEntries(
   Object.entries(ENTITY_TO_ROUTE_KEY).map(([entity, routeKey]) => [routeKey, entity])
 );

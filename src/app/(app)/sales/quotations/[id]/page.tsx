@@ -64,7 +64,12 @@ export default async function QuotationDetailPage({ params }: { params: { id: st
         </div>
       </div>
 
-      {q.project && (
+      {/* q.project is a to-one relation, so include: { project: true } can't
+          filter it by deletedAt the way an array relation's `where` can — a
+          Project archived by archiveWonArtifacts (a corrected wrongly-Won
+          deal) still resolves here, just with deletedAt set. Check it
+          explicitly so this banner doesn't keep claiming Won after that. */}
+      {q.project && !q.project.deletedAt && (
         <div className="rounded-md border border-success/30 bg-success/10 px-3 py-2 text-sm">
           Won — Project <Link href={`/projects/${q.project.id}`} className="font-medium underline">{q.project.number}</Link> was created automatically.
         </div>

@@ -91,6 +91,11 @@ export async function listWonLostOpportunitiesForCorrection() {
       OR: [
         { status: { in: ["WON", "LOST"] } },
         { quotations: { some: { status: "WON", deletedAt: null, project: { deletedAt: null } } } },
+        // Already reverted (stage + quotation + Project all corrected) but
+        // possibly by a run of archiveWonArtifacts that predates folder
+        // restoration — still worth surfacing so "Arsipkan Project &
+        // Kembalikan Quotation" can be re-run to fix just the folders.
+        { AND: [{ status: { notIn: ["WON", "LOST"] } }, { projects: { some: {} } }] },
       ],
     },
     select: {
