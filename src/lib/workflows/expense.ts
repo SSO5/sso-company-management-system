@@ -118,3 +118,31 @@ export async function rejectExpense(id: string, reason: string, actor: SessionPa
 
   return expense;
 }
+
+/**
+ * APPROVED -> paymentStatus PAID, gated on an uploaded proof-of-payment file
+ * (kwitansi/bukti transfer) — same "evidence before the system treats
+ * something as done" rule as recordPayment's bukti transfer requirement on
+ * Invoice. Until now paymentStatus could be set straight to PAID from the
+ * create form with nothing behind it. Also requires the expense to already
+ * be APPROVED, so Finance can't pay out something Direktur never signed off.
+ */
+export async function markExpensePaid(id: string, documentId: string, actor: SessionPayload) {
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.projectExpense.findUniqueOrThrow({ where: { id } });
+    if (existing.approvalStatus !== "APPROVED") {
+      throw new Error("Only an approved expense can be marked as paid.");
+    }
+    if (existing.paymentStatus === "PAID") {
+      throw new Error("This expense is already marked as paid.");
+    }
+    const updated = await tx.projectExpense.update({ where: { id }, data: { paymentStatus: "PAID" } });
+    await tx.document.update({ where: { id: documentId }, data: { relatedEntityId: id } });
+    await logActivity(tx, {
+      userId: actor.userId, action: "PAYMENT", entityType: "PROJECT_EXPENSE", entityId: id,
+      description: `${updated.number}: Marked as paid by ${actor.name}, bukti bayar terlampir`,
+      metadata: { documentId },
+    });
+    return updated;
+  });
+}

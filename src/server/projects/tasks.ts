@@ -7,7 +7,7 @@ import { logActivity } from "@/lib/workflows/audit";
 import { taskSchema, milestoneSchema, milestoneUpdateSchema, expenseSchema } from "@/lib/validation/project";
 import { generateNumber } from "@/lib/numbering";
 import { runAction, type ActionResult } from "@/lib/action-helpers";
-import { submitExpenseForApproval, approveExpense, rejectExpense } from "@/lib/workflows/expense";
+import { submitExpenseForApproval, approveExpense, rejectExpense, markExpensePaid } from "@/lib/workflows/expense";
 import { uploadDocument } from "@/lib/workflows/documents";
 import type { TaskStatus } from "@prisma/client";
 
@@ -249,6 +249,43 @@ export async function rejectExpenseAction(id: string, projectId: string, reason:
     const actor = await requireUserOrThrow();
     await rejectExpense(id, reason, actor);
     revalidatePath(`/projects/${projectId}`);
+    return { id };
+  });
+}
+
+/**
+ * Takes raw FormData (like recordPaymentAction) because the bukti bayar file
+ * rides alongside id/projectId — an expense can't be marked paid without a
+ * real receipt/proof-of-payment attached (spec: same "evidence before the
+ * system treats something as done" rule as invoice payments and PO-before-
+ * Won). Gated on "finance" permission, not "project" — recording an expense
+ * is a PM's job, but actually disbursing/confirming payment is Finance's.
+ */
+export async function markExpensePaidAction(formData: FormData): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const actor = await requireUserOrThrow();
+    requirePermission(actor.role, "finance", "update");
+    requirePermission(actor.role, "documents", "create");
+
+    const id = formData.get("id") as string;
+    const projectId = formData.get("projectId") as string;
+    const file = formData.get("file") as File | null;
+    if (!file || file.size === 0) throw new Error("Upload bukti bayar (kwitansi/transfer) terlebih dahulu.");
+
+    const doc = await uploadDocument(
+      {
+        buffer: Buffer.from(await file.arrayBuffer()),
+        originalName: file.name,
+        mimeType: file.type || "application/octet-stream",
+        projectId,
+        relatedEntityType: "EXPENSE",
+      },
+      actor
+    );
+
+    await markExpensePaid(id, doc.id, actor);
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath("/finance/expenses");
     return { id };
   });
 }

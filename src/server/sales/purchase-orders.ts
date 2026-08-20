@@ -82,11 +82,37 @@ export async function createPurchaseOrder(input: unknown): Promise<ActionResult<
         userId: actor.userId, action: "CREATE", entityType: "PURCHASE_ORDER", entityId: created.id,
         description: `Created PO ${created.number}${documentId ? " (dengan file PO terupload)" : ""}`,
       });
+
+      // Evidence-triggered automation: a real customer PO file on file for a
+      // project still sitting in Planning is exactly the signal that work
+      // has actually started — same "evidence = trigger" rule already used
+      // for Won/Contract-Active/Milestone-Completed, now applied to the
+      // project lifecycle itself instead of leaving every project stuck on
+      // Planning forever with nothing to move it forward.
+      if (created.projectId && documentId) {
+        const project = await tx.project.findUnique({
+          where: { id: created.projectId },
+          select: { status: true, number: true },
+        });
+        if (project?.status === "PLANNING") {
+          await tx.project.update({ where: { id: created.projectId }, data: { status: "ACTIVE" } });
+          await logActivity(tx, {
+            userId: actor.userId, action: "STATUS_CHANGE", entityType: "PROJECT", entityId: created.projectId,
+            description: `${project.number}: Planning -> Active (PO customer "${created.number}" dengan file asli sudah ter-upload)`,
+            metadata: { correction: "PROJECT_AUTO_ACTIVATE", purchaseOrderId: created.id },
+          });
+        }
+      }
+
       return created;
     });
 
     revalidatePath("/sales/purchase-orders");
-    if (data.projectId) revalidatePath(`/projects/${data.projectId}`);
+    if (data.projectId) {
+      revalidatePath(`/projects/${data.projectId}`);
+      revalidatePath("/projects");
+      revalidatePath("/dashboard");
+    }
     return { id: po.id };
   });
 }
