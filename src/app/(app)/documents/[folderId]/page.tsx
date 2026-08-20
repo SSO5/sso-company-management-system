@@ -6,8 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { UploadDialog } from "@/components/documents/upload-dialog";
-import { DocumentRowActions } from "@/components/documents/document-row-actions";
-import { formatCurrency, formatDate, formatDateTime, formatRevisedNumber } from "@/lib/utils";
+import { DocumentsListWithPanel } from "@/components/documents/documents-list-with-panel";
+import { formatCurrency, formatDate, formatRevisedNumber } from "@/lib/utils";
 import { Folder as FolderIcon, ChevronRight, Plus } from "lucide-react";
 
 const QUOTATION_STATUS_VARIANT: Record<string, "default" | "secondary" | "success" | "warning" | "destructive" | "outline"> = {
@@ -18,12 +18,6 @@ const QUOTATION_STATUS_VARIANT: Record<string, "default" | "secondary" | "succes
 const COSTING_STATUS_VARIANT: Record<string, "default" | "secondary" | "success" | "warning" | "destructive" | "outline"> = {
   DRAFT: "secondary", FINAL: "outline", CONVERTED: "success",
 };
-
-function formatBytes(n: number) {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 export default async function FolderPage({ params }: { params: { folderId: string } }) {
   const { folder, children, documents, breadcrumbs, costingSheets, quotations, salesOpportunityId } = await getFolderView(params.folderId);
@@ -122,20 +116,7 @@ export default async function FolderPage({ params }: { params: { folderId: strin
       {documents.length === 0 ? (
         <EmptyState title="No files in this folder" description="Upload a document — it stays private and access-controlled." />
       ) : (
-        <Table>
-          <TableHeader><TableRow><TableHead>File</TableHead><TableHead>Size</TableHead><TableHead>Uploaded By</TableHead><TableHead>Uploaded At</TableHead><TableHead></TableHead></TableRow></TableHeader>
-          <TableBody>
-            {documents.map((d) => (
-              <TableRow key={d.id}>
-                <TableCell className="font-medium">{d.originalName}</TableCell>
-                <TableCell>{formatBytes(d.fileSize)}</TableCell>
-                <TableCell>{d.uploadedBy.name}</TableCell>
-                <TableCell>{formatDateTime(d.uploadedAt)}</TableCell>
-                <TableCell><DocumentRowActions id={d.id} folderId={params.folderId} /></TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <DocumentsListWithPanel documents={documents} folderId={params.folderId} />
       )}
     </div>
   );
