@@ -64,8 +64,13 @@ export function Topbar({
         </div>
         <Link href="/settings/profile" title="Profil Saya">
           {avatarSrc ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatarSrc} alt={userName} className="h-8 w-8 rounded-full object-cover object-top" />
+            // Wrapper does the circular clip (see profile-hub.tsx for why:
+            // border-radius directly on an <img> with object-fit is
+            // unreliable on WebKit/Safari).
+            <div className="h-8 w-8 overflow-hidden rounded-full bg-muted">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={avatarSrc} alt={userName} className="h-full w-full object-cover object-top" />
+            </div>
           ) : (
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">
               {initials}

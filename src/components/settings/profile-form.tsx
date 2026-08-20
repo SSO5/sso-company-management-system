@@ -39,8 +39,13 @@ export function ProfileForm({ profile }: { profile: OwnProfile }) {
     <form onSubmit={onSubmit} className="max-w-xl space-y-4 rounded-lg border border-border bg-card p-5" encType="multipart/form-data">
       <div className="flex items-center gap-4">
         {preview ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={preview} alt="Foto profil" className="h-16 w-16 rounded-full border border-border object-cover object-top" />
+          // Wrapper does the circular clip (see profile-hub.tsx for why:
+          // border-radius directly on an <img> with object-fit is
+          // unreliable on WebKit/Safari).
+          <div className="h-16 w-16 overflow-hidden rounded-full border border-border bg-muted">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={preview} alt="Foto profil" className="h-full w-full object-cover object-top" />
+          </div>
         ) : (
           <div className="flex h-16 w-16 items-center justify-center rounded-full border border-border bg-muted text-lg font-semibold text-muted-foreground">
             {profile.name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
