@@ -104,7 +104,7 @@ export function Sidebar({
         >
           {avatarSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatarSrc} alt={userName} className="h-9 w-9 shrink-0 rounded-full object-cover" />
+            <img src={avatarSrc} alt={userName} className="h-9 w-9 shrink-0 rounded-full object-cover object-top" />
           ) : (
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-warning text-xs font-bold text-primary">
               {initials}
