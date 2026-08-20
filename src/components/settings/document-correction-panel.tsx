@@ -593,11 +593,15 @@ function OpportunityStageCorrectionDialog({ row, onClose }: { row: WonLostOpport
         </div>
         <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-3">
           <Button type="button" variant="outline" onClick={onClose}>Batal</Button>
-          {wonQuotations.length > 0 && (
-            <Button type="button" variant="destructive" disabled={pending || !reason.trim()} onClick={onArchive}>
-              {pending ? "Menyimpan..." : "Arsipkan Project & Kembalikan Quotation"}
-            </Button>
-          )}
+          {/* Always available on this list, not just when a WON quotation is
+              still sitting there — a deal already reverted by an earlier run
+              of this same correction (before folder restoration existed)
+              still needs this to fix just its missing folders. The server
+              action is a no-op-with-clear-error if there's genuinely nothing
+              to do. */}
+          <Button type="button" variant="destructive" disabled={pending || !reason.trim()} onClick={onArchive}>
+            {pending ? "Menyimpan..." : "Arsipkan Project & Kembalikan Quotation"}
+          </Button>
           {isCurrentlyDecided && (
             <Button type="button" variant="destructive" disabled={pending || !reason.trim()} onClick={onSave}>
               {pending ? "Menyimpan..." : "Kembalikan ke Negotiation"}

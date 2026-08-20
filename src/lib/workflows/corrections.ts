@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { logActivity } from "@/lib/workflows/audit";
-import { entityTypeForRouteKey } from "@/lib/workflows/folders";
+import { entityTypeForRouteKey, restoreOpportunityFoldersFromProject } from "@/lib/workflows/folders";
 import { uploadDocument } from "@/lib/workflows/documents";
 import type { SessionPayload } from "@/lib/auth/session";
 import { requireDataCorrector } from "@/lib/permissions";
@@ -256,7 +256,10 @@ export async function archiveWonArtifacts(opportunityId: string, reason: string,
   if (!reason.trim()) throw new Error("Alasan koreksi wajib diisi — ini akan tercatat di Log Aktivitas.");
 
   return prisma.$transaction(async (tx) => {
-    const opp = await tx.opportunity.findUniqueOrThrow({ where: { id: opportunityId } });
+    const opp = await tx.opportunity.findUniqueOrThrow({
+      where: { id: opportunityId },
+      include: { customer: { select: { companyName: true } } },
+    });
     const wonQuotations = await tx.quotation.findMany({
       where: { opportunityId, status: "WON", deletedAt: null },
       include: { project: true },
@@ -271,11 +274,41 @@ export async function archiveWonArtifacts(opportunityId: string, reason: string,
       if (q.project && !q.project.deletedAt) {
         await tx.project.update({ where: { id: q.project.id }, data: { deletedAt: new Date() } });
         archivedProjects.push(q.project.number);
+        // The Project's folder tree stays put (archived alongside it), but
+        // the Opportunity itself needs a working folder tree back — it was
+        // deleted the moment this deal originally Won (see
+        // mergeOpportunityFoldersIntoProject) — so the deal can actually be
+        // worked from Opportunity stage again: a new Costing, a new
+        // Quotation, etc.
+        await restoreOpportunityFoldersFromProject(tx, opp, q.project.id, opp.customer.companyName);
       }
     }
 
-    if (revertedQuotations.length === 0) {
-      throw new Error(`${opp.number} tidak punya quotation berstatus Won yang perlu dikembalikan — tidak ada yang diubah.`);
+    // Repair path: an earlier run of this same correction (before folder
+    // restoration existed here) may have already reverted the quotation and
+    // archived the Project, leaving the Opportunity with no folder tree and
+    // nothing left to re-trigger the loop above. Detect that state directly
+    // — no folder tree, but an archived Project this deal used to own — and
+    // fix just the folders, independent of any WON quotation still existing.
+    let restoredFolders = false;
+    if (archivedProjects.length === 0) {
+      const hasFolderTree = await tx.folder.findFirst({
+        where: { kind: "OPPORTUNITY", opportunityId, parentId: null },
+      });
+      if (!hasFolderTree) {
+        const archivedProject = await tx.project.findFirst({
+          where: { opportunityId, deletedAt: { not: null } },
+          orderBy: { updatedAt: "desc" },
+        });
+        if (archivedProject) {
+          await restoreOpportunityFoldersFromProject(tx, opp, archivedProject.id, opp.customer.companyName);
+          restoredFolders = true;
+        }
+      }
+    }
+
+    if (revertedQuotations.length === 0 && !restoredFolders) {
+      throw new Error(`${opp.number} tidak punya quotation Won atau folder yang hilang untuk dibenahi — tidak ada yang diubah.`);
     }
 
     await logActivity(tx, {
@@ -284,13 +317,16 @@ export async function archiveWonArtifacts(opportunityId: string, reason: string,
       entityType: "OPPORTUNITY",
       entityId: opportunityId,
       description:
-        `[Koreksi IT] ${opp.number}: Quotation dikembalikan dari Won ke Sent (${revertedQuotations.join(", ")})` +
+        `[Koreksi IT] ${opp.number}: ` +
+        (revertedQuotations.length ? `Quotation dikembalikan dari Won ke Sent (${revertedQuotations.join(", ")})` : "Folder dipulihkan") +
         (archivedProjects.length ? `, Project diarsipkan (${archivedProjects.join(", ")})` : "") +
+        (restoredFolders ? ", folder dipulihkan dari Project yang sudah diarsipkan" : "") +
         `. Alasan: ${reason.trim()}`,
       metadata: {
         correction: "ARCHIVE_WON_ARTIFACTS",
         revertedQuotations,
         archivedProjects,
+        restoredFolders,
         reason: reason.trim(),
         correctedBy: actor.name,
         correctedByRole: actor.role,
