@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/current-user";
-import { requireDataCorrector } from "@/lib/permissions";
+import { requireDataCorrector, requirePermission } from "@/lib/permissions";
 import { runAction, type ActionResult } from "@/lib/action-helpers";
 import {
   correctDocumentNumber,
@@ -10,6 +10,10 @@ import {
   renameDocumentFile,
   relocateDocument,
   correctOpportunityStage,
+  archiveWonArtifacts,
+  revertContractToDraft,
+  revertMilestoneToPending,
+  attachPaymentEvidence,
 } from "@/lib/workflows/corrections";
 
 /**
@@ -72,15 +76,23 @@ export async function listProgressReportsForCorrection() {
 }
 
 /**
- * Deals currently stuck WON/LOST — the pool the "Status Deal" correction
- * tab lets ADMIN/IT search through. Scoped to just these two statuses
- * (rather than every Opportunity) so this stays a focused correction list,
- * not a general deal editor.
+ * Deals the "Status Deal" correction tab lets ADMIN/IT search through:
+ * either currently stuck WON/LOST, OR already reverted but still carrying a
+ * stray WON Quotation + live Project from before the revert (the two
+ * corrections — stage vs. artifacts — can happen at different times, see
+ * archiveWonArtifacts). Not every Opportunity, so this stays a focused
+ * correction list, not a general deal editor.
  */
 export async function listWonLostOpportunitiesForCorrection() {
   await assertCorrector();
   const rows = await prisma.opportunity.findMany({
-    where: { deletedAt: null, status: { in: ["WON", "LOST"] } },
+    where: {
+      deletedAt: null,
+      OR: [
+        { status: { in: ["WON", "LOST"] } },
+        { quotations: { some: { status: "WON", deletedAt: null, project: { deletedAt: null } } } },
+      ],
+    },
     select: {
       id: true,
       number: true,
@@ -98,7 +110,7 @@ export async function listWonLostOpportunitiesForCorrection() {
         select: { id: true, number: true, revision: true, status: true, quotationId: true },
         orderBy: { createdAt: "asc" },
       },
-      projects: { select: { id: true, number: true } },
+      projects: { where: { deletedAt: null }, select: { id: true, number: true } },
     },
     orderBy: { updatedAt: "desc" },
   });
@@ -116,6 +128,165 @@ export async function correctOpportunityStageAction(id: string, reason: string):
     revalidatePath("/settings/document-correction");
     revalidatePath("/sales/opportunities");
     revalidatePath(`/sales/opportunities/${id}`);
+    revalidatePath("/activity-log");
+    return res;
+  });
+}
+
+/**
+ * "Audit Bukti Dokumen" tab — the retroactive half of the evidence gates
+ * (spec: the rule has to apply to existing records too, not just ones
+ * created after the gate landed). Surfaces every existing PAID/PARTIALLY_PAID
+ * Invoice, ACTIVE Contract, Completed delivery Milestone, and Won Quotation
+ * that doesn't actually have the real document on file the corresponding
+ * forward-path action now requires.
+ */
+export async function listMissingEvidenceForCorrection() {
+  await assertCorrector();
+
+  const [paidInvoices, activeContracts, completedDeliveryMilestones, wonQuotations] = await Promise.all([
+    prisma.invoice.findMany({
+      where: { status: { in: ["PAID", "PARTIALLY_PAID"] }, deletedAt: null },
+      select: { id: true, number: true, status: true, grandTotal: true, paidAmount: true, customer: { select: { companyName: true } } },
+      orderBy: { invoiceDate: "desc" },
+    }),
+    prisma.contract.findMany({
+      where: { status: "ACTIVE", deletedAt: null },
+      select: { id: true, number: true, contractValue: true, customer: { select: { companyName: true } } },
+      orderBy: { startDate: "desc" },
+    }),
+    prisma.projectMilestone.findMany({
+      where: { status: "COMPLETED", dateBasis: "ESTIMATED_DELIVERY" },
+      select: { id: true, name: true, dueDate: true, project: { select: { number: true, name: true } } },
+      orderBy: { dueDate: "desc" },
+    }),
+    prisma.quotation.findMany({
+      where: { status: "WON", deletedAt: null },
+      select: { id: true, number: true, revision: true, customer: { select: { companyName: true } } },
+      orderBy: { wonAt: "desc" },
+    }),
+  ]);
+
+  const [payments, contractDocs, milestoneDocs, wonQuotationPOs] = await Promise.all([
+    prisma.payment.findMany({
+      where: { invoiceId: { in: paidInvoices.map((i) => i.id) }, deletedAt: null },
+      select: { id: true, invoiceId: true, number: true, paymentDate: true, amount: true },
+      orderBy: { paymentDate: "desc" },
+    }),
+    prisma.document.findMany({
+      where: { relatedEntityType: "CONTRACT", relatedEntityId: { in: activeContracts.map((c) => c.id) }, deletedAt: null },
+      select: { relatedEntityId: true },
+    }),
+    prisma.document.findMany({
+      where: { relatedEntityType: "DELIVERY_EVIDENCE", relatedEntityId: { in: completedDeliveryMilestones.map((m) => m.id) }, deletedAt: null },
+      select: { relatedEntityId: true },
+    }),
+    prisma.purchaseOrder.findMany({
+      where: { quotationId: { in: wonQuotations.map((q) => q.id) }, deletedAt: null },
+      select: { id: true, quotationId: true },
+    }),
+  ]);
+
+  const [paymentDocs, poDocs] = await Promise.all([
+    prisma.document.findMany({
+      where: { relatedEntityType: "PAYMENT", relatedEntityId: { in: payments.map((p) => p.id) }, deletedAt: null },
+      select: { relatedEntityId: true },
+    }),
+    prisma.document.findMany({
+      where: { relatedEntityType: "PURCHASE_ORDER", relatedEntityId: { in: wonQuotationPOs.map((p) => p.id) }, deletedAt: null },
+      select: { relatedEntityId: true },
+    }),
+  ]);
+
+  const paymentIdsWithDoc = new Set(paymentDocs.map((d) => d.relatedEntityId));
+  const contractIdsWithDoc = new Set(contractDocs.map((d) => d.relatedEntityId));
+  const milestoneIdsWithDoc = new Set(milestoneDocs.map((d) => d.relatedEntityId));
+  const poIdsWithDoc = new Set(poDocs.map((d) => d.relatedEntityId));
+  const quotationIdsWithPoEvidence = new Set(
+    wonQuotationPOs.filter((p) => poIdsWithDoc.has(p.id)).map((p) => p.quotationId)
+  );
+
+  const invoicesMissingEvidence = paidInvoices
+    .map((inv) => ({
+      ...inv,
+      payments: payments
+        .filter((p) => p.invoiceId === inv.id)
+        .map((p) => ({ ...p, hasDocument: paymentIdsWithDoc.has(p.id) })),
+    }))
+    .filter((inv) => inv.payments.length === 0 || inv.payments.every((p) => !p.hasDocument));
+
+  const contractsMissingEvidence = activeContracts.filter((c) => !contractIdsWithDoc.has(c.id));
+  const milestonesMissingEvidence = completedDeliveryMilestones.filter((m) => !milestoneIdsWithDoc.has(m.id));
+  const quotationsMissingEvidence = wonQuotations.filter((q) => !quotationIdsWithPoEvidence.has(q.id));
+
+  return JSON.parse(
+    JSON.stringify({ invoicesMissingEvidence, contractsMissingEvidence, milestonesMissingEvidence, quotationsMissingEvidence })
+  ) as {
+    invoicesMissingEvidence: Array<{
+      id: string; number: string; status: string; grandTotal: string; paidAmount: string;
+      customer: { companyName: string } | null;
+      payments: Array<{ id: string; invoiceId: string; number: string; paymentDate: string; amount: string; hasDocument: boolean }>;
+    }>;
+    contractsMissingEvidence: Array<{ id: string; number: string; contractValue: string; customer: { companyName: string } | null }>;
+    milestonesMissingEvidence: Array<{ id: string; name: string; dueDate: string | null; project: { number: string; name: string } | null }>;
+    quotationsMissingEvidence: Array<{ id: string; number: string; revision: number; customer: { companyName: string } | null }>;
+  };
+}
+
+export async function revertContractToDraftAction(id: string, reason: string): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const actor = await requireUserOrThrow();
+    const res = await revertContractToDraft(id, reason, actor);
+    revalidatePath("/settings/document-correction");
+    revalidatePath("/sales/contracts");
+    revalidatePath("/activity-log");
+    return res;
+  });
+}
+
+export async function revertMilestoneToPendingAction(id: string, projectId: string, reason: string): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const actor = await requireUserOrThrow();
+    const res = await revertMilestoneToPending(id, reason, actor);
+    revalidatePath("/settings/document-correction");
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath("/activity-log");
+    return res;
+  });
+}
+
+export async function attachPaymentEvidenceAction(paymentId: string, formData: FormData): Promise<ActionResult<{ documentId: string }>> {
+  return runAction(async () => {
+    const actor = await requireUserOrThrow();
+    requireDataCorrector(actor.role);
+    requirePermission(actor.role, "documents", "create");
+
+    const file = formData.get("file") as File | null;
+    if (!file || file.size === 0) throw new Error("Pilih file bukti transfer terlebih dahulu.");
+
+    const res = await attachPaymentEvidence(
+      paymentId,
+      { buffer: Buffer.from(await file.arrayBuffer()), originalName: file.name, mimeType: file.type || "application/octet-stream" },
+      actor
+    );
+    revalidatePath("/settings/document-correction");
+    revalidatePath("/finance/payments");
+    return res;
+  });
+}
+
+export async function archiveWonArtifactsAction(
+  opportunityId: string,
+  reason: string
+): Promise<ActionResult<{ revertedQuotations: string[]; archivedProjects: string[] }>> {
+  return runAction(async () => {
+    const actor = await requireUserOrThrow();
+    const res = await archiveWonArtifacts(opportunityId, reason, actor);
+    revalidatePath("/settings/document-correction");
+    revalidatePath("/sales/opportunities");
+    revalidatePath(`/sales/opportunities/${opportunityId}`);
+    revalidatePath("/projects");
+    revalidatePath("/projects/folders");
     revalidatePath("/activity-log");
     return res;
   });
