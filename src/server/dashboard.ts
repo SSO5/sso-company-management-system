@@ -15,7 +15,7 @@ export async function getDashboardData() {
   const [
     revenueInvoices, receivableInvoices, activeProjects, atRiskProjects, completedProjects,
     overdueInvoices, quotationsAwaitingApproval, expiringContracts, projectsClosingIncomplete,
-    billingSchedule, progressProjects,
+    billingSchedule, progressProjects, pipelineByStage, wonLostQuotations,
   ] = await Promise.all([
     // Fetched (not aggregated) because "revenue" for a staged DP invoice is
     // grandTotal * dpPercent/100, not grandTotal — a per-row calculation
@@ -69,6 +69,21 @@ export async function getDashboardData() {
       orderBy: { createdAt: "desc" },
       take: 10,
     }),
+    // Sales pipeline — pre-Won/Lost stage counts + committed value, for the
+    // "Pipeline Prospek" card. Grouped here rather than via getSalesReport()
+    // since that requires the separate "reports" permission SALES/FINANCE/PM
+    // don't all have; this is company-wide pipeline health, same visibility
+    // rule as the rest of this dashboard's kpis.
+    prisma.opportunity.groupBy({
+      by: ["status"],
+      where: { deletedAt: null, status: { notIn: ["WON", "LOST"] } },
+      _count: { _all: true },
+      _sum: { estimatedValue: true },
+    }),
+    prisma.quotation.findMany({
+      where: { deletedAt: null, status: { in: ["WON", "LOST"] } },
+      select: { status: true },
+    }),
   ]);
 
   const projectProgress = progressProjects.map((p) => {
@@ -104,6 +119,19 @@ export async function getDashboardData() {
   const expenseAgg = await prisma.projectExpense.aggregate({ where: { deletedAt: null }, _sum: { total: true } });
   const grossProfit = totalRevenue - Number(expenseAgg._sum.total ?? 0);
 
+  const pipelineStageOrder = ["NEW", "QUALIFIED", "PROPOSAL", "NEGOTIATION"] as const;
+  const pipelineByStageMap = new Map(pipelineByStage.map((row) => [row.status, row]));
+  const salesPipeline = {
+    stages: pipelineStageOrder.map((status) => ({
+      status,
+      count: pipelineByStageMap.get(status)?._count._all ?? 0,
+    })),
+    totalValue: pipelineByStage.reduce((s, row) => s + Number(row._sum.estimatedValue ?? 0), 0),
+    winRate: wonLostQuotations.length > 0
+      ? Math.round((wonLostQuotations.filter((q) => q.status === "WON").length / wonLostQuotations.length) * 100)
+      : null,
+  };
+
   return {
     kpis: {
       totalRevenue,
@@ -126,5 +154,6 @@ export async function getDashboardData() {
     },
     billingSchedule,
     projectProgress,
+    salesPipeline,
   };
 }
