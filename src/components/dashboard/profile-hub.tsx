@@ -52,53 +52,53 @@ export function ProfileHub(p: ProfileHubProps) {
           under it. `relative` promotes this row into the same stacking
           phase, where DOM order (this row comes after) wins instead. */}
       <div className={bgSrc ? "bg-card px-5 pb-5 sm:px-6" : "p-5 sm:p-6"}>
-        <div className={cn("relative flex flex-col gap-5 sm:flex-row sm:items-end", bgSrc && "-mt-16 sm:-mt-20")}>
+        <div className={cn("relative flex flex-col gap-6 sm:flex-row sm:items-end", bgSrc && "-mt-20 sm:-mt-28")}>
           {avatarSrc ? (
-            // Circular clip lives on this wrapper (overflow-hidden), not on
-            // the <img> itself — border-radius applied directly to a replaced
-            // element (img) together with object-fit is unreliable on
-            // WebKit/Safari and can paint only part of the circle. A wrapper
-            // div is the resilient way to clip it.
-            <div className="h-32 w-32 shrink-0 overflow-hidden rounded-full border-4 border-card bg-muted shadow-md sm:h-[168px] sm:w-[168px]">
+            // Rounded-square clip (not a circle) lives on this wrapper
+            // (overflow-hidden), not on the <img> itself — border-radius
+            // applied directly to a replaced element (img) together with
+            // object-fit is unreliable on WebKit/Safari and can paint only
+            // part of the shape. A wrapper div is the resilient way to clip it.
+            <div className="h-40 w-40 shrink-0 overflow-hidden rounded-3xl border-4 border-card bg-muted shadow-md sm:h-64 sm:w-64">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={avatarSrc} alt={p.name} className="h-full w-full object-cover object-top" />
             </div>
           ) : (
-            <div className="flex h-32 w-32 shrink-0 items-center justify-center rounded-full border-4 border-card bg-primary text-4xl font-bold text-primary-foreground shadow-md sm:h-[168px] sm:w-[168px]">
+            <div className="flex h-40 w-40 shrink-0 items-center justify-center rounded-3xl border-4 border-card bg-primary text-5xl font-bold text-primary-foreground shadow-md sm:h-64 sm:w-64 sm:text-6xl">
               {initials}
             </div>
           )}
 
-          <div className="min-w-0 flex-1 sm:pb-1">
+          <div className="min-w-0 flex-1 sm:pb-2">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-lg font-bold">{p.name}</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-2xl font-bold">{p.name}</p>
+                <p className="text-sm text-muted-foreground">
                   {p.title ? `${p.title} · ` : ""}{p.role.replace("_", " ")} · {daysSince(p.createdAt)} hari aktif di sistem
                 </p>
               </div>
-              <Link href="/settings/profile" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border hover:bg-accent" title="Edit Profil">
-                <Pencil className="h-3.5 w-3.5" />
+              <Link href="/settings/profile" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border hover:bg-accent" title="Edit Profil">
+                <Pencil className="h-4 w-4" />
               </Link>
             </div>
 
-            <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1.5"><Mail className="h-3.5 w-3.5" /> {p.email}</span>
-              {p.whatsappNumber && <span className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> {p.whatsappNumber}</span>}
+            <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1.5 text-sm text-muted-foreground">
+              <span className="flex items-center gap-2"><Mail className="h-4 w-4" /> {p.email}</span>
+              {p.whatsappNumber && <span className="flex items-center gap-2"><Phone className="h-4 w-4" /> {p.whatsappNumber}</span>}
             </div>
 
-            <div className="mt-4 grid grid-cols-3 gap-4 border-t border-border pt-3">
+            <div className="mt-5 grid grid-cols-3 gap-6 border-t border-border pt-4">
               <div>
-                <p className="text-[11px] text-muted-foreground">Tugas Saya</p>
-                <p data-tabular className="text-lg font-semibold">{p.taskCount}</p>
+                <p className="text-xs text-muted-foreground">Tugas Saya</p>
+                <p data-tabular className="text-2xl font-semibold">{p.taskCount}</p>
               </div>
               <div>
-                <p className="text-[11px] text-muted-foreground">{p.projectCountLabel}</p>
-                <p data-tabular className="text-lg font-semibold">{p.projectCount}</p>
+                <p className="text-xs text-muted-foreground">{p.projectCountLabel}</p>
+                <p data-tabular className="text-2xl font-semibold">{p.projectCount}</p>
               </div>
               <div>
-                <p className="text-[11px] text-muted-foreground">Notifikasi Belum Dibaca</p>
-                <p data-tabular className="text-lg font-semibold">{p.unreadNotifications}</p>
+                <p className="text-xs text-muted-foreground">Notifikasi Belum Dibaca</p>
+                <p data-tabular className="text-2xl font-semibold">{p.unreadNotifications}</p>
               </div>
             </div>
           </div>
