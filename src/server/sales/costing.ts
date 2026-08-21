@@ -64,21 +64,14 @@ export async function createCostingSheetAction(input: unknown): Promise<ActionRe
   });
 }
 
-export async function updateCostingSheetAction(
-  id: string,
-  input: unknown
-): Promise<ActionResult<{ id: string; syncedQuotation: { number: string; revision: number } | null }>> {
+export async function updateCostingSheetAction(id: string, input: unknown): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
     const actor = await requireUserOrThrow();
     requirePermission(actor.role, "sales", "update");
     const data = costingSheetSchema.parse(input);
     const sheet = await updateCostingSheet(id, data, actor);
     revalidatePath(`/sales/costing/${id}`);
-    if (sheet.syncedQuotation) {
-      revalidatePath("/sales/quotations");
-      revalidatePath(`/sales/quotations/${sheet.quotationId}`);
-    }
-    return { id: sheet.id, syncedQuotation: sheet.syncedQuotation };
+    return { id: sheet.id };
   });
 }
 
