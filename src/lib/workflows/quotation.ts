@@ -507,6 +507,27 @@ export async function deleteQuotation(quotationId: string, actor: SessionPayload
       description: `${quotation.number}: Deleted (draft) by ${actor.name}`,
     });
 
+    // A quotation created from a Costing Sheet leaves that sheet CONVERTED
+    // and pointing at it via quotationId — without unlinking it here, the
+    // sheet keeps showing a "View Quotation" button to a now soft-deleted
+    // record, and clicking it 404s (getQuotation filters deletedAt: null).
+    // Unlink and reopen the sheet to DRAFT so it can be converted again into
+    // a fresh quotation instead of dead-ending on the deleted one.
+    const linkedCosting = await tx.costingSheet.findUnique({ where: { quotationId: quotation.id } });
+    if (linkedCosting) {
+      await tx.costingSheet.update({
+        where: { id: linkedCosting.id },
+        data: { quotationId: null, status: "DRAFT" },
+      });
+      await logActivity(tx, {
+        userId: actor.userId,
+        action: "UPDATE",
+        entityType: "COSTING",
+        entityId: linkedCosting.id,
+        description: `${linkedCosting.number}: Unlinked and reopened for editing (its quotation ${quotation.number} was deleted)`,
+      });
+    }
+
     return quotation;
   });
 }
