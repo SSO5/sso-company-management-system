@@ -19,7 +19,7 @@ export default async function PaymentsPage() {
 
       {payments.length === 0 ? <EmptyState title="No payments recorded yet" /> : (
         <Table>
-          <TableHeader><TableRow><TableHead>Number</TableHead><TableHead>Invoice</TableHead><TableHead>Customer</TableHead><TableHead>Date</TableHead><TableHead>Amount</TableHead><TableHead>Method</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Number</TableHead><TableHead>Invoice</TableHead><TableHead>Customer</TableHead><TableHead>Date</TableHead><TableHead>Amount</TableHead><TableHead>PPh Dipotong</TableHead><TableHead>Method</TableHead></TableRow></TableHeader>
           <TableBody>
             {payments.map((p) => (
               <TableRow key={p.id}>
@@ -28,6 +28,7 @@ export default async function PaymentsPage() {
                 <TableCell>{p.customer.companyName}</TableCell>
                 <TableCell>{formatDate(p.paymentDate)}</TableCell>
                 <TableCell>{formatCurrency(Number(p.amount))}</TableCell>
+                <TableCell>{Number(p.withholdingTax) > 0 ? formatCurrency(Number(p.withholdingTax)) : <span className="text-muted-foreground">—</span>}</TableCell>
                 <TableCell>{p.method.replace("_", " ")}</TableCell>
               </TableRow>
             ))}

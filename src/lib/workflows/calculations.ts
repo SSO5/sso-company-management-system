@@ -114,6 +114,28 @@ export function invoiceOutstanding(inv: {
 }
 
 /**
+ * True when an invoice's remaining balance is small enough relative to what
+ * it billed that it's more likely unrecorded withholding tax (PPh 23/4(2),
+ * typically 2-6% of a VAT-inclusive amount) than a real unpaid balance —
+ * i.e. some cash already came in, but the invoice is still short by only a
+ * sliver of the total. Used purely as a UI hint ("cek PPh?") pointing staff
+ * at the likely fix instead of just flashing OVERDUE with no explanation;
+ * never used to change status automatically, since a genuine small partial
+ * payment can look the same and only a human can tell the difference.
+ */
+export function looksLikeUnrecordedWithholding(inv: {
+  grandTotal: Numeric;
+  dpPercent?: Numeric | null;
+  paidAmount: Numeric;
+  withholdingTax?: Numeric | null;
+}): boolean {
+  const due = invoiceDueAmount(inv);
+  const outstanding = invoiceOutstanding(inv);
+  if (due <= 0 || outstanding <= 0) return false;
+  return n(inv.paidAmount) > 0 && outstanding / due <= 0.1;
+}
+
+/**
  * Vendor/procurement PO math (spec: matches a real issued PO exactly —
  * "001/PO/PRO/VII/2026"): each line is simply qty * unitPrice (no per-line
  * discount/tax, unlike Quotation items). Sub Total - Discount = Netto, then
