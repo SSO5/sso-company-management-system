@@ -1,0 +1,85 @@
+name: DB Diagnose - Check revision history capture (read-only, one-off)
+
+# Read-only diagnostic: a user reported that after revising a Costing Sheet
+# from R4 to R5, R4's history isn't showing up in the new "Riwayat Revisi"
+# card (see PR #26). This checks the actual production data for
+# "004/CST/MKT/VIII/2026" and its linked Quotation — current revision/status,
+# and every row (if any) in CostingSheetRevisionHistory /
+# QuotationRevisionHistory — to see whether the snapshots were ever created,
+# before guessing at a code fix. No UPDATE/INSERT/DELETE — SELECT only.
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install PostgreSQL 18 client tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common
+          yes '' | sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh
+          sudo apt-get install -y postgresql-client-18
+          echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
+
+      - name: Costing sheet current state
+        env:
+          NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
+        run: |
+          psql "$NEW_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          SELECT id, number, revision, status, "quotationId", "updatedAt"
+          FROM "CostingSheet"
+          WHERE number = '004/CST/MKT/VIII/2026';
+          SQL
+
+      - name: Costing sheet revision history rows
+        env:
+          NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
+        run: |
+          psql "$NEW_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          SELECT h.id, h.revision, h."createdAt"
+          FROM "CostingSheetRevisionHistory" h
+          JOIN "CostingSheet" cs ON cs.id = h."costingSheetId"
+          WHERE cs.number = '004/CST/MKT/VIII/2026'
+          ORDER BY h.revision;
+          SQL
+
+      - name: Linked quotation current state
+        env:
+          NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
+        run: |
+          psql "$NEW_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          SELECT q.id, q.number, q.revision, q.status, q."updatedAt"
+          FROM "Quotation" q
+          JOIN "CostingSheet" cs ON cs."quotationId" = q.id
+          WHERE cs.number = '004/CST/MKT/VIII/2026';
+          SQL
+
+      - name: Quotation revision history rows
+        env:
+          NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
+        run: |
+          psql "$NEW_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          SELECT h.id, h.revision, h."createdAt"
+          FROM "QuotationRevisionHistory" h
+          JOIN "Quotation" q ON q.id = h."quotationId"
+          JOIN "CostingSheet" cs ON cs."quotationId" = q.id
+          WHERE cs.number = '004/CST/MKT/VIII/2026'
+          ORDER BY h.revision;
+          SQL
+
+      - name: Recent activity log for this costing sheet + quotation
+        env:
+          NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
+        run: |
+          psql "$NEW_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          SELECT al.action, al."entityType", al.description, al."createdAt"
+          FROM "ActivityLog" al
+          WHERE al."entityId" IN (
+            SELECT id FROM "CostingSheet" WHERE number = '004/CST/MKT/VIII/2026'
+            UNION
+            SELECT q.id FROM "Quotation" q JOIN "CostingSheet" cs ON cs."quotationId" = q.id WHERE cs.number = '004/CST/MKT/VIII/2026'
+          )
+          ORDER BY al."createdAt" DESC
+          LIMIT 30;
+          SQL
