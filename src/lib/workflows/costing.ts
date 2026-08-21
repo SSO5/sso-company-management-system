@@ -212,6 +212,20 @@ export async function reviseCostingSheet(id: string, actor: SessionPayload) {
     // quotation would keep showing stale items/totals from before this
     // revision. Only needed when that quotation isn't already DRAFT (a
     // DRAFT quotation is already directly editable).
+    //
+    // Still snapshots the quotation's current content here (reopening it
+    // makes it directly editable via its own Edit page, so whatever it
+    // holds right now could be overwritten before we get back to it) —
+    // but deliberately does NOT bump its revision counter anymore. Doing
+    // that here, conditionally on "wasn't already DRAFT", is what caused
+    // the two counters to drift apart: once a quotation had been reopened
+    // once and stayed DRAFT, every subsequent "Buat Revisi" on the costing
+    // side kept advancing ONLY the costing sheet's number, since this
+    // condition kept skipping the quotation. The single, reliable sync
+    // point for both REVISION NUMBERS is now convertRevisedCostingToQuotation,
+    // which reconciles them to whichever is higher at the moment new
+    // content is actually pushed (and upserts its own snapshot at that same
+    // revision, so re-snapshotting the unchanged number here is harmless).
     let reopenedQuotationNumber: string | null = null;
     if (existing.status === "CONVERTED" && existing.quotationId) {
       const linked = await tx.quotation.findUnique({
@@ -225,7 +239,6 @@ export async function reviseCostingSheet(id: string, actor: SessionPayload) {
           data: {
             status: "DRAFT",
             isLocked: false,
-            revision: { increment: 1 },
             submittedAt: null,
             submittedById: null,
             approvedAt: null,
@@ -537,6 +550,17 @@ export async function convertRevisedCostingToQuotation(costingId: string, actor:
       supplierDiscountPercent: Number(i.supplierDiscountPercent), marginPercent: Number(i.marginPercent),
     })) })));
 
+    // This is the one reliable point where both sides' revision counters
+    // get reconciled — see the comment in reviseCostingSheet for why
+    // neither "Buat Revisi" step bumps the other side's number anymore.
+    // Snapshot the quotation's current (about-to-be-overwritten) content at
+    // its own current revision, then converge both counters to whichever
+    // is higher (normally the costing sheet's, since that's what "Buat
+    // Revisi" just bumped — but never regresses a quotation that happened
+    // to be revised further ahead independently).
+    await snapshotQuotationRevision(tx, quotation.id, quotation.revision);
+    const newRevision = Math.max(quotation.revision, sheet.revision);
+
     await tx.quotationItem.deleteMany({ where: { quotationId: quotation.id } });
 
     const updated = await tx.quotation.update({
@@ -547,6 +571,7 @@ export async function convertRevisedCostingToQuotation(costingId: string, actor:
         discount: 0,
         tax: 0,
         grandTotal: summary.totalSelling,
+        revision: newRevision,
         items: {
           create: allItems.map((item, idx) => ({
             itemName: item.name,
@@ -564,7 +589,10 @@ export async function convertRevisedCostingToQuotation(costingId: string, actor:
       include: { items: true },
     });
 
-    await tx.costingSheet.update({ where: { id: costingId }, data: { status: "CONVERTED" } });
+    await tx.costingSheet.update({
+      where: { id: costingId },
+      data: { status: "CONVERTED", revision: newRevision },
+    });
 
     await logActivity(tx, {
       userId: actor.userId,

@@ -44,14 +44,13 @@ const styles = StyleSheet.create({
   bodyText: { fontSize: 10, lineHeight: 1.5, color: "#1F2937", marginBottom: 10 },
   bold: { fontFamily: "Helvetica-Bold" },
 
-  // Stamp + signature are bottom-anchored inside this fixed-height box so
-  // they sit right on top of the line — like a real stamped/signed
-  // document — instead of floating near the top with the line pushed far
-  // below (signLine used to be a separate sibling with its OWN marginTop
-  // stacked on top of this box's full height, nearly doubling the gap).
+  // Signature is bottom-anchored inside this fixed-height box so it sits
+  // right on top of the line — instead of floating near the top with the
+  // line pushed far below (signLine used to be a separate sibling with its
+  // OWN marginTop stacked on top of this box's full height, nearly
+  // doubling the gap). No company stamp here by request — signature only.
   signatureBlockWrap: { marginTop: 14, height: 64, position: "relative" },
-  stampImg: { position: "absolute", bottom: 2, left: 4, width: 62, height: 62, opacity: 0.88, objectFit: "contain" },
-  signatureImg: { position: "absolute", bottom: 16, left: 0, width: 100, height: 42, objectFit: "contain" },
+  signatureImg: { position: "absolute", bottom: 4, left: 0, width: 130, height: 52, objectFit: "contain" },
   signLine: { position: "absolute", bottom: 0, left: 0, width: 150, borderTopWidth: 0.75, borderTopColor: "#111827" },
   signerName: { fontSize: 10, fontFamily: "Helvetica-Bold", marginTop: 3 },
   signerTitle: { fontSize: 9, color: GRAY_BODY },
@@ -125,7 +124,6 @@ interface QuotationPdfProps {
   signer: { name: string; title: string | null };
   logo: PdfImageSrc | null;
   signature: PdfImageSrc | null;
-  stamp: PdfImageSrc | null;
 }
 
 function Header({ company, logo }: { company: CompanyInfo; logo: PdfImageSrc | null }) {
@@ -165,7 +163,7 @@ function firstName(fullName: string): string {
   return fullName.trim().split(/\s+/)[0] || fullName;
 }
 
-export function QuotationPdfDocument({ quotation, customer, contact, company, signer, logo, signature, stamp }: QuotationPdfProps) {
+export function QuotationPdfDocument({ quotation, customer, contact, company, signer, logo, signature }: QuotationPdfProps) {
   const terms = quotation.commercialTerms && quotation.commercialTerms.length > 0 ? quotation.commercialTerms : [];
   const leftTerms = terms.slice(0, Math.ceil(terms.length / 2));
   const rightTerms = terms.slice(Math.ceil(terms.length / 2));
@@ -224,7 +222,6 @@ export function QuotationPdfDocument({ quotation, customer, contact, company, si
         <Text style={{ fontSize: 10, marginTop: 8 }}>Sincerely yours,</Text>
 
         <View style={styles.signatureBlockWrap}>
-          {stamp && <Image src={stamp} style={styles.stampImg} />}
           {signature && <Image src={signature} style={styles.signatureImg} />}
           <View style={styles.signLine} />
         </View>
