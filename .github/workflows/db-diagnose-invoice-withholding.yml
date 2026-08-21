@@ -63,3 +63,26 @@ jobs:
           WHERE i.number IN ('001/INV/FIN/VIII/2026', '001/INV/FIN/VII/2026', '002/INV/FIN/VII/2026')
           ORDER BY i.number;
           SQL
+
+      - name: Follow-up - is the 19,184,000 payment (002/PAY/FIN/VIII/2026) voided, and what does the activity log say?
+        env:
+          NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
+        run: |
+          psql "$NEW_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          SELECT id, number, "invoiceId", amount, "withholdingTax", "paymentDate", "deletedAt", "createdAt"
+          FROM "Payment"
+          WHERE number = '002/PAY/FIN/VIII/2026';
+          SQL
+          psql "$NEW_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          SELECT id, action, "entityType", "entityId", description, "createdAt"
+          FROM "ActivityLog"
+          WHERE "entityType" IN ('INVOICE', 'PAYMENT')
+            AND "entityId" IN (
+              SELECT id FROM "Invoice" WHERE number IN ('001/INV/FIN/VIII/2026', '001/INV/FIN/VII/2026', '002/INV/FIN/VII/2026')
+              UNION
+              SELECT id FROM "Payment" WHERE "invoiceId" IN (
+                SELECT id FROM "Invoice" WHERE number IN ('001/INV/FIN/VIII/2026', '001/INV/FIN/VII/2026', '002/INV/FIN/VII/2026')
+              )
+            )
+          ORDER BY "createdAt";
+          SQL
