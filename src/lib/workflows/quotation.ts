@@ -460,14 +460,24 @@ export async function reviseQuotation(quotationId: string, actor: SessionPayload
     // costing sheet stayed permanently CONVERTED/locked the moment it was
     // first turned into a quotation, so there was no way back into the
     // margin/cost math that produced the numbers, even though the quotation
-    // itself could be revised. Its own revision counter is bumped in lockstep
-    // so the printed costing number ("CST-....R1") tracks the quotation's.
+    // itself could be revised.
+    //
+    // Still snapshots the costing sheet's current content here (reopening
+    // it makes it directly editable via its own Edit page) — but
+    // deliberately does NOT bump its revision counter anymore. Bumping it
+    // unconditionally here is what let the two counters drift apart
+    // whenever this ran more than once in a row (see reviseCostingSheet's
+    // matching comment). convertRevisedCostingToQuotation is the one
+    // reliable point that reconciles both revision numbers once new
+    // content is actually pushed (and upserts its own snapshot at that
+    // same revision, so re-snapshotting the unchanged number here is
+    // harmless).
     const linkedCosting = await tx.costingSheet.findUnique({ where: { quotationId: quotation.id } });
     if (linkedCosting && linkedCosting.status === "CONVERTED") {
       await snapshotCostingSheetRevision(tx, linkedCosting.id, linkedCosting.revision);
       await tx.costingSheet.update({
         where: { id: linkedCosting.id },
-        data: { status: "DRAFT", revision: { increment: 1 } },
+        data: { status: "DRAFT" },
       });
       await logActivity(tx, {
         userId: actor.userId,
