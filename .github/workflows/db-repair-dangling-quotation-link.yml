@@ -1,0 +1,72 @@
+name: DB Repair - Unlink Costing Sheet from deleted Quotation 003/QUO/MKT/VIII/2026 (one-off)
+
+# One-off data repair, not a schema change. Before the fix in
+# lib/workflows/quotation.ts:deleteQuotation, deleting a Quotation never
+# cleared quotationId on the Costing Sheet that had been converted into it —
+# so an already-deleted "003/QUO/MKT/VIII/2026" left its source Costing Sheet
+# (originally "004/CST/MKT/VIII/2026", now at R3) CONVERTED and still
+# pointing at the deleted row. Its "View Quotation" button 404s
+# (getQuotation filters deletedAt: null), which Next.js surfaces as an opaque
+# server-side exception.
+#
+# This workflow only touches CostingSheet rows whose quotationId points at a
+# Quotation matching that exact unique number AND already has deletedAt set
+# — it can never affect a live, non-deleted quotation. Run with apply=false
+# first (default) to see exactly which row(s) would change; only dispatch
+# with apply=true once that output looks right.
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Actually apply the fix (false = dry run, only SELECTs)"
+        type: boolean
+        default: false
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install PostgreSQL 18 client tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common
+          yes '' | sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh
+          sudo apt-get install -y postgresql-client-18
+          echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
+
+      - name: Show the affected row(s) before any change
+        env:
+          NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
+        run: |
+          psql "$NEW_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          SELECT cs.id AS costing_id, cs.number AS costing_number, cs.revision AS costing_revision,
+                 cs.status AS costing_status, cs."quotationId",
+                 q.number AS quotation_number, q.status AS quotation_status, q."deletedAt" AS quotation_deleted_at
+          FROM "CostingSheet" cs
+          JOIN "Quotation" q ON q.id = cs."quotationId"
+          WHERE q.number = '003/QUO/MKT/VIII/2026' AND q."deletedAt" IS NOT NULL;
+          SQL
+
+      - name: Apply repair (unlink + reopen the Costing Sheet)
+        if: ${{ inputs.apply }}
+        env:
+          NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
+        run: |
+          psql "$NEW_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          UPDATE "CostingSheet" cs
+          SET "quotationId" = NULL, "status" = 'DRAFT'
+          FROM "Quotation" q
+          WHERE cs."quotationId" = q.id
+            AND q.number = '003/QUO/MKT/VIII/2026'
+            AND q."deletedAt" IS NOT NULL;
+          SQL
+
+      - name: Show the row(s) after (confirms whether the repair ran)
+        env:
+          NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
+        run: |
+          psql "$NEW_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          SELECT id, number, revision, status, "quotationId"
+          FROM "CostingSheet"
+          WHERE number = '004/CST/MKT/VIII/2026';
+          SQL
