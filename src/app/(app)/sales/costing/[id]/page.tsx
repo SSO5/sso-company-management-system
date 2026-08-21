@@ -12,6 +12,7 @@ import { formatCurrency, formatDate, formatRevisedNumber } from "@/lib/utils";
 import { calcCostingSummary } from "@/lib/workflows/calculations";
 import { ConvertCostingDialog } from "@/components/sales/convert-costing-dialog";
 import { ReviseCostingButton } from "@/components/sales/revise-costing-button";
+import { ConvertRevisedCostingButton } from "@/components/sales/convert-revised-costing-button";
 import { Pencil, Eye, Download, FileSpreadsheet } from "lucide-react";
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "success" | "warning" | "destructive" | "outline"> = {
@@ -91,10 +92,21 @@ export default async function CostingDetailPage({ params }: { params: { id: stri
             // reviseQuotation in lib/workflows/quotation.ts). Re-showing the
             // "Convert" dialog here would offer to spawn a second quotation
             // from the same costing sheet, which the unique quotationId FK
-            // doesn't even allow.
-            <Link href={`/sales/quotations/${sheet.quotation.id}`}>
-              <Button variant="outline">View Quotation {formatRevisedNumber(sheet.quotation.number, sheet.quotation.revision)}</Button>
-            </Link>
+            // doesn't even allow — instead, once reopened (status no longer
+            // CONVERTED) and edited, ConvertRevisedCostingButton is the
+            // explicit step that pushes the new numbers into this SAME
+            // quotation.
+            <>
+              <Link href={`/sales/quotations/${sheet.quotation.id}`}>
+                <Button variant="outline">View Quotation {formatRevisedNumber(sheet.quotation.number, sheet.quotation.revision)}</Button>
+              </Link>
+              {sheet.status !== "CONVERTED" && !dealDecided && (
+                <ConvertRevisedCostingButton
+                  costingId={sheet.id}
+                  quotationLabel={formatRevisedNumber(sheet.quotation.number, sheet.quotation.revision)}
+                />
+              )}
+            </>
           ) : (
             <ConvertCostingDialog
               costingId={sheet.id}
