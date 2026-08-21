@@ -44,10 +44,15 @@ const styles = StyleSheet.create({
   bodyText: { fontSize: 10, lineHeight: 1.5, color: "#1F2937", marginBottom: 10 },
   bold: { fontFamily: "Helvetica-Bold" },
 
-  signatureBlockWrap: { marginTop: 18, height: 90, position: "relative" },
-  stampImg: { position: "absolute", top: 0, left: 30, width: 78, height: 78, opacity: 0.92, objectFit: "contain" },
-  signatureImg: { position: "absolute", top: 4, left: 0, width: 130, height: 62, objectFit: "contain" },
-  signLine: { marginTop: 92, width: 170, borderTopWidth: 0.75, borderTopColor: "#111827" },
+  // Stamp + signature are bottom-anchored inside this fixed-height box so
+  // they sit right on top of the line — like a real stamped/signed
+  // document — instead of floating near the top with the line pushed far
+  // below (signLine used to be a separate sibling with its OWN marginTop
+  // stacked on top of this box's full height, nearly doubling the gap).
+  signatureBlockWrap: { marginTop: 14, height: 64, position: "relative" },
+  stampImg: { position: "absolute", bottom: 2, left: 4, width: 62, height: 62, opacity: 0.88, objectFit: "contain" },
+  signatureImg: { position: "absolute", bottom: 16, left: 0, width: 100, height: 42, objectFit: "contain" },
+  signLine: { position: "absolute", bottom: 0, left: 0, width: 150, borderTopWidth: 0.75, borderTopColor: "#111827" },
   signerName: { fontSize: 10, fontFamily: "Helvetica-Bold", marginTop: 3 },
   signerTitle: { fontSize: 9, color: GRAY_BODY },
 
@@ -61,12 +66,16 @@ const styles = StyleSheet.create({
   tableCell: { fontSize: 8.5, padding: 5, color: "#1F2937" },
 
   colItemNo: { width: "7%" },
-  colDescription: { width: "27%" },
-  colSpec: { width: "23%" },
-  colQty: { width: "8%", textAlign: "right" },
-  colUnit: { width: "8%" },
-  colUnitPrice: { width: "13.5%", textAlign: "right" },
-  colTotalPrice: { width: "13.5%", textAlign: "right" },
+  colDescription: { width: "24%" },
+  colSpec: { width: "20%" },
+  colQty: { width: "7%", textAlign: "right" },
+  colUnit: { width: "7%" },
+  // Wide enough (plus a slightly smaller font below) to fit a full
+  // "Rp 1.234.567,00" on one line — these used to be 13.5%, narrow enough
+  // that "Rp" wrapped onto its own line above the number.
+  colUnitPrice: { width: "17.5%", textAlign: "right" },
+  colTotalPrice: { width: "17.5%", textAlign: "right" },
+  moneyCell: { fontSize: 8 },
 
   totalRow: { flexDirection: "row", marginTop: 2 },
   totalLabelBox: { width: "79%", backgroundColor: NAVY, padding: 6, alignItems: "flex-end" },
@@ -217,8 +226,8 @@ export function QuotationPdfDocument({ quotation, customer, contact, company, si
         <View style={styles.signatureBlockWrap}>
           {stamp && <Image src={stamp} style={styles.stampImg} />}
           {signature && <Image src={signature} style={styles.signatureImg} />}
+          <View style={styles.signLine} />
         </View>
-        <View style={styles.signLine} />
         <Text style={styles.signerName}>{signer.name}</Text>
         <Text style={styles.signerTitle}>{signer.title ? `${signer.title} · ` : ""}{company.companyName}</Text>
       </Page>
@@ -248,8 +257,8 @@ export function QuotationPdfDocument({ quotation, customer, contact, company, si
               <Text style={[styles.tableCell, styles.colSpec]}>{item.technicalSpec || ""}</Text>
               <Text style={[styles.tableCell, styles.colQty]}>{item.quantity}</Text>
               <Text style={[styles.tableCell, styles.colUnit]}>{item.unit}</Text>
-              <Text style={[styles.tableCell, styles.colUnitPrice]}>{formatMoneyForPdf(item.unitPrice)}</Text>
-              <Text style={[styles.tableCell, styles.colTotalPrice]}>{formatMoneyForPdf(item.total)}</Text>
+              <Text style={[styles.tableCell, styles.colUnitPrice, styles.moneyCell]}>{formatMoneyForPdf(item.unitPrice)}</Text>
+              <Text style={[styles.tableCell, styles.colTotalPrice, styles.moneyCell]}>{formatMoneyForPdf(item.total)}</Text>
             </View>
           ))}
         </View>
