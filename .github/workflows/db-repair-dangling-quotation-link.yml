@@ -57,12 +57,23 @@ jobs:
           NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
         run: |
           psql "$NEW_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
-          UPDATE "CostingSheet" cs
+          -- Confirmed via the diagnostic step above: CostingSheet
+          -- cmt08eq8a00077azr78mjybm8 (004/CST/MKT/VIII/2026) points at
+          -- Quotation cmt08iqme000w7azr14ywbw8b, whose stored `number` turns
+          -- out to already include the ".R3" suffix
+          -- (003/QUO/MKT/VIII/2026.R3) and whose deletedAt is genuinely set
+          -- (2026-08-20 13:19:57.658). Matching by exact primary keys, not a
+          -- guessed number string, so this can only ever touch that one row.
+          -- The AND EXISTS re-checks deletedAt IS NOT NULL live at apply
+          -- time too, as a defense-in-depth guard against a stale plan.
+          UPDATE "CostingSheet"
           SET "quotationId" = NULL, "status" = 'DRAFT'
-          FROM "Quotation" q
-          WHERE cs."quotationId" = q.id
-            AND q.number = '003/QUO/MKT/VIII/2026'
-            AND q."deletedAt" IS NOT NULL;
+          WHERE id = 'cmt08eq8a00077azr78mjybm8'
+            AND "quotationId" = 'cmt08iqme000w7azr14ywbw8b'
+            AND EXISTS (
+              SELECT 1 FROM "Quotation"
+              WHERE id = 'cmt08iqme000w7azr14ywbw8b' AND "deletedAt" IS NOT NULL
+            );
           SQL
 
       - name: Show the row(s) after (confirms whether the repair ran)
