@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { generateNumber } from "@/lib/numbering";
 import { logActivity } from "@/lib/workflows/audit";
 import { calcCostingLine, calcCostingSummary } from "@/lib/workflows/calculations";
+import { snapshotCostingSheetRevision, snapshotQuotationRevision } from "@/lib/workflows/revision-history";
 import { DEFAULT_COMMERCIAL_TERMS } from "@/lib/validation/sales";
 import type { CostingSheetInput } from "@/lib/validation/costing";
 import type { SessionPayload } from "@/lib/auth/session";
@@ -200,6 +201,11 @@ export async function reviseCostingSheet(id: string, actor: SessionPayload) {
       throw new Error(lockReason);
     }
 
+    // Snapshot this sheet's current state (the revision about to be
+    // superseded) into read-only history before anything below overwrites
+    // it — see revision-history.ts for the full rationale.
+    await snapshotCostingSheetRevision(tx, id, existing.revision);
+
     // Reopening a CONVERTED-but-unlocked sheet (deal not Won/Lost yet) also
     // reopens its linked quotation in lockstep, mirroring what
     // reviseQuotation does from the quotation side — otherwise the
@@ -210,9 +216,10 @@ export async function reviseCostingSheet(id: string, actor: SessionPayload) {
     if (existing.status === "CONVERTED" && existing.quotationId) {
       const linked = await tx.quotation.findUnique({
         where: { id: existing.quotationId },
-        select: { id: true, number: true, status: true },
+        select: { id: true, number: true, revision: true, status: true },
       });
       if (linked && linked.status !== "DRAFT") {
+        await snapshotQuotationRevision(tx, linked.id, linked.revision);
         await tx.quotation.update({
           where: { id: linked.id },
           data: {

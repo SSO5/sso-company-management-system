@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { getQuotation } from "@/server/sales/quotations";
+import { getQuotation, getQuotationRevisionHistory } from "@/server/sales/quotations";
 import { getCustomerPoStatusForQuotation } from "@/server/sales/purchase-orders";
 import { listUsersForPicker } from "@/server/settings/users";
 import { requireUser } from "@/lib/auth/current-user";
@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { QuotationActions } from "@/components/sales/quotation-actions";
+import { QuotationRevisionHistory } from "@/components/sales/quotation-revision-history";
 import { CustomerPoPanel } from "@/components/sales/customer-po-panel";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate, formatDateTime, formatRevisedNumber } from "@/lib/utils";
@@ -22,13 +23,14 @@ export default async function QuotationDetailPage({ params }: { params: { id: st
   ]);
   const commercialTerms = (q.commercialTerms as CommercialTermItem[] | null) ?? [];
 
-  const [poStatus, poFolder] = await Promise.all([
+  const [poStatus, poFolder, revisionHistory] = await Promise.all([
     getCustomerPoStatusForQuotation(q.id),
     q.opportunity
       ? prisma.folder.findFirst({ where: { opportunityId: q.opportunity.id, routeKey: "SALES/PO" }, select: { id: true } })
       : q.project
         ? prisma.folder.findFirst({ where: { projectId: q.project.id, routeKey: "SALES/PO" }, select: { id: true } })
         : Promise.resolve(null),
+    getQuotationRevisionHistory(q.id),
   ]);
   const canEditSales = actor.role === "ADMIN" || actor.role === "SALES" || actor.role === "IT";
 
@@ -161,6 +163,8 @@ export default async function QuotationDetailPage({ params }: { params: { id: st
           )}
         </CardContent>
       </Card>
+
+      <QuotationRevisionHistory history={revisionHistory} />
     </div>
   );
 }

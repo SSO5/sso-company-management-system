@@ -4,6 +4,7 @@ import { generateNumber } from "@/lib/numbering";
 import { logActivity } from "@/lib/workflows/audit";
 import { notifyRole, dispatchPendingNotifications } from "@/lib/workflows/notify";
 import { calcQuotationTotals } from "@/lib/workflows/calculations";
+import { snapshotCostingSheetRevision, snapshotQuotationRevision } from "@/lib/workflows/revision-history";
 import { convertQuotationToProject } from "@/lib/workflows/project";
 import { DEFAULT_COMMERCIAL_TERMS, type QuotationInput } from "@/lib/validation/sales";
 import type { SessionPayload } from "@/lib/auth/session";
@@ -413,6 +414,11 @@ export async function reviseQuotation(quotationId: string, actor: SessionPayload
       );
     }
 
+    // Snapshot this quotation's current state (the revision about to be
+    // superseded) into read-only history before anything below overwrites
+    // it — see revision-history.ts for the full rationale.
+    await snapshotQuotationRevision(tx, quotationId, existing.revision);
+
     const quotation = await tx.quotation.update({
       where: { id: quotationId },
       data: {
@@ -458,6 +464,7 @@ export async function reviseQuotation(quotationId: string, actor: SessionPayload
     // so the printed costing number ("CST-....R1") tracks the quotation's.
     const linkedCosting = await tx.costingSheet.findUnique({ where: { quotationId: quotation.id } });
     if (linkedCosting && linkedCosting.status === "CONVERTED") {
+      await snapshotCostingSheetRevision(tx, linkedCosting.id, linkedCosting.revision);
       await tx.costingSheet.update({
         where: { id: linkedCosting.id },
         data: { status: "DRAFT", revision: { increment: 1 } },

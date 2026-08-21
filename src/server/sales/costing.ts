@@ -46,6 +46,16 @@ export async function getCostingSheet(id: string) {
   });
 }
 
+/** Read-only "Riwayat Revisi" (revision history) — see revision-history.ts for how these snapshots are captured. */
+export async function getCostingSheetRevisionHistory(costingSheetId: string) {
+  const actor = await requireUserOrThrow();
+  requirePermission(actor.role, "sales", "view");
+  return prisma.costingSheetRevisionHistory.findMany({
+    where: { costingSheetId },
+    orderBy: { revision: "desc" },
+  });
+}
+
 /** Used by the "Convert to Quotation" dialog to offer revising the deal's existing quotation instead of forking a new one (spec 3.2). */
 export async function getOpportunityActiveQuotation(opportunityId: string) {
   const actor = await requireUserOrThrow();

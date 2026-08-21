@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth/current-user";
-import { getCostingSheet, getOpportunityActiveQuotation } from "@/server/sales/costing";
+import { getCostingSheet, getOpportunityActiveQuotation, getCostingSheetRevisionHistory } from "@/server/sales/costing";
 import { listUsersForPicker } from "@/server/settings/users";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { calcCostingSummary } from "@/lib/workflows/calculations";
 import { ConvertCostingDialog } from "@/components/sales/convert-costing-dialog";
 import { ReviseCostingButton } from "@/components/sales/revise-costing-button";
 import { ConvertRevisedCostingButton } from "@/components/sales/convert-revised-costing-button";
+import { CostingRevisionHistory } from "@/components/sales/costing-revision-history";
 import { Pencil, Eye, Download, FileSpreadsheet } from "lucide-react";
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "success" | "warning" | "destructive" | "outline"> = {
@@ -38,10 +39,11 @@ export default async function CostingDetailPage({ params }: { params: { id: stri
     }
   );
 
-  const [users, contacts, activeQuotation] = await Promise.all([
+  const [users, contacts, activeQuotation, revisionHistory] = await Promise.all([
     listUsersForPicker(),
     prisma.contact.findMany({ where: { customerId: sheet.customerId }, select: { id: true, name: true } }),
     sheet.opportunityId && !sheet.quotation ? getOpportunityActiveQuotation(sheet.opportunityId) : Promise.resolve(null),
+    getCostingSheetRevisionHistory(sheet.id),
   ]);
 
   // Deal isn't decided yet (quotation not Won/Lost) — the sheet can be
@@ -183,6 +185,8 @@ export default async function CostingDetailPage({ params }: { params: { id: stri
       {sheet.notes && (
         <Card><CardHeader><CardTitle>Notes</CardTitle></CardHeader><CardContent className="whitespace-pre-wrap text-sm text-muted-foreground">{sheet.notes}</CardContent></Card>
       )}
+
+      <CostingRevisionHistory history={revisionHistory} />
     </div>
   );
 }
