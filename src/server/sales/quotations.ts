@@ -42,6 +42,16 @@ export async function getQuotation(id: string) {
   });
 }
 
+/** Read-only "Riwayat Revisi" (revision history) — see revision-history.ts for how these snapshots are captured. */
+export async function getQuotationRevisionHistory(quotationId: string) {
+  const actor = await requireUserOrThrow();
+  requirePermission(actor.role, "sales", "view");
+  return prisma.quotationRevisionHistory.findMany({
+    where: { quotationId },
+    orderBy: { revision: "desc" },
+  });
+}
+
 export async function createQuotationAction(input: unknown): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
     const actor = await requireUserOrThrow();
