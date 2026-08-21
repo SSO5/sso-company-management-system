@@ -101,6 +101,81 @@ export async function createCostingSheet(input: CostingSheetInput, actor: Sessio
   });
 }
 
+/**
+ * Keeps an already-linked Quotation's items/pricing in lockstep with its
+ * source Costing Sheet (spec: editing costing after "Buat Revisi" should
+ * push straight into the quotation already tied to it — no separate manual
+ * re-entry on the Quotation tab). Mirrors the item-generation logic in
+ * convertCostingToQuotationAsRevision, but targets the SAME quotation this
+ * sheet is already linked to (instead of requiring quotationId to be null)
+ * and never touches the quotation's own status/revision/approval fields —
+ * those are governed by reviseCostingSheet/reviseQuotation. A no-op if this
+ * sheet isn't linked yet (first conversion still goes through the "Convert
+ * to Quotation" dialog, since salesPic/signer/contact must be chosen).
+ */
+async function syncLinkedQuotation(
+  tx: Prisma.TransactionClient,
+  sheet: {
+    number: string;
+    projectTitle: string;
+    quotationId: string | null;
+    sections: { items: {
+      name: string; description: string | null; quantity: Prisma.Decimal; unit: string;
+      costUnitPrice: Prisma.Decimal; supplierDiscountPercent: Prisma.Decimal; marginPercent: Prisma.Decimal;
+      sellingUnitPrice: Prisma.Decimal; sellingTotalPrice: Prisma.Decimal;
+    }[] }[];
+  },
+  actor: SessionPayload
+): Promise<{ number: string; revision: number } | null> {
+  if (!sheet.quotationId) return null;
+  const quotation = await tx.quotation.findUnique({
+    where: { id: sheet.quotationId },
+    select: { id: true, number: true, revision: true, status: true },
+  });
+  if (!quotation || quotation.status === "WON" || quotation.status === "LOST") return null;
+
+  const allItems = sheet.sections.flatMap((s) => s.items);
+  const summary = calcCostingSummary(sheet.sections.map((s) => ({ items: s.items.map((i) => ({
+    quantity: Number(i.quantity), costUnitPrice: Number(i.costUnitPrice),
+    supplierDiscountPercent: Number(i.supplierDiscountPercent), marginPercent: Number(i.marginPercent),
+  })) })));
+
+  await tx.quotationItem.deleteMany({ where: { quotationId: quotation.id } });
+  await tx.quotation.update({
+    where: { id: quotation.id },
+    data: {
+      description: sheet.projectTitle,
+      subtotal: summary.totalSelling,
+      discount: 0,
+      tax: 0,
+      grandTotal: summary.totalSelling,
+      items: {
+        create: allItems.map((item, idx) => ({
+          itemName: item.name,
+          description: item.description,
+          quantity: item.quantity,
+          unit: item.unit,
+          unitPrice: item.sellingUnitPrice,
+          discountPercent: 0,
+          taxPercent: 0,
+          total: item.sellingTotalPrice,
+          sortOrder: idx,
+        })),
+      },
+    },
+  });
+
+  await logActivity(tx, {
+    userId: actor.userId,
+    action: "UPDATE",
+    entityType: "QUOTATION",
+    entityId: quotation.id,
+    description: `${quotation.number}: Items auto-synced from costing sheet ${sheet.number}`,
+  });
+
+  return { number: quotation.number, revision: quotation.revision };
+}
+
 export async function updateCostingSheet(id: string, input: CostingSheetInput, actor: SessionPayload) {
   return prisma.$transaction(async (tx) => {
     const existing = await tx.costingSheet.findUniqueOrThrow({ where: { id } });
@@ -167,7 +242,9 @@ export async function updateCostingSheet(id: string, input: CostingSheetInput, a
       description: `Updated costing sheet ${sheet.number}`,
     });
 
-    return sheet;
+    const syncedQuotation = await syncLinkedQuotation(tx, sheet, actor);
+
+    return { ...sheet, syncedQuotation };
   });
 }
 
