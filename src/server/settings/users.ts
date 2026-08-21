@@ -9,6 +9,7 @@ import { logActivity } from "@/lib/workflows/audit";
 import { createUserSchema, updateUserSchema } from "@/lib/validation/auth";
 import { runAction, type ActionResult } from "@/lib/action-helpers";
 import { assertFileAllowed, saveBrandingAsset } from "@/lib/storage";
+import { removeSignatureBackground } from "@/lib/image/remove-signature-background";
 import type { UserRole } from "@prisma/client";
 
 /** Lightweight lookup used by every "assign to" dropdown across modules. */
@@ -97,7 +98,13 @@ export async function updateUserAction(formData: FormData): Promise<ActionResult
     if (file instanceof File && file.size > 0) {
       assertFileAllowed(file.name, file.type, file.size);
       const buffer = Buffer.from(await file.arrayBuffer());
-      signatureImageUrl = await saveBrandingAsset(buffer, { prefix: `signature-${data.id}`, originalName: file.name });
+      // Background is always stripped to transparent (see
+      // removeSignatureBackground) so the signature overlays cleanly on the
+      // company stamp on the Quotation PDF — the output is always a PNG
+      // regardless of the uploaded format, since JPEG can't hold alpha.
+      const transparentBuffer = await removeSignatureBackground(buffer);
+      const pngName = file.name.replace(/\.[^.]+$/, "") + ".png";
+      signatureImageUrl = await saveBrandingAsset(transparentBuffer, { prefix: `signature-${data.id}`, originalName: pngName });
     }
 
     const passwordHash = data.password ? await hashPassword(data.password) : undefined;
