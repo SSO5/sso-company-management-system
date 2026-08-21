@@ -34,9 +34,10 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   const settings = await prisma.companySettings.findUnique({ where: { id: "singleton" } });
   const signerUser = quotation.signer || quotation.salesPic;
 
-  const [logo, signature] = await Promise.all([
+  const [logo, signature, stamp] = await Promise.all([
     loadPdfImage(settings?.logoUrl),
     loadPdfImage(signerUser.signatureImageUrl),
+    loadPdfImage(settings?.stampImageUrl),
   ]);
 
   try {
@@ -72,6 +73,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
         signer={{ name: signerUser.name, title: signerUser.title }}
         logo={logo}
         signature={signature}
+        stamp={stamp}
       />
     );
 
