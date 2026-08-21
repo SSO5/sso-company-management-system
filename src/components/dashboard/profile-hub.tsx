@@ -52,19 +52,28 @@ export function ProfileHub(p: ProfileHubProps) {
           under it. `relative` promotes this row into the same stacking
           phase, where DOM order (this row comes after) wins instead. */}
       <div className={bgSrc ? "bg-card px-5 pb-5 sm:px-6" : "p-5 sm:p-6"}>
-        <div className={cn("relative flex flex-col gap-6 sm:flex-row sm:items-end", bgSrc && "-mt-20 sm:-mt-28")}>
+        {/* Overlap into the hero band above is a small FIXED amount, not
+            scaled with the avatar's own size — the band itself
+            (h-36 sm:h-48) doesn't grow when the avatar does, so a
+            margin that scaled with avatar height would eventually push
+            the avatar's top edge above the band entirely and over the
+            page header behind it. A modest, fixed overlap keeps the
+            avatar's top comfortably inside the band no matter how big
+            the avatar gets — the rest of it just extends further down
+            into the normal content flow below. */}
+        <div className={cn("relative flex flex-col gap-8 sm:flex-row sm:items-end", bgSrc && "-mt-12 sm:-mt-16")}>
           {avatarSrc ? (
             // Rounded-square clip (not a circle) lives on this wrapper
             // (overflow-hidden), not on the <img> itself — border-radius
             // applied directly to a replaced element (img) together with
             // object-fit is unreliable on WebKit/Safari and can paint only
             // part of the shape. A wrapper div is the resilient way to clip it.
-            <div className="h-40 w-40 shrink-0 overflow-hidden rounded-3xl border-4 border-card bg-muted shadow-md sm:h-64 sm:w-64">
+            <div className="h-80 w-80 shrink-0 overflow-hidden rounded-3xl border-4 border-card bg-muted shadow-md sm:h-[32rem] sm:w-[32rem]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={avatarSrc} alt={p.name} className="h-full w-full object-cover object-top" />
             </div>
           ) : (
-            <div className="flex h-40 w-40 shrink-0 items-center justify-center rounded-3xl border-4 border-card bg-primary text-5xl font-bold text-primary-foreground shadow-md sm:h-64 sm:w-64 sm:text-6xl">
+            <div className="flex h-80 w-80 shrink-0 items-center justify-center rounded-3xl border-4 border-card bg-primary text-6xl font-bold text-primary-foreground shadow-md sm:h-[32rem] sm:w-[32rem] sm:text-8xl">
               {initials}
             </div>
           )}
@@ -72,33 +81,33 @@ export function ProfileHub(p: ProfileHubProps) {
           <div className="min-w-0 flex-1 sm:pb-2">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-2xl font-bold">{p.name}</p>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-4xl font-bold">{p.name}</p>
+                <p className="text-base text-muted-foreground">
                   {p.title ? `${p.title} · ` : ""}{p.role.replace("_", " ")} · {daysSince(p.createdAt)} hari aktif di sistem
                 </p>
               </div>
-              <Link href="/settings/profile" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border hover:bg-accent" title="Edit Profil">
-                <Pencil className="h-4 w-4" />
+              <Link href="/settings/profile" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-border hover:bg-accent" title="Edit Profil">
+                <Pencil className="h-5 w-5" />
               </Link>
             </div>
 
-            <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1.5 text-sm text-muted-foreground">
-              <span className="flex items-center gap-2"><Mail className="h-4 w-4" /> {p.email}</span>
-              {p.whatsappNumber && <span className="flex items-center gap-2"><Phone className="h-4 w-4" /> {p.whatsappNumber}</span>}
+            <div className="mt-4 flex flex-wrap gap-x-8 gap-y-2 text-base text-muted-foreground">
+              <span className="flex items-center gap-2"><Mail className="h-5 w-5" /> {p.email}</span>
+              {p.whatsappNumber && <span className="flex items-center gap-2"><Phone className="h-5 w-5" /> {p.whatsappNumber}</span>}
             </div>
 
-            <div className="mt-5 grid grid-cols-3 gap-6 border-t border-border pt-4">
+            <div className="mt-6 grid grid-cols-3 gap-8 border-t border-border pt-5">
               <div>
-                <p className="text-xs text-muted-foreground">Tugas Saya</p>
-                <p data-tabular className="text-2xl font-semibold">{p.taskCount}</p>
+                <p className="text-sm text-muted-foreground">Tugas Saya</p>
+                <p data-tabular className="text-4xl font-semibold">{p.taskCount}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">{p.projectCountLabel}</p>
-                <p data-tabular className="text-2xl font-semibold">{p.projectCount}</p>
+                <p className="text-sm text-muted-foreground">{p.projectCountLabel}</p>
+                <p data-tabular className="text-4xl font-semibold">{p.projectCount}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Notifikasi Belum Dibaca</p>
-                <p data-tabular className="text-2xl font-semibold">{p.unreadNotifications}</p>
+                <p className="text-sm text-muted-foreground">Notifikasi Belum Dibaca</p>
+                <p data-tabular className="text-4xl font-semibold">{p.unreadNotifications}</p>
               </div>
             </div>
           </div>
