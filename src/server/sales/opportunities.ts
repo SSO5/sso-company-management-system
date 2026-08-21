@@ -34,7 +34,14 @@ export async function getOpportunityDetail(id: string) {
       customer: { select: { id: true, companyName: true, number: true } },
       contact: { select: { id: true, name: true, position: true, email: true, phone: true } },
       salesPic: { select: { name: true } },
-      quotations: { where: { deletedAt: null }, orderBy: { createdAt: "desc" }, select: { id: true, number: true, revision: true, status: true, grandTotal: true } },
+      quotations: {
+        where: { deletedAt: null },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true, number: true, revision: true, status: true, grandTotal: true,
+          revisionHistory: { orderBy: { revision: "desc" }, select: { id: true, revision: true, snapshot: true, createdAt: true } },
+        },
+      },
       // deletedAt filter matters here: a Project archived by
       // archiveWonArtifacts (lib/workflows/corrections.ts, after correcting
       // a wrongly-Won deal) must stop showing the "Won — Project created"

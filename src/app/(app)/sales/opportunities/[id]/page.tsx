@@ -7,8 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { OpportunityStageSelect } from "@/components/sales/opportunity-stage-select";
 import { OpportunityDeleteButton } from "@/components/sales/opportunity-delete-button";
-import { formatCurrency, formatRevisedNumber } from "@/lib/utils";
-import { Folder as FolderIcon, FolderKanban } from "lucide-react";
+import { formatCurrency, formatDate, formatRevisedNumber } from "@/lib/utils";
+import { Folder as FolderIcon, FolderKanban, Eye } from "lucide-react";
+import type { QuotationSnapshot } from "@/lib/workflows/revision-history";
 
 const QUOTATION_STATUS_VARIANT: Record<string, "default" | "secondary" | "success" | "warning" | "destructive" | "outline"> = {
   DRAFT: "secondary", SUBMITTED: "warning", UNDER_REVIEW: "warning", APPROVED: "outline",
@@ -84,11 +85,33 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
           <CardHeader><CardTitle className="text-sm">Quotations</CardTitle></CardHeader>
           <CardContent className="space-y-2">
             {o.quotations.map((q) => (
-              <Link key={q.id} href={`/sales/quotations/${q.id}`} className="flex items-center justify-between rounded-md border border-border p-2 text-sm hover:bg-accent">
-                <span className="font-mono text-xs">{formatRevisedNumber(q.number, q.revision)}</span>
-                <span>{formatCurrency(Number(q.grandTotal))}</span>
-                <Badge variant={QUOTATION_STATUS_VARIANT[q.status]}>{q.status}</Badge>
-              </Link>
+              <div key={q.id} className="space-y-1">
+                <Link href={`/sales/quotations/${q.id}`} className="flex items-center justify-between rounded-md border border-border p-2 text-sm hover:bg-accent">
+                  <span className="font-mono text-xs">{formatRevisedNumber(q.number, q.revision)}</span>
+                  <span>{formatCurrency(Number(q.grandTotal))}</span>
+                  <Badge variant={QUOTATION_STATUS_VARIANT[q.status]}>{q.status}</Badge>
+                </Link>
+                {q.revisionHistory.map((h) => {
+                  const snap = h.snapshot as unknown as QuotationSnapshot;
+                  return (
+                    <a
+                      key={h.id}
+                      href={`/api/quotations/${q.id}/pdf?view=1&revision=${h.revision}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-between gap-2 rounded-md border border-dashed border-border bg-muted/30 p-2 pl-4 text-xs text-muted-foreground hover:bg-accent"
+                    >
+                      <span className="font-mono">{formatRevisedNumber(q.number, h.revision)}</span>
+                      <span>{snap.quotationDate ? formatDate(snap.quotationDate) : formatDate(h.createdAt)}</span>
+                      <span>{formatCurrency(snap.grandTotal)}</span>
+                      <span className="flex items-center gap-1">
+                        <Badge variant={QUOTATION_STATUS_VARIANT[snap.status]}>{snap.status}</Badge>
+                        <Eye className="h-3 w-3" />
+                      </span>
+                    </a>
+                  );
+                })}
+              </div>
             ))}
           </CardContent>
         </Card>

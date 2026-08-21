@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { getFolderView } from "@/server/documents/documents";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,7 +9,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { UploadDialog } from "@/components/documents/upload-dialog";
 import { DocumentsListWithPanel } from "@/components/documents/documents-list-with-panel";
 import { formatCurrency, formatDate, formatRevisedNumber } from "@/lib/utils";
-import { Folder as FolderIcon, ChevronRight, Plus } from "lucide-react";
+import { Folder as FolderIcon, ChevronRight, Plus, Eye } from "lucide-react";
+import type { CostingSheetSnapshot, QuotationSnapshot } from "@/lib/workflows/revision-history";
 
 const QUOTATION_STATUS_VARIANT: Record<string, "default" | "secondary" | "success" | "warning" | "destructive" | "outline"> = {
   DRAFT: "secondary", SUBMITTED: "warning", UNDER_REVIEW: "warning", APPROVED: "outline",
@@ -63,15 +65,42 @@ export default async function FolderPage({ params }: { params: { folderId: strin
           <EmptyState title="Belum ada costing sheet" description={'Klik "Buat Costing Baru" untuk mulai menghitung harga jual dari prospek ini.'} />
         ) : (
           <Table>
-            <TableHeader><TableRow><TableHead>Number</TableHead><TableHead>Project / Job</TableHead><TableHead>Tanggal</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>Number</TableHead><TableHead>Project / Job</TableHead><TableHead>Tanggal</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader>
             <TableBody>
               {costingSheets.map((s) => (
-                <TableRow key={s.id}>
-                  <TableCell className="font-mono text-xs"><Link href={`/sales/costing/${s.id}`} className="hover:underline">{formatRevisedNumber(s.number, s.revision)}</Link></TableCell>
-                  <TableCell>{s.projectTitle}</TableCell>
-                  <TableCell>{formatDate(s.costingDate)}</TableCell>
-                  <TableCell><Badge variant={COSTING_STATUS_VARIANT[s.status]}>{s.status}</Badge></TableCell>
-                </TableRow>
+                <Fragment key={s.id}>
+                  <TableRow>
+                    <TableCell className="font-mono text-xs"><Link href={`/sales/costing/${s.id}`} className="hover:underline">{formatRevisedNumber(s.number, s.revision)}</Link></TableCell>
+                    <TableCell>{s.projectTitle}</TableCell>
+                    <TableCell>{formatDate(s.costingDate)}</TableCell>
+                    <TableCell><Badge variant={COSTING_STATUS_VARIANT[s.status]}>{s.status}</Badge></TableCell>
+                    <TableCell className="text-right">
+                      <a href={`/api/costing/${s.id}/pdf?view=1`} target="_blank" rel="noreferrer">
+                        <Button variant="ghost" size="icon" title="View / Print PDF"><Eye className="h-3.5 w-3.5" /></Button>
+                      </a>
+                    </TableCell>
+                  </TableRow>
+                  {s.revisionHistory.map((h) => {
+                    const snap = h.snapshot as unknown as CostingSheetSnapshot;
+                    return (
+                      <TableRow key={h.id} className="bg-muted/30 text-muted-foreground">
+                        <TableCell className="pl-6 font-mono text-xs">
+                          <a href={`/api/costing/${s.id}/pdf?view=1&revision=${h.revision}`} target="_blank" rel="noreferrer" className="hover:underline">
+                            {formatRevisedNumber(s.number, h.revision)}
+                          </a>
+                        </TableCell>
+                        <TableCell>{snap.projectTitle}</TableCell>
+                        <TableCell>{formatDate(snap.costingDate)}</TableCell>
+                        <TableCell><Badge variant="outline">Riwayat</Badge></TableCell>
+                        <TableCell className="text-right">
+                          <a href={`/api/costing/${s.id}/pdf?view=1&revision=${h.revision}`} target="_blank" rel="noreferrer">
+                            <Button variant="ghost" size="icon" title="View / Print PDF"><Eye className="h-3.5 w-3.5" /></Button>
+                          </a>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </Fragment>
               ))}
             </TableBody>
           </Table>
@@ -83,15 +112,42 @@ export default async function FolderPage({ params }: { params: { folderId: strin
           <EmptyState title="Belum ada quotation" description={'Klik "Buat Quotation Baru" untuk membuat penawaran resmi (nomor QUO diterbitkan saat disimpan).'} />
         ) : (
           <Table>
-            <TableHeader><TableRow><TableHead>Number</TableHead><TableHead>Tanggal</TableHead><TableHead>Grand Total</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>Number</TableHead><TableHead>Tanggal</TableHead><TableHead>Grand Total</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader>
             <TableBody>
               {quotations.map((q) => (
-                <TableRow key={q.id}>
-                  <TableCell className="font-mono text-xs"><Link href={`/sales/quotations/${q.id}`} className="hover:underline">{formatRevisedNumber(q.number, q.revision)}</Link></TableCell>
-                  <TableCell>{formatDate(q.quotationDate)}</TableCell>
-                  <TableCell>{formatCurrency(Number(q.grandTotal))}</TableCell>
-                  <TableCell><Badge variant={QUOTATION_STATUS_VARIANT[q.status]}>{q.status}</Badge></TableCell>
-                </TableRow>
+                <Fragment key={q.id}>
+                  <TableRow>
+                    <TableCell className="font-mono text-xs"><Link href={`/sales/quotations/${q.id}`} className="hover:underline">{formatRevisedNumber(q.number, q.revision)}</Link></TableCell>
+                    <TableCell>{formatDate(q.quotationDate)}</TableCell>
+                    <TableCell>{formatCurrency(Number(q.grandTotal))}</TableCell>
+                    <TableCell><Badge variant={QUOTATION_STATUS_VARIANT[q.status]}>{q.status}</Badge></TableCell>
+                    <TableCell className="text-right">
+                      <a href={`/api/quotations/${q.id}/pdf?view=1`} target="_blank" rel="noreferrer">
+                        <Button variant="ghost" size="icon" title="View / Print PDF"><Eye className="h-3.5 w-3.5" /></Button>
+                      </a>
+                    </TableCell>
+                  </TableRow>
+                  {q.revisionHistory.map((h) => {
+                    const snap = h.snapshot as unknown as QuotationSnapshot;
+                    return (
+                      <TableRow key={h.id} className="bg-muted/30 text-muted-foreground">
+                        <TableCell className="pl-6 font-mono text-xs">
+                          <a href={`/api/quotations/${q.id}/pdf?view=1&revision=${h.revision}`} target="_blank" rel="noreferrer" className="hover:underline">
+                            {formatRevisedNumber(q.number, h.revision)}
+                          </a>
+                        </TableCell>
+                        <TableCell>{snap.quotationDate ? formatDate(snap.quotationDate) : formatDate(h.createdAt)}</TableCell>
+                        <TableCell>{formatCurrency(snap.grandTotal)}</TableCell>
+                        <TableCell><Badge variant={QUOTATION_STATUS_VARIANT[snap.status]}>{snap.status}</Badge></TableCell>
+                        <TableCell className="text-right">
+                          <a href={`/api/quotations/${q.id}/pdf?view=1&revision=${h.revision}`} target="_blank" rel="noreferrer">
+                            <Button variant="ghost" size="icon" title="View / Print PDF"><Eye className="h-3.5 w-3.5" /></Button>
+                          </a>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </Fragment>
               ))}
             </TableBody>
           </Table>
