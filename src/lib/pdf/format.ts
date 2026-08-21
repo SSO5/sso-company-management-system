@@ -7,7 +7,10 @@ export function formatMoneyForPdf(amount: number | string): string {
   const fixed = (Number.isFinite(n) ? n : 0).toFixed(2);
   const [intPart, decPart] = fixed.split(".");
   const withThousands = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  return `Rp ${withThousands},${decPart}`;
+  // A non-breaking space between "Rp" and the number — react-pdf wraps at
+  // ordinary whitespace like any text layout engine, and a narrow table
+  // column would otherwise break "Rp" onto its own line above the digits.
+  return `Rp ${withThousands},${decPart}`;
 }
 
 /** "Jakarta 29 July 2026" style date, matching the reference quotation PDF. */
