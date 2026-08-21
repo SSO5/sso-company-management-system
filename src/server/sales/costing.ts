@@ -13,6 +13,7 @@ import {
   deleteCostingSheet,
   convertCostingToQuotation,
   convertCostingToQuotationAsRevision,
+  convertRevisedCostingToQuotation,
   getActiveQuotationForOpportunity,
 } from "@/lib/workflows/costing";
 
@@ -63,21 +64,14 @@ export async function createCostingSheetAction(input: unknown): Promise<ActionRe
   });
 }
 
-export async function updateCostingSheetAction(
-  id: string,
-  input: unknown
-): Promise<ActionResult<{ id: string; syncedQuotation: { number: string; revision: number } | null }>> {
+export async function updateCostingSheetAction(id: string, input: unknown): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
     const actor = await requireUserOrThrow();
     requirePermission(actor.role, "sales", "update");
     const data = costingSheetSchema.parse(input);
     const sheet = await updateCostingSheet(id, data, actor);
     revalidatePath(`/sales/costing/${id}`);
-    if (sheet.syncedQuotation) {
-      revalidatePath("/sales/quotations");
-      revalidatePath(`/sales/quotations/${sheet.quotationId}`);
-    }
-    return { id: sheet.id, syncedQuotation: sheet.syncedQuotation };
+    return { id: sheet.id };
   });
 }
 
@@ -146,6 +140,25 @@ export async function convertCostingToQuotationAsRevisionAction(
     const quotation = await convertCostingToQuotationAsRevision(id, targetQuotationId, actor);
     revalidatePath(`/sales/costing/${id}`);
     revalidatePath(`/sales/quotations/${targetQuotationId}`);
+    revalidatePath("/sales/quotations");
+    return { quotationId: quotation.id };
+  });
+}
+
+/**
+ * "Convert to Quotation (R{n})" for a costing sheet that was reopened via
+ * "Buat Revisi" and re-edited — pushes the current numbers into the SAME
+ * quotation it's already linked to, then locks the costing sheet back to
+ * CONVERTED. A deliberate step the user clicks, mirroring the very first
+ * conversion, instead of anything happening automatically on Save.
+ */
+export async function convertRevisedCostingToQuotationAction(id: string): Promise<ActionResult<{ quotationId: string }>> {
+  return runAction(async () => {
+    const actor = await requireUserOrThrow();
+    requirePermission(actor.role, "sales", "create");
+    const quotation = await convertRevisedCostingToQuotation(id, actor);
+    revalidatePath(`/sales/costing/${id}`);
+    revalidatePath(`/sales/quotations/${quotation.id}`);
     revalidatePath("/sales/quotations");
     return { quotationId: quotation.id };
   });

@@ -101,81 +101,6 @@ export async function createCostingSheet(input: CostingSheetInput, actor: Sessio
   });
 }
 
-/**
- * Keeps an already-linked Quotation's items/pricing in lockstep with its
- * source Costing Sheet (spec: editing costing after "Buat Revisi" should
- * push straight into the quotation already tied to it — no separate manual
- * re-entry on the Quotation tab). Mirrors the item-generation logic in
- * convertCostingToQuotationAsRevision, but targets the SAME quotation this
- * sheet is already linked to (instead of requiring quotationId to be null)
- * and never touches the quotation's own status/revision/approval fields —
- * those are governed by reviseCostingSheet/reviseQuotation. A no-op if this
- * sheet isn't linked yet (first conversion still goes through the "Convert
- * to Quotation" dialog, since salesPic/signer/contact must be chosen).
- */
-async function syncLinkedQuotation(
-  tx: Prisma.TransactionClient,
-  sheet: {
-    number: string;
-    projectTitle: string;
-    quotationId: string | null;
-    sections: { items: {
-      name: string; description: string | null; quantity: Prisma.Decimal; unit: string;
-      costUnitPrice: Prisma.Decimal; supplierDiscountPercent: Prisma.Decimal; marginPercent: Prisma.Decimal;
-      sellingUnitPrice: Prisma.Decimal; sellingTotalPrice: Prisma.Decimal;
-    }[] }[];
-  },
-  actor: SessionPayload
-): Promise<{ number: string; revision: number } | null> {
-  if (!sheet.quotationId) return null;
-  const quotation = await tx.quotation.findUnique({
-    where: { id: sheet.quotationId },
-    select: { id: true, number: true, revision: true, status: true },
-  });
-  if (!quotation || quotation.status === "WON" || quotation.status === "LOST") return null;
-
-  const allItems = sheet.sections.flatMap((s) => s.items);
-  const summary = calcCostingSummary(sheet.sections.map((s) => ({ items: s.items.map((i) => ({
-    quantity: Number(i.quantity), costUnitPrice: Number(i.costUnitPrice),
-    supplierDiscountPercent: Number(i.supplierDiscountPercent), marginPercent: Number(i.marginPercent),
-  })) })));
-
-  await tx.quotationItem.deleteMany({ where: { quotationId: quotation.id } });
-  await tx.quotation.update({
-    where: { id: quotation.id },
-    data: {
-      description: sheet.projectTitle,
-      subtotal: summary.totalSelling,
-      discount: 0,
-      tax: 0,
-      grandTotal: summary.totalSelling,
-      items: {
-        create: allItems.map((item, idx) => ({
-          itemName: item.name,
-          description: item.description,
-          quantity: item.quantity,
-          unit: item.unit,
-          unitPrice: item.sellingUnitPrice,
-          discountPercent: 0,
-          taxPercent: 0,
-          total: item.sellingTotalPrice,
-          sortOrder: idx,
-        })),
-      },
-    },
-  });
-
-  await logActivity(tx, {
-    userId: actor.userId,
-    action: "UPDATE",
-    entityType: "QUOTATION",
-    entityId: quotation.id,
-    description: `${quotation.number}: Items auto-synced from costing sheet ${sheet.number}`,
-  });
-
-  return { number: quotation.number, revision: quotation.revision };
-}
-
 export async function updateCostingSheet(id: string, input: CostingSheetInput, actor: SessionPayload) {
   return prisma.$transaction(async (tx) => {
     const existing = await tx.costingSheet.findUniqueOrThrow({ where: { id } });
@@ -242,9 +167,7 @@ export async function updateCostingSheet(id: string, input: CostingSheetInput, a
       description: `Updated costing sheet ${sheet.number}`,
     });
 
-    const syncedQuotation = await syncLinkedQuotation(tx, sheet, actor);
-
-    return { ...sheet, syncedQuotation };
+    return sheet;
   });
 }
 
@@ -568,5 +491,82 @@ export async function convertCostingToQuotationAsRevision(
     }
 
     return quotation;
+  });
+}
+
+/**
+ * Explicit "Convert to Quotation (R{n})" action for a costing sheet that has
+ * been reopened via "Buat Revisi" and re-edited with new numbers — pushes
+ * those numbers into the SAME quotation it's already linked to (unlike
+ * convertCostingToQuotationAsRevision, which is for a *different* costing
+ * sheet joining an existing quotation). This is a deliberate, user-clicked
+ * step rather than an automatic push on every Save: the printed
+ * quotation revision (bumped once, by reviseCostingSheet, the moment "Buat
+ * Revisi" was clicked) doesn't move again here — only the content is pushed,
+ * and the costing sheet is locked back to CONVERTED so it stays immutable
+ * until revised again, exactly like the very first conversion.
+ */
+export async function convertRevisedCostingToQuotation(costingId: string, actor: SessionPayload) {
+  return prisma.$transaction(async (tx) => {
+    const sheet = await tx.costingSheet.findUniqueOrThrow({
+      where: { id: costingId },
+      include: { sections: { include: { items: true }, orderBy: { sortOrder: "asc" } } },
+    });
+    if (!sheet.quotationId) {
+      throw new Error('This costing sheet isn\'t linked to a quotation yet. Use "Convert to Quotation" instead.');
+    }
+    if (sheet.status === "CONVERTED") {
+      throw new Error('This costing sheet is already converted. Use "Buat Revisi" first if it needs new numbers.');
+    }
+
+    const quotation = await tx.quotation.findUniqueOrThrow({ where: { id: sheet.quotationId } });
+    if (quotation.status === "WON" || quotation.status === "LOST") {
+      throw new Error(`Quotation ${quotation.number} is already ${quotation.status === "WON" ? "Won" : "Lost"} and can no longer be revised.`);
+    }
+
+    const allItems = sheet.sections.flatMap((s) => s.items);
+    const summary = calcCostingSummary(sheet.sections.map((s) => ({ items: s.items.map((i) => ({
+      quantity: Number(i.quantity), costUnitPrice: Number(i.costUnitPrice),
+      supplierDiscountPercent: Number(i.supplierDiscountPercent), marginPercent: Number(i.marginPercent),
+    })) })));
+
+    await tx.quotationItem.deleteMany({ where: { quotationId: quotation.id } });
+
+    const updated = await tx.quotation.update({
+      where: { id: quotation.id },
+      data: {
+        description: sheet.projectTitle,
+        subtotal: summary.totalSelling,
+        discount: 0,
+        tax: 0,
+        grandTotal: summary.totalSelling,
+        items: {
+          create: allItems.map((item, idx) => ({
+            itemName: item.name,
+            description: item.description,
+            quantity: item.quantity,
+            unit: item.unit,
+            unitPrice: item.sellingUnitPrice,
+            discountPercent: 0,
+            taxPercent: 0,
+            total: item.sellingTotalPrice,
+            sortOrder: idx,
+          })),
+        },
+      },
+      include: { items: true },
+    });
+
+    await tx.costingSheet.update({ where: { id: costingId }, data: { status: "CONVERTED" } });
+
+    await logActivity(tx, {
+      userId: actor.userId,
+      action: "UPDATE",
+      entityType: "QUOTATION",
+      entityId: updated.id,
+      description: `${updated.number}: Items updated to R${updated.revision} from costing sheet ${sheet.number}`,
+    });
+
+    return updated;
   });
 }

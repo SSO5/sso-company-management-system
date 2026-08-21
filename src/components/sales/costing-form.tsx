@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { costingSheetSchema, DEFAULT_COSTING_SECTIONS, type CostingSheetInput } from "@/lib/validation/costing";
 import { calcCostingSummary } from "@/lib/workflows/calculations";
-import { formatCurrency, formatRevisedNumber } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import { createCostingSheetAction, updateCostingSheetAction } from "@/server/sales/costing";
 import { CostingSectionCard } from "@/components/sales/costing-section-card";
 import { Plus } from "lucide-react";
@@ -68,25 +68,11 @@ export function CostingForm({ customers, opportunities, costingId, defaultValues
   }, [watchedSections, watchedOperationalCost, watchedPpnPercent, watchedPphFinalPercent]);
 
   async function onSubmit(data: CostingSheetInput) {
-    if (isEditing && costingId) {
-      const res = await updateCostingSheetAction(costingId, data);
-      if (res.ok) {
-        const synced = res.data.syncedQuotation;
-        toast({
-          title: "Costing sheet updated",
-          description: synced ? `Quotation ${formatRevisedNumber(synced.number, synced.revision)} auto-updated to match.` : undefined,
-          variant: "success",
-        });
-        router.push(`/sales/costing/${res.data.id}`);
-      } else {
-        toast({ title: "Unable to save costing sheet", description: res.error, variant: "destructive" });
-      }
-      return;
-    }
-
-    const res = await createCostingSheetAction(data);
+    const res = isEditing && costingId
+      ? await updateCostingSheetAction(costingId, data)
+      : await createCostingSheetAction(data);
     if (res.ok) {
-      toast({ title: "Costing sheet created", variant: "success" });
+      toast({ title: isEditing ? "Costing sheet updated" : "Costing sheet created", variant: "success" });
       router.push(`/sales/costing/${res.data.id}`);
     } else {
       toast({ title: "Unable to save costing sheet", description: res.error, variant: "destructive" });
