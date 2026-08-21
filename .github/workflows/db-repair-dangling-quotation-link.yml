@@ -39,12 +39,16 @@ jobs:
           NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
         run: |
           psql "$NEW_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          -- Diagnostic: show the exact linked quotation's real state,
+          -- regardless of number/deletedAt, so we can see why the intended
+          -- targeted match found nothing.
           SELECT cs.id AS costing_id, cs.number AS costing_number, cs.revision AS costing_revision,
                  cs.status AS costing_status, cs."quotationId",
-                 q.number AS quotation_number, q.status AS quotation_status, q."deletedAt" AS quotation_deleted_at
+                 q.id AS quotation_id, q.number AS quotation_number, q.status AS quotation_status,
+                 q."deletedAt" AS quotation_deleted_at
           FROM "CostingSheet" cs
-          JOIN "Quotation" q ON q.id = cs."quotationId"
-          WHERE q.number = '003/QUO/MKT/VIII/2026' AND q."deletedAt" IS NOT NULL;
+          LEFT JOIN "Quotation" q ON q.id = cs."quotationId"
+          WHERE cs.number = '004/CST/MKT/VIII/2026';
           SQL
 
       - name: Apply repair (unlink + reopen the Costing Sheet)
