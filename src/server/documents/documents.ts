@@ -48,23 +48,39 @@ export async function getFolderView(folderId: string | null) {
   const salesOpportunityId =
     folder?.kind === "OPPORTUNITY" ? folder.opportunityId : folder?.kind === "PROJECT" ? folder.project?.opportunityId ?? null : null;
 
-  let costingSheets: Awaited<ReturnType<typeof prisma.costingSheet.findMany>> = [];
-  let quotations: Awaited<ReturnType<typeof prisma.quotation.findMany>> = [];
+  // Each also carries its full revisionHistory (past, superseded revisions)
+  // so the folder view can list R1/R2/.../current as separate rows instead
+  // of only the current one — every past revision stays openable/printable
+  // as its own PDF (see /api/costing/[id]/pdf and /api/quotations/[id]/pdf's
+  // ?revision= param), matching the multi-file history spec.2 already used
+  // manually elsewhere in this folder for hand-uploaded document revisions.
+  let costingSheets: Awaited<ReturnType<typeof getCostingSheetsForFolder>> = [];
+  let quotations: Awaited<ReturnType<typeof getQuotationsForFolder>> = [];
   if (salesOpportunityId) {
     if (folder?.routeKey === "SALES/COSTING") {
-      costingSheets = await prisma.costingSheet.findMany({
-        where: { opportunityId: salesOpportunityId, deletedAt: null },
-        orderBy: { createdAt: "desc" },
-      });
+      costingSheets = await getCostingSheetsForFolder(salesOpportunityId);
     } else if (folder?.routeKey === "SALES/QUOTATION") {
-      quotations = await prisma.quotation.findMany({
-        where: { opportunityId: salesOpportunityId, deletedAt: null },
-        orderBy: { createdAt: "desc" },
-      });
+      quotations = await getQuotationsForFolder(salesOpportunityId);
     }
   }
 
   return { folder, children, documents, breadcrumbs, costingSheets, quotations, salesOpportunityId };
+}
+
+function getCostingSheetsForFolder(opportunityId: string) {
+  return prisma.costingSheet.findMany({
+    where: { opportunityId, deletedAt: null },
+    orderBy: { createdAt: "desc" },
+    include: { revisionHistory: { orderBy: { revision: "desc" } } },
+  });
+}
+
+function getQuotationsForFolder(opportunityId: string) {
+  return prisma.quotation.findMany({
+    where: { opportunityId, deletedAt: null },
+    orderBy: { createdAt: "desc" },
+    include: { revisionHistory: { orderBy: { revision: "desc" } } },
+  });
 }
 
 async function buildBreadcrumbs(folderId: string | null) {

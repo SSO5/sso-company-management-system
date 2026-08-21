@@ -68,6 +68,9 @@ export async function snapshotQuotationRevision(
   const snapshot = {
     description: q.description,
     status: q.status,
+    quotationDate: q.quotationDate.toISOString(),
+    subjectLine: q.subjectLine,
+    commercialTerms: q.commercialTerms,
     subtotal: Number(q.subtotal),
     discount: Number(q.discount),
     tax: Number(q.tax),
@@ -122,6 +125,13 @@ export interface CostingSheetSnapshot {
 export interface QuotationSnapshot {
   description: string | null;
   status: string;
+  // Added after the initial revision-history rollout — snapshots taken
+  // before that keep working PDF-rendering-wise (route falls back to the
+  // live Quotation's current values for these three) rather than 404ing or
+  // rendering garbage.
+  quotationDate?: string;
+  subjectLine?: string | null;
+  commercialTerms?: { title: string; body: string }[] | null;
   subtotal: number;
   discount: number;
   tax: number;
