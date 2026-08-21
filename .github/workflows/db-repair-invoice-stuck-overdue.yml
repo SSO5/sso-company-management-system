@@ -1,0 +1,81 @@
+name: DB Repair - Flip 3 already-settled invoices from OVERDUE to PAID (one-off)
+
+# Diagnostic (db-diagnose-invoice-withholding.yml, runs #1-2) showed these 3
+# invoices are ALREADY fully reconciled today — paidAmount + withholdingTax
+# equals dueAmount exactly for all three:
+#   001/INV/FIN/VII/2026  (5,014,000 + 92,000   = 5,106,000 due)
+#   001/INV/FIN/VIII/2026 (69,760,000 + 1,280,000 = 71,040,000 due)
+#   002/INV/FIN/VII/2026  (14,170,000 + 260,000  = 14,430,000 due)
+#
+# The activity log explains why: a mistaken payment (002/PAY/FIN/VIII/2026,
+# Rp19,184,000) was recorded against 001/INV/FIN/VII/2026 on 2026-08-14 and
+# soft-deleted (voided) the same day, then the correct payment
+# (003/PAY/FIN/VIII/2026) was recorded properly with its withholding tax.
+# The other two invoices' payments were correct from the start. In every
+# case the underlying recordPayment()/void path never re-ran the
+# PAID-vs-PARTIALLY_PAID recomputation afterward, so `status` was simply
+# never updated even though the balance had already been fully settled —
+# this is NOT the "unrecorded withholding" scenario originally hypothesized
+# from the numbers alone; it's a stale status left over from a
+# since-corrected payment.
+#
+# Scoped to these 3 exact primary keys, and re-verifies the settlement math
+# live at apply time (defense in depth against a stale plan) — this can
+# never touch a genuinely-outstanding invoice. Defaults to a dry run.
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Actually apply the fix (false = dry run, only SELECTs)"
+        type: boolean
+        default: false
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install PostgreSQL 18 client tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common
+          yes '' | sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh
+          sudo apt-get install -y postgresql-client-18
+          echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
+
+      - name: Show the 3 invoices before any change
+        env:
+          NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
+        run: |
+          psql "$NEW_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          SELECT id, number, status, "paidAmount", "withholdingTax",
+                 CASE WHEN "dpPercent" > 0 THEN ROUND("grandTotal" * "dpPercent" / 100, 2) ELSE "grandTotal" END AS due_amount
+          FROM "Invoice"
+          WHERE id IN ('cmso2dfm7008spx7ix5s8dc0j', 'cmso2ddpa005tpx7i3s08hcz2', 'cmstcyknd000bwat8mpedl8hz')
+          ORDER BY number;
+          SQL
+
+      - name: Apply repair (flip status to PAID, only where already fully settled)
+        if: ${{ inputs.apply }}
+        env:
+          NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
+        run: |
+          psql "$NEW_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          UPDATE "Invoice"
+          SET status = 'PAID'
+          WHERE id IN ('cmso2dfm7008spx7ix5s8dc0j', 'cmso2ddpa005tpx7i3s08hcz2', 'cmstcyknd000bwat8mpedl8hz')
+            AND status = 'OVERDUE'
+            AND ("paidAmount" + "withholdingTax") >= (
+              CASE WHEN "dpPercent" > 0 THEN ROUND("grandTotal" * "dpPercent" / 100, 2) ELSE "grandTotal" END
+            ) - 0.01;
+          SQL
+
+      - name: Show the 3 invoices after (confirms whether the repair ran)
+        env:
+          NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
+        run: |
+          psql "$NEW_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          SELECT id, number, status, "paidAmount", "withholdingTax"
+          FROM "Invoice"
+          WHERE id IN ('cmso2dfm7008spx7ix5s8dc0j', 'cmso2ddpa005tpx7i3s08hcz2', 'cmstcyknd000bwat8mpedl8hz')
+          ORDER BY number;
+          SQL
