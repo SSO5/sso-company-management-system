@@ -1,0 +1,65 @@
+name: DB Diagnose - Invoices stuck OVERDUE despite near-full payment (one-off, read-only)
+
+# Three invoices for PT Jakarta Prima Cranes (Balikpapan/main) show OVERDUE
+# even though a payment covering all but a small sliver of the billed
+# amount was already recorded — the gap in each case is consistent with a
+# 2% PPh 23 withholding the customer deducted before transferring, which
+# was never entered into the payment's/invoice's withholdingTax field (it
+# defaults to 0). This workflow only SELECTs — confirms real IDs/current
+# values before any repair workflow touches them.
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install PostgreSQL 18 client tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common
+          yes '' | sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh
+          sudo apt-get install -y postgresql-client-18
+          echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
+
+      - name: Show the 3 invoices' current state
+        env:
+          NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
+        run: |
+          psql "$NEW_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          SELECT i.id, i.number, i.status, i."dpPercent", i."grandTotal", i."paidAmount", i."withholdingTax",
+                 i."dueDate", c."companyName"
+          FROM "Invoice" i
+          JOIN "Customer" c ON c.id = i."customerId"
+          WHERE i.number IN ('001/INV/FIN/VIII/2026', '001/INV/FIN/VII/2026', '002/INV/FIN/VII/2026')
+          ORDER BY i.number;
+          SQL
+
+      - name: Show the matching payments' current state
+        env:
+          NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
+        run: |
+          psql "$NEW_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          SELECT p.id, p.number, p."invoiceId", i.number AS invoice_number, p.amount, p."withholdingTax",
+                 p."paymentDate", p.method
+          FROM "Payment" p
+          JOIN "Invoice" i ON i.id = p."invoiceId"
+          WHERE i.number IN ('001/INV/FIN/VIII/2026', '001/INV/FIN/VII/2026', '002/INV/FIN/VII/2026')
+          ORDER BY i.number, p."paymentDate";
+          SQL
+
+      - name: Recompute what dueAmount / outstanding should be per invoice
+        env:
+          NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
+        run: |
+          psql "$NEW_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          SELECT i.number,
+                 CASE WHEN i."dpPercent" > 0 THEN ROUND(i."grandTotal" * i."dpPercent" / 100, 2) ELSE i."grandTotal" END AS due_amount,
+                 i."paidAmount",
+                 i."withholdingTax",
+                 (CASE WHEN i."dpPercent" > 0 THEN ROUND(i."grandTotal" * i."dpPercent" / 100, 2) ELSE i."grandTotal" END
+                   - i."paidAmount" - i."withholdingTax") AS outstanding_now
+          FROM "Invoice" i
+          WHERE i.number IN ('001/INV/FIN/VIII/2026', '001/INV/FIN/VII/2026', '002/INV/FIN/VII/2026')
+          ORDER BY i.number;
+          SQL

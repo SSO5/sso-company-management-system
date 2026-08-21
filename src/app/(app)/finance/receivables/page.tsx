@@ -5,6 +5,7 @@ import { BillingScheduleCard } from "@/components/finance/billing-schedule-card"
 import { EmptyState } from "@/components/ui/empty-state";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
+import { looksLikeUnrecordedWithholding } from "@/lib/workflows/calculations";
 
 const INDICATOR_STYLES: Record<string, string> = {
   not_due: "bg-muted text-muted-foreground",
@@ -54,7 +55,12 @@ export default async function ReceivablesPage() {
                 <TableCell>{formatCurrency(Number(r.paidAmount))}</TableCell>
                 <TableCell>{formatCurrency(r.outstanding)}</TableCell>
                 <TableCell>{r.indicator === "overdue" ? r.daysOverdue : "-"}</TableCell>
-                <TableCell><span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", INDICATOR_STYLES[r.indicator])}>{INDICATOR_LABEL[r.indicator]}</span></TableCell>
+                <TableCell>
+                  <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", INDICATOR_STYLES[r.indicator])}>{INDICATOR_LABEL[r.indicator]}</span>
+                  {r.indicator === "overdue" && looksLikeUnrecordedWithholding(r) && (
+                    <p className="mt-0.5 whitespace-nowrap text-[11px] text-muted-foreground">cek PPh?</p>
+                  )}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

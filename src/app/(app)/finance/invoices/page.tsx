@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { invoiceDueAmount } from "@/lib/workflows/calculations";
+import { invoiceDueAmount, invoiceOutstanding, looksLikeUnrecordedWithholding } from "@/lib/workflows/calculations";
 import { Plus } from "lucide-react";
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "success" | "warning" | "destructive" | "outline"> = {
@@ -47,7 +47,15 @@ export default async function InvoicesPage() {
                 <TableCell>{formatDate(inv.dueDate)}</TableCell>
                 <TableCell>{formatCurrency(invoiceDueAmount(inv))}</TableCell>
                 <TableCell>{formatCurrency(Number(inv.paidAmount))}</TableCell>
-                <TableCell><Badge variant={STATUS_VARIANT[inv.status]}>{inv.status}</Badge></TableCell>
+                <TableCell>
+                  <Badge variant={STATUS_VARIANT[inv.status]}>{inv.status}</Badge>
+                  {(inv.status === "OVERDUE" || inv.status === "PARTIALLY_PAID") && invoiceOutstanding(inv) > 0 && (
+                    <p className="mt-0.5 whitespace-nowrap text-[11px] text-muted-foreground">
+                      Sisa {formatCurrency(invoiceOutstanding(inv))}
+                      {looksLikeUnrecordedWithholding(inv) && " — cek PPh?"}
+                    </p>
+                  )}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
