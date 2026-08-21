@@ -518,10 +518,31 @@ model Quotation {
   project        Project?
   invoices       Invoice[]
   costingSheet   CostingSheet?
+  revisionHistory QuotationRevisionHistory[]
 
   @@index([status])
   @@index([customerId])
   @@index([salesPicId])
+}
+
+// Read-only snapshot of a Quotation's items/totals/description as they stood
+// at one past revision, taken right before that revision gets superseded
+// (see reviseQuotation / reviseCostingSheet's cross-reopen in
+// lib/workflows/quotation.ts and lib/workflows/costing.ts) — the live
+// Quotation row keeps mutating in place exactly as before; this is purely
+// an audit trail so R1/R2/... stay visible after being overwritten. Never
+// convertible or editable — viewing only (spec: history is for looking
+// back, not for re-issuing an old revision).
+model QuotationRevisionHistory {
+  id          String    @id @default(cuid())
+  quotationId String
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  revision    Int
+  snapshot    Json
+  createdAt   DateTime  @default(now())
+
+  @@unique([quotationId, revision])
+  @@index([quotationId])
 }
 
 model QuotationItem {
@@ -592,9 +613,27 @@ model CostingSheet {
   deletedAt   DateTime?
 
   sections CostingSection[]
+  revisionHistory CostingSheetRevisionHistory[]
 
   @@index([customerId])
   @@index([status])
+}
+
+// Read-only snapshot of a Costing Sheet's sections/items/summary inputs as
+// they stood at one past revision — see QuotationRevisionHistory's comment
+// for the full rationale (same pattern, taken at the same moment, right
+// before reviseCostingSheet/reviseQuotation overwrites this sheet's content
+// for the next revision).
+model CostingSheetRevisionHistory {
+  id             String       @id @default(cuid())
+  costingSheetId String
+  costingSheet   CostingSheet @relation(fields: [costingSheetId], references: [id], onDelete: Cascade)
+  revision       Int
+  snapshot       Json
+  createdAt      DateTime     @default(now())
+
+  @@unique([costingSheetId, revision])
+  @@index([costingSheetId])
 }
 
 model CostingSection {
