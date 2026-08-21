@@ -1,12 +1,14 @@
 import Link from "next/link";
-import { Yellowtail } from "next/font/google";
+import { Alex_Brush } from "next/font/google";
 import { brandingUrl, cn } from "@/lib/utils";
 import { Pencil, Mail, Phone } from "lucide-react";
 
 // Signature-style display face for the person's name only — every other
-// label/value on this card stays in the app's normal sans font. Self-hosted
-// by next/font at build time (no runtime fetch to Google Fonts).
-const yellowtail = Yellowtail({ weight: "400", subsets: ["latin"], display: "swap" });
+// label/value on this card stays in the app's normal sans font. Alex Brush
+// (an elegant calligraphic script, not a bubbly casual one) reads as a
+// premium hand-signature rather than a logo font. Self-hosted by next/font
+// at build time (no runtime fetch to Google Fonts).
+const signatureFont = Alex_Brush({ weight: "400", subsets: ["latin"], display: "swap" });
 
 interface ProfileHubProps {
   name: string;
@@ -88,7 +90,7 @@ export function ProfileHub(p: ProfileHubProps) {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="inline-block">
-                  <p className={cn(yellowtail.className, "text-[44px] leading-none text-[#2454d1] sm:text-[64px]")}>{p.name}</p>
+                  <p className={cn(signatureFont.className, "whitespace-nowrap text-[40px] leading-none text-[#2454d1] sm:text-[56px]")}>{p.name}</p>
                   {/* Hand-drawn swash under the signature-style name — purely
                       decorative, so it's aria-hidden and the name itself
                       stays the one accessible text node. */}
