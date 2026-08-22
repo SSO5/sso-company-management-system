@@ -10,7 +10,6 @@ import { ProfileHub } from "@/components/dashboard/profile-hub";
 import { ActionItemsPanel } from "@/components/dashboard/action-items-panel";
 import { DocumentChecklistPanel } from "@/components/dashboard/document-checklist-panel";
 import { NotificationsPanel } from "@/components/dashboard/notifications-panel";
-import { AiSmartUploadCard } from "@/components/dashboard/ai-smart-upload-card";
 import { BillingScheduleCard } from "@/components/finance/billing-schedule-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
@@ -104,6 +103,7 @@ export default async function DashboardPage() {
         projectCountLabel={isPM ? "Project Aktif Saya" : "Project Aktif (Perusahaan)"}
         unreadNotifications={notifications.unreadCount}
         backgroundUrl={theme.dashboardBackgroundUrl}
+        canUpload={canUpload}
       />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_360px]">
@@ -172,8 +172,6 @@ export default async function DashboardPage() {
           </div>
 
           <ActionItemsPanel items={myActionItems} />
-
-          {canUpload && <AiSmartUploadCard />}
 
           <DocumentChecklistPanel jobs={jobChecklists} canUpload={canUpload} />
 

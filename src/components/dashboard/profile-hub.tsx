@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Alex_Brush } from "next/font/google";
 import { brandingUrl, cn } from "@/lib/utils";
 import { Pencil, Mail, Phone } from "lucide-react";
+import { AiSmartUploadCard } from "@/components/dashboard/ai-smart-upload-card";
 
 // Signature-style display face for the person's name only — every other
 // label/value on this card stays in the app's normal sans font. Alex Brush
@@ -23,6 +24,7 @@ interface ProfileHubProps {
   projectCountLabel: string;
   unreadNotifications: number;
   backgroundUrl: string | null;
+  canUpload: boolean;
 }
 
 function daysSince(d: Date): number {
@@ -87,6 +89,11 @@ export function ProfileHub(p: ProfileHubProps) {
           )}
 
           <div className="min-w-0 flex-1 sm:pb-2">
+            {p.canUpload && (
+              <div className="mb-6">
+                <AiSmartUploadCard />
+              </div>
+            )}
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="inline-block">

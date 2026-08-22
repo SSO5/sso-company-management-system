@@ -6,12 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
 import { classifyUploadWithAI, confirmSmartUpload } from "@/server/documents/smart-upload";
 import { DOCUMENT_FOLDER_OPTIONS } from "@/lib/document-folder-options";
 import type { DocumentClassification, CandidateProject } from "@/lib/ai/classify-document";
-import { Sparkles, Upload, TriangleAlert } from "lucide-react";
+import { Sparkles, TriangleAlert } from "lucide-react";
 
 type Step = "upload" | "confirm";
 
@@ -90,22 +89,18 @@ export function AiSmartUploadCard() {
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4" /> Upload Dokumen (AI)
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex items-center justify-between gap-3">
-          <p className="text-sm text-muted-foreground">
-            Upload file apapun — AI membaca isinya, menentukan project &amp; foldernya, lalu mengganti nama sesuai
-            standar. Anda tetap memeriksa sebelum disimpan.
-          </p>
-          <Button onClick={() => setOpen(true)}>
-            <Upload className="h-3.5 w-3.5" /> Upload
-          </Button>
-        </CardContent>
-      </Card>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex min-h-48 w-full flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-[#2454d1]/30 bg-gradient-to-br from-[#2454d1]/10 via-card to-[#ee5a93]/10 p-6 text-center transition-colors hover:border-[#2454d1]/50 hover:from-[#2454d1]/[0.15] hover:to-[#ee5a93]/[0.15] sm:min-h-56"
+      >
+        <Sparkles className="h-10 w-10 text-[#2454d1]" />
+        <p className="text-xl font-bold text-[#2454d1] sm:text-2xl">Upload aja, aku yang simpenin!</p>
+        <p className="max-w-sm text-sm text-muted-foreground">
+          Kirim file apapun — biar AI yang bacain, tentuin project &amp; foldernya, lalu rapiin namanya. Anda tetap
+          cek sebelum disimpan.
+        </p>
+      </button>
 
       <Dialog
         open={open}
