@@ -666,6 +666,33 @@ model TelegramPendingRevision {
   @@index([chatId])
 }
 
+// In-progress "buat costing baru" flow via Telegram (see
+// lib/workflows/telegram-costing-draft.ts). Unlike TelegramPendingRevision
+// (one parsed action awaiting a single "ya"), a new costing sheet needs
+// several pieces of information (customer, project title, a list of items)
+// that rarely arrive in one message — this accumulates them across turns.
+// DB-backed for the same reason as TelegramPendingRevision: a serverless
+// deployment can't guarantee two messages from the same chat land on the
+// same process.
+model TelegramCostingDraft {
+  id              String   @id @default(cuid())
+  chatId          String
+  customerId      String?
+  customerName    String? // resolved company name, shown back in the preview
+  projectTitle    String?
+  jobNo           String?
+  operationalCost Decimal  @db.Decimal(18, 2) @default(0)
+  itemsJson       Json     @default("[]") // CostingLineItemInput[] collected so far
+  // COLLECTING = still gathering required fields; CONFIRMING = all required
+  // fields present, showing a preview and waiting for "ya"/"batal"/more items.
+  stage           String   @default("COLLECTING")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  expiresAt       DateTime
+
+  @@index([chatId])
+}
+
 model CostingSection {
   id             String       @id @default(cuid())
   costingSheetId String
