@@ -727,6 +727,27 @@ model CostingSection {
   @@index([costingSheetId])
 }
 
+// One action the in-app AI assistant (src/components/assistant) wants to
+// take, awaiting the user's explicit Confirm/Cancel click in the chat UI —
+// the in-app equivalent of TelegramPendingRevision/TelegramPendingInvoice's
+// "AI proposes, a deterministic function executes only after a human says
+// so" pattern. Nothing in argsJson is ever re-interpreted by the model at
+// confirm time — the same stored args are passed straight to the real
+// workflow function (approveQuotation, rejectQuotation, ...), which still
+// runs its own permission/role gate regardless of what the assistant chat
+// allowed the user to ask for.
+model AssistantPendingAction {
+  id          String   @id @default(cuid())
+  userId      String
+  toolName    String
+  argsJson    Json
+  description String
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime
+
+  @@index([userId])
+}
+
 model CostingLineItem {
   id        String         @id @default(cuid())
   sectionId String

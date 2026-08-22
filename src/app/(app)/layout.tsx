@@ -5,6 +5,7 @@ import { getThemeSettings } from "@/server/settings/theme";
 import { getThemePreset } from "@/lib/theme-presets";
 import { AppShell } from "@/components/layout/app-shell";
 import { ToastProvider } from "@/components/ui/toast";
+import { AssistantWidget } from "@/components/assistant/assistant-widget";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const [session, unreadCount, theme] = await Promise.all([
@@ -28,6 +29,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <AppShell role={session.role} userName={session.name} unreadCount={unreadCount} avatarUrl={user?.avatarUrl ?? null}>
         {children}
       </AppShell>
+      <AssistantWidget />
     </ToastProvider>
   );
 }

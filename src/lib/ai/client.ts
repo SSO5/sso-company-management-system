@@ -30,6 +30,18 @@ export function extractionModel(): string {
   return process.env.ANTHROPIC_EXTRACTION_MODEL || "claude-haiku-4-5-20251001";
 }
 
+/**
+ * The "chat with the app" assistant (src/components/assistant) — conversational
+ * tool-use over real company data, not a one-shot extraction. Needs more
+ * reasoning headroom than the Haiku-based extraction model, so it defaults
+ * one tier up; still operator-overridable via env since this is an
+ * interactive feature that can be used often (cost-sensitive by design, per
+ * the founder's own Anthropic billing experience).
+ */
+export function assistantModel(): string {
+  return process.env.ANTHROPIC_ASSISTANT_MODEL || "claude-sonnet-5";
+}
+
 /** Only PDF and common image types can be sent to Claude as a document/image block. */
 export function isExtractableMimeType(mimeType: string): boolean {
   return mimeType === "application/pdf" || mimeType.startsWith("image/");
