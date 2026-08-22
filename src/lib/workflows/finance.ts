@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
 import { generateNumber } from "@/lib/numbering";
 import { logActivity } from "@/lib/workflows/audit";
@@ -282,8 +283,21 @@ export async function markInvoiceIssued(id: string, actor: SessionPayload) {
  * Batch job (safe to call on dashboard load / a scheduled task) that flips
  * ISSUED/PARTIALLY_PAID invoices past their due date to OVERDUE and raises
  * a notification per newly-overdue invoice (spec sections 21/35).
+ *
+ * Throttled to actually run at most once every 60s (perf: this ran a real
+ * query, sometimes a write transaction, on EVERY dashboard/receivables/
+ * invoices/payments page load — expensive given the cross-region DB
+ * latency documented in lib/db.ts. There's no real cron in this deployment,
+ * so this is the cheap substitute: still "runs on page load", just not on
+ * literally every single one.
  */
-export async function refreshOverdueInvoices() {
+export const refreshOverdueInvoices = unstable_cache(
+  async () => runRefreshOverdueInvoices(),
+  ["refresh-overdue-invoices"],
+  { revalidate: 60 }
+);
+
+async function runRefreshOverdueInvoices() {
   const now = new Date();
   const candidates = await prisma.invoice.findMany({
     where: {
@@ -322,8 +336,21 @@ export async function refreshOverdueInvoices() {
  * already mentions this project's number within the last 3 days, since
  * (unlike overdue invoices) there's no status-transition to naturally
  * prevent re-notifying on every single page load.
+ *
+ * Throttled the same way as refreshOverdueInvoices above (60s) — this one
+ * is the more expensive of the two (a project findMany with nested PO/
+ * invoice relations, plus a findFirst per project newly due), and
+ * getBillingSchedule() already re-fetches the same project data right
+ * after calling this for the actual return value, so an unthrottled call
+ * here was doubly wasteful.
  */
-export async function refreshBillingSchedule() {
+export const refreshBillingSchedule = unstable_cache(
+  async () => runRefreshBillingSchedule(),
+  ["refresh-billing-schedule"],
+  { revalidate: 60 }
+);
+
+async function runRefreshBillingSchedule() {
   const projects = await prisma.project.findMany({
     where: { deletedAt: null },
     select: {
