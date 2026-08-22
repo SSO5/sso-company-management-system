@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { MessageCircle, X, Send, Sparkles } from "lucide-react";
+import { X, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
 import { sendAssistantMessage, confirmAssistantAction, cancelAssistantAction } from "@/server/assistant";
@@ -92,16 +92,22 @@ export function AssistantWidget() {
     <>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105"
+        className="fixed bottom-5 right-5 z-40 flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105"
         aria-label="Tanya AISSO"
       >
-        {open ? <X className="h-6 w-6" /> : <MessageCircle className="h-6 w-6" />}
+        {open ? (
+          <X className="h-6 w-6" />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src="/aisso-icon.png" alt="AISSO" className="h-full w-full object-cover" />
+        )}
       </button>
 
       {open && (
         <div className="fixed bottom-24 right-5 z-40 flex h-[32rem] w-96 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xl">
           <div className="flex items-center gap-2 border-b border-border px-4 py-3">
-            <Sparkles className="h-4 w-4 text-primary" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/aisso-icon.png" alt="" className="h-7 w-7 rounded-full object-cover" />
             <p className="text-sm font-semibold">AISSO</p>
           </div>
 
