@@ -271,6 +271,15 @@ model User {
   // falls back to email only.
   whatsappNumber    String?
 
+  // Maps an inbound Telegram chat back to a real User for the
+  // quotation-revision-via-Telegram automation (see
+  // lib/workflows/telegram-automation.ts) — an unregistered chat ID is
+  // refused outright rather than treated as anonymous/system access. Set by
+  // an Admin after the person DMs the bot once and is told their own chat ID
+  // (there's no way to know it beforehand — Telegram assigns it on first
+  // contact).
+  telegramChatId    String? @unique
+
   opportunitiesAsSalesPic Opportunity[]     @relation("OpportunitySalesPic")
   quotationsCreated       Quotation[]       @relation("QuotationCreatedBy")
   quotationsAsSalesPic    Quotation[]       @relation("QuotationSalesPic")
@@ -634,6 +643,27 @@ model CostingSheetRevisionHistory {
 
   @@unique([costingSheetId, revision])
   @@index([costingSheetId])
+}
+
+// One row per in-flight Telegram revision awaiting a "ya"/"batal" reply (see
+// app/api/telegram/webhook/route.ts). Deliberately DB-backed rather than an
+// in-memory map — a serverless/multi-instance deployment can't rely on the
+// next webhook call landing on the same process, and the whole point is
+// surviving the gap between "here's what would change" and the human's
+// reply. actionJson is the parsed command (see lib/ai/parse-revision-command.ts)
+// re-applied unchanged at commit time — never re-parsed from the original
+// text, so what gets confirmed is exactly what gets applied.
+model TelegramPendingRevision {
+  id          String   @id @default(cuid())
+  chatId      String
+  quotationId String
+  costingId   String
+  actionJson  Json
+  previewText String
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime
+
+  @@index([chatId])
 }
 
 model CostingSection {
