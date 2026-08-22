@@ -8,6 +8,8 @@ import {
   listFoldersForCorrection,
   listWonLostOpportunitiesForCorrection,
   listMissingEvidenceForCorrection,
+  listProjectsForCorrection,
+  listCustomersForCorrection,
 } from "@/server/corrections";
 import { DocumentCorrectionPanel } from "@/components/settings/document-correction-panel";
 
@@ -22,7 +24,7 @@ export default async function DocumentCorrectionPage() {
   const actor = await requireUser();
   if (actor.role !== "ADMIN" && actor.role !== "IT") redirect("/dashboard");
 
-  const [quotations, vendorPOs, invoices, progressReports, folders, wonLostOpportunities, missingEvidence] = await Promise.all([
+  const [quotations, vendorPOs, invoices, progressReports, folders, wonLostOpportunities, missingEvidence, projects, customers] = await Promise.all([
     listQuotationsForCorrection(),
     listVendorPOsForCorrection(),
     listInvoicesForCorrection(),
@@ -30,6 +32,8 @@ export default async function DocumentCorrectionPage() {
     listFoldersForCorrection(),
     listWonLostOpportunitiesForCorrection(),
     listMissingEvidenceForCorrection(),
+    listProjectsForCorrection(),
+    listCustomersForCorrection(),
   ]);
 
   return (
@@ -51,6 +55,8 @@ export default async function DocumentCorrectionPage() {
         folders={folders}
         wonLostOpportunities={wonLostOpportunities}
         missingEvidence={missingEvidence}
+        projects={projects}
+        customers={customers}
       />
     </div>
   );

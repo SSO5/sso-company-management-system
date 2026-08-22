@@ -10,6 +10,7 @@ import {
   renameDocumentFile,
   relocateDocument,
   correctOpportunityStage,
+  reassignProjectCustomer,
   archiveWonArtifacts,
   revertContractToDraft,
   revertMilestoneToPending,
@@ -124,6 +125,43 @@ export async function listWonLostOpportunitiesForCorrection() {
     updatedAt: string;
     quotations: Array<Omit<(typeof rows)[number]["quotations"][number], "grandTotal"> & { grandTotal: string }>;
   }>;
+}
+
+/** Project picker for the "Ganti Pelanggan Project" correction tab. */
+export async function listProjectsForCorrection() {
+  await assertCorrector();
+  return prisma.project.findMany({
+    where: { deletedAt: null },
+    select: { id: true, number: true, name: true, customer: { select: { companyName: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+/** Customer picker to reassign a Project to — includes companyName only, alphabetized. */
+export async function listCustomersForCorrection() {
+  await assertCorrector();
+  return prisma.customer.findMany({
+    where: { deletedAt: null },
+    select: { id: true, companyName: true },
+    orderBy: { companyName: "asc" },
+  });
+}
+
+export async function reassignProjectCustomerAction(
+  projectId: string,
+  newCustomerId: string,
+  reason: string
+): Promise<ActionResult<{ id: string; number: string; oldCustomerName: string; newCustomerName: string }>> {
+  return runAction(async () => {
+    const actor = await requireUserOrThrow();
+    const res = await reassignProjectCustomer(projectId, newCustomerId, reason, actor);
+    revalidatePath("/settings/document-correction");
+    revalidatePath("/projects");
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath("/reports");
+    revalidatePath("/activity-log");
+    return res;
+  });
 }
 
 export async function correctOpportunityStageAction(id: string, reason: string): Promise<ActionResult<{ id: string }>> {

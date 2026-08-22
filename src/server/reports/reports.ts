@@ -2,7 +2,7 @@
 import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/current-user";
 import { requirePermission } from "@/lib/permissions";
-import { invoiceDueAmount, invoiceOutstanding, computeSCurve, computeProjectRiskSignals } from "@/lib/workflows/calculations";
+import { invoiceDueAmount, invoiceOutstanding, computeSCurve, computeProjectRiskSignals, calcCostingSummary } from "@/lib/workflows/calculations";
 
 function monthKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -170,12 +170,32 @@ export async function getProfitabilityReport() {
 
   const projects = await prisma.project.findMany({
     where: { deletedAt: null },
-    include: { customer: { select: { companyName: true } }, expenses: { where: { deletedAt: null } } },
+    include: {
+      customer: { select: { companyName: true } },
+      expenses: { where: { deletedAt: null } },
+      quotation: { select: { costingSheet: { select: { sections: { select: { items: true } } } } } },
+    },
   });
 
   const rows = projects.map((p) => {
-    const cost = p.expenses.reduce((s, e) => s + Number(e.total), 0);
     const revenue = Number(p.contractValue);
+    // Prefer the actual quoted COGS from the linked Costing Sheet (what SSO
+    // actually priced the job at) over logged ProjectExpense entries — those
+    // are only field costs recorded as they're incurred, so early in a
+    // project's life they understate cost and make margin look inflated.
+    const costingSections = p.quotation?.costingSheet?.sections;
+    const cost = costingSections
+      ? calcCostingSummary(
+          costingSections.map((s) => ({
+            items: s.items.map((i) => ({
+              quantity: Number(i.quantity),
+              costUnitPrice: Number(i.costUnitPrice),
+              supplierDiscountPercent: Number(i.supplierDiscountPercent),
+              marginPercent: Number(i.marginPercent),
+            })),
+          }))
+        ).totalCost
+      : p.expenses.reduce((s, e) => s + Number(e.total), 0);
     const grossProfit = revenue - cost;
     const grossMargin = revenue > 0 ? Math.round((grossProfit / revenue) * 100) : 0;
     return { id: p.id, number: p.number, customer: p.customer.companyName, revenue, cost, grossProfit, grossMargin };
