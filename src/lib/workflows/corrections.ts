@@ -234,6 +234,50 @@ export async function correctOpportunityStage(id: string, reason: string, actor:
 }
 
 /**
+ * Fixes a Project filed under the wrong Customer — e.g. a second branch/site
+ * for an existing customer got entered as a brand-new Customer record
+ * ("PT Foo (Site B)") instead of a new Project under the existing one, so
+ * the same company ends up looking like two unrelated customers everywhere
+ * a report groups by customer (profitability, sales, etc.). Only repoints
+ * the Project's customerId — never touches the Quotation/CostingSheet that
+ * produced it, since those are locked financial records, not identity.
+ */
+export async function reassignProjectCustomer(projectId: string, newCustomerId: string, reason: string, actor: SessionPayload) {
+  requireDataCorrector(actor.role);
+  if (!reason.trim()) throw new Error("Alasan koreksi wajib diisi — ini akan tercatat di Log Aktivitas.");
+
+  return prisma.$transaction(async (tx) => {
+    const [project, newCustomer] = await Promise.all([
+      tx.project.findUniqueOrThrow({ where: { id: projectId }, include: { customer: { select: { companyName: true } } } }),
+      tx.customer.findUniqueOrThrow({ where: { id: newCustomerId }, select: { id: true, companyName: true } }),
+    ]);
+    if (project.customerId === newCustomerId) {
+      throw new Error(`${project.number} sudah tercatat di bawah pelanggan "${newCustomer.companyName}".`);
+    }
+
+    await tx.project.update({ where: { id: projectId }, data: { customerId: newCustomerId } });
+    await logActivity(tx, {
+      userId: actor.userId,
+      action: "UPDATE",
+      entityType: "PROJECT",
+      entityId: projectId,
+      description: `[Koreksi IT] ${project.number}: pelanggan diubah dari "${project.customer.companyName}" ke "${newCustomer.companyName}". Alasan: ${reason.trim()}`,
+      metadata: {
+        correction: "PROJECT_CUSTOMER",
+        oldCustomerId: project.customerId,
+        oldCustomerName: project.customer.companyName,
+        newCustomerId,
+        newCustomerName: newCustomer.companyName,
+        reason: reason.trim(),
+        correctedBy: actor.name,
+        correctedByRole: actor.role,
+      },
+    });
+    return { id: projectId, number: project.number, oldCustomerName: project.customer.companyName, newCustomerName: newCustomer.companyName };
+  });
+}
+
+/**
  * Undoes the concrete artifacts a wrongly-Won deal left behind: any
  * Quotation still sitting at WON on this Opportunity gets reverted to SENT
  * (clears wonAt — "SENT" because that's what a real customer-facing

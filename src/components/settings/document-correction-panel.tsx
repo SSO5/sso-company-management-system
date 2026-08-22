@@ -23,6 +23,7 @@ import {
   relocateDocumentAction,
   searchDocumentsForCorrection,
   correctOpportunityStageAction,
+  reassignProjectCustomerAction,
   archiveWonArtifactsAction,
   revertContractToDraftAction,
   revertMilestoneToPendingAction,
@@ -57,6 +58,8 @@ type MissingEvidence = {
   milestonesMissingEvidence: MissingEvidenceMilestone[];
   quotationsMissingEvidence: MissingEvidenceQuotation[];
 };
+type ProjectRow = { id: string; number: string; name: string; customer: { companyName: string } | null };
+type CustomerOpt = { id: string; companyName: string };
 
 interface Props {
   quotations: Quotation[];
@@ -66,6 +69,8 @@ interface Props {
   folders: FolderOpt[];
   wonLostOpportunities: WonLostOpportunity[];
   missingEvidence: MissingEvidence;
+  projects: ProjectRow[];
+  customers: CustomerOpt[];
 }
 
 const TABS = [
@@ -76,6 +81,7 @@ const TABS = [
   { value: "document", label: "Dokumen (Nama & Lokasi)" },
   { value: "opportunity", label: "Status Deal (Won/Lost)" },
   { value: "evidence", label: "Audit Bukti Dokumen" },
+  { value: "projectcustomer", label: "Pelanggan Project" },
 ];
 
 function useFilter<T>(rows: T[], toText: (r: T) => string) {
@@ -97,7 +103,7 @@ function SearchBox({ value, onChange, placeholder }: { value: string; onChange: 
   );
 }
 
-export function DocumentCorrectionPanel({ quotations, vendorPOs, invoices, progressReports, folders, wonLostOpportunities, missingEvidence }: Props) {
+export function DocumentCorrectionPanel({ quotations, vendorPOs, invoices, progressReports, folders, wonLostOpportunities, missingEvidence, projects, customers }: Props) {
   const [tab, setTab] = useState("quotation");
   return (
     <div className="space-y-4">
@@ -109,6 +115,7 @@ export function DocumentCorrectionPanel({ quotations, vendorPOs, invoices, progr
       {tab === "document" && <DocumentTab folders={folders} />}
       {tab === "opportunity" && <OpportunityStageTab rows={wonLostOpportunities} />}
       {tab === "evidence" && <AuditEvidenceTab data={missingEvidence} />}
+      {tab === "projectcustomer" && <ProjectCustomerTab rows={projects} customers={customers} />}
     </div>
   );
 }
@@ -831,6 +838,90 @@ function RevertMilestoneDialog({ milestone, onClose }: { milestone: MissingEvide
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={onClose}>Batal</Button>
           <Button type="button" variant="destructive" disabled={pending || !reason.trim()} onClick={onSave}>{pending ? "Menyimpan..." : "Kembalikan ke Pending"}</Button>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------- Project Customer
+function ProjectCustomerTab({ rows, customers }: { rows: ProjectRow[]; customers: CustomerOpt[] }) {
+  const { q, setQ, filtered } = useFilter(rows, (r) => `${r.number} ${r.name} ${r.customer?.companyName ?? ""}`);
+  const [editing, setEditing] = useState<ProjectRow | null>(null);
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-muted-foreground">
+        Untuk kasus seperti cabang baru sebuah pelanggan ke-input jadi Customer terpisah (mis. &quot;PT Foo (Balikpapan)&quot;)
+        padahal seharusnya tetap Project baru di bawah Customer yang sama. Ini hanya memindahkan Project ke Customer
+        yang benar — quotation/costing sheet-nya tidak berubah.
+      </p>
+      <SearchBox value={q} onChange={setQ} placeholder="Cari nomor proyek, nama, atau pelanggan..." />
+      {filtered.length === 0 ? (
+        <EmptyState title="Tidak ada proyek" description="Coba kata kunci lain." />
+      ) : (
+        <Table>
+          <TableHeader><TableRow><TableHead>Proyek</TableHead><TableHead>Pelanggan Saat Ini</TableHead><TableHead /></TableRow></TableHeader>
+          <TableBody>
+            {filtered.map((r) => (
+              <TableRow key={r.id}>
+                <TableCell className="font-medium">{r.number} — {r.name}</TableCell>
+                <TableCell>{r.customer?.companyName ?? "-"}</TableCell>
+                <TableCell><Button size="icon" variant="ghost" onClick={() => setEditing(r)}><Pencil className="h-3.5 w-3.5" /></Button></TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+      {editing && <ProjectCustomerCorrectionDialog row={editing} customers={customers} onClose={() => setEditing(null)} />}
+    </div>
+  );
+}
+
+function ProjectCustomerCorrectionDialog({ row, customers, onClose }: { row: ProjectRow; customers: CustomerOpt[]; onClose: () => void }) {
+  const [customerId, setCustomerId] = useState("");
+  const [reason, setReason] = useState("");
+  const [pending, setPending] = useState(false);
+  const router = useRouter();
+  const { toast } = useToast();
+
+  async function onSave() {
+    if (!customerId || !reason.trim()) return;
+    setPending(true);
+    const res = await reassignProjectCustomerAction(row.id, customerId, reason);
+    setPending(false);
+    if (res.ok) {
+      toast({ title: `${row.number} dipindah ke "${res.data.newCustomerName}"`, variant: "success" });
+      onClose();
+      router.refresh();
+    } else {
+      toast({ title: "Gagal koreksi", description: res.error, variant: "destructive" });
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(v) => !v && onClose()} title={`Ganti Pelanggan — ${row.number}`} description={`Saat ini: ${row.customer?.companyName ?? "-"}`}>
+      <div className="space-y-3">
+        <div className="space-y-1">
+          <Label>Pelanggan yang Benar</Label>
+          <Select value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
+            <option value="">— Pilih pelanggan —</option>
+            {customers.map((c) => (
+              <option key={c.id} value={c.id}>{c.companyName}</option>
+            ))}
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label>Alasan koreksi <span className="text-destructive">*</span></Label>
+          <Textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            rows={2}
+            placeholder="mis. Cabang Balikpapan ke-input sebagai Customer baru, seharusnya Project di bawah Customer Jakarta yang sudah ada."
+          />
+        </div>
+        <div className="flex justify-end gap-2 border-t border-border pt-3">
+          <Button type="button" variant="outline" onClick={onClose}>Batal</Button>
+          <Button type="button" disabled={pending || !customerId || !reason.trim()} onClick={onSave}>{pending ? "Menyimpan..." : "Simpan Koreksi"}</Button>
         </div>
       </div>
     </Dialog>
