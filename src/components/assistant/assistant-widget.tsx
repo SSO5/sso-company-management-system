@@ -20,8 +20,9 @@ interface ChatMessage {
 }
 
 /**
- * Floating "chat with the app" assistant, available on every authenticated
- * page (mounted once in the (app) layout). Conversation history lives only
+ * "AISSO" — the floating "chat with the app" assistant, available on every
+ * authenticated page (mounted once in the (app) layout). Conversation
+ * history lives only
  * in this component's state — nothing is persisted server-side, so a page
  * refresh starts a fresh conversation. See src/server/assistant.ts for the
  * tool-use loop and src/lib/ai/assistant-tools.ts for the closed tool
@@ -50,7 +51,7 @@ export function AssistantWidget() {
     const res = await sendAssistantMessage(history, text);
     setSending(false);
     if (!res.ok) {
-      toast({ title: "Asisten gagal merespons", description: res.error, variant: "destructive" });
+      toast({ title: "AISSO gagal merespons", description: res.error, variant: "destructive" });
       return;
     }
     setMessages((prev) => [
@@ -92,7 +93,7 @@ export function AssistantWidget() {
       <button
         onClick={() => setOpen((o) => !o)}
         className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105"
-        aria-label="Tanya Asisten AI"
+        aria-label="Tanya AISSO"
       >
         {open ? <X className="h-6 w-6" /> : <MessageCircle className="h-6 w-6" />}
       </button>
@@ -101,15 +102,18 @@ export function AssistantWidget() {
         <div className="fixed bottom-24 right-5 z-40 flex h-[32rem] w-96 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xl">
           <div className="flex items-center gap-2 border-b border-border px-4 py-3">
             <Sparkles className="h-4 w-4 text-primary" />
-            <p className="text-sm font-semibold">Tanya Asisten AI</p>
+            <p className="text-sm font-semibold">AISSO</p>
           </div>
 
           <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto p-3">
             {messages.length === 0 && (
-              <p className="mt-6 text-center text-xs text-muted-foreground">
-                Tanya status quotation/project, minta daftar yang menunggu approval, atau minta approve/reject
-                (sesuai role Anda).
-              </p>
+              <div className="mt-6 text-center">
+                <p className="text-base font-bold text-primary">Tanya apa aja, aku jawab!</p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Status quotation/project, daftar yang menunggu approval, atau minta approve/reject (sesuai role
+                  Anda).
+                </p>
+              </div>
             )}
             {messages.map((m, i) => (
               <div key={i} className={cn("flex", m.role === "user" ? "justify-end" : "justify-start")}>
@@ -148,7 +152,7 @@ export function AssistantWidget() {
                 </div>
               </div>
             ))}
-            {sending && <p className="text-xs text-muted-foreground">Asisten sedang mengetik...</p>}
+            {sending && <p className="text-xs text-muted-foreground">AISSO sedang mengetik...</p>}
           </div>
 
           <div className="flex items-center gap-2 border-t border-border p-3">
