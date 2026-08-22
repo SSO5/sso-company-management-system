@@ -693,6 +693,26 @@ model TelegramCostingDraft {
   @@index([chatId])
 }
 
+// One simulated "buat invoice" request awaiting "ya"/"batal" — single-shot
+// like TelegramPendingRevision (not multi-turn like TelegramCostingDraft),
+// since an invoice here only ever needs project + an explicit Rupiah amount.
+// See lib/workflows/telegram-invoice.ts.
+model TelegramPendingInvoice {
+  id          String   @id @default(cuid())
+  chatId      String
+  projectId   String
+  customerId  String
+  quotationId String?
+  amount      Decimal  @db.Decimal(18, 2)
+  dpPercent   Decimal? @db.Decimal(5, 2)
+  dueDate     DateTime
+  previewText String
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime
+
+  @@index([chatId])
+}
+
 model CostingSection {
   id             String       @id @default(cuid())
   costingSheetId String
