@@ -5,10 +5,22 @@ import { logActivity } from "@/lib/workflows/audit";
 import { sendTelegramMessage, sendTelegramDocument } from "@/lib/notifications/telegram";
 import { parseRevisionCommand, type RevisionAction } from "@/lib/ai/parse-revision-command";
 import { resolveActorByTelegramChatId, simulateQuotationRevision, commitQuotationRevision } from "@/lib/workflows/telegram-automation";
+import { parseCostingDraftMessage } from "@/lib/ai/parse-costing-draft";
+import {
+  getActiveCostingDraft,
+  startCostingDraft,
+  cancelCostingDraft,
+  mergeExtractionIntoDraft,
+  saveDraftMerge,
+  whatsMissing,
+  buildDraftPreview,
+  commitCostingDraft,
+} from "@/lib/workflows/telegram-costing-draft";
 
 const PENDING_TTL_MINUTES = 10;
 const CONFIRM_WORDS = new Set(["ya", "iya", "y", "yes", "ok", "oke"]);
 const CANCEL_WORDS = new Set(["batal", "tidak", "no", "cancel"]);
+const NEW_COSTING_TRIGGER = /\b(buat|bikin)\s+costing\b/i;
 
 interface TelegramUpdate {
   message?: { chat?: { id?: number | string }; text?: string };
@@ -54,6 +66,80 @@ async function handleMessage(chatId: string, text: string) {
       chatId,
       `Chat ID Anda: ${chatId}\n\nNomor ini belum terdaftar. Minta Admin mendaftarkan Chat ID ini di halaman Edit User Anda (Pengaturan > Users) sebelum bisa dipakai.`
     );
+    return;
+  }
+
+  const costingDraft = await getActiveCostingDraft(chatId);
+  if (costingDraft) {
+    const normalized = text.trim().toLowerCase();
+    if (costingDraft.stage === "CONFIRMING" && CONFIRM_WORDS.has(normalized)) {
+      try {
+        requirePermission(actor.role, "sales", "create");
+      } catch (err) {
+        await sendTelegramMessage(chatId, err instanceof ForbiddenError ? err.message : "Anda tidak punya izin membuat costing sheet.");
+        return;
+      }
+      try {
+        const result = await commitCostingDraft(costingDraft, actor);
+        await logActivity(prisma, {
+          userId: actor.userId, action: "CREATE", entityType: "COSTING", entityId: result.costingSheetNumber,
+          description: `${result.costingSheetNumber}: Dibuat via Telegram oleh ${actor.name}`,
+        });
+        await sendTelegramMessage(
+          chatId,
+          `Costing sheet ${result.costingSheetNumber} tersimpan sebagai DRAFT. Buka di app untuk cek ulang, lengkapi section, lalu convert ke Quotation.`
+        );
+      } catch (err) {
+        console.error("[telegram-webhook] costing commit failed:", err);
+        await sendTelegramMessage(chatId, `Gagal menyimpan costing: ${err instanceof Error ? err.message : "kesalahan tidak diketahui"}`);
+      }
+      return;
+    }
+    if (CANCEL_WORDS.has(normalized)) {
+      await cancelCostingDraft(chatId);
+      await sendTelegramMessage(chatId, "Draft costing dibatalkan — tidak ada yang tersimpan.");
+      return;
+    }
+    // Any other message while a draft is open is more info for the SAME
+    // draft (another item, the customer name, project title, ...) — never
+    // routed to the revision flow below, so the two can't get tangled.
+    const extraction = await parseCostingDraftMessage(text);
+    const merge = await mergeExtractionIntoDraft(costingDraft, extraction);
+    const updated = await saveDraftMerge(costingDraft.id, merge);
+    if (merge.notes.length > 0) {
+      await sendTelegramMessage(chatId, merge.notes.join("\n"));
+    }
+    if (updated.stage === "CONFIRMING") {
+      await sendTelegramMessage(chatId, buildDraftPreview(updated));
+    } else if (merge.notes.length === 0) {
+      await sendTelegramMessage(chatId, `Masih perlu: ${whatsMissing(updated)}.`);
+    }
+    return;
+  }
+
+  if (NEW_COSTING_TRIGGER.test(text)) {
+    try {
+      requirePermission(actor.role, "sales", "create");
+    } catch (err) {
+      await sendTelegramMessage(chatId, err instanceof ForbiddenError ? err.message : "Anda tidak punya izin membuat costing sheet.");
+      return;
+    }
+    await startCostingDraft(chatId);
+    const draft = await getActiveCostingDraft(chatId);
+    const extraction = await parseCostingDraftMessage(text);
+    const merge = await mergeExtractionIntoDraft(draft!, extraction);
+    const updated = await saveDraftMerge(draft!.id, merge);
+    if (merge.notes.length > 0) {
+      await sendTelegramMessage(chatId, merge.notes.join("\n"));
+    }
+    if (updated.stage === "CONFIRMING") {
+      await sendTelegramMessage(chatId, buildDraftPreview(updated));
+    } else {
+      await sendTelegramMessage(
+        chatId,
+        `Oke, buat costing baru. Masih perlu: ${whatsMissing(updated)}.\n\nContoh: "untuk PT ABC, project Ganti Bearing Motor, item Bearing 6205 qty 10 pcs harga modal 50000 margin 20%"`
+      );
+    }
     return;
   }
 
