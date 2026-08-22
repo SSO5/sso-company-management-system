@@ -89,6 +89,7 @@ export async function updateUserAction(formData: FormData): Promise<ActionResult
       role: formData.get("role"),
       title: formData.get("title") || null,
       whatsappNumber: formData.get("whatsappNumber") || null,
+      telegramChatId: formData.get("telegramChatId") || null,
       isActive: formData.get("isActive") === "on" || formData.get("isActive") === "true",
       password: formData.get("password") || "",
     });
@@ -118,6 +119,7 @@ export async function updateUserAction(formData: FormData): Promise<ActionResult
           role: data.role,
           title: data.title || null,
           whatsappNumber: data.whatsappNumber,
+          telegramChatId: data.telegramChatId || null,
           isActive: data.isActive,
           ...(passwordHash ? { passwordHash } : {}),
           ...(signatureImageUrl ? { signatureImageUrl } : {}),

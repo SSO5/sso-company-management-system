@@ -19,6 +19,7 @@ interface Props {
     role: string;
     title: string | null;
     whatsappNumber: string | null;
+    telegramChatId: string | null;
     isActive: boolean;
     signatureImageUrl: string | null;
   };
@@ -105,6 +106,13 @@ export function EditUserDialog({ user, isSelf }: Props) {
           <div className="space-y-1">
             <Label>WhatsApp <span className="text-muted-foreground">(untuk notifikasi approval/deadline)</span></Label>
             <Input name="whatsappNumber" type="tel" defaultValue={user.whatsappNumber ?? ""} placeholder="0812xxxxxxxxx" />
+          </div>
+          <div className="space-y-1">
+            <Label>Telegram Chat ID <span className="text-muted-foreground">(untuk revisi quotation via Telegram)</span></Label>
+            <Input name="telegramChatId" defaultValue={user.telegramChatId ?? ""} placeholder="mis. 123456789" />
+            <p className="text-[11px] text-muted-foreground">
+              Orang ini harus DM bot dulu satu kali — bot akan membalas Chat ID-nya untuk ditempel di sini.
+            </p>
           </div>
           <div className="space-y-1">
             <Label>Status</Label>

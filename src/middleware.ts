@@ -10,7 +10,12 @@ import { jwtVerify } from "jose";
  * valid session alone doesn't mean the user may perform a given action.
  */
 
-const PUBLIC_PATHS = ["/login", "/api/auth/login"];
+// /api/telegram/webhook is called directly by Telegram's servers, which
+// never carry our session cookie — it authenticates itself instead via the
+// x-telegram-bot-api-secret-token header (checked inside the route) plus
+// resolving a real User from the message's chat ID, so "public" here means
+// "reachable without a browser session," not "unauthenticated."
+const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/telegram/webhook"];
 const COOKIE_NAME = process.env.SESSION_COOKIE_NAME || "sso_cms_session";
 
 function getSecretKey() {

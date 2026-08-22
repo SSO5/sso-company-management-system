@@ -69,6 +69,11 @@ export const updateUserSchema = z.object({
   role: z.enum(["ADMIN", "SALES", "FINANCE", "PROJECT_MANAGER", "VIEWER", "IT"]),
   title: z.string().optional().nullable(),
   whatsappNumber: whatsappNumberSchema,
+  // Numeric Telegram chat ID (see lib/workflows/telegram-automation.ts) —
+  // the person gets this by DMing the bot once; there's no other way to
+  // learn it in advance. Free-text since Telegram's own IDs are just
+  // digits, but not worth a dedicated zod schema like whatsappNumberSchema.
+  telegramChatId: z.string().optional().nullable(),
   isActive: z.coerce.boolean().default(true),
   password: z.string().min(8, "Password must be at least 8 characters.").optional().or(z.literal("")),
 });
