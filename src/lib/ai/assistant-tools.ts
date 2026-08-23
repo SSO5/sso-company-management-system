@@ -2,6 +2,9 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/db";
 import { requirePermission, ForbiddenError } from "@/lib/permissions";
 import { approveQuotation, rejectQuotation } from "@/lib/workflows/quotation";
+import { approveInvoice, rejectInvoice } from "@/lib/workflows/finance";
+import { approveVendorPO, rejectVendorPO } from "@/lib/workflows/vendor-po";
+import { approveExpense, rejectExpense } from "@/lib/workflows/expense";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { SessionPayload } from "@/lib/auth/session";
 
@@ -19,7 +22,16 @@ import type { SessionPayload } from "@/lib/auth/session";
  * before touching anything.
  */
 
-export const WRITE_TOOLS = new Set(["approve_quotation", "reject_quotation"]);
+export const WRITE_TOOLS = new Set([
+  "approve_quotation",
+  "reject_quotation",
+  "approve_invoice",
+  "reject_invoice",
+  "approve_vendor_po",
+  "reject_vendor_po",
+  "approve_expense",
+  "reject_expense",
+]);
 
 export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
   {
@@ -33,7 +45,8 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: "list_pending_approvals",
-    description: "Daftar semua quotation yang berstatus menunggu approval (SUBMITTED/UNDER_REVIEW).",
+    description:
+      "Daftar SEMUA dokumen yang sedang menunggu approval Direktur di seluruh modul — quotation, invoice, vendor PO, dan project expense sekaligus, bukan cuma quotation.",
     input_schema: { type: "object", properties: {} },
   },
   {
@@ -43,6 +56,33 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
       type: "object",
       properties: { projectNumber: { type: "string", description: "Nomor project, boleh sebagian." } },
       required: ["projectNumber"],
+    },
+  },
+  {
+    name: "get_invoice_status",
+    description: "Cek status, customer, nilai, dan due date satu invoice berdasarkan nomornya.",
+    input_schema: {
+      type: "object",
+      properties: { invoiceNumber: { type: "string", description: "Nomor invoice, boleh sebagian." } },
+      required: ["invoiceNumber"],
+    },
+  },
+  {
+    name: "get_vendor_po_status",
+    description: "Cek status, vendor, dan nilai satu Vendor Purchase Order berdasarkan nomornya.",
+    input_schema: {
+      type: "object",
+      properties: { poNumber: { type: "string", description: "Nomor Vendor PO, boleh sebagian." } },
+      required: ["poNumber"],
+    },
+  },
+  {
+    name: "get_expense_status",
+    description: "Cek status, kategori, dan nilai satu project expense berdasarkan nomornya.",
+    input_schema: {
+      type: "object",
+      properties: { expenseNumber: { type: "string", description: "Nomor expense, boleh sebagian." } },
+      required: ["expenseNumber"],
     },
   },
   {
@@ -66,6 +106,69 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
       required: ["quotationNumber", "reason"],
     },
   },
+  {
+    name: "approve_invoice",
+    description: "Approve satu invoice yang sedang menunggu approval. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    input_schema: {
+      type: "object",
+      properties: { invoiceNumber: { type: "string", description: "Nomor invoice yang mau di-approve." } },
+      required: ["invoiceNumber"],
+    },
+  },
+  {
+    name: "reject_invoice",
+    description: "Reject satu invoice yang sedang menunggu approval, dengan alasan. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    input_schema: {
+      type: "object",
+      properties: {
+        invoiceNumber: { type: "string", description: "Nomor invoice yang mau di-reject." },
+        reason: { type: "string", description: "Alasan penolakan." },
+      },
+      required: ["invoiceNumber", "reason"],
+    },
+  },
+  {
+    name: "approve_vendor_po",
+    description: "Approve satu Vendor PO yang sedang menunggu approval. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    input_schema: {
+      type: "object",
+      properties: { poNumber: { type: "string", description: "Nomor Vendor PO yang mau di-approve." } },
+      required: ["poNumber"],
+    },
+  },
+  {
+    name: "reject_vendor_po",
+    description: "Reject satu Vendor PO yang sedang menunggu approval, dengan alasan. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    input_schema: {
+      type: "object",
+      properties: {
+        poNumber: { type: "string", description: "Nomor Vendor PO yang mau di-reject." },
+        reason: { type: "string", description: "Alasan penolakan." },
+      },
+      required: ["poNumber", "reason"],
+    },
+  },
+  {
+    name: "approve_expense",
+    description: "Approve satu project expense yang sedang menunggu approval. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    input_schema: {
+      type: "object",
+      properties: { expenseNumber: { type: "string", description: "Nomor expense yang mau di-approve." } },
+      required: ["expenseNumber"],
+    },
+  },
+  {
+    name: "reject_expense",
+    description: "Reject satu project expense yang sedang menunggu approval, dengan alasan. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    input_schema: {
+      type: "object",
+      properties: {
+        expenseNumber: { type: "string", description: "Nomor expense yang mau di-reject." },
+        reason: { type: "string", description: "Alasan penolakan." },
+      },
+      required: ["expenseNumber", "reason"],
+    },
+  },
 ];
 
 export interface ToolExecutionResult {
@@ -79,6 +182,41 @@ async function findQuotationByNumber(numberFragment: string) {
     select: {
       id: true, number: true, revision: true, status: true, grandTotal: true,
       customer: { select: { companyName: true } },
+      submittedBy: { select: { name: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+async function findInvoiceByNumber(numberFragment: string) {
+  return prisma.invoice.findFirst({
+    where: { deletedAt: null, number: { contains: numberFragment, mode: "insensitive" } },
+    select: {
+      id: true, number: true, status: true, grandTotal: true, dueDate: true,
+      customer: { select: { companyName: true } },
+      submittedBy: { select: { name: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+async function findVendorPOByNumber(numberFragment: string) {
+  return prisma.vendorPurchaseOrder.findFirst({
+    where: { deletedAt: null, number: { contains: numberFragment, mode: "insensitive" } },
+    select: {
+      id: true, number: true, status: true, grandTotal: true, vendorName: true,
+      submittedBy: { select: { name: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+async function findExpenseByNumber(numberFragment: string) {
+  return prisma.projectExpense.findFirst({
+    where: { deletedAt: null, number: { contains: numberFragment, mode: "insensitive" } },
+    select: {
+      id: true, number: true, approvalStatus: true, category: true, total: true,
+      project: { select: { name: true } },
       submittedBy: { select: { name: true } },
     },
     orderBy: { createdAt: "desc" },
@@ -105,18 +243,63 @@ export async function executeAssistantTool(
 
     case "list_pending_approvals": {
       requirePermission(actor.role, "sales", "view");
-      const rows = await prisma.quotation.findMany({
-        where: { deletedAt: null, status: { in: ["SUBMITTED", "UNDER_REVIEW"] } },
-        select: { number: true, revision: true, grandTotal: true, customer: { select: { companyName: true } } },
-        orderBy: { submittedAt: "asc" },
-        take: 20,
-      });
-      if (rows.length === 0) return { resultText: "Tidak ada quotation yang menunggu approval saat ini." };
-      return {
-        resultText: rows
-          .map((q) => `- ${q.number}${q.revision > 0 ? `.R${q.revision}` : ""} — ${q.customer.companyName} — ${formatCurrency(Number(q.grandTotal))}`)
-          .join("\n"),
-      };
+      const [quotations, invoices, vendorPOs, expenses] = await Promise.all([
+        prisma.quotation.findMany({
+          where: { deletedAt: null, status: { in: ["SUBMITTED", "UNDER_REVIEW"] } },
+          select: { number: true, revision: true, grandTotal: true, customer: { select: { companyName: true } } },
+          orderBy: { submittedAt: "asc" },
+          take: 20,
+        }),
+        prisma.invoice.findMany({
+          where: { deletedAt: null, status: "SUBMITTED" },
+          select: { number: true, grandTotal: true, customer: { select: { companyName: true } } },
+          orderBy: { submittedAt: "asc" },
+          take: 20,
+        }),
+        prisma.vendorPurchaseOrder.findMany({
+          where: { deletedAt: null, status: "SUBMITTED" },
+          select: { number: true, grandTotal: true, vendorName: true },
+          orderBy: { submittedAt: "asc" },
+          take: 20,
+        }),
+        prisma.projectExpense.findMany({
+          where: { deletedAt: null, approvalStatus: "SUBMITTED" },
+          select: { number: true, total: true, project: { select: { name: true } } },
+          orderBy: { submittedAt: "asc" },
+          take: 20,
+        }),
+      ]);
+
+      if (quotations.length + invoices.length + vendorPOs.length + expenses.length === 0) {
+        return { resultText: "Tidak ada dokumen apapun yang menunggu approval saat ini." };
+      }
+
+      const sections: string[] = [];
+      if (quotations.length > 0) {
+        sections.push(
+          `Quotation:\n` +
+            quotations
+              .map((q) => `- ${q.number}${q.revision > 0 ? `.R${q.revision}` : ""} — ${q.customer.companyName} — ${formatCurrency(Number(q.grandTotal))}`)
+              .join("\n")
+        );
+      }
+      if (invoices.length > 0) {
+        sections.push(
+          `Invoice:\n` + invoices.map((i) => `- ${i.number} — ${i.customer.companyName} — ${formatCurrency(Number(i.grandTotal))}`).join("\n")
+        );
+      }
+      if (vendorPOs.length > 0) {
+        sections.push(
+          `Vendor PO:\n` + vendorPOs.map((p) => `- ${p.number} — ${p.vendorName} — ${formatCurrency(Number(p.grandTotal))}`).join("\n")
+        );
+      }
+      if (expenses.length > 0) {
+        sections.push(
+          `Project Expense:\n` +
+            expenses.map((e) => `- ${e.number} — ${e.project.name} — ${formatCurrency(Number(e.total))}`).join("\n")
+        );
+      }
+      return { resultText: sections.join("\n\n") };
     }
 
     case "get_project_status": {
@@ -136,6 +319,42 @@ export async function executeAssistantTool(
           `${p.number} — ${p.name} (${p.customer.companyName})\n` +
           `Status: ${p.status} — Progress: ${p.progressPercent}%\n` +
           `PM: ${p.projectManager?.name ?? "-"} — Deadline: ${p.endDate ? formatDate(p.endDate) : "-"}`,
+      };
+    }
+
+    case "get_invoice_status": {
+      requirePermission(actor.role, "finance", "view");
+      const inv = await findInvoiceByNumber(String(input.invoiceNumber ?? ""));
+      if (!inv) return { resultText: `Invoice "${input.invoiceNumber}" tidak ditemukan.` };
+      return {
+        resultText:
+          `${inv.number} — ${inv.customer.companyName}\n` +
+          `Status: ${inv.status}\nNilai: ${formatCurrency(Number(inv.grandTotal))}\nJatuh tempo: ${formatDate(inv.dueDate)}\n` +
+          `Submitted by: ${inv.submittedBy?.name ?? "-"}`,
+      };
+    }
+
+    case "get_vendor_po_status": {
+      requirePermission(actor.role, "sales", "view");
+      const po = await findVendorPOByNumber(String(input.poNumber ?? ""));
+      if (!po) return { resultText: `Vendor PO "${input.poNumber}" tidak ditemukan.` };
+      return {
+        resultText:
+          `${po.number} — ${po.vendorName}\n` +
+          `Status: ${po.status}\nNilai: ${formatCurrency(Number(po.grandTotal))}\n` +
+          `Submitted by: ${po.submittedBy?.name ?? "-"}`,
+      };
+    }
+
+    case "get_expense_status": {
+      requirePermission(actor.role, "project", "view");
+      const exp = await findExpenseByNumber(String(input.expenseNumber ?? ""));
+      if (!exp) return { resultText: `Expense "${input.expenseNumber}" tidak ditemukan.` };
+      return {
+        resultText:
+          `${exp.number} — ${exp.project.name} (${exp.category})\n` +
+          `Status: ${exp.approvalStatus}\nNilai: ${formatCurrency(Number(exp.total))}\n` +
+          `Submitted by: ${exp.submittedBy?.name ?? "-"}`,
       };
     }
 
@@ -173,6 +392,108 @@ export async function executeAssistantTool(
       };
     }
 
+    case "approve_invoice": {
+      const inv = await findInvoiceByNumber(String(input.invoiceNumber ?? ""));
+      if (!inv) return { resultText: `Invoice "${input.invoiceNumber}" tidak ditemukan.` };
+      if (inv.status !== "SUBMITTED") {
+        return { resultText: `${inv.number} berstatus ${inv.status}, tidak sedang menunggu approval.` };
+      }
+      return {
+        resultText: "Menunggu konfirmasi user sebelum approve benar-benar dijalankan.",
+        pendingAction: {
+          toolName: "approve_invoice",
+          args: { invoiceId: inv.id },
+          description: `Approve ${inv.number} — ${inv.customer.companyName} (${formatCurrency(Number(inv.grandTotal))})`,
+        },
+      };
+    }
+
+    case "reject_invoice": {
+      const inv = await findInvoiceByNumber(String(input.invoiceNumber ?? ""));
+      if (!inv) return { resultText: `Invoice "${input.invoiceNumber}" tidak ditemukan.` };
+      if (inv.status !== "SUBMITTED") {
+        return { resultText: `${inv.number} berstatus ${inv.status}, tidak sedang menunggu approval.` };
+      }
+      const reason = String(input.reason ?? "").trim();
+      if (!reason) return { resultText: "Sebutkan alasan penolakan terlebih dahulu." };
+      return {
+        resultText: "Menunggu konfirmasi user sebelum reject benar-benar dijalankan.",
+        pendingAction: {
+          toolName: "reject_invoice",
+          args: { invoiceId: inv.id, reason },
+          description: `Reject ${inv.number} — ${inv.customer.companyName}. Alasan: ${reason}`,
+        },
+      };
+    }
+
+    case "approve_vendor_po": {
+      const po = await findVendorPOByNumber(String(input.poNumber ?? ""));
+      if (!po) return { resultText: `Vendor PO "${input.poNumber}" tidak ditemukan.` };
+      if (po.status !== "SUBMITTED") {
+        return { resultText: `${po.number} berstatus ${po.status}, tidak sedang menunggu approval.` };
+      }
+      return {
+        resultText: "Menunggu konfirmasi user sebelum approve benar-benar dijalankan.",
+        pendingAction: {
+          toolName: "approve_vendor_po",
+          args: { poId: po.id },
+          description: `Approve ${po.number} — ${po.vendorName} (${formatCurrency(Number(po.grandTotal))})`,
+        },
+      };
+    }
+
+    case "reject_vendor_po": {
+      const po = await findVendorPOByNumber(String(input.poNumber ?? ""));
+      if (!po) return { resultText: `Vendor PO "${input.poNumber}" tidak ditemukan.` };
+      if (po.status !== "SUBMITTED") {
+        return { resultText: `${po.number} berstatus ${po.status}, tidak sedang menunggu approval.` };
+      }
+      const reason = String(input.reason ?? "").trim();
+      if (!reason) return { resultText: "Sebutkan alasan penolakan terlebih dahulu." };
+      return {
+        resultText: "Menunggu konfirmasi user sebelum reject benar-benar dijalankan.",
+        pendingAction: {
+          toolName: "reject_vendor_po",
+          args: { poId: po.id, reason },
+          description: `Reject ${po.number} — ${po.vendorName}. Alasan: ${reason}`,
+        },
+      };
+    }
+
+    case "approve_expense": {
+      const exp = await findExpenseByNumber(String(input.expenseNumber ?? ""));
+      if (!exp) return { resultText: `Expense "${input.expenseNumber}" tidak ditemukan.` };
+      if (exp.approvalStatus !== "SUBMITTED") {
+        return { resultText: `${exp.number} berstatus ${exp.approvalStatus}, tidak sedang menunggu approval.` };
+      }
+      return {
+        resultText: "Menunggu konfirmasi user sebelum approve benar-benar dijalankan.",
+        pendingAction: {
+          toolName: "approve_expense",
+          args: { expenseId: exp.id },
+          description: `Approve ${exp.number} — ${exp.project.name} (${formatCurrency(Number(exp.total))})`,
+        },
+      };
+    }
+
+    case "reject_expense": {
+      const exp = await findExpenseByNumber(String(input.expenseNumber ?? ""));
+      if (!exp) return { resultText: `Expense "${input.expenseNumber}" tidak ditemukan.` };
+      if (exp.approvalStatus !== "SUBMITTED") {
+        return { resultText: `${exp.number} berstatus ${exp.approvalStatus}, tidak sedang menunggu approval.` };
+      }
+      const reason = String(input.reason ?? "").trim();
+      if (!reason) return { resultText: "Sebutkan alasan penolakan terlebih dahulu." };
+      return {
+        resultText: "Menunggu konfirmasi user sebelum reject benar-benar dijalankan.",
+        pendingAction: {
+          toolName: "reject_expense",
+          args: { expenseId: exp.id, reason },
+          description: `Reject ${exp.number} — ${exp.project.name}. Alasan: ${reason}`,
+        },
+      };
+    }
+
     default:
       return { resultText: `Tool "${toolName}" tidak dikenali.` };
   }
@@ -192,6 +513,30 @@ export async function runConfirmedAssistantAction(
     case "reject_quotation": {
       const q = await rejectQuotation(String(args.quotationId), String(args.reason), actor);
       return `${q.number} berhasil di-reject.`;
+    }
+    case "approve_invoice": {
+      const inv = await approveInvoice(String(args.invoiceId), actor);
+      return `${inv.number} berhasil di-approve.`;
+    }
+    case "reject_invoice": {
+      const inv = await rejectInvoice(String(args.invoiceId), String(args.reason), actor);
+      return `${inv.number} berhasil di-reject.`;
+    }
+    case "approve_vendor_po": {
+      const po = await approveVendorPO(String(args.poId), actor);
+      return `${po.number} berhasil di-approve.`;
+    }
+    case "reject_vendor_po": {
+      const po = await rejectVendorPO(String(args.poId), String(args.reason), actor);
+      return `${po.number} berhasil di-reject.`;
+    }
+    case "approve_expense": {
+      const exp = await approveExpense(String(args.expenseId), actor);
+      return `${exp.number} berhasil di-approve.`;
+    }
+    case "reject_expense": {
+      const exp = await rejectExpense(String(args.expenseId), String(args.reason), actor);
+      return `${exp.number} berhasil di-reject.`;
     }
     default:
       throw new ForbiddenError(`Aksi "${toolName}" tidak dikenali.`);
