@@ -106,7 +106,7 @@ export function AssistantWidget() {
         >
           <span className="relative block">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/aisso-halfbody.png" alt="AISSO" className="block w-full" />
+            <img src="/aisso-halfbody-v2.png" alt="AISSO" className="block w-full" />
             <span className="absolute inset-x-0 bottom-0 bg-black/50 py-1 text-center text-xs font-bold text-white">AISSO</span>
           </span>
         </button>
@@ -116,7 +116,7 @@ export function AssistantWidget() {
         <div className="fixed bottom-24 right-5 z-40 flex h-[32rem] w-96 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xl">
           <div className="flex items-center gap-2 border-b border-border px-4 py-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/aisso-icon.png" alt="" className="h-7 w-7 rounded-full object-cover" />
+            <img src="/aisso-icon-v2.png" alt="" className="h-7 w-7 rounded-full object-cover" />
             <p className="text-sm font-semibold">AISSO</p>
           </div>
 
