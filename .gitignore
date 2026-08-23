@@ -8,3 +8,4 @@ private-storage/*
 .DS_Store
 next-env.d.ts
 cloudflared.exe
+.claude/settings.local.json
