@@ -101,14 +101,12 @@ export function AssistantWidget() {
       ) : (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-5 right-5 z-40 w-24 overflow-hidden rounded-2xl shadow-xl ring-2 ring-white/50 transition-transform hover:scale-105 sm:w-28"
+          className="fixed bottom-5 right-5 z-40 flex w-24 flex-col items-center transition-transform hover:scale-105 sm:w-28"
           aria-label="Tanya AISSO"
         >
-          <span className="relative block">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/aisso-halfbody-v2.png" alt="AISSO" className="block w-full" />
-            <span className="absolute inset-x-0 bottom-0 bg-black/50 py-1 text-center text-xs font-bold text-white">AISSO</span>
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/aisso-halfbody-v3.png" alt="AISSO" className="w-full drop-shadow-xl" />
+          <span className="-mt-2 rounded-full bg-primary px-3 py-0.5 text-xs font-bold text-primary-foreground shadow-lg">AISSO</span>
         </button>
       )}
 
