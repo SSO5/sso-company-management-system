@@ -2,18 +2,26 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/db";
 import { requirePermission, ForbiddenError } from "@/lib/permissions";
 import { approveQuotation, rejectQuotation } from "@/lib/workflows/quotation";
-import { approveInvoice, rejectInvoice } from "@/lib/workflows/finance";
-import { approveVendorPO, rejectVendorPO } from "@/lib/workflows/vendor-po";
+import { approveInvoice, rejectInvoice, createInvoice } from "@/lib/workflows/finance";
+import { approveVendorPO, rejectVendorPO, createVendorPurchaseOrder } from "@/lib/workflows/vendor-po";
 import { approveExpense, rejectExpense } from "@/lib/workflows/expense";
 import { createCostingSheet, convertCostingToQuotation } from "@/lib/workflows/costing";
 import { searchCustomerCandidates } from "@/lib/workflows/telegram-costing-draft";
-import { calcCostingSummary, computeBillingSchedule } from "@/lib/workflows/calculations";
+import { calcCostingSummary, computeBillingSchedule, calcInvoiceTotals, calcVendorPoTotals } from "@/lib/workflows/calculations";
 import { simulateQuotationRevision, commitQuotationRevision } from "@/lib/workflows/telegram-automation";
-import { simulateInvoice, commitInvoice } from "@/lib/workflows/telegram-invoice";
+import { createProgressReport, addProgressReportItem } from "@/lib/workflows/progress-report";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { RevisionAction } from "@/lib/ai/parse-revision-command";
 import type { CostingSheetInput, CostingLineItemInput } from "@/lib/validation/costing";
+import type { InvoiceInput } from "@/lib/validation/finance";
+import type { VendorPurchaseOrderInput } from "@/lib/validation/sales";
 import type { SessionPayload } from "@/lib/auth/session";
+
+function parseOptionalDate(value: unknown): Date | null | "invalid" {
+  if (value == null || value === "") return null;
+  const d = new Date(String(value));
+  return isNaN(d.getTime()) ? "invalid" : d;
+}
 
 function clampLimit(input: unknown, def = 15, max = 30): number {
   const n = Number(input);
@@ -53,6 +61,8 @@ export const WRITE_TOOLS = new Set([
   "convert_costing_to_quotation",
   "revise_quotation",
   "create_invoice",
+  "create_vendor_po",
+  "create_progress_report",
 ]);
 
 export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
@@ -311,7 +321,11 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
       "Ubah satu costing sheet (yang sudah ada, status belum CONVERTED) menjadi Quotation baru — persis alur 'Buat Quotation' di app. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
     input_schema: {
       type: "object",
-      properties: { costingNumber: { type: "string", description: "Nomor costing sheet, boleh sebagian." } },
+      properties: {
+        costingNumber: { type: "string", description: "Nomor costing sheet, boleh sebagian." },
+        contactName: { type: "string", description: "Nama PIC/kontak di sisi customer untuk quotation ini (opsional, dicocokkan ke data kontak customer)." },
+        validUntilDays: { type: "number", description: "Opsional, quotation berlaku berapa hari dari sekarang (default 30)." },
+      },
       required: ["costingNumber"],
     },
   },
@@ -335,16 +349,79 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
   {
     name: "create_invoice",
     description:
-      "Buat invoice baru (status DRAFT) untuk satu project. Jumlah HARUS Rupiah eksplisit yang disebutkan user sendiri — jangan pernah menghitung dari persentase. Invoice pertama untuk sebuah project otomatis ditautkan ke quotation asalnya (jadi 'invoice DP'); invoice berikutnya tidak. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+      "Buat invoice baru (status DRAFT) untuk satu project, lengkap dengan referensi Customer PO, PIC, dan PPN. Jumlah HARUS Rupiah eksplisit yang disebutkan user sendiri (net setelah dikurangi DP kalau relevan) — jangan pernah menghitung dari persentase. Invoice pertama untuk sebuah project otomatis ditautkan ke quotation asalnya (jadi 'invoice DP', deskripsinya mengikuti scope quotation itu); invoice berikutnya tidak. PPN dihitung otomatis oleh sistem dari taxPercent (default 11%) menggunakan rumus yang sama persis dengan Quotation/Invoice manual di app — bukan dihitung sendiri oleh AI. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
     input_schema: {
       type: "object",
       properties: {
         projectNumber: { type: "string", description: "Nomor project yang mau ditagih, boleh sebagian." },
-        amount: { type: "number", description: "Jumlah tagihan dalam Rupiah, disebutkan eksplisit oleh user." },
+        amount: { type: "number", description: "Jumlah tagihan dalam Rupiah (net, sebelum PPN), disebutkan eksplisit oleh user." },
         dpPercent: { type: "number", description: "Opsional, hanya untuk label 'DP X%' di deskripsi invoice — tidak memengaruhi amount." },
         dueInDays: { type: "number", description: "Opsional, jatuh tempo berapa hari dari sekarang (default 30)." },
+        taxPercent: { type: "number", description: "Opsional, persentase PPN yang DITAMBAHKAN ke amount (default 11, sesuai standar). Isi 0 kalau invoice ini tidak kena PPN." },
+        customerPO: { type: "string", description: "Opsional, nomor PO customer yang jadi rujukan invoice ini." },
+        poDate: { type: "string", description: "Opsional, tanggal PO customer tsb, format YYYY-MM-DD." },
+        contactName: { type: "string", description: "Opsional, nama PIC di sisi customer untuk invoice ini (dicocokkan ke data kontak customer). Kalau kosong dan invoice ini tertaut quotation, ikut PIC quotation-nya." },
       },
       required: ["projectNumber", "amount"],
+    },
+  },
+  {
+    name: "create_vendor_po",
+    description:
+      "Buat Vendor Purchase Order baru (status DRAFT) untuk belanja/procurement ke supplier/vendor luar — persis alur 'Buat Vendor PO' di app. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    input_schema: {
+      type: "object",
+      properties: {
+        vendorName: { type: "string", description: "Nama vendor/supplier." },
+        projectNumber: { type: "string", description: "Nomor project yang jadi tujuan belanja ini (opsional)." },
+        items: {
+          type: "array",
+          minItems: 1,
+          items: {
+            type: "object",
+            properties: {
+              description: { type: "string", description: "Deskripsi item/jasa yang dibeli." },
+              quantity: { type: "number", description: "Kuantitas." },
+              unit: { type: "string", description: "Satuan, mis. pcs/lot/unit." },
+              unitPrice: { type: "number", description: "Harga per unit (Rupiah)." },
+            },
+            required: ["description", "quantity", "unitPrice"],
+          },
+        },
+        taxPercent: { type: "number", description: "Opsional, persentase PPN (default 11)." },
+        discount: { type: "number", description: "Opsional, diskon dalam Rupiah (default 0)." },
+        paymentTerms: { type: "string", description: "Opsional, syarat pembayaran ke vendor." },
+        deliveryTerms: { type: "string", description: "Opsional, syarat pengiriman." },
+        notes: { type: "string", description: "Opsional, catatan tambahan." },
+      },
+      required: ["vendorName", "items"],
+    },
+  },
+  {
+    name: "create_progress_report",
+    description:
+      "Buat laporan progres lapangan (progress report) untuk satu project, dengan daftar checkpoint/item pekerjaan — persis alur 'Buat Progress Report' di app. Foto before/after tetap harus diupload manual di app setelahnya (chat tidak bisa upload file). TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    input_schema: {
+      type: "object",
+      properties: {
+        projectNumber: { type: "string", description: "Nomor project, boleh sebagian." },
+        inspectionDate: { type: "string", description: "Opsional, tanggal inspeksi/kunjungan, format YYYY-MM-DD (default hari ini)." },
+        location: { type: "string", description: "Opsional, lokasi/site kunjungan." },
+        items: {
+          type: "array",
+          minItems: 1,
+          items: {
+            type: "object",
+            properties: {
+              partName: { type: "string", description: "Nama part/checkpoint yang diperiksa/dikerjakan." },
+              notes: { type: "string", description: "Opsional, catatan untuk checkpoint ini." },
+              isDone: { type: "boolean", description: "Opsional, apakah checkpoint ini sudah selesai (default false)." },
+            },
+            required: ["partName"],
+          },
+        },
+      },
+      required: ["projectNumber", "items"],
     },
   },
 ];
@@ -886,12 +963,33 @@ export async function executeAssistantTool(
           })),
         }))
       );
+
+      let contactId: string | null = null;
+      if (input.contactName) {
+        const contacts = await prisma.contact.findMany({
+          where: { customerId: sheet.customerId, name: { contains: String(input.contactName), mode: "insensitive" } },
+          select: { id: true, name: true },
+          take: 5,
+        });
+        if (contacts.length === 0) return { resultText: `Kontak "${input.contactName}" tidak ditemukan di customer ini.` };
+        if (contacts.length > 1) {
+          return { resultText: `Ada ${contacts.length} kontak mirip "${input.contactName}": ${contacts.map((c) => c.name).join(", ")}. Sebutkan salah satu nama persis.` };
+        }
+        contactId = contacts[0].id;
+      }
+
+      const validUntilDays = Number.isFinite(Number(input.validUntilDays)) ? Number(input.validUntilDays) : 30;
+      const validUntil = new Date(Date.now() + validUntilDays * 24 * 60 * 60 * 1000);
+
       return {
         resultText: "Menunggu konfirmasi user sebelum quotation benar-benar dibuat.",
         pendingAction: {
           toolName: "convert_costing_to_quotation",
-          args: { costingId: sheet.id, salesPicId: actor.userId },
-          description: `Buat quotation dari costing ${sheet.number} — ${sheet.customer.companyName} (${formatCurrency(summary.totalRevenue)})`,
+          args: { costingId: sheet.id, salesPicId: actor.userId, contactId, validUntil: validUntil.toISOString() },
+          description:
+            `Buat quotation dari costing ${sheet.number} — ${sheet.customer.companyName} (${formatCurrency(summary.totalRevenue)})\n` +
+            `Berlaku sampai: ${formatDate(validUntil)}` +
+            (contactId ? `\nPIC: ${String(input.contactName)}` : ""),
         },
       };
     }
@@ -933,22 +1031,168 @@ export async function executeAssistantTool(
 
     case "create_invoice": {
       requirePermission(actor.role, "finance", "create");
-      const projectNumber = String(input.projectNumber ?? "");
+      const projectNumberRaw = String(input.projectNumber ?? "");
       const amount = Number(input.amount);
-      const dpPercent = input.dpPercent != null ? Number(input.dpPercent) : null;
-      const dueInDays = input.dueInDays != null ? Number(input.dueInDays) : null;
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return { resultText: 'Sebutkan jumlah tagihan dalam Rupiah secara eksplisit (bukan persen), mis. "sebesar Rp150.000.000".' };
+      }
 
-      const sim = await simulateInvoice(projectNumber, Number.isFinite(amount) ? amount : null, dpPercent, dueInDays);
-      if (!sim.ok) return { resultText: sim.error ?? "Gagal mensimulasikan invoice." };
+      const project = await prisma.project.findFirst({
+        where: { deletedAt: null, number: { contains: projectNumberRaw, mode: "insensitive" } },
+        select: { id: true, number: true, name: true, customerId: true, quotationId: true, jobNumber: true },
+      });
+      if (!project) return { resultText: `Project "${projectNumberRaw}" tidak ditemukan.` };
+
+      const existingInvoiceCount = await prisma.invoice.count({
+        where: { projectId: project.id, status: { not: "CANCELLED" }, deletedAt: null },
+      });
+      const isFirstInvoice = existingInvoiceCount === 0;
+      const quotationId = isFirstInvoice ? project.quotationId : null;
+      const quotation = quotationId
+        ? await prisma.quotation.findUnique({
+            where: { id: quotationId },
+            select: { number: true, description: true, contactId: true, salesPicId: true },
+          })
+        : null;
+
+      const dpPercent = input.dpPercent != null ? Number(input.dpPercent) : null;
+      const dueInDays = Number.isFinite(Number(input.dueInDays)) ? Number(input.dueInDays) : 30;
+      const dueDate = new Date(Date.now() + dueInDays * 24 * 60 * 60 * 1000);
+      const taxPercent = Number.isFinite(Number(input.taxPercent)) ? Number(input.taxPercent) : 11;
+
+      let contactId: string | null = quotation?.contactId ?? null;
+      if (input.contactName) {
+        const contacts = await prisma.contact.findMany({
+          where: { customerId: project.customerId, name: { contains: String(input.contactName), mode: "insensitive" } },
+          select: { id: true, name: true },
+          take: 5,
+        });
+        if (contacts.length === 0) return { resultText: `PIC "${input.contactName}" tidak ditemukan di customer ini.` };
+        if (contacts.length > 1) {
+          return { resultText: `Ada ${contacts.length} kontak mirip "${input.contactName}": ${contacts.map((c) => c.name).join(", ")}. Sebutkan salah satu nama persis.` };
+        }
+        contactId = contacts[0].id;
+      }
+
+      const customerPO = input.customerPO ? String(input.customerPO) : null;
+      const poDate = parseOptionalDate(input.poDate);
+      if (poDate === "invalid") return { resultText: "Format tanggal PO tidak valid — gunakan format YYYY-MM-DD." };
+
+      const scopeLabel = quotation?.description || project.name;
+      const description = quotationId
+        ? `Down Payment${dpPercent != null ? ` ${dpPercent}%` : ""} - ${scopeLabel}${quotation ? ` (Ref. Quotation ${quotation.number})` : ""}`
+        : `Termin Pembayaran - ${scopeLabel}`;
+
+      const totals = calcInvoiceTotals(
+        [{ description, quantity: 1, unit: "lot", unitPrice: amount, taxPercent, isNote: false }],
+        0
+      );
+
       return {
         resultText: "Menunggu konfirmasi user sebelum invoice benar-benar dibuat.",
         pendingAction: {
           toolName: "create_invoice",
           args: {
-            projectId: sim.projectId, customerId: sim.customerId, quotationId: sim.quotationId ?? null,
-            amount: sim.amount, dpPercent, dueDate: sim.dueDate,
+            projectId: project.id, customerId: project.customerId, quotationId,
+            contactId, jobNo: project.jobNumber, salesPicId: quotation?.salesPicId ?? null,
+            dueDate: dueDate.toISOString(), customerPO, poDate: poDate ? poDate.toISOString() : null,
+            dpPercent, taxPercent, description, amount,
           },
-          description: cleanPreview(sim.previewText ?? ""),
+          description:
+            `Invoice — ${project.number} (${scopeLabel})\n` +
+            `${description}\n` +
+            `Dasar: ${formatCurrency(amount)}${taxPercent > 0 ? ` + PPN ${taxPercent}% (${formatCurrency(totals.tax)})` : ""}\n` +
+            `Total tagihan: ${formatCurrency(totals.grandTotal)}\n` +
+            `Jatuh tempo: ${formatDate(dueDate)}` +
+            (customerPO ? `\nCustomer PO: ${customerPO}${poDate ? ` (${formatDate(poDate)})` : ""}` : "") +
+            (contactId ? `\nPIC: ${input.contactName ? String(input.contactName) : "(dari quotation)"}` : ""),
+        },
+      };
+    }
+
+    case "create_vendor_po": {
+      requirePermission(actor.role, "sales", "create");
+      const vendorName = String(input.vendorName ?? "").trim();
+      if (!vendorName) return { resultText: "Sebutkan nama vendor/supplier." };
+
+      const rawItems = Array.isArray(input.items) ? (input.items as Record<string, unknown>[]) : [];
+      if (rawItems.length === 0) return { resultText: "Sebutkan minimal 1 item (deskripsi, qty, harga)." };
+      const items: { description: string; quantity: number; unit: string; unitPrice: number }[] = [];
+      for (const raw of rawItems) {
+        const description = String(raw.description ?? "").trim();
+        const quantity = Number(raw.quantity);
+        const unitPrice = Number(raw.unitPrice);
+        if (!description || !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(unitPrice)) {
+          return { resultText: `Item "${description || "(tanpa deskripsi)"}" belum lengkap — sebutkan deskripsi, qty, dan harga per unit.` };
+        }
+        items.push({ description, quantity, unit: String(raw.unit ?? "lot"), unitPrice });
+      }
+
+      let projectId: string | null = null;
+      if (input.projectNumber) {
+        const project = await prisma.project.findFirst({
+          where: { deletedAt: null, number: { contains: String(input.projectNumber), mode: "insensitive" } },
+          select: { id: true, number: true },
+        });
+        if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+        projectId = project.id;
+      }
+
+      const taxPercent = Number.isFinite(Number(input.taxPercent)) ? Number(input.taxPercent) : 11;
+      const discount = Number.isFinite(Number(input.discount)) ? Number(input.discount) : 0;
+      const totals = calcVendorPoTotals(items, discount, taxPercent);
+
+      return {
+        resultText: "Menunggu konfirmasi user sebelum Vendor PO benar-benar dibuat.",
+        pendingAction: {
+          toolName: "create_vendor_po",
+          args: {
+            vendorName, items, taxPercent, discount, projectId,
+            paymentTerms: input.paymentTerms ? String(input.paymentTerms) : null,
+            deliveryTerms: input.deliveryTerms ? String(input.deliveryTerms) : null,
+            notes: input.notes ? String(input.notes) : null,
+          },
+          description:
+            `Buat Vendor PO — ${vendorName} (${items.length} item)\n` +
+            `Total: ${formatCurrency(totals.grandTotal)} (termasuk PPN ${taxPercent}%)`,
+        },
+      };
+    }
+
+    case "create_progress_report": {
+      requirePermission(actor.role, "project", "create");
+      const project = await prisma.project.findFirst({
+        where: { deletedAt: null, number: { contains: String(input.projectNumber ?? ""), mode: "insensitive" } },
+        select: { id: true, number: true, name: true },
+      });
+      if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+
+      const rawItems = Array.isArray(input.items) ? (input.items as Record<string, unknown>[]) : [];
+      if (rawItems.length === 0) return { resultText: "Sebutkan minimal 1 checkpoint (nama part/pekerjaan)." };
+      const items: { partName: string; notes: string | null; isDone: boolean }[] = [];
+      for (const raw of rawItems) {
+        const partName = String(raw.partName ?? "").trim();
+        if (!partName) return { resultText: "Setiap checkpoint harus punya nama part/pekerjaan." };
+        items.push({ partName, notes: raw.notes ? String(raw.notes) : null, isDone: Boolean(raw.isDone) });
+      }
+
+      const inspectionDate = parseOptionalDate(input.inspectionDate);
+      if (inspectionDate === "invalid") return { resultText: "Format tanggal inspeksi tidak valid — gunakan format YYYY-MM-DD." };
+
+      return {
+        resultText: "Menunggu konfirmasi user sebelum progress report benar-benar dibuat.",
+        pendingAction: {
+          toolName: "create_progress_report",
+          args: {
+            projectId: project.id,
+            inspectionDate: (inspectionDate ?? new Date()).toISOString(),
+            location: input.location ? String(input.location) : null,
+            items,
+          },
+          description:
+            `Buat progress report — ${project.number} (${project.name})\n` +
+            `${items.length} checkpoint: ${items.map((i) => i.partName).join(", ")}\n` +
+            `Foto before/after masih perlu diupload manual di app setelah ini.`,
         },
       };
     }
@@ -1013,7 +1257,15 @@ export async function runConfirmedAssistantAction(
       return `${sheet.number} berhasil dibuat sebagai costing sheet DRAFT.`;
     }
     case "convert_costing_to_quotation": {
-      const quotation = await convertCostingToQuotation(String(args.costingId), { salesPicId: String(args.salesPicId) }, actor);
+      const quotation = await convertCostingToQuotation(
+        String(args.costingId),
+        {
+          salesPicId: String(args.salesPicId),
+          contactId: args.contactId ? String(args.contactId) : undefined,
+          validUntil: args.validUntil ? new Date(String(args.validUntil)) : undefined,
+        },
+        actor
+      );
       return `Quotation ${quotation.number} berhasil dibuat.`;
     }
     case "revise_quotation": {
@@ -1021,18 +1273,70 @@ export async function runConfirmedAssistantAction(
       return `Quotation ${result.quotationNumber} berhasil direvisi.`;
     }
     case "create_invoice": {
-      const result = await commitInvoice(
+      const invoiceInput: InvoiceInput = {
+        customerId: String(args.customerId),
+        projectId: String(args.projectId),
+        quotationId: args.quotationId ? String(args.quotationId) : null,
+        contactId: args.contactId ? String(args.contactId) : null,
+        invoiceDate: new Date(),
+        dueDate: new Date(String(args.dueDate)),
+        customerPO: args.customerPO ? String(args.customerPO) : null,
+        poDate: args.poDate ? new Date(String(args.poDate)) : null,
+        deliveryDate: null,
+        jobNo: args.jobNo ? String(args.jobNo) : null,
+        salesPicId: args.salesPicId ? String(args.salesPicId) : null,
+        notes: null,
+        dpPercent: args.dpPercent != null ? Number(args.dpPercent) : null,
+        discount: 0,
+        items: [
+          {
+            description: String(args.description),
+            quantity: 1,
+            unit: "lot",
+            unitPrice: Number(args.amount),
+            taxPercent: Number(args.taxPercent) || 0,
+            isNote: false,
+          },
+        ],
+      };
+      const invoice = await createInvoice(invoiceInput, actor);
+      return `${invoice.number} berhasil dibuat sebagai DRAFT (Total: ${formatCurrency(Number(invoice.grandTotal))}).`;
+    }
+    case "create_vendor_po": {
+      const items = args.items as { description: string; quantity: number; unit: string; unitPrice: number }[];
+      const poInput: VendorPurchaseOrderInput = {
+        vendorName: String(args.vendorName),
+        poDate: new Date(),
+        projectId: args.projectId ? String(args.projectId) : null,
+        discount: Number(args.discount) || 0,
+        taxPercent: Number(args.taxPercent) || 0,
+        paymentTerms: args.paymentTerms ? String(args.paymentTerms) : null,
+        deliveryTerms: args.deliveryTerms ? String(args.deliveryTerms) : null,
+        notes: args.notes ? String(args.notes) : null,
+        items,
+      };
+      const po = await createVendorPurchaseOrder(poInput, actor);
+      return `${po.number} berhasil dibuat sebagai DRAFT (Total: ${formatCurrency(Number(po.grandTotal))}).`;
+    }
+    case "create_progress_report": {
+      const items = args.items as { partName: string; notes: string | null; isDone: boolean }[];
+      const report = await createProgressReport(
         {
           projectId: String(args.projectId),
-          customerId: String(args.customerId),
-          quotationId: args.quotationId ? String(args.quotationId) : null,
-          amount: Number(args.amount),
-          dpPercent: args.dpPercent != null ? Number(args.dpPercent) : null,
-          dueDate: String(args.dueDate),
+          inspectionDate: new Date(String(args.inspectionDate)),
+          location: args.location ? String(args.location) : null,
+          preparedById: actor.userId,
         },
-        actor
+        actor.userId
       );
-      return `Invoice ${result.invoiceNumber} berhasil dibuat sebagai DRAFT.`;
+      for (let i = 0; i < items.length; i++) {
+        await addProgressReportItem(
+          { progressReportId: report.id, partName: items[i].partName, notes: items[i].notes, isDone: items[i].isDone, sortOrder: i },
+          {},
+          actor.userId
+        );
+      }
+      return `${report.number} berhasil dibuat dengan ${items.length} checkpoint.`;
     }
     default:
       throw new ForbiddenError(`Aksi "${toolName}" tidak dikenali.`);
