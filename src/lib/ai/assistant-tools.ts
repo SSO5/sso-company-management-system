@@ -5,8 +5,20 @@ import { approveQuotation, rejectQuotation } from "@/lib/workflows/quotation";
 import { approveInvoice, rejectInvoice } from "@/lib/workflows/finance";
 import { approveVendorPO, rejectVendorPO } from "@/lib/workflows/vendor-po";
 import { approveExpense, rejectExpense } from "@/lib/workflows/expense";
+import { createCostingSheet, convertCostingToQuotation } from "@/lib/workflows/costing";
+import { searchCustomerCandidates } from "@/lib/workflows/telegram-costing-draft";
+import { calcCostingSummary } from "@/lib/workflows/calculations";
+import { simulateQuotationRevision, commitQuotationRevision } from "@/lib/workflows/telegram-automation";
+import { simulateInvoice, commitInvoice } from "@/lib/workflows/telegram-invoice";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import type { RevisionAction } from "@/lib/ai/parse-revision-command";
+import type { CostingSheetInput, CostingLineItemInput } from "@/lib/validation/costing";
 import type { SessionPayload } from "@/lib/auth/session";
+
+/** Strips the Telegram-specific *bold* markdown and "Balas ya/batal" instruction line from a shared preview string — this chat has its own Confirm/Cancel buttons instead of a text reply. */
+function cleanPreview(text: string): string {
+  return text.replace(/\*/g, "").split("\n\nBalas")[0].trim();
+}
 
 /**
  * The closed set of tools the in-app AI assistant may call — same "narrow,
@@ -31,6 +43,10 @@ export const WRITE_TOOLS = new Set([
   "reject_vendor_po",
   "approve_expense",
   "reject_expense",
+  "create_costing_sheet",
+  "convert_costing_to_quotation",
+  "revise_quotation",
+  "create_invoice",
 ]);
 
 export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
@@ -169,6 +185,79 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
       required: ["expenseNumber", "reason"],
     },
   },
+  {
+    name: "create_costing_sheet",
+    description:
+      "Buat costing sheet baru (status DRAFT) untuk satu customer/project, dengan satu atau lebih item (nama, qty, unit, harga modal, margin%). TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat. Jangan pernah menebak angka qty/harga/margin yang tidak disebutkan user secara eksplisit — tanya dulu kalau belum lengkap.",
+    input_schema: {
+      type: "object",
+      properties: {
+        customerName: { type: "string", description: "Nama customer (boleh sebagian/mirip), akan dicocokkan ke data customer yang ada." },
+        projectTitle: { type: "string", description: "Judul/nama project untuk costing ini." },
+        jobNo: { type: "string", description: "Nomor job internal (opsional)." },
+        operationalCost: { type: "number", description: "Biaya operasional tambahan di luar item (opsional, default 0)." },
+        items: {
+          type: "array",
+          minItems: 1,
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string", description: "Nama item/pekerjaan." },
+              quantity: { type: "number", description: "Kuantitas." },
+              unit: { type: "string", description: "Satuan, mis. pcs/lot/unit." },
+              costUnitPrice: { type: "number", description: "Harga modal per unit (Rupiah)." },
+              supplierDiscountPercent: { type: "number", description: "Diskon dari supplier dalam persen (opsional, default 0)." },
+              marginPercent: { type: "number", description: "Margin keuntungan dalam persen." },
+            },
+            required: ["name", "quantity", "unit", "costUnitPrice", "marginPercent"],
+          },
+        },
+      },
+      required: ["customerName", "projectTitle", "items"],
+    },
+  },
+  {
+    name: "convert_costing_to_quotation",
+    description:
+      "Ubah satu costing sheet (yang sudah ada, status belum CONVERTED) menjadi Quotation baru — persis alur 'Buat Quotation' di app. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    input_schema: {
+      type: "object",
+      properties: { costingNumber: { type: "string", description: "Nomor costing sheet, boleh sebagian." } },
+      required: ["costingNumber"],
+    },
+  },
+  {
+    name: "revise_quotation",
+    description:
+      "Revisi satu quotation yang sudah ada, lewat costing yang menjadi dasarnya — persis alur revisi quotation yang sudah dipakai lewat Telegram. Hanya mendukung TIGA jenis perubahan (jangan menebak jenis lain): 'percent_adjustment' (naik/turunkan harga jual X%, pakai percent negatif untuk turun), 'operational_cost_delta' (tambah/kurangi biaya operasional sejumlah Rupiah, pakai amount negatif untuk kurangi), atau 'item_quantity' (ubah qty satu item tertentu berdasarkan namanya). TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    input_schema: {
+      type: "object",
+      properties: {
+        quotationNumber: { type: "string", description: "Nomor quotation yang mau direvisi." },
+        adjustmentType: { type: "string", enum: ["percent_adjustment", "operational_cost_delta", "item_quantity"] },
+        percent: { type: "number", description: "Wajib diisi kalau adjustmentType = percent_adjustment." },
+        amount: { type: "number", description: "Wajib diisi kalau adjustmentType = operational_cost_delta." },
+        itemName: { type: "string", description: "Wajib diisi kalau adjustmentType = item_quantity." },
+        quantity: { type: "number", description: "Wajib diisi kalau adjustmentType = item_quantity." },
+      },
+      required: ["quotationNumber", "adjustmentType"],
+    },
+  },
+  {
+    name: "create_invoice",
+    description:
+      "Buat invoice baru (status DRAFT) untuk satu project. Jumlah HARUS Rupiah eksplisit yang disebutkan user sendiri — jangan pernah menghitung dari persentase. Invoice pertama untuk sebuah project otomatis ditautkan ke quotation asalnya (jadi 'invoice DP'); invoice berikutnya tidak. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    input_schema: {
+      type: "object",
+      properties: {
+        projectNumber: { type: "string", description: "Nomor project yang mau ditagih, boleh sebagian." },
+        amount: { type: "number", description: "Jumlah tagihan dalam Rupiah, disebutkan eksplisit oleh user." },
+        dpPercent: { type: "number", description: "Opsional, hanya untuk label 'DP X%' di deskripsi invoice — tidak memengaruhi amount." },
+        dueInDays: { type: "number", description: "Opsional, jatuh tempo berapa hari dari sekarang (default 30)." },
+      },
+      required: ["projectNumber", "amount"],
+    },
+  },
 ];
 
 export interface ToolExecutionResult {
@@ -206,6 +295,18 @@ async function findVendorPOByNumber(numberFragment: string) {
     select: {
       id: true, number: true, status: true, grandTotal: true, vendorName: true,
       submittedBy: { select: { name: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+async function findCostingByNumber(numberFragment: string) {
+  return prisma.costingSheet.findFirst({
+    where: { deletedAt: null, number: { contains: numberFragment, mode: "insensitive" } },
+    include: {
+      customer: { select: { companyName: true } },
+      quotation: { select: { number: true } },
+      sections: { include: { items: true }, orderBy: { sortOrder: "asc" } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -494,6 +595,141 @@ export async function executeAssistantTool(
       };
     }
 
+    case "create_costing_sheet": {
+      requirePermission(actor.role, "sales", "create");
+
+      const rawItems = Array.isArray(input.items) ? (input.items as Record<string, unknown>[]) : [];
+      if (rawItems.length === 0) return { resultText: "Sebutkan minimal 1 item (nama, qty, unit, harga modal, margin%)." };
+
+      const items: CostingLineItemInput[] = [];
+      for (const raw of rawItems) {
+        const name = String(raw.name ?? "").trim();
+        const quantity = Number(raw.quantity);
+        const unit = String(raw.unit ?? "").trim();
+        const costUnitPrice = Number(raw.costUnitPrice);
+        const marginPercent = Number(raw.marginPercent);
+        if (!name || !unit || !Number.isFinite(quantity) || !Number.isFinite(costUnitPrice) || !Number.isFinite(marginPercent)) {
+          return { resultText: `Item "${name || "(tanpa nama)"}" belum lengkap — sebutkan nama, qty, unit, harga modal, dan margin% secara eksplisit.` };
+        }
+        items.push({
+          name,
+          quantity,
+          unit,
+          currency: "IDR",
+          costUnitPrice,
+          supplierDiscountPercent: Number.isFinite(Number(raw.supplierDiscountPercent)) ? Number(raw.supplierDiscountPercent) : 0,
+          marginPercent,
+        });
+      }
+
+      const customerName = String(input.customerName ?? "");
+      const candidates = await searchCustomerCandidates(customerName);
+      if (candidates.length === 0) return { resultText: `Customer "${customerName}" tidak ditemukan.` };
+      if (candidates.length > 1) {
+        return { resultText: `Ada ${candidates.length} customer mirip "${customerName}": ${candidates.map((c) => c.companyName).join(", ")}. Sebutkan salah satu nama persis.` };
+      }
+      const customer = candidates[0];
+
+      const projectTitle = String(input.projectTitle ?? "").trim();
+      if (!projectTitle) return { resultText: "Sebutkan judul project untuk costing ini." };
+      const jobNo = input.jobNo ? String(input.jobNo) : null;
+      const operationalCost = Number.isFinite(Number(input.operationalCost)) ? Number(input.operationalCost) : 0;
+
+      const summary = calcCostingSummary([{ items }], { operationalCost });
+      return {
+        resultText: "Menunggu konfirmasi user sebelum costing sheet benar-benar dibuat.",
+        pendingAction: {
+          toolName: "create_costing_sheet",
+          args: { customerId: customer.id, projectTitle, jobNo, operationalCost, items },
+          description:
+            `Buat costing baru — ${customer.companyName} / ${projectTitle} (${items.length} item)\n` +
+            `Total jual: ${formatCurrency(summary.totalRevenue)} — Margin: ${summary.grossMarginPercent}%`,
+        },
+      };
+    }
+
+    case "convert_costing_to_quotation": {
+      requirePermission(actor.role, "sales", "create");
+      const sheet = await findCostingByNumber(String(input.costingNumber ?? ""));
+      if (!sheet) return { resultText: `Costing sheet "${input.costingNumber}" tidak ditemukan.` };
+      if (sheet.status === "CONVERTED") {
+        return { resultText: `${sheet.number} sudah dikonversi menjadi quotation ${sheet.quotation?.number ?? "-"}.` };
+      }
+      const summary = calcCostingSummary(
+        sheet.sections.map((s) => ({
+          items: s.items.map((i) => ({
+            quantity: Number(i.quantity), costUnitPrice: Number(i.costUnitPrice),
+            supplierDiscountPercent: Number(i.supplierDiscountPercent), marginPercent: Number(i.marginPercent),
+          })),
+        }))
+      );
+      return {
+        resultText: "Menunggu konfirmasi user sebelum quotation benar-benar dibuat.",
+        pendingAction: {
+          toolName: "convert_costing_to_quotation",
+          args: { costingId: sheet.id, salesPicId: actor.userId },
+          description: `Buat quotation dari costing ${sheet.number} — ${sheet.customer.companyName} (${formatCurrency(summary.totalRevenue)})`,
+        },
+      };
+    }
+
+    case "revise_quotation": {
+      requirePermission(actor.role, "sales", "update");
+      const quotationNumber = String(input.quotationNumber ?? "");
+      const adjustmentType = String(input.adjustmentType ?? "");
+
+      let action: RevisionAction;
+      if (adjustmentType === "percent_adjustment") {
+        const percent = Number(input.percent);
+        if (!Number.isFinite(percent)) return { resultText: "Sebutkan berapa persen kenaikan/penurunan harganya." };
+        action = { type: "percent_adjustment", percent };
+      } else if (adjustmentType === "operational_cost_delta") {
+        const amount = Number(input.amount);
+        if (!Number.isFinite(amount)) return { resultText: "Sebutkan berapa Rupiah perubahan biaya operasionalnya." };
+        action = { type: "operational_cost_delta", amount };
+      } else if (adjustmentType === "item_quantity") {
+        const itemName = String(input.itemName ?? "").trim();
+        const quantity = Number(input.quantity);
+        if (!itemName || !Number.isFinite(quantity)) return { resultText: "Sebutkan nama item dan quantity baru-nya." };
+        action = { type: "item_quantity", itemName, quantity };
+      } else {
+        return { resultText: "Jenis revisi tidak didukung — hanya bisa naik/turun harga %, ubah biaya operasional, atau ubah qty satu item." };
+      }
+
+      const sim = await simulateQuotationRevision(quotationNumber, action);
+      if (!sim.ok) return { resultText: sim.error ?? "Gagal mensimulasikan revisi." };
+      return {
+        resultText: "Menunggu konfirmasi user sebelum revisi benar-benar dijalankan.",
+        pendingAction: {
+          toolName: "revise_quotation",
+          args: { costingId: sim.costingId, action },
+          description: cleanPreview(sim.previewText ?? ""),
+        },
+      };
+    }
+
+    case "create_invoice": {
+      requirePermission(actor.role, "finance", "create");
+      const projectNumber = String(input.projectNumber ?? "");
+      const amount = Number(input.amount);
+      const dpPercent = input.dpPercent != null ? Number(input.dpPercent) : null;
+      const dueInDays = input.dueInDays != null ? Number(input.dueInDays) : null;
+
+      const sim = await simulateInvoice(projectNumber, Number.isFinite(amount) ? amount : null, dpPercent, dueInDays);
+      if (!sim.ok) return { resultText: sim.error ?? "Gagal mensimulasikan invoice." };
+      return {
+        resultText: "Menunggu konfirmasi user sebelum invoice benar-benar dibuat.",
+        pendingAction: {
+          toolName: "create_invoice",
+          args: {
+            projectId: sim.projectId, customerId: sim.customerId, quotationId: sim.quotationId ?? null,
+            amount: sim.amount, dpPercent, dueDate: sim.dueDate,
+          },
+          description: cleanPreview(sim.previewText ?? ""),
+        },
+      };
+    }
+
     default:
       return { resultText: `Tool "${toolName}" tidak dikenali.` };
   }
@@ -537,6 +773,43 @@ export async function runConfirmedAssistantAction(
     case "reject_expense": {
       const exp = await rejectExpense(String(args.expenseId), String(args.reason), actor);
       return `${exp.number} berhasil di-reject.`;
+    }
+    case "create_costing_sheet": {
+      const items = args.items as CostingLineItemInput[];
+      const input: CostingSheetInput = {
+        customerId: String(args.customerId),
+        projectTitle: String(args.projectTitle),
+        jobNo: args.jobNo ? String(args.jobNo) : null,
+        costingDate: new Date(),
+        operationalCost: Number(args.operationalCost) || 0,
+        ppnPercent: 11,
+        pphFinalPercent: 2,
+        sections: [{ code: "A", name: "UMUM", items }],
+      };
+      const sheet = await createCostingSheet(input, actor);
+      return `${sheet.number} berhasil dibuat sebagai costing sheet DRAFT.`;
+    }
+    case "convert_costing_to_quotation": {
+      const quotation = await convertCostingToQuotation(String(args.costingId), { salesPicId: String(args.salesPicId) }, actor);
+      return `Quotation ${quotation.number} berhasil dibuat.`;
+    }
+    case "revise_quotation": {
+      const result = await commitQuotationRevision(String(args.costingId), args.action as RevisionAction, actor);
+      return `Quotation ${result.quotationNumber} berhasil direvisi.`;
+    }
+    case "create_invoice": {
+      const result = await commitInvoice(
+        {
+          projectId: String(args.projectId),
+          customerId: String(args.customerId),
+          quotationId: args.quotationId ? String(args.quotationId) : null,
+          amount: Number(args.amount),
+          dpPercent: args.dpPercent != null ? Number(args.dpPercent) : null,
+          dueDate: String(args.dueDate),
+        },
+        actor
+      );
+      return `Invoice ${result.invoiceNumber} berhasil dibuat sebagai DRAFT.`;
     }
     default:
       throw new ForbiddenError(`Aksi "${toolName}" tidak dikenali.`);
