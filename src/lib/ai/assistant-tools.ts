@@ -7,13 +7,19 @@ import { approveVendorPO, rejectVendorPO } from "@/lib/workflows/vendor-po";
 import { approveExpense, rejectExpense } from "@/lib/workflows/expense";
 import { createCostingSheet, convertCostingToQuotation } from "@/lib/workflows/costing";
 import { searchCustomerCandidates } from "@/lib/workflows/telegram-costing-draft";
-import { calcCostingSummary } from "@/lib/workflows/calculations";
+import { calcCostingSummary, computeBillingSchedule } from "@/lib/workflows/calculations";
 import { simulateQuotationRevision, commitQuotationRevision } from "@/lib/workflows/telegram-automation";
 import { simulateInvoice, commitInvoice } from "@/lib/workflows/telegram-invoice";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { RevisionAction } from "@/lib/ai/parse-revision-command";
 import type { CostingSheetInput, CostingLineItemInput } from "@/lib/validation/costing";
 import type { SessionPayload } from "@/lib/auth/session";
+
+function clampLimit(input: unknown, def = 15, max = 30): number {
+  const n = Number(input);
+  if (!Number.isFinite(n) || n <= 0) return def;
+  return Math.min(Math.floor(n), max);
+}
 
 /** Strips the Telegram-specific *bold* markdown and "Balas ya/batal" instruction line from a shared preview string — this chat has its own Confirm/Cancel buttons instead of a text reply. */
 function cleanPreview(text: string): string {
@@ -99,6 +105,89 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
       type: "object",
       properties: { expenseNumber: { type: "string", description: "Nomor expense, boleh sebagian." } },
       required: ["expenseNumber"],
+    },
+  },
+  {
+    name: "get_billing_schedule",
+    description:
+      "Cari SEMUA project yang masih ada sisa tagihan (belum ditagih/belum full di-invoice) — persis data yang sama dengan halaman 'Billing Schedule' di app. Nilai remainingToBill dihitung dari total nilai PO customer dikurangi total yang sudah di-invoice. Pakai ini untuk pertanyaan seperti 'project apa aja yang belum ditagih' atau 'siapa yang masih ada piutang belum di-invoice'.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "list_projects",
+    description:
+      "Cari/daftar banyak project sekaligus dengan filter opsional — untuk pertanyaan umum seperti 'project apa aja yang lagi ACTIVE', 'project customer X', bukan cuma satu nomor spesifik.",
+    input_schema: {
+      type: "object",
+      properties: {
+        status: { type: "string", enum: ["PLANNING", "ACTIVE", "ON_HOLD", "AT_RISK", "COMPLETED", "CANCELLED", "CLOSED"], description: "Filter status project (opsional)." },
+        customerName: { type: "string", description: "Filter nama customer, boleh sebagian (opsional)." },
+        limit: { type: "number", description: "Maksimal hasil (opsional, default 15, maks 30)." },
+      },
+    },
+  },
+  {
+    name: "list_invoices",
+    description:
+      "Cari/daftar banyak invoice sekaligus dengan filter opsional — untuk pertanyaan umum seperti 'invoice yang overdue', 'invoice customer X', 'invoice project Y', bukan cuma satu nomor spesifik.",
+    input_schema: {
+      type: "object",
+      properties: {
+        status: { type: "string", enum: ["DRAFT", "SUBMITTED", "APPROVED", "REJECTED", "ISSUED", "PARTIALLY_PAID", "PAID", "OVERDUE", "CANCELLED"], description: "Filter status invoice (opsional)." },
+        customerName: { type: "string", description: "Filter nama customer, boleh sebagian (opsional)." },
+        projectNumber: { type: "string", description: "Filter nomor project, boleh sebagian (opsional)." },
+        limit: { type: "number", description: "Maksimal hasil (opsional, default 15, maks 30)." },
+      },
+    },
+  },
+  {
+    name: "list_quotations",
+    description:
+      "Cari/daftar banyak quotation sekaligus dengan filter opsional — termasuk yang sudah WON/LOST/SENT, bukan cuma yang sedang menunggu approval (pakai list_pending_approvals untuk itu).",
+    input_schema: {
+      type: "object",
+      properties: {
+        status: { type: "string", enum: ["DRAFT", "SUBMITTED", "UNDER_REVIEW", "APPROVED", "REJECTED", "SENT", "WON", "LOST", "EXPIRED", "CANCELLED"], description: "Filter status quotation (opsional)." },
+        customerName: { type: "string", description: "Filter nama customer, boleh sebagian (opsional)." },
+        limit: { type: "number", description: "Maksimal hasil (opsional, default 15, maks 30)." },
+      },
+    },
+  },
+  {
+    name: "list_vendor_pos",
+    description: "Cari/daftar banyak Vendor Purchase Order sekaligus dengan filter opsional.",
+    input_schema: {
+      type: "object",
+      properties: {
+        status: { type: "string", enum: ["DRAFT", "SUBMITTED", "APPROVED", "REJECTED", "SENT", "CONFIRMED", "CANCELLED"], description: "Filter status Vendor PO (opsional)." },
+        vendorName: { type: "string", description: "Filter nama vendor, boleh sebagian (opsional)." },
+        limit: { type: "number", description: "Maksimal hasil (opsional, default 15, maks 30)." },
+      },
+    },
+  },
+  {
+    name: "list_expenses",
+    description: "Cari/daftar banyak project expense sekaligus dengan filter opsional.",
+    input_schema: {
+      type: "object",
+      properties: {
+        approvalStatus: { type: "string", enum: ["DRAFT", "SUBMITTED", "APPROVED", "REJECTED"], description: "Filter status approval (opsional)." },
+        category: { type: "string", enum: ["LABOR", "MATERIALS", "TRANSPORTATION", "ACCOMMODATION", "VENDOR", "EQUIPMENT", "MARKETING", "OTHER"], description: "Filter kategori (opsional)." },
+        projectNumber: { type: "string", description: "Filter nomor project, boleh sebagian (opsional)." },
+        limit: { type: "number", description: "Maksimal hasil (opsional, default 15, maks 30)." },
+      },
+    },
+  },
+  {
+    name: "search_customers",
+    description: "Cari customer berdasarkan nama (boleh sebagian) — untuk pertanyaan seperti 'kita punya customer apa aja namanya mengandung X'.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Nama customer, boleh sebagian." },
+        limit: { type: "number", description: "Maksimal hasil (opsional, default 15, maks 30)." },
+      },
+      required: ["query"],
     },
   },
   {
@@ -457,6 +546,140 @@ export async function executeAssistantTool(
           `Status: ${exp.approvalStatus}\nNilai: ${formatCurrency(Number(exp.total))}\n` +
           `Submitted by: ${exp.submittedBy?.name ?? "-"}`,
       };
+    }
+
+    case "get_billing_schedule": {
+      requirePermission(actor.role, "finance", "view");
+      const projects = await prisma.project.findMany({
+        where: { deletedAt: null },
+        select: {
+          id: true, number: true,
+          customer: { select: { companyName: true } },
+          purchaseOrders: {
+            where: { deletedAt: null },
+            select: { id: true, number: true, poValue: true, status: true, paymentTerms: true, estimatedDeliveryDate: true },
+          },
+          invoices: { where: { deletedAt: null }, select: { grandTotal: true, dpPercent: true, status: true } },
+        },
+      });
+      const rows = computeBillingSchedule(projects);
+      if (rows.length === 0) return { resultText: "Tidak ada project dengan sisa tagihan saat ini — semua sudah full di-invoice." };
+      return {
+        resultText: rows
+          .slice(0, 30)
+          .map(
+            (r) =>
+              `- ${r.projectNumber} — ${r.customerName}: sisa ${formatCurrency(r.remainingToBill)} (PO ${formatCurrency(r.totalPoValue)}, sudah invoice ${formatCurrency(r.totalInvoiced)})` +
+              (r.nextBillingDate ? ` — target ${formatDate(r.nextBillingDate)}` : "")
+          )
+          .join("\n"),
+      };
+    }
+
+    case "list_projects": {
+      requirePermission(actor.role, "project", "view");
+      const rows = await prisma.project.findMany({
+        where: {
+          deletedAt: null,
+          ...(input.status ? { status: String(input.status) as never } : {}),
+          ...(input.customerName ? { customer: { companyName: { contains: String(input.customerName), mode: "insensitive" } } } : {}),
+        },
+        select: { number: true, name: true, status: true, progressPercent: true, customer: { select: { companyName: true } } },
+        orderBy: { createdAt: "desc" },
+        take: clampLimit(input.limit),
+      });
+      if (rows.length === 0) return { resultText: "Tidak ada project yang cocok." };
+      return { resultText: rows.map((p) => `- ${p.number} — ${p.name} (${p.customer.companyName}) — ${p.status}, progress ${p.progressPercent}%`).join("\n") };
+    }
+
+    case "list_invoices": {
+      requirePermission(actor.role, "finance", "view");
+      const rows = await prisma.invoice.findMany({
+        where: {
+          deletedAt: null,
+          ...(input.status ? { status: String(input.status) as never } : {}),
+          ...(input.customerName ? { customer: { companyName: { contains: String(input.customerName), mode: "insensitive" } } } : {}),
+          ...(input.projectNumber ? { project: { number: { contains: String(input.projectNumber), mode: "insensitive" } } } : {}),
+        },
+        select: { number: true, status: true, grandTotal: true, dueDate: true, customer: { select: { companyName: true } } },
+        orderBy: { createdAt: "desc" },
+        take: clampLimit(input.limit),
+      });
+      if (rows.length === 0) return { resultText: "Tidak ada invoice yang cocok." };
+      return {
+        resultText: rows
+          .map((i) => `- ${i.number} — ${i.customer.companyName} — ${i.status} — ${formatCurrency(Number(i.grandTotal))} — jatuh tempo ${formatDate(i.dueDate)}`)
+          .join("\n"),
+      };
+    }
+
+    case "list_quotations": {
+      requirePermission(actor.role, "sales", "view");
+      const rows = await prisma.quotation.findMany({
+        where: {
+          deletedAt: null,
+          ...(input.status ? { status: String(input.status) as never } : {}),
+          ...(input.customerName ? { customer: { companyName: { contains: String(input.customerName), mode: "insensitive" } } } : {}),
+        },
+        select: { number: true, revision: true, status: true, grandTotal: true, customer: { select: { companyName: true } } },
+        orderBy: { createdAt: "desc" },
+        take: clampLimit(input.limit),
+      });
+      if (rows.length === 0) return { resultText: "Tidak ada quotation yang cocok." };
+      return {
+        resultText: rows
+          .map((q) => `- ${q.number}${q.revision > 0 ? `.R${q.revision}` : ""} — ${q.customer.companyName} — ${q.status} — ${formatCurrency(Number(q.grandTotal))}`)
+          .join("\n"),
+      };
+    }
+
+    case "list_vendor_pos": {
+      requirePermission(actor.role, "sales", "view");
+      const rows = await prisma.vendorPurchaseOrder.findMany({
+        where: {
+          deletedAt: null,
+          ...(input.status ? { status: String(input.status) as never } : {}),
+          ...(input.vendorName ? { vendorName: { contains: String(input.vendorName), mode: "insensitive" } } : {}),
+        },
+        select: { number: true, status: true, grandTotal: true, vendorName: true },
+        orderBy: { createdAt: "desc" },
+        take: clampLimit(input.limit),
+      });
+      if (rows.length === 0) return { resultText: "Tidak ada Vendor PO yang cocok." };
+      return { resultText: rows.map((p) => `- ${p.number} — ${p.vendorName} — ${p.status} — ${formatCurrency(Number(p.grandTotal))}`).join("\n") };
+    }
+
+    case "list_expenses": {
+      requirePermission(actor.role, "project", "view");
+      const rows = await prisma.projectExpense.findMany({
+        where: {
+          deletedAt: null,
+          ...(input.approvalStatus ? { approvalStatus: String(input.approvalStatus) as never } : {}),
+          ...(input.category ? { category: String(input.category) as never } : {}),
+          ...(input.projectNumber ? { project: { number: { contains: String(input.projectNumber), mode: "insensitive" } } } : {}),
+        },
+        select: { number: true, approvalStatus: true, category: true, total: true, project: { select: { name: true } } },
+        orderBy: { createdAt: "desc" },
+        take: clampLimit(input.limit),
+      });
+      if (rows.length === 0) return { resultText: "Tidak ada expense yang cocok." };
+      return {
+        resultText: rows
+          .map((e) => `- ${e.number} — ${e.project.name} (${e.category}) — ${e.approvalStatus} — ${formatCurrency(Number(e.total))}`)
+          .join("\n"),
+      };
+    }
+
+    case "search_customers": {
+      requirePermission(actor.role, "sales", "view");
+      const rows = await prisma.customer.findMany({
+        where: { deletedAt: null, companyName: { contains: String(input.query ?? ""), mode: "insensitive" } },
+        select: { companyName: true, city: true },
+        orderBy: { companyName: "asc" },
+        take: clampLimit(input.limit),
+      });
+      if (rows.length === 0) return { resultText: "Tidak ada customer yang cocok." };
+      return { resultText: rows.map((c) => `- ${c.companyName}${c.city ? ` (${c.city})` : ""}`).join("\n") };
     }
 
     case "approve_quotation": {
