@@ -90,18 +90,27 @@ export function AssistantWidget() {
 
   return (
     <>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="fixed bottom-5 right-5 z-40 flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105"
-        aria-label="Tanya AISSO"
-      >
-        {open ? (
+      {open ? (
+        <button
+          onClick={() => setOpen(false)}
+          className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105"
+          aria-label="Tutup AISSO"
+        >
           <X className="h-6 w-6" />
-        ) : (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src="/aisso-icon.png" alt="AISSO" className="h-full w-full object-cover" />
-        )}
-      </button>
+        </button>
+      ) : (
+        <button
+          onClick={() => setOpen(true)}
+          className="fixed bottom-5 right-5 z-40 w-24 overflow-hidden rounded-2xl shadow-xl ring-2 ring-white/50 transition-transform hover:scale-105 sm:w-28"
+          aria-label="Tanya AISSO"
+        >
+          <span className="relative block">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/aisso-halfbody.png" alt="AISSO" className="block w-full" />
+            <span className="absolute inset-x-0 bottom-0 bg-black/50 py-1 text-center text-xs font-bold text-white">AISSO</span>
+          </span>
+        </button>
+      )}
 
       {open && (
         <div className="fixed bottom-24 right-5 z-40 flex h-[32rem] w-96 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xl">
