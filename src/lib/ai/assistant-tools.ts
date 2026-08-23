@@ -10,8 +10,10 @@ import { searchCustomerCandidates } from "@/lib/workflows/telegram-costing-draft
 import { calcCostingSummary, computeBillingSchedule, calcInvoiceTotals, calcVendorPoTotals } from "@/lib/workflows/calculations";
 import { simulateQuotationRevision, commitQuotationRevision } from "@/lib/workflows/telegram-automation";
 import { createProgressReport, addProgressReportItem } from "@/lib/workflows/progress-report";
-import { moveDocumentToTrash } from "@/lib/workflows/documents";
+import { moveDocumentToTrash, uploadDocument } from "@/lib/workflows/documents";
 import { renameDocumentFile, relocateDocument } from "@/lib/workflows/corrections";
+import { generateProgressReportFromDocument } from "@/server/projects/progress-reports";
+import { isExtractableMimeType } from "@/lib/ai/client";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { RevisionAction } from "@/lib/ai/parse-revision-command";
 import type { CostingSheetInput, CostingLineItemInput } from "@/lib/validation/costing";
@@ -65,10 +67,18 @@ export const WRITE_TOOLS = new Set([
   "create_invoice",
   "create_vendor_po",
   "create_progress_report",
+  "create_progress_report_from_document",
   "rename_document",
   "move_document",
   "trash_document",
 ]);
+
+/** A file attached to the current chat turn — passed through to tools that can act on it (mirrors AssistantAttachment in src/server/assistant.ts). */
+export interface AssistantAttachmentInput {
+  dataBase64: string;
+  mimeType: string;
+  fileName: string;
+}
 
 export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
   {
@@ -430,6 +440,18 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "create_progress_report_from_document",
+    description:
+      "Generate progress report OTOMATIS lewat ekstraksi AI standar SSO dari SATU FILE yang dilampirkan user di chat ini (PDF laporan lapangan atau foto checklist) — beda dengan create_progress_report (checkpoint diketik manual, tanpa file sumber). Pakai tool ini KHUSUS kalau ada file terlampir DAN user memang minta dibuatkan progress report dari file itu. Belum langsung dieksekusi — user akan diminta konfirmasi, TERMASUK pilihan menyimpan file sumber itu ke folder Progress Report project atau menghapusnya (ke Trash) setelah laporannya jadi.",
+    input_schema: {
+      type: "object",
+      properties: {
+        projectNumber: { type: "string", description: "Nomor project tujuan, boleh sebagian." },
+      },
+      required: ["projectNumber"],
+    },
+  },
+  {
     name: "get_progress_report",
     description:
       "Baca progress report (laporan lapangan) yang SUDAH ADA untuk satu project — termasuk daftar checkpoint/checklist-nya (nama part, sudah selesai atau belum, catatan). Pakai ini untuk pertanyaan seperti 'cek checklist progress report project X' atau 'item apa yang belum selesai di laporan Y' — jangan bilang tidak bisa, tool ini yang harus dipakai.",
@@ -503,7 +525,7 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
 
 export interface ToolExecutionResult {
   resultText: string;
-  pendingAction?: { toolName: string; args: Record<string, unknown>; description: string };
+  pendingAction?: { toolName: string; args: Record<string, unknown>; description: string; hasSourceFile?: boolean };
 }
 
 async function findQuotationByNumber(numberFragment: string) {
@@ -601,7 +623,8 @@ async function findExpenseByNumber(numberFragment: string) {
 export async function executeAssistantTool(
   toolName: string,
   input: Record<string, unknown>,
-  actor: SessionPayload
+  actor: SessionPayload,
+  attachment?: AssistantAttachmentInput | null
 ): Promise<ToolExecutionResult> {
   switch (toolName) {
     case "get_quotation_status": {
@@ -1305,6 +1328,37 @@ export async function executeAssistantTool(
       };
     }
 
+    case "create_progress_report_from_document": {
+      requirePermission(actor.role, "project", "create");
+      if (!attachment) {
+        return { resultText: "Lampirkan dulu file PDF/foto laporannya di chat ini, baru minta buatkan progress report." };
+      }
+      if (!isExtractableMimeType(attachment.mimeType)) {
+        return { resultText: `Tipe file "${attachment.mimeType}" tidak didukung — lampirkan PDF atau foto (JPG/PNG/WEBP).` };
+      }
+      const project = await prisma.project.findFirst({
+        where: { deletedAt: null, number: { contains: String(input.projectNumber ?? ""), mode: "insensitive" } },
+        select: { id: true, number: true, name: true },
+      });
+      if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+
+      return {
+        resultText: "Menunggu konfirmasi user — termasuk pilihan simpan atau hapus file sumber — sebelum progress report benar-benar dibuat.",
+        pendingAction: {
+          toolName: "create_progress_report_from_document",
+          args: {
+            projectId: project.id,
+            projectNumber: project.number,
+            fileName: attachment.fileName,
+            mimeType: attachment.mimeType,
+            dataBase64: attachment.dataBase64,
+          },
+          description: `Upload "${attachment.fileName}" ke folder Progress Report project ${project.number}, lalu generate checklist progress report otomatis (standar SSO) dari isinya.`,
+          hasSourceFile: true,
+        },
+      };
+    }
+
     case "get_progress_report": {
       requirePermission(actor.role, "project", "view");
       const project = await prisma.project.findFirst({
@@ -1444,7 +1498,8 @@ export async function executeAssistantTool(
 export async function runConfirmedAssistantAction(
   toolName: string,
   args: Record<string, unknown>,
-  actor: SessionPayload
+  actor: SessionPayload,
+  keepSourceFile?: boolean
 ): Promise<string> {
   switch (toolName) {
     case "approve_quotation": {
@@ -1575,6 +1630,30 @@ export async function runConfirmedAssistantAction(
         );
       }
       return `${report.number} berhasil dibuat dengan ${items.length} checkpoint.`;
+    }
+    case "create_progress_report_from_document": {
+      const projectId = String(args.projectId);
+      const buffer = Buffer.from(String(args.dataBase64), "base64");
+      const folder = await prisma.folder.findFirst({ where: { projectId, routeKey: "PROJECT/PROGRESS_REPORT" } });
+      const doc = await uploadDocument(
+        {
+          buffer,
+          originalName: String(args.fileName),
+          mimeType: String(args.mimeType),
+          folderId: folder?.id,
+          projectId,
+          relatedEntityType: "PROGRESS_REPORT",
+        },
+        actor
+      );
+      const result = await generateProgressReportFromDocument(doc.id, projectId);
+      if (!result.ok) throw new Error(result.error);
+      const report = await prisma.progressReport.findUniqueOrThrow({ where: { id: result.data.progressReportId } });
+      if (keepSourceFile === false) {
+        await moveDocumentToTrash(doc.id, actor);
+        return `${report.number} berhasil dibuat dari file "${args.fileName}" — file sumber sudah dipindah ke Trash sesuai pilihan Anda.`;
+      }
+      return `${report.number} berhasil dibuat dari file "${args.fileName}" — file sumber tersimpan di folder Progress Report project ${args.projectNumber}.`;
     }
     case "rename_document": {
       await renameDocumentFile(String(args.documentId), String(args.newName), String(args.reason), actor);
