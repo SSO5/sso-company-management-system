@@ -1,10 +1,25 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { X, Send } from "lucide-react";
+import { X, Send, Paperclip, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
 import { sendAssistantMessage, confirmAssistantAction, cancelAssistantAction } from "@/server/assistant";
+
+const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
+const ACCEPTED_ATTACHMENT_TYPES = ["application/pdf", "image/png", "image/jpeg", "image/webp", "image/gif"];
+
+function readFileAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      resolve(result.split(",")[1] ?? "");
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
 
 interface PendingAction {
   id: string;
@@ -34,7 +49,9 @@ export function AssistantWidget() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -42,14 +59,34 @@ export function AssistantWidget() {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, open]);
 
+  function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!ACCEPTED_ATTACHMENT_TYPES.includes(file.type)) {
+      toast({ title: "Tipe file tidak didukung", description: "Lampirkan PDF atau foto (JPG/PNG/WEBP).", variant: "destructive" });
+      return;
+    }
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      toast({ title: "File terlalu besar", description: "Maksimal 15MB.", variant: "destructive" });
+      return;
+    }
+    setAttachedFile(file);
+  }
+
   async function onSend() {
     const text = input.trim();
-    if (!text || sending) return;
+    if ((!text && !attachedFile) || sending) return;
     const history = messages.map((m) => ({ role: m.role, content: m.content }));
-    setMessages((prev) => [...prev, { role: "user", content: text }]);
+    const fileForSend = attachedFile;
+    setMessages((prev) => [...prev, { role: "user", content: text || `📎 ${fileForSend?.name}` }]);
     setInput("");
+    setAttachedFile(null);
     setSending(true);
-    const res = await sendAssistantMessage(history, text);
+    const attachment = fileForSend
+      ? { dataBase64: await readFileAsBase64(fileForSend), mimeType: fileForSend.type, fileName: fileForSend.name }
+      : null;
+    const res = await sendAssistantMessage(history, text, attachment);
     setSending(false);
     if (!res.ok) {
       toast({ title: "AISSO gagal merespons", description: res.error, variant: "destructive" });
@@ -187,23 +224,49 @@ export function AssistantWidget() {
             {sending && <p className="text-xs text-muted-foreground">AISSO sedang mengetik...</p>}
           </div>
 
-          <div className="flex items-center gap-2 border-t border-border p-3">
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && onSend()}
-              placeholder="Tanya sesuatu..."
-              className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-              disabled={sending}
-            />
-            <button
-              onClick={onSend}
-              disabled={sending || !input.trim()}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground disabled:opacity-50"
-              aria-label="Kirim"
-            >
-              <Send className="h-4 w-4" />
-            </button>
+          <div className="border-t border-border p-3">
+            {attachedFile && (
+              <div className="mb-2 flex items-center gap-2 rounded-md border border-border bg-muted px-2 py-1 text-xs">
+                <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <span className="flex-1 truncate">{attachedFile.name}</span>
+                <button onClick={() => setAttachedFile(null)} aria-label="Hapus lampiran" className="shrink-0 text-muted-foreground hover:text-foreground">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={ACCEPTED_ATTACHMENT_TYPES.join(",")}
+                onChange={onPickFile}
+                className="hidden"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={sending}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-accent disabled:opacity-50"
+                aria-label="Lampirkan file"
+              >
+                <Paperclip className="h-4 w-4" />
+              </button>
+              <input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && onSend()}
+                placeholder="Tanya sesuatu..."
+                className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                disabled={sending}
+              />
+              <button
+                onClick={onSend}
+                disabled={sending || (!input.trim() && !attachedFile)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground disabled:opacity-50"
+                aria-label="Kirim"
+              >
+                <Send className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </div>
       )}

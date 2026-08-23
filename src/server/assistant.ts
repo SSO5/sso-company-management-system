@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/current-user";
 import { runAction, type ActionResult } from "@/lib/action-helpers";
-import { getAnthropicClient, assistantModel } from "@/lib/ai/client";
+import { getAnthropicClient, assistantModel, isExtractableMimeType, fileContentBlock } from "@/lib/ai/client";
 import { ASSISTANT_TOOLS, WRITE_TOOLS, executeAssistantTool, runConfirmedAssistantAction } from "@/lib/ai/assistant-tools";
 import type Anthropic from "@anthropic-ai/sdk";
 
@@ -22,7 +22,10 @@ Selain ngobrol bebas, kamu adalah AI AGENT yang benar-benar terhubung ke SELURUH
 - Revisi quotation yang sudah ada (naik/turun harga %, ubah biaya operasional, atau ubah qty satu item) — persis seperti fitur revisi yang sudah jalan lewat Telegram bot.
 - Buat invoice baru untuk satu project — jumlah (net, sebelum PPN) selalu dalam Rupiah eksplisit dari user, tidak pernah dihitung dari persen. Bisa sekalian isi nomor & tanggal PO customer (customerPO/poDate), PIC customer (contactName), dan PPN (taxPercent, default 11% — dihitung otomatis oleh SISTEM lewat rumus yang sama persis dengan invoice manual di app, bukan kamu hitung sendiri). Kalau invoice ini invoice pertama project itu, deskripsinya otomatis mengikuti scope/description dari quotation asalnya, bukan cuma nama project.
 - Buat Vendor Purchase Order baru untuk belanja/procurement ke vendor luar (nama vendor, item-item, PPN, opsional dikaitkan ke satu project).
-- Buat Progress Report (laporan progres lapangan) untuk satu project, dengan daftar checkpoint pekerjaan — foto before/after tetap harus diupload manual di app sesudahnya, chat tidak bisa upload file.
+- Buat Progress Report (laporan progres lapangan) untuk satu project, dengan daftar checkpoint pekerjaan — foto before/after tetap harus diupload manual di app sesudahnya, chat tidak bisa upload FOTO KE checkpoint tertentu.
+- BACA progress report yang SUDAH ADA (get_progress_report) — status checklist per-checkpoint, sudah selesai atau belum, catatannya. Kalau user tanya "checklist project X gimana" atau "item apa yang belum selesai di laporan Y", pakai tool ini — JANGAN bilang tidak bisa/harus cek manual di app.
+- Kelola dokumen yang sudah tersimpan di sistem: cari/lihat daftar dokumen (list_documents), ganti nama file (rename_document), pindahkan file ke folder lain kalau salah taruh (move_document), dan hapus/pindah ke Trash (trash_document, masih bisa dipulihkan). Rename/move/trash hanya benar-benar jalan untuk role Admin/IT (koreksi data) — kalau role user tidak berwenang, tool akan menolak dengan jelas, sampaikan apa adanya.
+- User bisa MELAMPIRKAN file (PDF atau foto) langsung di chat ini. Kalau ada file terlampir, KAMU BISA MEMBACA ISINYA LANGSUNG (teks, tabel, gambar) seperti membaca dokumen biasa — pakai itu untuk mengisi field costing/quotation/invoice/vendor PO/progress report yang relevan (mis. dari PDF PO customer, ambil nomor PO, tanggal, item, harga), lalu ajukan tool pembuatan dokumen yang sesuai dengan field yang sudah terisi dari hasil bacaanmu. Tetap jangan menebak angka yang TIDAK ada di file itu — kalau ada info yang kurang/tidak jelas terbaca, tanya ke user, jangan mengarang.
 JANGAN PERNAH membatasi diri sendiri dengan bilang informasi/aksi tertentu "di luar kemampuanmu" kalau sebenarnya ada tool yang bisa melakukannya (langsung atau dengan filter/field yang lebih longgar) — cek dulu daftar tool yang tersedia sebelum menyerah. Tool-tool ini menampilkan/mengerjakan APAPUN yang boleh dilihat/dilakukan role user sesuai permission sistem — tidak ada pembatasan tambahan dari kamu di luar itu.
 
 Pengetahuan alur bisnis SSO (perusahaan EPC — Engineering, Procurement, Construction) yang perlu kamu pahami untuk diskusi dan supaya tahu tool mana yang relevan:
@@ -47,19 +50,48 @@ Aturan:
 
 interface AssistantMessage { role: "user" | "assistant"; content: string }
 
+export interface AssistantAttachment {
+  /** Raw base64 file data (no data: URI prefix). */
+  dataBase64: string;
+  mimeType: string;
+  fileName: string;
+}
+
 export interface AssistantReply {
   reply: string;
   pendingAction?: { id: string; description: string };
 }
 
-export async function sendAssistantMessage(history: AssistantMessage[], message: string): Promise<ActionResult<AssistantReply>> {
+const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024; // 15MB — well under the 25MB server action body limit once base64-encoded
+
+export async function sendAssistantMessage(
+  history: AssistantMessage[],
+  message: string,
+  attachment?: AssistantAttachment | null
+): Promise<ActionResult<AssistantReply>> {
   return runAction(async () => {
     const actor = await requireUserOrThrow();
+
+    let userContent: Anthropic.MessageParam["content"] = message;
+    if (attachment) {
+      if (!isExtractableMimeType(attachment.mimeType)) {
+        throw new Error(`Tipe file "${attachment.mimeType}" tidak didukung — lampirkan PDF atau foto (JPG/PNG/WEBP).`);
+      }
+      const buffer = Buffer.from(attachment.dataBase64, "base64");
+      if (buffer.byteLength > MAX_ATTACHMENT_BYTES) {
+        throw new Error("Ukuran file terlalu besar — maksimal 15MB.");
+      }
+      userContent = [
+        fileContentBlock(buffer, attachment.mimeType),
+        { type: "text", text: message || `(File terlampir: ${attachment.fileName}. Tolong baca isinya dan bantu proses.)` },
+      ];
+    }
+
     const client = getAnthropicClient();
 
     const messages: Anthropic.MessageParam[] = [
       ...history.map((h): Anthropic.MessageParam => ({ role: h.role, content: h.content })),
-      { role: "user", content: message },
+      { role: "user", content: userContent },
     ];
 
     let pendingAction: { id: string; description: string } | undefined;
