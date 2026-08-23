@@ -30,6 +30,7 @@ interface ChatMessage {
  */
 export function AssistantWidget() {
   const [open, setOpen] = useState(false);
+  const [greetingDismissed, setGreetingDismissed] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -99,15 +100,33 @@ export function AssistantWidget() {
           <X className="h-6 w-6" />
         </button>
       ) : (
-        <button
-          onClick={() => setOpen(true)}
-          className="fixed bottom-5 right-5 z-40 flex w-24 flex-col items-center transition-transform hover:scale-105 sm:w-28"
-          aria-label="Tanya AISSO"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/aisso-halfbody-v3.png" alt="AISSO" className="w-full drop-shadow-xl" />
-          <span className="-mt-2 rounded-full bg-primary px-3 py-0.5 text-xs font-bold text-primary-foreground shadow-lg">AISSO</span>
-        </button>
+        <>
+          {!greetingDismissed && (
+            <div className="fixed bottom-40 right-4 z-40 w-56 rounded-2xl border-2 border-[#2454d1]/20 bg-card px-4 py-3 shadow-xl sm:bottom-44 sm:right-6">
+              <button
+                onClick={() => setGreetingDismissed(true)}
+                className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-muted-foreground/80 text-background shadow"
+                aria-label="Tutup sapaan"
+              >
+                <X className="h-3 w-3" />
+              </button>
+              <p className="text-lg font-extrabold leading-tight text-[#2454d1]">Hi Boss! 👋</p>
+              <p className="mt-0.5 text-sm font-semibold text-foreground">AISSO siap bantu!</p>
+              <div className="absolute -bottom-2 right-10 h-4 w-4 rotate-45 border-b-2 border-r-2 border-[#2454d1]/20 bg-card" />
+            </div>
+          )}
+          <button
+            onClick={() => setOpen(true)}
+            className="fixed bottom-5 right-5 z-40 flex w-24 flex-col items-center transition-transform hover:scale-105 sm:w-28"
+            aria-label="Tanya AISSO"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/aisso-halfbody-v3.png" alt="AISSO" className="w-full drop-shadow-xl" />
+            <span className="-mt-2 whitespace-nowrap rounded-full bg-[#2454d1] px-4 py-1 text-sm font-extrabold tracking-wide text-white shadow-lg">
+              AISSO
+            </span>
+          </button>
+        </>
       )}
 
       {open && (
