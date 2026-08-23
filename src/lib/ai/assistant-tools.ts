@@ -10,6 +10,8 @@ import { searchCustomerCandidates } from "@/lib/workflows/telegram-costing-draft
 import { calcCostingSummary, computeBillingSchedule, calcInvoiceTotals, calcVendorPoTotals } from "@/lib/workflows/calculations";
 import { simulateQuotationRevision, commitQuotationRevision } from "@/lib/workflows/telegram-automation";
 import { createProgressReport, addProgressReportItem } from "@/lib/workflows/progress-report";
+import { moveDocumentToTrash } from "@/lib/workflows/documents";
+import { renameDocumentFile, relocateDocument } from "@/lib/workflows/corrections";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { RevisionAction } from "@/lib/ai/parse-revision-command";
 import type { CostingSheetInput, CostingLineItemInput } from "@/lib/validation/costing";
@@ -63,6 +65,9 @@ export const WRITE_TOOLS = new Set([
   "create_invoice",
   "create_vendor_po",
   "create_progress_report",
+  "rename_document",
+  "move_document",
+  "trash_document",
 ]);
 
 export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
@@ -424,6 +429,76 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
       required: ["projectNumber", "items"],
     },
   },
+  {
+    name: "get_progress_report",
+    description:
+      "Baca progress report (laporan lapangan) yang SUDAH ADA untuk satu project — termasuk daftar checkpoint/checklist-nya (nama part, sudah selesai atau belum, catatan). Pakai ini untuk pertanyaan seperti 'cek checklist progress report project X' atau 'item apa yang belum selesai di laporan Y' — jangan bilang tidak bisa, tool ini yang harus dipakai.",
+    input_schema: {
+      type: "object",
+      properties: {
+        projectNumber: { type: "string", description: "Nomor project, boleh sebagian." },
+        reportNumber: { type: "string", description: "Opsional, nomor progress report spesifik (boleh sebagian). Kalau kosong, ambil laporan terbaru project ini." },
+      },
+      required: ["projectNumber"],
+    },
+  },
+  {
+    name: "list_documents",
+    description:
+      "Cari/daftar dokumen yang sudah tersimpan di sistem (di folder project/customer/dsb), dengan filter opsional. Untuk pertanyaan seperti 'dokumen apa aja di project X', 'ada file quotation untuk Y nggak'.",
+    input_schema: {
+      type: "object",
+      properties: {
+        projectNumber: { type: "string", description: "Filter nomor project, boleh sebagian (opsional)." },
+        nameQuery: { type: "string", description: "Filter nama file, boleh sebagian (opsional)." },
+        folderQuery: { type: "string", description: "Filter nama/path folder, boleh sebagian, mis. 'quotation', 'invoice', 'bast' (opsional)." },
+        limit: { type: "number", description: "Maksimal hasil (opsional, default 15, maks 30)." },
+      },
+    },
+  },
+  {
+    name: "rename_document",
+    description:
+      "Ganti nama file dokumen yang sudah tersimpan supaya lebih rapi/proper — cuma bisa dipakai Admin/IT (koreksi data), akan tercatat di Activity Log. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    input_schema: {
+      type: "object",
+      properties: {
+        projectNumber: { type: "string", description: "Nomor project tempat dokumen berada, boleh sebagian (opsional, mempersempit pencarian)." },
+        nameQuery: { type: "string", description: "Nama file saat ini (atau sebagian), untuk mencari dokumennya." },
+        newName: { type: "string", description: "Nama file baru yang proper." },
+        reason: { type: "string", description: "Alasan penggantian nama (wajib, akan tercatat di log)." },
+      },
+      required: ["nameQuery", "newName", "reason"],
+    },
+  },
+  {
+    name: "move_document",
+    description:
+      "Pindahkan file dokumen ke folder lain dalam project yang sama (kalau dirasa salah taruh) — cuma bisa dipakai Admin/IT (koreksi data), akan tercatat di Activity Log. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    input_schema: {
+      type: "object",
+      properties: {
+        projectNumber: { type: "string", description: "Nomor project tempat dokumen & folder tujuan berada, boleh sebagian." },
+        nameQuery: { type: "string", description: "Nama file saat ini (atau sebagian), untuk mencari dokumennya." },
+        destinationFolderQuery: { type: "string", description: "Nama/path folder tujuan, boleh sebagian, mis. 'quotation', 'invoice'." },
+        reason: { type: "string", description: "Alasan pemindahan (wajib, akan tercatat di log)." },
+      },
+      required: ["projectNumber", "nameQuery", "destinationFolderQuery", "reason"],
+    },
+  },
+  {
+    name: "trash_document",
+    description:
+      "Hapus (pindah ke Trash — masih bisa dipulihkan lewat app, bukan hapus permanen) satu file dokumen yang dirasa tidak sesuai/salah upload. Hanya untuk role dengan izin hapus dokumen (Admin/IT). TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    input_schema: {
+      type: "object",
+      properties: {
+        projectNumber: { type: "string", description: "Nomor project tempat dokumen berada, boleh sebagian (opsional, mempersempit pencarian)." },
+        nameQuery: { type: "string", description: "Nama file (atau sebagian), untuk mencari dokumennya." },
+      },
+      required: ["nameQuery"],
+    },
+  },
 ];
 
 export interface ToolExecutionResult {
@@ -464,6 +539,39 @@ async function findVendorPOByNumber(numberFragment: string) {
     },
     orderBy: { createdAt: "desc" },
   });
+}
+
+async function resolveProjectId(projectNumberRaw: string | undefined): Promise<{ id: string; number: string } | null | undefined> {
+  if (!projectNumberRaw) return undefined;
+  const project = await prisma.project.findFirst({
+    where: { deletedAt: null, number: { contains: projectNumberRaw, mode: "insensitive" } },
+    select: { id: true, number: true },
+  });
+  return project ?? null;
+}
+
+/** Finds a document by (fuzzy) name, optionally scoped to one project's folders. Returns the doc, a disambiguation note, or a not-found note. */
+async function findDocumentByQuery(
+  nameQuery: string,
+  projectId: string | null | undefined
+): Promise<{ doc: { id: string; originalName: string; folderId: string | null; folder: { path: string } | null } } | { note: string }> {
+  const candidates = await prisma.document.findMany({
+    where: {
+      deletedAt: null,
+      originalName: { contains: nameQuery, mode: "insensitive" },
+      ...(projectId ? { folder: { projectId } } : {}),
+    },
+    select: { id: true, originalName: true, folderId: true, folder: { select: { path: true } } },
+    orderBy: { uploadedAt: "desc" },
+    take: 6,
+  });
+  if (candidates.length === 0) return { note: `Dokumen dengan nama mengandung "${nameQuery}" tidak ditemukan.` };
+  if (candidates.length > 1) {
+    return {
+      note: `Ada ${candidates.length} dokumen mirip "${nameQuery}": ${candidates.map((d) => d.originalName).join(", ")}. Sebutkan nama yang lebih spesifik.`,
+    };
+  }
+  return { doc: candidates[0] };
 }
 
 async function findCostingByNumber(numberFragment: string) {
@@ -1197,6 +1305,136 @@ export async function executeAssistantTool(
       };
     }
 
+    case "get_progress_report": {
+      requirePermission(actor.role, "project", "view");
+      const project = await prisma.project.findFirst({
+        where: { deletedAt: null, number: { contains: String(input.projectNumber ?? ""), mode: "insensitive" } },
+        select: { id: true, number: true, name: true },
+      });
+      if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+
+      const report = await prisma.progressReport.findFirst({
+        where: {
+          projectId: project.id,
+          ...(input.reportNumber ? { number: { contains: String(input.reportNumber), mode: "insensitive" } } : {}),
+        },
+        include: { items: { orderBy: { sortOrder: "asc" } } },
+        orderBy: { inspectionDate: "desc" },
+      });
+      if (!report) {
+        return {
+          resultText: input.reportNumber
+            ? `Progress report "${input.reportNumber}" tidak ditemukan untuk project ${project.number}.`
+            : `Belum ada progress report untuk project ${project.number}.`,
+        };
+      }
+      if (report.items.length === 0) {
+        return { resultText: `${report.number} (${project.number}, ${formatDate(report.inspectionDate)}) belum punya checkpoint sama sekali.` };
+      }
+      const doneCount = report.items.filter((i) => i.isDone).length;
+      return {
+        resultText:
+          `${report.number} — ${project.number} (${project.name}), inspeksi ${formatDate(report.inspectionDate)}${report.location ? ` di ${report.location}` : ""}\n` +
+          `Selesai: ${doneCount}/${report.items.length}\n` +
+          report.items
+            .map((i) => `- [${i.isDone ? "x" : " "}] ${i.partName}${i.notes ? ` — ${i.notes}` : ""}`)
+            .join("\n"),
+      };
+    }
+
+    case "list_documents": {
+      requirePermission(actor.role, "documents", "view");
+      const project = await resolveProjectId(input.projectNumber ? String(input.projectNumber) : undefined);
+      if (project === null) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+
+      const rows = await prisma.document.findMany({
+        where: {
+          deletedAt: null,
+          ...(input.nameQuery ? { originalName: { contains: String(input.nameQuery), mode: "insensitive" } } : {}),
+          folder: {
+            ...(project ? { projectId: project.id } : {}),
+            ...(input.folderQuery ? { path: { contains: String(input.folderQuery), mode: "insensitive" } } : {}),
+          },
+        },
+        select: { originalName: true, mimeType: true, uploadedAt: true, folder: { select: { path: true } } },
+        orderBy: { uploadedAt: "desc" },
+        take: clampLimit(input.limit),
+      });
+      if (rows.length === 0) return { resultText: "Tidak ada dokumen yang cocok." };
+      return {
+        resultText: rows
+          .map((d) => `- ${d.originalName} — ${d.folder?.path ?? "(tanpa folder)"} — diupload ${formatDate(d.uploadedAt)}`)
+          .join("\n"),
+      };
+    }
+
+    case "rename_document": {
+      requirePermission(actor.role, "documents", "update");
+      const project = await resolveProjectId(input.projectNumber ? String(input.projectNumber) : undefined);
+      if (project === null) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+      const found = await findDocumentByQuery(String(input.nameQuery ?? ""), project?.id);
+      if ("note" in found) return { resultText: found.note };
+      const newName = String(input.newName ?? "").trim();
+      if (!newName) return { resultText: "Sebutkan nama file baru." };
+      const reason = String(input.reason ?? "").trim();
+      if (!reason) return { resultText: "Sebutkan alasan penggantian nama — ini wajib dan akan tercatat di log." };
+
+      return {
+        resultText: "Menunggu konfirmasi user sebelum nama file benar-benar diubah.",
+        pendingAction: {
+          toolName: "rename_document",
+          args: { documentId: found.doc.id, newName, reason },
+          description: `Ganti nama "${found.doc.originalName}" -> "${newName}" (${found.doc.folder?.path ?? "-"}). Alasan: ${reason}`,
+        },
+      };
+    }
+
+    case "move_document": {
+      requirePermission(actor.role, "documents", "update");
+      const project = await resolveProjectId(String(input.projectNumber ?? ""));
+      if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+      const found = await findDocumentByQuery(String(input.nameQuery ?? ""), project.id);
+      if ("note" in found) return { resultText: found.note };
+      const reason = String(input.reason ?? "").trim();
+      if (!reason) return { resultText: "Sebutkan alasan pemindahan — ini wajib dan akan tercatat di log." };
+
+      const destFolders = await prisma.folder.findMany({
+        where: { projectId: project.id, path: { contains: String(input.destinationFolderQuery ?? ""), mode: "insensitive" } },
+        select: { id: true, path: true },
+        take: 6,
+      });
+      if (destFolders.length === 0) return { resultText: `Folder tujuan mengandung "${input.destinationFolderQuery}" tidak ditemukan di project ${project.number}.` };
+      if (destFolders.length > 1) {
+        return { resultText: `Ada ${destFolders.length} folder mirip: ${destFolders.map((f) => f.path).join(", ")}. Sebutkan yang lebih spesifik.` };
+      }
+
+      return {
+        resultText: "Menunggu konfirmasi user sebelum file benar-benar dipindah.",
+        pendingAction: {
+          toolName: "move_document",
+          args: { documentId: found.doc.id, newFolderId: destFolders[0].id, reason },
+          description: `Pindahkan "${found.doc.originalName}" dari "${found.doc.folder?.path ?? "-"}" ke "${destFolders[0].path}". Alasan: ${reason}`,
+        },
+      };
+    }
+
+    case "trash_document": {
+      requirePermission(actor.role, "documents", "delete");
+      const project = await resolveProjectId(input.projectNumber ? String(input.projectNumber) : undefined);
+      if (project === null) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+      const found = await findDocumentByQuery(String(input.nameQuery ?? ""), project?.id);
+      if ("note" in found) return { resultText: found.note };
+
+      return {
+        resultText: "Menunggu konfirmasi user sebelum file benar-benar dipindah ke Trash.",
+        pendingAction: {
+          toolName: "trash_document",
+          args: { documentId: found.doc.id },
+          description: `Pindahkan "${found.doc.originalName}" (${found.doc.folder?.path ?? "-"}) ke Trash — masih bisa dipulihkan lewat app.`,
+        },
+      };
+    }
+
     default:
       return { resultText: `Tool "${toolName}" tidak dikenali.` };
   }
@@ -1337,6 +1575,18 @@ export async function runConfirmedAssistantAction(
         );
       }
       return `${report.number} berhasil dibuat dengan ${items.length} checkpoint.`;
+    }
+    case "rename_document": {
+      await renameDocumentFile(String(args.documentId), String(args.newName), String(args.reason), actor);
+      return `Nama file berhasil diubah menjadi "${args.newName}".`;
+    }
+    case "move_document": {
+      await relocateDocument(String(args.documentId), String(args.newFolderId), String(args.reason), actor);
+      return "File berhasil dipindahkan.";
+    }
+    case "trash_document": {
+      const doc = await moveDocumentToTrash(String(args.documentId), actor);
+      return `"${doc.originalName}" berhasil dipindahkan ke Trash (masih bisa dipulihkan lewat app).`;
     }
     default:
       throw new ForbiddenError(`Aksi "${toolName}" tidak dikenali.`);
