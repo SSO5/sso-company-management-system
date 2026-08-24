@@ -8,10 +8,12 @@ import type { PdfImageSrc } from "@/lib/pdf/branding";
  *
  * That report is the format the customer's engineering team has been reading
  * since July: a header block (tanggal inspeksi / no. dokumen / lokasi /
- * disusun oleh / project) over a table of No · Bagian yang di cek · Foto
- * sebelum · Foto sesudah · Keterangan, grouped by unit. Changing it would
- * mean SSO's own document and the app's document look like two different
- * companies, and the team would keep making the real one by hand.
+ * disusun oleh / project) over a table of No · Foto · Spesifikasi · Jumlah ·
+ * Keterangan, grouped by unit — one Foto column (not split before/after),
+ * matching the real "ENG-REP" documents exactly. A checkpoint can still carry
+ * both a before AND an after photo internally (the field team's own workflow
+ * for documenting a repair); the PDF just shows whichever exist together
+ * under one Foto column instead of two separately-labeled ones.
  *
  * The letterhead (logo top-left, company name/address block top-right, rule
  * beneath, repeated on every page) matches SSO's real "LAPORAN INSPEKSI
@@ -69,8 +71,8 @@ const s = StyleSheet.create({
   tr: { flexDirection: "row", borderBottomWidth: 0.75, borderColor: BORDER, minHeight: 54 },
   trAlt: { backgroundColor: "#FAFBFC" },
   td: { paddingVertical: 4, paddingHorizontal: 4, borderRightWidth: 0.75, borderColor: BORDER },
-  photoCell: { alignItems: "center", justifyContent: "center" },
-  photo: { maxHeight: 62, maxWidth: 86, objectFit: "contain" },
+  photoCell: { alignItems: "center", justifyContent: "center", flexDirection: "row" },
+  photo: { maxHeight: 62, maxWidth: 72, objectFit: "contain", marginHorizontal: 2 },
   noPhoto: { color: "#98A2B3", fontSize: 7 },
 
   doneTag: { color: "#067647", fontFamily: "Helvetica-Bold", fontSize: 7, marginTop: 2 },
@@ -88,9 +90,11 @@ const s = StyleSheet.create({
   footerText: { color: "#98A2B3", fontSize: 7 },
 });
 
-// Column widths must total 100%. Photos get the most room because they are the
-// evidence — the reason the customer reads this document at all.
-const W = { no: "5%", part: "24%", before: "22%", after: "22%", notes: "27%" };
+// Column widths must total 100%. Foto gets the most room because it's the
+// evidence — the reason the customer reads this document at all. Matches
+// SSO's real report layout: one Foto column (not split before/after), a
+// Jumlah column for quantities, "Spesifikasi" instead of "Bagian yang dicek".
+const W = { no: "5%", foto: "27%", spec: "23%", qty: "9%", notes: "36%" };
 
 interface CompanyInfo {
   companyName: string;
@@ -104,6 +108,7 @@ interface CompanyInfo {
 export interface ProgressReportPdfItem {
   sectionName: string | null;
   partName: string;
+  quantity: string | null;
   notes: string | null;
   isDone: boolean;
   photoBefore: PdfImageSrc | null;
@@ -171,10 +176,15 @@ function Meta({ label, value }: { label: string; value: string }) {
   );
 }
 
-function PhotoCell({ img, width }: { img: PdfImageSrc | null; width: string }) {
+function PhotoCell({ before, after, width }: { before: PdfImageSrc | null; after: PdfImageSrc | null; width: string }) {
+  const photos = [before, after].filter((p): p is PdfImageSrc => p != null);
   return (
     <View style={[s.td, s.photoCell, { width }]}>
-      {img ? <Image src={img} style={s.photo} /> : <Text style={s.noPhoto}>—</Text>}
+      {photos.length === 0 ? (
+        <Text style={s.noPhoto}>—</Text>
+      ) : (
+        photos.map((p, idx) => <Image key={idx} src={p} style={s.photo} />)
+      )}
     </View>
   );
 }
@@ -234,9 +244,9 @@ export function ProgressReportPdfDocument({ report, company, logo, signature }: 
 
         <View style={s.thead} fixed>
           <Text style={[s.th, { width: W.no }]}>No.</Text>
-          <Text style={[s.th, { width: W.part }]}>Bagian yang di cek</Text>
-          <Text style={[s.th, { width: W.before }]}>Foto sebelum</Text>
-          <Text style={[s.th, { width: W.after }]}>Foto sesudah</Text>
+          <Text style={[s.th, { width: W.foto }]}>Foto</Text>
+          <Text style={[s.th, { width: W.spec }]}>Spesifikasi</Text>
+          <Text style={[s.th, { width: W.qty }]}>Jumlah</Text>
           <Text style={[s.th, { width: W.notes }]}>Keterangan</Text>
         </View>
 
@@ -249,9 +259,9 @@ export function ProgressReportPdfDocument({ report, company, logo, signature }: 
             {g.items.map((item, i) => (
               <View key={`${gi}-${i}`} style={[s.tr, ...(i % 2 === 1 ? [s.trAlt] : [])]} wrap={false}>
                 <Text style={[s.td, { width: W.no, textAlign: "center" }]}>{i + 1}</Text>
-                <Text style={[s.td, { width: W.part }]}>{item.partName}</Text>
-                <PhotoCell img={item.photoBefore} width={W.before} />
-                <PhotoCell img={item.photoAfter} width={W.after} />
+                <PhotoCell before={item.photoBefore} after={item.photoAfter} width={W.foto} />
+                <Text style={[s.td, { width: W.spec }]}>{item.partName}</Text>
+                <Text style={[s.td, { width: W.qty, textAlign: "center" }]}>{item.quantity || "-"}</Text>
                 <View style={[s.td, { width: W.notes, borderRightWidth: 0 }]}>
                   <Text>{item.notes || "-"}</Text>
                   <Text style={item.isDone ? s.doneTag : s.openTag}>

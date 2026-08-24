@@ -58,7 +58,7 @@ interface Props {
     reportDate: Date; dateFromFileName: boolean; uploadedBy: { name: string };
     progressReport: {
       id: string; summary: string | null; overallPercent: number | null; aiGenerated: boolean;
-      items: { id: string; sectionName: string | null; partName: string; notes: string | null; isDone: boolean }[];
+      items: { id: string; sectionName: string | null; partName: string; quantity: string | null; notes: string | null; isDone: boolean }[];
     } | null;
   }[];
 }

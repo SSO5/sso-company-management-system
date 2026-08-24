@@ -21,6 +21,7 @@ import { Plus, CheckCircle2, Circle, Trash2, ChevronDown, ChevronRight, Eye, Dow
 interface ProgressReportItem {
   id: string;
   partName: string;
+  quantity: string | null;
   notes: string | null;
   isDone: boolean;
   photoBeforeKey: string | null;
@@ -149,7 +150,10 @@ export function ProgressReportPanel({
                         <div className="flex items-start gap-2">
                           {it.isDone ? <CheckCircle2 className="mt-0.5 h-4 w-4 text-success" /> : <Circle className="mt-0.5 h-4 w-4 text-muted-foreground" />}
                           <div>
-                            <p className="text-sm font-medium">{it.partName}</p>
+                            <p className="text-sm font-medium">
+                              {it.partName}
+                              {it.quantity && <span className="ml-1.5 text-xs font-normal text-muted-foreground">({it.quantity})</span>}
+                            </p>
                             {it.notes && <p className="text-xs text-muted-foreground">{it.notes}</p>}
                             <div className="mt-1 flex gap-2">
                               {it.photoBeforeKey && (
@@ -203,6 +207,7 @@ export function ProgressReportPanel({
         <form onSubmit={onAddItem} encType="multipart/form-data" className="space-y-3">
           <input type="hidden" name="progressReportId" value={itemDialogFor ?? ""} />
           <div className="space-y-1"><Label>Bagian yang dicek</Label><Input name="partName" required placeholder="e.g. Bearing 6313 SKF ZZ C3" /></div>
+          <div className="space-y-1"><Label>Jumlah</Label><Input name="quantity" placeholder="e.g. 2 pc" /></div>
           <div className="space-y-1"><Label>Keterangan</Label><Textarea name="notes" placeholder="e.g. Bearing dikirim supplier tgl. 11/8" /></div>
           <div className="flex items-center gap-2">
             <input type="checkbox" name="isDone" id="isDone" className="h-4 w-4" />

@@ -4,6 +4,7 @@ import { getAnthropicClient, extractionModel, fileContentBlock, extractJsonObjec
 export interface ExtractedProgressItem {
   sectionName: string | null;
   partName: string;
+  quantity: string | null;
   notes: string | null;
   isDone: boolean;
 }
@@ -31,6 +32,7 @@ Ekstrak checklist per bagian/komponen yang diperiksa atau dikerjakan. Balas HANY
     {
       "sectionName": string atau null,  // nama unit/bagian yang dikerjakan, contoh "MOTOR 45 KW 60 HP" atau "GEARBOX DRIVE UNIT 6804"
       "partName": string,               // item/komponen yang diperiksa atau dikerjakan, contoh "Bearing 6313 SKF ZZ C3"
+      "quantity": string atau null,     // jumlah persis dari dokumen, termasuk satuannya, contoh "2 pc" atau "4 pc" — jangan mengarang kalau tidak disebutkan
       "notes": string atau null,        // keterangan tambahan persis dari dokumen (kondisi, tindakan, status pengadaan spare part, dll)
       "isDone": boolean                 // true HANYA jika dokumen secara eksplisit menyatakan item ini sudah selesai/OK/terpasang; false jika masih berjalan/menunggu/belum, atau tidak disebutkan statusnya
     }
@@ -70,6 +72,7 @@ export async function extractProgressReport(
         .map((i) => ({
           sectionName: typeof i.sectionName === "string" && i.sectionName.trim() ? i.sectionName.trim() : null,
           partName: i.partName.trim(),
+          quantity: typeof i.quantity === "string" && i.quantity.trim() ? i.quantity.trim() : null,
           notes: typeof i.notes === "string" && i.notes.trim() ? i.notes.trim() : null,
           isDone: Boolean(i.isDone),
         }))

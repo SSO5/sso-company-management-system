@@ -12,12 +12,13 @@ import {
   generateProgressReportFromDocument,
   updateProgressReportItemAction,
 } from "@/server/projects/progress-reports";
-import { ChevronDown, ChevronRight, Sparkles, CheckCircle2, Circle } from "lucide-react";
+import { ChevronDown, ChevronRight, Sparkles, CheckCircle2, Circle, Eye, Download } from "lucide-react";
 
 interface ProgressItem {
   id: string;
   sectionName: string | null;
   partName: string;
+  quantity: string | null;
   notes: string | null;
   isDone: boolean;
 }
@@ -154,6 +155,20 @@ export function ProgressReportDocumentsPanel({
                           {report.overallPercent != null && ` · ${report.overallPercent}%`}
                         </Badge>
                       )}
+                      {report && (
+                        <>
+                          <a href={`/api/progress-reports/${report.id}/pdf?view=1`} target="_blank" rel="noreferrer">
+                            <Button size="sm" variant="ghost" title="Lihat / Cetak PDF">
+                              <Eye className="h-3.5 w-3.5" />
+                            </Button>
+                          </a>
+                          <a href={`/api/progress-reports/${report.id}/pdf`} target="_blank" rel="noreferrer">
+                            <Button size="sm" variant="ghost" title="Download PDF">
+                              <Download className="h-3.5 w-3.5" />
+                            </Button>
+                          </a>
+                        </>
+                      )}
                       <Button size="sm" variant={report ? "outline" : "default"} disabled={isGenerating} onClick={() => onGenerate(d.id, Boolean(report))}>
                         <Sparkles className="h-3.5 w-3.5" />
                         {isGenerating ? "Membaca..." : report ? "Buat ulang (AI)" : "Buat checklist (AI)"}
@@ -182,7 +197,10 @@ export function ProgressReportDocumentsPanel({
                           )}
                           <div>
                             {item.sectionName && <p className="text-[11px] font-medium text-muted-foreground">{item.sectionName}</p>}
-                            <p className="text-sm">{item.partName}</p>
+                            <p className="text-sm">
+                              {item.partName}
+                              {item.quantity && <span className="ml-1.5 text-xs font-normal text-muted-foreground">({item.quantity})</span>}
+                            </p>
                             {item.notes && <p className="text-xs text-muted-foreground">{item.notes}</p>}
                           </div>
                         </button>

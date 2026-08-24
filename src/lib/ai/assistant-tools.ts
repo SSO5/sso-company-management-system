@@ -429,6 +429,7 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
             type: "object",
             properties: {
               partName: { type: "string", description: "Nama part/checkpoint yang diperiksa/dikerjakan." },
+              quantity: { type: "string", description: "Opsional, jumlah termasuk satuannya, mis. '2 pc'." },
               notes: { type: "string", description: "Opsional, catatan untuk checkpoint ini." },
               isDone: { type: "boolean", description: "Opsional, apakah checkpoint ini sudah selesai (default false)." },
             },
@@ -442,7 +443,7 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
   {
     name: "create_progress_report_from_document",
     description:
-      "Generate progress report OTOMATIS lewat ekstraksi AI standar SSO dari SATU FILE yang dilampirkan user di chat ini (PDF laporan lapangan atau foto checklist) — beda dengan create_progress_report (checkpoint diketik manual, tanpa file sumber). Pakai tool ini KHUSUS kalau ada file terlampir DAN user memang minta dibuatkan progress report dari file itu. Belum langsung dieksekusi — user akan diminta konfirmasi, TERMASUK pilihan menyimpan file sumber itu ke folder Progress Report project atau menghapusnya (ke Trash) setelah laporannya jadi.",
+      "Generate progress report OTOMATIS lewat ekstraksi AI standar SSO dari SATU FILE yang dilampirkan user di chat ini (PDF laporan lapangan atau foto checklist) — beda dengan create_progress_report (checkpoint diketik manual, tanpa file sumber). Pakai tool ini KHUSUS kalau ada file terlampir DAN user memang minta dibuatkan progress report dari file itu. Belum langsung dieksekusi — user akan diminta konfirmasi. File sumber otomatis tersimpan di folder Progress Report project setelah laporannya jadi.",
     input_schema: {
       type: "object",
       properties: {
@@ -1300,11 +1301,16 @@ export async function executeAssistantTool(
 
       const rawItems = Array.isArray(input.items) ? (input.items as Record<string, unknown>[]) : [];
       if (rawItems.length === 0) return { resultText: "Sebutkan minimal 1 checkpoint (nama part/pekerjaan)." };
-      const items: { partName: string; notes: string | null; isDone: boolean }[] = [];
+      const items: { partName: string; quantity: string | null; notes: string | null; isDone: boolean }[] = [];
       for (const raw of rawItems) {
         const partName = String(raw.partName ?? "").trim();
         if (!partName) return { resultText: "Setiap checkpoint harus punya nama part/pekerjaan." };
-        items.push({ partName, notes: raw.notes ? String(raw.notes) : null, isDone: Boolean(raw.isDone) });
+        items.push({
+          partName,
+          quantity: raw.quantity ? String(raw.quantity) : null,
+          notes: raw.notes ? String(raw.notes) : null,
+          isDone: Boolean(raw.isDone),
+        });
       }
 
       const inspectionDate = parseOptionalDate(input.inspectionDate);
@@ -1390,7 +1396,7 @@ export async function executeAssistantTool(
           `${report.number} — ${project.number} (${project.name}), inspeksi ${formatDate(report.inspectionDate)}${report.location ? ` di ${report.location}` : ""}\n` +
           `Selesai: ${doneCount}/${report.items.length}\n` +
           report.items
-            .map((i) => `- [${i.isDone ? "x" : " "}] ${i.partName}${i.notes ? ` — ${i.notes}` : ""}`)
+            .map((i) => `- [${i.isDone ? "x" : " "}] ${i.partName}${i.quantity ? ` (${i.quantity})` : ""}${i.notes ? ` — ${i.notes}` : ""}`)
             .join("\n"),
       };
     }
@@ -1610,7 +1616,7 @@ export async function runConfirmedAssistantAction(
       return `${po.number} berhasil dibuat sebagai DRAFT (Total: ${formatCurrency(Number(po.grandTotal))}).`;
     }
     case "create_progress_report": {
-      const items = args.items as { partName: string; notes: string | null; isDone: boolean }[];
+      const items = args.items as { partName: string; quantity: string | null; notes: string | null; isDone: boolean }[];
       const report = await createProgressReport(
         {
           projectId: String(args.projectId),
@@ -1622,7 +1628,14 @@ export async function runConfirmedAssistantAction(
       );
       for (let i = 0; i < items.length; i++) {
         await addProgressReportItem(
-          { progressReportId: report.id, partName: items[i].partName, notes: items[i].notes, isDone: items[i].isDone, sortOrder: i },
+          {
+            progressReportId: report.id,
+            partName: items[i].partName,
+            quantity: items[i].quantity,
+            notes: items[i].notes,
+            isDone: items[i].isDone,
+            sortOrder: i,
+          },
           {},
           actor.userId
         );

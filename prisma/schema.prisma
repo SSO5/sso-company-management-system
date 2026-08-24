@@ -1200,7 +1200,8 @@ model ProgressReportItem {
   // cannot tell which motor a bearing belongs to.
   sectionName String?
 
-  partName  String // "Bagian yang dicek"
+  partName  String // "Bagian yang dicek" / "Spesifikasi"
+  quantity  String? // "Jumlah" — free text (e.g. "2 pc"), not a bare number: real reports mix units.
   notes     String? // "Keterangan"
   isDone    Boolean @default(false)
   sortOrder Int     @default(0)
