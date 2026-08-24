@@ -17,10 +17,12 @@ import { createOpportunity, updateOpportunityStage } from "@/server/sales/opport
 import { createCustomer } from "@/server/sales/customers";
 import { createContact } from "@/server/sales/contacts";
 import { createPurchaseOrder, createContract } from "@/server/sales/purchase-orders";
+import { createTask, updateTaskStatus, createMilestone, updateMilestoneStatus, createExpense, submitExpenseAction } from "@/server/projects/tasks";
+import { updateProject, markCompletedAction, closeProjectAction } from "@/server/projects/projects";
 import { isExtractableMimeType } from "@/lib/ai/client";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { RevisionAction } from "@/lib/ai/parse-revision-command";
-import type { OpportunityStatus, PurchaseOrderStatus, ContractStatus } from "@prisma/client";
+import type { OpportunityStatus, PurchaseOrderStatus, ContractStatus, TaskStatus } from "@prisma/client";
 import type { CostingSheetInput, CostingLineItemInput } from "@/lib/validation/costing";
 import type { InvoiceInput } from "@/lib/validation/finance";
 import type { VendorPurchaseOrderInput } from "@/lib/validation/sales";
@@ -82,6 +84,15 @@ export const WRITE_TOOLS = new Set([
   "create_contact",
   "create_customer_po",
   "create_contract",
+  "create_project_task",
+  "update_task_status",
+  "create_project_milestone",
+  "update_milestone_status",
+  "create_project_expense",
+  "submit_expense",
+  "update_project_progress",
+  "mark_project_completed",
+  "close_project",
 ]);
 
 /** A file attached to the current chat turn — passed through to tools that can act on it (mirrors AssistantAttachment in src/server/assistant.ts). */
@@ -709,6 +720,147 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
       required: ["customerName", "contractValue", "startDate", "endDate"],
     },
   },
+  {
+    name: "list_project_tasks",
+    description: "Daftar task/pekerjaan dalam satu project, dengan filter status opsional.",
+    input_schema: {
+      type: "object",
+      properties: {
+        projectNumber: { type: "string", description: "Nomor project, boleh sebagian." },
+        status: { type: "string", enum: ["TODO", "IN_PROGRESS", "BLOCKED", "COMPLETED"], description: "Filter status (opsional)." },
+      },
+      required: ["projectNumber"],
+    },
+  },
+  {
+    name: "list_project_milestones",
+    description: "Daftar milestone satu project, termasuk mana yang butuh bukti pengiriman (surat jalan/BAST) sebelum bisa ditandai selesai.",
+    input_schema: {
+      type: "object",
+      properties: { projectNumber: { type: "string", description: "Nomor project, boleh sebagian." } },
+      required: ["projectNumber"],
+    },
+  },
+  {
+    name: "create_project_task",
+    description: "Tambah task/pekerjaan baru ke satu project — persis alur 'Tambah Task' di app. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    input_schema: {
+      type: "object",
+      properties: {
+        projectNumber: { type: "string", description: "Nomor project, boleh sebagian." },
+        title: { type: "string", description: "Judul task." },
+        description: { type: "string", description: "Opsional, deskripsi." },
+        assignedToName: { type: "string", description: "Opsional, nama user yang ditugaskan." },
+        dueDate: { type: "string", description: "Opsional, deadline, format YYYY-MM-DD." },
+        priority: { type: "string", enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL"], description: "Opsional (default MEDIUM)." },
+      },
+      required: ["projectNumber", "title"],
+    },
+  },
+  {
+    name: "update_task_status",
+    description: "Ubah status satu task dalam project. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    input_schema: {
+      type: "object",
+      properties: {
+        projectNumber: { type: "string", description: "Nomor project, boleh sebagian." },
+        taskTitle: { type: "string", description: "Judul task, boleh sebagian." },
+        status: { type: "string", enum: ["TODO", "IN_PROGRESS", "BLOCKED", "COMPLETED"], description: "Status baru." },
+      },
+      required: ["projectNumber", "taskTitle", "status"],
+    },
+  },
+  {
+    name: "create_project_milestone",
+    description: "Tambah milestone baru secara manual ke satu project — persis alur 'Tambah Milestone' di app (beda dari milestone otomatis dari PO customer). TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    input_schema: {
+      type: "object",
+      properties: {
+        projectNumber: { type: "string", description: "Nomor project, boleh sebagian." },
+        name: { type: "string", description: "Nama milestone." },
+        dueDate: { type: "string", description: "Opsional, target tanggal, format YYYY-MM-DD." },
+        weightPercent: { type: "number", description: "Opsional, kontribusi milestone ini ke total scope project untuk Kurva S, 0-100 (default 0)." },
+        description: { type: "string", description: "Opsional, deskripsi." },
+      },
+      required: ["projectNumber", "name"],
+    },
+  },
+  {
+    name: "update_milestone_status",
+    description:
+      "Ubah status milestone (PENDING/IN_PROGRESS/DELAYED/COMPLETED). Untuk milestone pengiriman (dateBasis mengikuti estimasi tanggal kirim PO customer), status COMPLETED TIDAK bisa lewat sini — wajib upload bukti (surat jalan/BAST) lewat app. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    input_schema: {
+      type: "object",
+      properties: {
+        projectNumber: { type: "string", description: "Nomor project, boleh sebagian." },
+        milestoneName: { type: "string", description: "Nama milestone, boleh sebagian." },
+        status: { type: "string", enum: ["PENDING", "IN_PROGRESS", "COMPLETED", "DELAYED"], description: "Status baru." },
+      },
+      required: ["projectNumber", "milestoneName", "status"],
+    },
+  },
+  {
+    name: "create_project_expense",
+    description: "Catat pengeluaran/biaya project baru (status DRAFT) — persis alur 'Tambah Expense' di app. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    input_schema: {
+      type: "object",
+      properties: {
+        projectNumber: { type: "string", description: "Nomor project, boleh sebagian." },
+        category: {
+          type: "string",
+          enum: ["LABOR", "MATERIALS", "TRANSPORTATION", "ACCOMMODATION", "VENDOR", "EQUIPMENT", "MARKETING", "OTHER"],
+          description: "Kategori biaya.",
+        },
+        description: { type: "string", description: "Deskripsi biaya." },
+        amount: { type: "number", description: "Jumlah biaya dalam Rupiah (sebelum pajak)." },
+        tax: { type: "number", description: "Opsional, pajak dalam Rupiah (default 0)." },
+        vendor: { type: "string", description: "Opsional, nama vendor/supplier terkait." },
+        date: { type: "string", description: "Opsional, tanggal biaya, format YYYY-MM-DD (default hari ini)." },
+      },
+      required: ["projectNumber", "category", "description", "amount"],
+    },
+  },
+  {
+    name: "submit_expense",
+    description: "Submit satu project expense (masih DRAFT) untuk approval. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    input_schema: {
+      type: "object",
+      properties: { expenseNumber: { type: "string", description: "Nomor expense, boleh sebagian." } },
+      required: ["expenseNumber"],
+    },
+  },
+  {
+    name: "update_project_progress",
+    description:
+      "Update persentase progress manual satu project (0-100). Tidak bisa dipakai untuk status COMPLETED/CLOSED — itu wajib lewat 'Mark Completed'/'Close Project' yang mengecek closing checklist sendiri. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    input_schema: {
+      type: "object",
+      properties: {
+        projectNumber: { type: "string", description: "Nomor project, boleh sebagian." },
+        progressPercent: { type: "number", description: "Progress baru, 0-100." },
+      },
+      required: ["projectNumber", "progressPercent"],
+    },
+  },
+  {
+    name: "mark_project_completed",
+    description:
+      "Tandai satu project sebagai Completed — progress otomatis jadi 100%. Ini langkah SEBELUM Close Project (yang baru mengecek closing checklist secara ketat) — pakai ini kalau pekerjaan lapangan sudah selesai tapi administrasi/dokumen closing belum lengkap. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    input_schema: {
+      type: "object",
+      properties: { projectNumber: { type: "string", description: "Nomor project, boleh sebagian." } },
+      required: ["projectNumber"],
+    },
+  },
+  {
+    name: "close_project",
+    description: "Tutup (Close) satu project yang sudah Completed — langkah final, sistem validasi closing checklist ulang. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    input_schema: {
+      type: "object",
+      properties: { projectNumber: { type: "string", description: "Nomor project, boleh sebagian." } },
+      required: ["projectNumber"],
+    },
+  },
 ];
 
 export interface ToolExecutionResult {
@@ -830,6 +982,48 @@ async function findOpportunityByNumber(numberFragment: string) {
     },
     orderBy: { createdAt: "desc" },
   });
+}
+
+async function resolveUserByName(name: string): Promise<{ userId: string; name: string } | { note: string }> {
+  const candidates = await prisma.user.findMany({
+    where: { isActive: true, name: { contains: name, mode: "insensitive" } },
+    select: { id: true, name: true },
+    take: 5,
+  });
+  if (candidates.length === 0) return { note: `User "${name}" tidak ditemukan.` };
+  if (candidates.length > 1) {
+    return { note: `Ada ${candidates.length} user mirip "${name}": ${candidates.map((u) => u.name).join(", ")}. Sebutkan salah satu nama persis.` };
+  }
+  return { userId: candidates[0].id, name: candidates[0].name };
+}
+
+async function findTaskByTitle(projectId: string, titleQuery: string): Promise<{ id: string; title: string } | { note: string }> {
+  const candidates = await prisma.projectTask.findMany({
+    where: { projectId, deletedAt: null, title: { contains: titleQuery, mode: "insensitive" } },
+    select: { id: true, title: true },
+    take: 6,
+  });
+  if (candidates.length === 0) return { note: `Task dengan judul mengandung "${titleQuery}" tidak ditemukan di project ini.` };
+  if (candidates.length > 1) {
+    return { note: `Ada ${candidates.length} task mirip "${titleQuery}": ${candidates.map((t) => t.title).join(", ")}. Sebutkan judul yang lebih spesifik.` };
+  }
+  return candidates[0];
+}
+
+async function findMilestoneByName(
+  projectId: string,
+  nameQuery: string
+): Promise<{ id: string; name: string; status: string; dateBasis: string | null } | { note: string }> {
+  const candidates = await prisma.projectMilestone.findMany({
+    where: { projectId, name: { contains: nameQuery, mode: "insensitive" } },
+    select: { id: true, name: true, status: true, dateBasis: true },
+    take: 6,
+  });
+  if (candidates.length === 0) return { note: `Milestone dengan nama mengandung "${nameQuery}" tidak ditemukan di project ini.` };
+  if (candidates.length > 1) {
+    return { note: `Ada ${candidates.length} milestone mirip "${nameQuery}": ${candidates.map((m) => m.name).join(", ")}. Sebutkan nama yang lebih spesifik.` };
+  }
+  return candidates[0];
 }
 
 async function findExpenseByNumber(numberFragment: string) {
@@ -2045,6 +2239,245 @@ export async function executeAssistantTool(
       };
     }
 
+    case "list_project_tasks": {
+      requirePermission(actor.role, "project", "view");
+      const project = await resolveProjectId(String(input.projectNumber ?? ""));
+      if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+      const rows = await prisma.projectTask.findMany({
+        where: { projectId: project.id, deletedAt: null, ...(input.status ? { status: input.status as TaskStatus } : {}) },
+        select: { title: true, status: true, priority: true, dueDate: true, assignedTo: { select: { name: true } } },
+        orderBy: { createdAt: "desc" },
+        take: 30,
+      });
+      if (rows.length === 0) return { resultText: `Tidak ada task yang cocok di project ${project.number}.` };
+      return {
+        resultText: rows
+          .map((t) => `- ${t.title} — ${t.status} (${t.priority})${t.assignedTo ? ` — ${t.assignedTo.name}` : ""}${t.dueDate ? ` — due ${formatDate(t.dueDate)}` : ""}`)
+          .join("\n"),
+      };
+    }
+
+    case "list_project_milestones": {
+      requirePermission(actor.role, "project", "view");
+      const project = await resolveProjectId(String(input.projectNumber ?? ""));
+      if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+      const rows = await prisma.projectMilestone.findMany({
+        where: { projectId: project.id },
+        select: { name: true, status: true, dueDate: true, dateBasis: true },
+        orderBy: { sortOrder: "asc" },
+      });
+      if (rows.length === 0) return { resultText: `Belum ada milestone di project ${project.number}.` };
+      return {
+        resultText: rows
+          .map(
+            (m) =>
+              `- ${m.name} — ${m.status}${m.dueDate ? ` — target ${formatDate(m.dueDate)}` : ""}` +
+              (m.dateBasis === "ESTIMATED_DELIVERY" ? " (butuh bukti pengiriman untuk selesai)" : "")
+          )
+          .join("\n"),
+      };
+    }
+
+    case "create_project_task": {
+      requirePermission(actor.role, "project", "create");
+      const project = await resolveProjectId(String(input.projectNumber ?? ""));
+      if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+      const title = String(input.title ?? "").trim();
+      if (!title) return { resultText: "Sebutkan judul task." };
+      const dueDate = parseOptionalDate(input.dueDate);
+      if (dueDate === "invalid") return { resultText: "Format deadline tidak valid — gunakan format YYYY-MM-DD." };
+
+      let assignedToId: string | null = null;
+      let assignedToNote = "";
+      if (input.assignedToName) {
+        const u = await resolveUserByName(String(input.assignedToName));
+        if ("note" in u) return { resultText: u.note };
+        assignedToId = u.userId;
+        assignedToNote = ` — ditugaskan ke ${u.name}`;
+      }
+
+      const priority = ["LOW", "MEDIUM", "HIGH", "CRITICAL"].includes(String(input.priority)) ? String(input.priority) : "MEDIUM";
+
+      return {
+        resultText: "Menunggu konfirmasi user sebelum task benar-benar dibuat.",
+        pendingAction: {
+          toolName: "create_project_task",
+          args: {
+            projectId: project.id, title,
+            description: input.description ? String(input.description) : null,
+            assignedToId, dueDate: dueDate ? dueDate.toISOString() : null, priority,
+          },
+          description: `Tambah task — ${project.number} / "${title}" (${priority})${assignedToNote}`,
+        },
+      };
+    }
+
+    case "update_task_status": {
+      requirePermission(actor.role, "project", "update");
+      const project = await resolveProjectId(String(input.projectNumber ?? ""));
+      if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+      const found = await findTaskByTitle(project.id, String(input.taskTitle ?? ""));
+      if ("note" in found) return { resultText: found.note };
+      const status = String(input.status ?? "");
+      if (!["TODO", "IN_PROGRESS", "BLOCKED", "COMPLETED"].includes(status)) return { resultText: "Status tidak valid." };
+
+      return {
+        resultText: "Menunggu konfirmasi user sebelum status task benar-benar diubah.",
+        pendingAction: {
+          toolName: "update_task_status",
+          args: { taskId: found.id, projectId: project.id, status },
+          description: `Ubah status task "${found.title}" (${project.number}) -> ${status}`,
+        },
+      };
+    }
+
+    case "create_project_milestone": {
+      requirePermission(actor.role, "project", "create");
+      const project = await resolveProjectId(String(input.projectNumber ?? ""));
+      if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+      const name = String(input.name ?? "").trim();
+      if (!name) return { resultText: "Sebutkan nama milestone." };
+      const dueDate = parseOptionalDate(input.dueDate);
+      if (dueDate === "invalid") return { resultText: "Format target tanggal tidak valid — gunakan format YYYY-MM-DD." };
+      const weightPercent = Number.isFinite(Number(input.weightPercent)) ? Number(input.weightPercent) : 0;
+
+      return {
+        resultText: "Menunggu konfirmasi user sebelum milestone benar-benar dibuat.",
+        pendingAction: {
+          toolName: "create_project_milestone",
+          args: {
+            projectId: project.id, name,
+            dueDate: dueDate ? dueDate.toISOString() : null,
+            weightPercent, description: input.description ? String(input.description) : null,
+          },
+          description: `Tambah milestone — ${project.number} / "${name}"${dueDate ? ` — target ${formatDate(dueDate)}` : ""} (bobot ${weightPercent}%)`,
+        },
+      };
+    }
+
+    case "update_milestone_status": {
+      requirePermission(actor.role, "project", "update");
+      const project = await resolveProjectId(String(input.projectNumber ?? ""));
+      if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+      const found = await findMilestoneByName(project.id, String(input.milestoneName ?? ""));
+      if ("note" in found) return { resultText: found.note };
+      const status = String(input.status ?? "");
+      if (!["PENDING", "IN_PROGRESS", "COMPLETED", "DELAYED"].includes(status)) return { resultText: "Status tidak valid." };
+      if (status === "COMPLETED" && found.dateBasis === "ESTIMATED_DELIVERY") {
+        return {
+          resultText: `Milestone "${found.name}" adalah milestone pengiriman — tidak bisa ditandai Completed lewat chat. Upload bukti pengiriman (surat jalan/BAST) lewat tombol "Tandai Selesai" di app.`,
+        };
+      }
+
+      return {
+        resultText: "Menunggu konfirmasi user sebelum status milestone benar-benar diubah.",
+        pendingAction: {
+          toolName: "update_milestone_status",
+          args: { milestoneId: found.id, projectId: project.id, status },
+          description: `Ubah status milestone "${found.name}" (${project.number}) -> ${status}`,
+        },
+      };
+    }
+
+    case "create_project_expense": {
+      requirePermission(actor.role, "project", "create");
+      const project = await resolveProjectId(String(input.projectNumber ?? ""));
+      if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+      const description = String(input.description ?? "").trim();
+      if (!description) return { resultText: "Sebutkan deskripsi biaya." };
+      const amount = Number(input.amount);
+      if (!Number.isFinite(amount) || amount <= 0) return { resultText: "Sebutkan jumlah biaya (Rupiah) yang valid." };
+      const category = String(input.category ?? "");
+      if (!["LABOR", "MATERIALS", "TRANSPORTATION", "ACCOMMODATION", "VENDOR", "EQUIPMENT", "MARKETING", "OTHER"].includes(category)) {
+        return { resultText: "Sebutkan kategori biaya yang valid." };
+      }
+      const date = parseOptionalDate(input.date);
+      if (date === "invalid") return { resultText: "Format tanggal tidak valid — gunakan format YYYY-MM-DD." };
+      const tax = Number.isFinite(Number(input.tax)) ? Number(input.tax) : 0;
+
+      return {
+        resultText: "Menunggu konfirmasi user sebelum expense benar-benar dicatat.",
+        pendingAction: {
+          toolName: "create_project_expense",
+          args: {
+            projectId: project.id, category, description, amount, tax,
+            vendor: input.vendor ? String(input.vendor) : null,
+            date: (date ?? new Date()).toISOString(),
+          },
+          description: `Catat expense — ${project.number} / ${category} / "${description}" — ${formatCurrency(amount + tax)}`,
+        },
+      };
+    }
+
+    case "submit_expense": {
+      requirePermission(actor.role, "project", "update");
+      const expense = await prisma.projectExpense.findFirst({
+        where: { deletedAt: null, number: { contains: String(input.expenseNumber ?? ""), mode: "insensitive" } },
+        select: { id: true, number: true, approvalStatus: true, projectId: true, project: { select: { number: true } } },
+        orderBy: { createdAt: "desc" },
+      });
+      if (!expense) return { resultText: `Expense "${input.expenseNumber}" tidak ditemukan.` };
+      if (expense.approvalStatus !== "DRAFT") return { resultText: `${expense.number} sudah ${expense.approvalStatus} — hanya expense DRAFT yang bisa disubmit.` };
+
+      return {
+        resultText: "Menunggu konfirmasi user sebelum expense benar-benar disubmit.",
+        pendingAction: {
+          toolName: "submit_expense",
+          args: { expenseId: expense.id, projectId: expense.projectId },
+          description: `Submit expense ${expense.number} (${expense.project.number}) untuk approval.`,
+        },
+      };
+    }
+
+    case "update_project_progress": {
+      requirePermission(actor.role, "project", "update");
+      const project = await resolveProjectId(String(input.projectNumber ?? ""));
+      if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+      const progressPercent = Number(input.progressPercent);
+      if (!Number.isFinite(progressPercent) || progressPercent < 0 || progressPercent > 100) {
+        return { resultText: "Sebutkan progress 0-100." };
+      }
+
+      return {
+        resultText: "Menunggu konfirmasi user sebelum progress project benar-benar diubah.",
+        pendingAction: {
+          toolName: "update_project_progress",
+          args: { projectId: project.id, progressPercent },
+          description: `Update progress ${project.number} -> ${progressPercent}%`,
+        },
+      };
+    }
+
+    case "mark_project_completed": {
+      requirePermission(actor.role, "project", "update");
+      const project = await resolveProjectId(String(input.projectNumber ?? ""));
+      if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+
+      return {
+        resultText: "Menunggu konfirmasi user sebelum project benar-benar ditandai Completed.",
+        pendingAction: {
+          toolName: "mark_project_completed",
+          args: { projectId: project.id },
+          description: `Tandai ${project.number} sebagai Completed (progress -> 100%). Closing checklist tetap dicek terpisah saat Close Project.`,
+        },
+      };
+    }
+
+    case "close_project": {
+      requirePermission(actor.role, "project", "update");
+      const project = await resolveProjectId(String(input.projectNumber ?? ""));
+      if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+
+      return {
+        resultText: "Menunggu konfirmasi user sebelum project benar-benar di-Close.",
+        pendingAction: {
+          toolName: "close_project",
+          args: { projectId: project.id },
+          description: `Close ${project.number} (langkah final — sistem validasi closing checklist ulang).`,
+        },
+      };
+    }
+
     default:
       return { resultText: `Tool "${toolName}" tidak dikenali.` };
   }
@@ -2317,6 +2750,79 @@ export async function runConfirmedAssistantAction(
       if (!result.ok) throw new Error(result.error);
       const contract = await prisma.contract.findUniqueOrThrow({ where: { id: result.data.id }, select: { number: true } });
       return `Kontrak ${contract.number} berhasil dibuat sebagai DRAFT.`;
+    }
+    case "create_project_task": {
+      const result = await createTask({
+        projectId: String(args.projectId),
+        title: String(args.title),
+        description: args.description ? String(args.description) : null,
+        assignedToId: args.assignedToId ? String(args.assignedToId) : null,
+        dueDate: args.dueDate ? String(args.dueDate) : null,
+        priority: String(args.priority),
+        status: "TODO",
+        progressPercent: 0,
+      });
+      if (!result.ok) throw new Error(result.error);
+      return `Task "${args.title}" berhasil dibuat.`;
+    }
+    case "update_task_status": {
+      const result = await updateTaskStatus(String(args.taskId), String(args.projectId), args.status as TaskStatus);
+      if (!result.ok) throw new Error(result.error);
+      return `Status task berhasil diubah menjadi ${args.status}.`;
+    }
+    case "create_project_milestone": {
+      const result = await createMilestone({
+        projectId: String(args.projectId),
+        name: String(args.name),
+        dueDate: args.dueDate ? String(args.dueDate) : null,
+        weightPercent: Number(args.weightPercent) || 0,
+        description: args.description ? String(args.description) : null,
+        status: "PENDING",
+        progressPercent: 0,
+        sortOrder: 0,
+      });
+      if (!result.ok) throw new Error(result.error);
+      return `Milestone "${args.name}" berhasil dibuat.`;
+    }
+    case "update_milestone_status": {
+      const result = await updateMilestoneStatus(String(args.milestoneId), String(args.projectId), args.status as "PENDING" | "IN_PROGRESS" | "COMPLETED" | "DELAYED");
+      if (!result.ok) throw new Error(result.error);
+      return `Status milestone berhasil diubah menjadi ${args.status}.`;
+    }
+    case "create_project_expense": {
+      const result = await createExpense({
+        projectId: String(args.projectId),
+        category: String(args.category),
+        description: String(args.description),
+        vendor: args.vendor ? String(args.vendor) : null,
+        date: String(args.date),
+        amount: Number(args.amount),
+        tax: Number(args.tax) || 0,
+        paymentStatus: "UNPAID",
+      });
+      if (!result.ok) throw new Error(result.error);
+      const expense = await prisma.projectExpense.findUniqueOrThrow({ where: { id: result.data.id }, select: { number: true } });
+      return `Expense ${expense.number} berhasil dicatat sebagai DRAFT.`;
+    }
+    case "submit_expense": {
+      const result = await submitExpenseAction(String(args.expenseId), String(args.projectId));
+      if (!result.ok) throw new Error(result.error);
+      return "Expense berhasil disubmit untuk approval.";
+    }
+    case "update_project_progress": {
+      const result = await updateProject(String(args.projectId), { progressPercent: Number(args.progressPercent) });
+      if (!result.ok) throw new Error(result.error);
+      return `Progress berhasil diubah menjadi ${args.progressPercent}%.`;
+    }
+    case "mark_project_completed": {
+      const result = await markCompletedAction(String(args.projectId));
+      if (!result.ok) throw new Error(result.error);
+      return "Project berhasil ditandai Completed.";
+    }
+    case "close_project": {
+      const result = await closeProjectAction(String(args.projectId));
+      if (!result.ok) throw new Error(result.error);
+      return "Project berhasil di-Close.";
     }
     default:
       throw new ForbiddenError(`Aksi "${toolName}" tidak dikenali.`);
