@@ -1,0 +1,37 @@
+name: DB Schema - Add ProgressReportItem.quantity column (one-off)
+
+# Manual-only, one-off schema change: adds a nullable "quantity" ("Jumlah")
+# text column to ProgressReportItem, matching the real ENG-REP inspection
+# report's column layout (No / Foto / Spesifikasi / Jumlah / Keterangan).
+# See src/lib/pdf/progress-report-document.tsx, src/lib/ai/assistant-tools.ts,
+# and src/lib/ai/extract-progress-report.ts. Purely additive — one new
+# nullable column, no drops, no data loss.
+on:
+  workflow_dispatch:
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install PostgreSQL 18 client tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common
+          yes '' | sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh
+          sudo apt-get install -y postgresql-client-18
+          echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
+
+      - name: Apply schema change
+        env:
+          NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
+        run: |
+          set -e
+          psql "$NEW_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          ALTER TABLE "ProgressReportItem" ADD COLUMN IF NOT EXISTS "quantity" TEXT;
+          SQL
+
+      - name: Verify
+        env:
+          NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
+        run: |
+          psql "$NEW_DATABASE_URL" -tAc "SELECT column_name FROM information_schema.columns WHERE table_name = 'ProgressReportItem' AND column_name = 'quantity';"
