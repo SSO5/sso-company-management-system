@@ -13,9 +13,14 @@ import { createProgressReport, addProgressReportItem } from "@/lib/workflows/pro
 import { moveDocumentToTrash, uploadDocument } from "@/lib/workflows/documents";
 import { renameDocumentFile, relocateDocument } from "@/lib/workflows/corrections";
 import { generateProgressReportForActor } from "@/server/projects/progress-reports";
+import { createOpportunity, updateOpportunityStage } from "@/server/sales/opportunities";
+import { createCustomer } from "@/server/sales/customers";
+import { createContact } from "@/server/sales/contacts";
+import { createPurchaseOrder, createContract } from "@/server/sales/purchase-orders";
 import { isExtractableMimeType } from "@/lib/ai/client";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { RevisionAction } from "@/lib/ai/parse-revision-command";
+import type { OpportunityStatus, PurchaseOrderStatus, ContractStatus } from "@prisma/client";
 import type { CostingSheetInput, CostingLineItemInput } from "@/lib/validation/costing";
 import type { InvoiceInput } from "@/lib/validation/finance";
 import type { VendorPurchaseOrderInput } from "@/lib/validation/sales";
@@ -71,6 +76,12 @@ export const WRITE_TOOLS = new Set([
   "rename_document",
   "move_document",
   "trash_document",
+  "create_opportunity",
+  "update_opportunity_stage",
+  "create_customer",
+  "create_contact",
+  "create_customer_po",
+  "create_contract",
 ]);
 
 /** A file attached to the current chat turn — passed through to tools that can act on it (mirrors AssistantAttachment in src/server/assistant.ts). */
@@ -522,6 +533,182 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
       required: ["nameQuery"],
     },
   },
+  {
+    name: "list_opportunities",
+    description:
+      "Cari/daftar banyak opportunity (peluang penjualan) sekaligus dengan filter opsional — untuk pertanyaan seperti 'opportunity apa aja yang masih NEGOTIATION', 'pipeline customer X'. Sudah termasuk yang WON/LOST.",
+    input_schema: {
+      type: "object",
+      properties: {
+        status: { type: "string", enum: ["NEW", "QUALIFIED", "PROPOSAL", "NEGOTIATION", "WON", "LOST"], description: "Filter stage (opsional)." },
+        customerName: { type: "string", description: "Filter nama customer, boleh sebagian (opsional)." },
+        limit: { type: "number", description: "Maksimal hasil (opsional, default 15, maks 30)." },
+      },
+    },
+  },
+  {
+    name: "get_opportunity_status",
+    description:
+      "Cek detail satu opportunity (peluang) berdasarkan nomornya — stage, nilai estimasi, probability, customer, kontak, PIC sales, dan quotation yang sudah dibuat darinya.",
+    input_schema: {
+      type: "object",
+      properties: { opportunityNumber: { type: "string", description: "Nomor opportunity, boleh sebagian." } },
+      required: ["opportunityNumber"],
+    },
+  },
+  {
+    name: "list_contacts",
+    description: "Daftar kontak/PIC di sisi customer, dengan filter nama customer opsional.",
+    input_schema: {
+      type: "object",
+      properties: { customerName: { type: "string", description: "Filter nama customer, boleh sebagian (opsional)." } },
+    },
+  },
+  {
+    name: "get_customer_detail",
+    description:
+      "Lihat profil lengkap satu customer (360) — info perusahaan, semua kontak, opportunity, quotation, PO customer, kontrak, project, invoice & payment terkait. Pakai ini untuk 'histori/profil customer X'.",
+    input_schema: {
+      type: "object",
+      properties: { customerName: { type: "string", description: "Nama customer, boleh sebagian." } },
+      required: ["customerName"],
+    },
+  },
+  {
+    name: "list_customer_pos",
+    description:
+      "Cari/daftar Purchase Order (PO) yang DITERIMA dari customer — beda dengan Vendor PO (yang SSO kirim ke vendor luar). Dengan filter opsional.",
+    input_schema: {
+      type: "object",
+      properties: {
+        status: { type: "string", enum: ["PENDING", "RECEIVED", "VERIFIED", "CANCELLED"], description: "Filter status PO (opsional)." },
+        customerName: { type: "string", description: "Filter nama customer, boleh sebagian (opsional)." },
+        projectNumber: { type: "string", description: "Filter nomor project, boleh sebagian (opsional)." },
+        limit: { type: "number", description: "Maksimal hasil (opsional, default 15, maks 30)." },
+      },
+    },
+  },
+  {
+    name: "list_contracts",
+    description: "Cari/daftar kontrak customer dengan filter opsional.",
+    input_schema: {
+      type: "object",
+      properties: {
+        status: { type: "string", enum: ["DRAFT", "ACTIVE", "EXPIRED", "TERMINATED", "COMPLETED"], description: "Filter status kontrak (opsional)." },
+        customerName: { type: "string", description: "Filter nama customer, boleh sebagian (opsional)." },
+        limit: { type: "number", description: "Maksimal hasil (opsional, default 15, maks 30)." },
+      },
+    },
+  },
+  {
+    name: "create_opportunity",
+    description:
+      "Buat opportunity (peluang penjualan) baru untuk satu customer — persis alur 'Buat Opportunity' di app. PIC sales otomatis diisi user yang chat ini. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    input_schema: {
+      type: "object",
+      properties: {
+        customerName: { type: "string", description: "Nama customer, boleh sebagian." },
+        name: { type: "string", description: "Nama/judul opportunity." },
+        estimatedValue: { type: "number", description: "Estimasi nilai deal dalam Rupiah." },
+        probability: { type: "number", description: "Opsional, probabilitas menang 0-100 (default 10)." },
+        expectedClosingDate: { type: "string", description: "Opsional, estimasi tanggal closing, format YYYY-MM-DD." },
+        description: { type: "string", description: "Opsional, deskripsi peluang." },
+        source: { type: "string", description: "Opsional, sumber lead (mis. referral, website)." },
+        contactName: { type: "string", description: "Opsional, nama kontak/PIC di sisi customer untuk opportunity ini." },
+      },
+      required: ["customerName", "name", "estimatedValue"],
+    },
+  },
+  {
+    name: "update_opportunity_stage",
+    description:
+      "Ubah stage satu opportunity (NEW/QUALIFIED/PROPOSAL/NEGOTIATION). TIDAK bisa untuk WON/LOST — itu HARUS lewat 'Mark Won'/'Mark Lost' pada quotation-nya (ada aturan bisnis & bukti dokumen wajib yang tidak bisa dilewati chat). TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    input_schema: {
+      type: "object",
+      properties: {
+        opportunityNumber: { type: "string", description: "Nomor opportunity, boleh sebagian." },
+        status: { type: "string", enum: ["NEW", "QUALIFIED", "PROPOSAL", "NEGOTIATION"], description: "Stage baru." },
+      },
+      required: ["opportunityNumber", "status"],
+    },
+  },
+  {
+    name: "create_customer",
+    description: "Daftarkan customer/prospek baru ke sistem — persis alur 'Tambah Customer' di app. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    input_schema: {
+      type: "object",
+      properties: {
+        companyName: { type: "string", description: "Nama perusahaan." },
+        customerType: { type: "string", enum: ["PROSPECT", "CUSTOMER", "PARTNER", "OTHER"], description: "Opsional (default PROSPECT)." },
+        industry: { type: "string", description: "Opsional, industri/bidang usaha." },
+        address: { type: "string", description: "Opsional, alamat." },
+        city: { type: "string", description: "Opsional, kota." },
+        province: { type: "string", description: "Opsional, provinsi." },
+        phone: { type: "string", description: "Opsional, telepon." },
+        email: { type: "string", description: "Opsional, email." },
+        website: { type: "string", description: "Opsional, website." },
+        taxId: { type: "string", description: "Opsional, NPWP." },
+        notes: { type: "string", description: "Opsional, catatan." },
+      },
+      required: ["companyName"],
+    },
+  },
+  {
+    name: "create_contact",
+    description: "Tambah kontak/PIC baru untuk satu customer — persis alur 'Tambah Kontak' di app. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    input_schema: {
+      type: "object",
+      properties: {
+        customerName: { type: "string", description: "Nama customer, boleh sebagian." },
+        name: { type: "string", description: "Nama kontak." },
+        position: { type: "string", description: "Opsional, jabatan." },
+        department: { type: "string", description: "Opsional, departemen." },
+        email: { type: "string", description: "Opsional, email." },
+        phone: { type: "string", description: "Opsional, telepon." },
+        whatsapp: { type: "string", description: "Opsional, nomor WhatsApp." },
+        isPrimary: { type: "boolean", description: "Opsional, jadikan kontak utama (default false)." },
+        notes: { type: "string", description: "Opsional, catatan." },
+      },
+      required: ["customerName", "name"],
+    },
+  },
+  {
+    name: "create_customer_po",
+    description:
+      "Catat Purchase Order (PO) yang DITERIMA dari customer — beda dengan create_vendor_po (PO yang SSO kirim ke vendor luar). Nomor PO adalah nomor ASLI dari dokumen customer, bukan nomor buatan sistem. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    input_schema: {
+      type: "object",
+      properties: {
+        customerName: { type: "string", description: "Nama customer, boleh sebagian." },
+        number: { type: "string", description: "Nomor PO asli dari customer, persis seperti tertulis di dokumennya." },
+        poValue: { type: "number", description: "Nilai PO dalam Rupiah." },
+        poDate: { type: "string", description: "Opsional, tanggal PO, format YYYY-MM-DD (default hari ini)." },
+        projectNumber: { type: "string", description: "Opsional, nomor project terkait, boleh sebagian." },
+        startDate: { type: "string", description: "Opsional, tanggal mulai, format YYYY-MM-DD." },
+        endDate: { type: "string", description: "Opsional, tanggal selesai, format YYYY-MM-DD." },
+        paymentTerms: { type: "string", description: "Opsional, syarat pembayaran persis seperti di dokumen PO." },
+        deliveryTerms: { type: "string", description: "Opsional, syarat pengiriman persis seperti di dokumen PO." },
+      },
+      required: ["customerName", "number", "poValue"],
+    },
+  },
+  {
+    name: "create_contract",
+    description:
+      "Buat kontrak baru untuk satu customer, status selalu DRAFT (aktivasi kontrak wajib upload dokumen yang sudah ditandatangani lewat app, tidak bisa lewat chat). TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    input_schema: {
+      type: "object",
+      properties: {
+        customerName: { type: "string", description: "Nama customer, boleh sebagian." },
+        contractValue: { type: "number", description: "Nilai kontrak dalam Rupiah." },
+        startDate: { type: "string", description: "Tanggal mulai kontrak, format YYYY-MM-DD." },
+        endDate: { type: "string", description: "Tanggal berakhir kontrak, format YYYY-MM-DD." },
+        projectNumber: { type: "string", description: "Opsional, nomor project terkait, boleh sebagian." },
+        notes: { type: "string", description: "Opsional, catatan." },
+      },
+      required: ["customerName", "contractValue", "startDate", "endDate"],
+    },
+  },
 ];
 
 export interface ToolExecutionResult {
@@ -604,6 +791,42 @@ async function findCostingByNumber(numberFragment: string) {
       customer: { select: { companyName: true } },
       quotation: { select: { number: true } },
       sections: { include: { items: true }, orderBy: { sortOrder: "asc" } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+async function resolveCustomerByName(name: string): Promise<{ customer: { id: string; companyName: string } } | { note: string }> {
+  const candidates = await searchCustomerCandidates(name);
+  if (candidates.length === 0) return { note: `Customer "${name}" tidak ditemukan.` };
+  if (candidates.length > 1) {
+    return { note: `Ada ${candidates.length} customer mirip "${name}": ${candidates.map((c) => c.companyName).join(", ")}. Sebutkan salah satu nama persis.` };
+  }
+  return { customer: candidates[0] };
+}
+
+async function resolveContactByName(customerId: string, contactName: string): Promise<{ contactId: string; name: string } | { note: string }> {
+  const contacts = await prisma.contact.findMany({
+    where: { customerId, name: { contains: contactName, mode: "insensitive" } },
+    select: { id: true, name: true },
+    take: 5,
+  });
+  if (contacts.length === 0) return { note: `Kontak "${contactName}" tidak ditemukan di customer ini.` };
+  if (contacts.length > 1) {
+    return { note: `Ada ${contacts.length} kontak mirip "${contactName}": ${contacts.map((c) => c.name).join(", ")}. Sebutkan salah satu nama persis.` };
+  }
+  return { contactId: contacts[0].id, name: contacts[0].name };
+}
+
+async function findOpportunityByNumber(numberFragment: string) {
+  return prisma.opportunity.findFirst({
+    where: { deletedAt: null, number: { contains: numberFragment, mode: "insensitive" } },
+    select: {
+      id: true, number: true, name: true, status: true, estimatedValue: true, probability: true, expectedClosingDate: true,
+      customer: { select: { companyName: true } },
+      contact: { select: { name: true } },
+      salesPic: { select: { name: true } },
+      quotations: { where: { deletedAt: null }, select: { number: true, revision: true, status: true, grandTotal: true } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -1494,6 +1717,334 @@ export async function executeAssistantTool(
       };
     }
 
+    case "list_opportunities": {
+      requirePermission(actor.role, "sales", "view");
+      const rows = await prisma.opportunity.findMany({
+        where: {
+          deletedAt: null,
+          ...(input.status ? { status: input.status as OpportunityStatus } : {}),
+          ...(input.customerName ? { customer: { companyName: { contains: String(input.customerName), mode: "insensitive" } } } : {}),
+        },
+        select: { number: true, name: true, status: true, estimatedValue: true, probability: true, customer: { select: { companyName: true } } },
+        orderBy: { createdAt: "desc" },
+        take: clampLimit(input.limit),
+      });
+      if (rows.length === 0) return { resultText: "Tidak ada opportunity yang cocok." };
+      return {
+        resultText: rows
+          .map((o) => `- ${o.number} — ${o.name} — ${o.customer.companyName} — ${o.status} (${o.probability}%) — ${formatCurrency(Number(o.estimatedValue))}`)
+          .join("\n"),
+      };
+    }
+
+    case "get_opportunity_status": {
+      requirePermission(actor.role, "sales", "view");
+      const opp = await findOpportunityByNumber(String(input.opportunityNumber ?? ""));
+      if (!opp) return { resultText: `Opportunity "${input.opportunityNumber}" tidak ditemukan.` };
+      return {
+        resultText:
+          `${opp.number} — ${opp.name}\n` +
+          `Customer: ${opp.customer.companyName}${opp.contact ? ` (PIC: ${opp.contact.name})` : ""}\n` +
+          `Stage: ${opp.status} — Probability: ${opp.probability}%\n` +
+          `Estimasi nilai: ${formatCurrency(Number(opp.estimatedValue))}\n` +
+          `Target closing: ${opp.expectedClosingDate ? formatDate(opp.expectedClosingDate) : "-"}\n` +
+          `Sales PIC: ${opp.salesPic.name}` +
+          (opp.quotations.length > 0
+            ? `\nQuotation: ${opp.quotations.map((q) => `${q.number}${q.revision > 0 ? `.R${q.revision}` : ""} (${q.status})`).join(", ")}`
+            : ""),
+      };
+    }
+
+    case "list_contacts": {
+      requirePermission(actor.role, "sales", "view");
+      const rows = await prisma.contact.findMany({
+        where: input.customerName ? { customer: { companyName: { contains: String(input.customerName), mode: "insensitive" } } } : undefined,
+        select: { name: true, position: true, phone: true, email: true, isPrimary: true, customer: { select: { companyName: true } } },
+        orderBy: { createdAt: "desc" },
+        take: 30,
+      });
+      if (rows.length === 0) return { resultText: "Tidak ada kontak yang cocok." };
+      return {
+        resultText: rows
+          .map((c) => `- ${c.name}${c.isPrimary ? " (utama)" : ""} — ${c.customer.companyName}${c.position ? ` — ${c.position}` : ""}${c.phone ? ` — ${c.phone}` : ""}`)
+          .join("\n"),
+      };
+    }
+
+    case "get_customer_detail": {
+      requirePermission(actor.role, "sales", "view");
+      const resolved = await resolveCustomerByName(String(input.customerName ?? ""));
+      if ("note" in resolved) return { resultText: resolved.note };
+      const c = await prisma.customer.findUniqueOrThrow({
+        where: { id: resolved.customer.id },
+        include: {
+          contacts: { select: { name: true, position: true, phone: true, isPrimary: true } },
+          opportunities: { where: { deletedAt: null }, select: { number: true, name: true, status: true } },
+          purchaseOrders: { where: { deletedAt: null }, select: { number: true, poValue: true, status: true } },
+          contracts: { where: { deletedAt: null }, select: { number: true, status: true, contractValue: true } },
+          projects: { where: { deletedAt: null }, select: { number: true, name: true, status: true } },
+        },
+      });
+      const lines = [
+        `${c.companyName} (${c.number}) — ${c.customerType}, status ${c.status}`,
+        c.industry ? `Industri: ${c.industry}` : null,
+        c.phone || c.email ? `Kontak perusahaan: ${[c.phone, c.email].filter(Boolean).join(" / ")}` : null,
+        c.contacts.length > 0 ? `PIC: ${c.contacts.map((p) => `${p.name}${p.isPrimary ? " (utama)" : ""}${p.position ? ` (${p.position})` : ""}`).join(", ")}` : "PIC: -",
+        `Opportunity (${c.opportunities.length}): ${c.opportunities.map((o) => `${o.number} [${o.status}]`).join(", ") || "-"}`,
+        `PO Customer (${c.purchaseOrders.length}): ${c.purchaseOrders.map((p) => `${p.number} [${p.status}] ${formatCurrency(Number(p.poValue))}`).join(", ") || "-"}`,
+        `Kontrak (${c.contracts.length}): ${c.contracts.map((k) => `${k.number} [${k.status}]`).join(", ") || "-"}`,
+        `Project (${c.projects.length}): ${c.projects.map((p) => `${p.number} [${p.status}]`).join(", ") || "-"}`,
+      ].filter(Boolean);
+      return { resultText: lines.join("\n") };
+    }
+
+    case "list_customer_pos": {
+      requirePermission(actor.role, "sales", "view");
+      const project = await resolveProjectId(input.projectNumber ? String(input.projectNumber) : undefined);
+      if (project === null) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+      const rows = await prisma.purchaseOrder.findMany({
+        where: {
+          deletedAt: null,
+          ...(input.status ? { status: input.status as PurchaseOrderStatus } : {}),
+          ...(project ? { projectId: project.id } : {}),
+          ...(input.customerName ? { customer: { companyName: { contains: String(input.customerName), mode: "insensitive" } } } : {}),
+        },
+        select: { number: true, poValue: true, status: true, poDate: true, customer: { select: { companyName: true } } },
+        orderBy: { createdAt: "desc" },
+        take: clampLimit(input.limit),
+      });
+      if (rows.length === 0) return { resultText: "Tidak ada PO customer yang cocok." };
+      return {
+        resultText: rows
+          .map((p) => `- ${p.number} — ${p.customer.companyName} — ${p.status} — ${formatCurrency(Number(p.poValue))} — ${formatDate(p.poDate)}`)
+          .join("\n"),
+      };
+    }
+
+    case "list_contracts": {
+      requirePermission(actor.role, "sales", "view");
+      const rows = await prisma.contract.findMany({
+        where: {
+          deletedAt: null,
+          ...(input.status ? { status: input.status as ContractStatus } : {}),
+          ...(input.customerName ? { customer: { companyName: { contains: String(input.customerName), mode: "insensitive" } } } : {}),
+        },
+        select: { number: true, contractValue: true, status: true, endDate: true, customer: { select: { companyName: true } } },
+        orderBy: { createdAt: "desc" },
+        take: clampLimit(input.limit),
+      });
+      if (rows.length === 0) return { resultText: "Tidak ada kontrak yang cocok." };
+      return {
+        resultText: rows
+          .map((k) => `- ${k.number} — ${k.customer.companyName} — ${k.status} — ${formatCurrency(Number(k.contractValue))} — berakhir ${formatDate(k.endDate)}`)
+          .join("\n"),
+      };
+    }
+
+    case "create_opportunity": {
+      requirePermission(actor.role, "sales", "create");
+      const resolved = await resolveCustomerByName(String(input.customerName ?? ""));
+      if ("note" in resolved) return { resultText: resolved.note };
+      const name = String(input.name ?? "").trim();
+      if (!name) return { resultText: "Sebutkan nama/judul opportunity." };
+      const estimatedValue = Number(input.estimatedValue);
+      if (!Number.isFinite(estimatedValue) || estimatedValue < 0) return { resultText: "Sebutkan estimasi nilai deal (Rupiah) yang valid." };
+      const expectedClosingDate = parseOptionalDate(input.expectedClosingDate);
+      if (expectedClosingDate === "invalid") return { resultText: "Format tanggal closing tidak valid — gunakan format YYYY-MM-DD." };
+
+      let contactId: string | null = null;
+      let contactNote = "";
+      if (input.contactName) {
+        const c = await resolveContactByName(resolved.customer.id, String(input.contactName));
+        if ("note" in c) return { resultText: c.note };
+        contactId = c.contactId;
+        contactNote = ` — PIC: ${c.name}`;
+      }
+
+      const probability = Number.isFinite(Number(input.probability)) ? Number(input.probability) : 10;
+
+      return {
+        resultText: "Menunggu konfirmasi user sebelum opportunity benar-benar dibuat.",
+        pendingAction: {
+          toolName: "create_opportunity",
+          args: {
+            customerId: resolved.customer.id, contactId, name,
+            description: input.description ? String(input.description) : null,
+            estimatedValue, probability,
+            expectedClosingDate: expectedClosingDate ? expectedClosingDate.toISOString() : null,
+            salesPicId: actor.userId,
+            source: input.source ? String(input.source) : null,
+          },
+          description: `Buat opportunity — ${resolved.customer.companyName} / ${name}${contactNote}\nEstimasi nilai: ${formatCurrency(estimatedValue)} — Probability: ${probability}%`,
+        },
+      };
+    }
+
+    case "update_opportunity_stage": {
+      requirePermission(actor.role, "sales", "update");
+      const opp = await findOpportunityByNumber(String(input.opportunityNumber ?? ""));
+      if (!opp) return { resultText: `Opportunity "${input.opportunityNumber}" tidak ditemukan.` };
+      const status = String(input.status ?? "");
+      if (!["NEW", "QUALIFIED", "PROPOSAL", "NEGOTIATION"].includes(status)) {
+        return { resultText: "Stage WON/LOST tidak bisa diubah lewat chat — gunakan 'Mark Won'/'Mark Lost' pada quotation-nya di app." };
+      }
+      if (opp.status === "WON" || opp.status === "LOST") {
+        return { resultText: `${opp.number} sudah ${opp.status} dan stage-nya tidak bisa diubah manual lagi.` };
+      }
+
+      return {
+        resultText: "Menunggu konfirmasi user sebelum stage opportunity benar-benar diubah.",
+        pendingAction: {
+          toolName: "update_opportunity_stage",
+          args: { opportunityId: opp.id, status },
+          description: `Ubah stage ${opp.number} (${opp.name}) — ${opp.status} -> ${status}`,
+        },
+      };
+    }
+
+    case "create_customer": {
+      requirePermission(actor.role, "sales", "create");
+      const companyName = String(input.companyName ?? "").trim();
+      if (!companyName) return { resultText: "Sebutkan nama perusahaan customer." };
+
+      return {
+        resultText: "Menunggu konfirmasi user sebelum customer benar-benar dibuat.",
+        pendingAction: {
+          toolName: "create_customer",
+          args: {
+            companyName,
+            customerType: input.customerType ? String(input.customerType) : "PROSPECT",
+            industry: input.industry ? String(input.industry) : null,
+            address: input.address ? String(input.address) : null,
+            city: input.city ? String(input.city) : null,
+            province: input.province ? String(input.province) : null,
+            phone: input.phone ? String(input.phone) : null,
+            email: input.email ? String(input.email) : null,
+            website: input.website ? String(input.website) : null,
+            taxId: input.taxId ? String(input.taxId) : null,
+            notes: input.notes ? String(input.notes) : null,
+          },
+          description: `Buat customer baru — ${companyName} (${input.customerType ? String(input.customerType) : "PROSPECT"})`,
+        },
+      };
+    }
+
+    case "create_contact": {
+      requirePermission(actor.role, "sales", "create");
+      const resolved = await resolveCustomerByName(String(input.customerName ?? ""));
+      if ("note" in resolved) return { resultText: resolved.note };
+      const name = String(input.name ?? "").trim();
+      if (!name) return { resultText: "Sebutkan nama kontak." };
+
+      return {
+        resultText: "Menunggu konfirmasi user sebelum kontak benar-benar dibuat.",
+        pendingAction: {
+          toolName: "create_contact",
+          args: {
+            customerId: resolved.customer.id, name,
+            position: input.position ? String(input.position) : null,
+            department: input.department ? String(input.department) : null,
+            email: input.email ? String(input.email) : null,
+            phone: input.phone ? String(input.phone) : null,
+            whatsapp: input.whatsapp ? String(input.whatsapp) : null,
+            isPrimary: Boolean(input.isPrimary),
+            notes: input.notes ? String(input.notes) : null,
+          },
+          description: `Tambah kontak — ${name} di ${resolved.customer.companyName}${input.position ? ` (${input.position})` : ""}`,
+        },
+      };
+    }
+
+    case "create_customer_po": {
+      requirePermission(actor.role, "sales", "create");
+      const resolved = await resolveCustomerByName(String(input.customerName ?? ""));
+      if ("note" in resolved) return { resultText: resolved.note };
+      const number = String(input.number ?? "").trim();
+      if (!number) return { resultText: "Sebutkan nomor PO asli dari customer." };
+      const poValue = Number(input.poValue);
+      if (!Number.isFinite(poValue) || poValue <= 0) return { resultText: "Sebutkan nilai PO (Rupiah) yang valid." };
+
+      let projectId: string | null = null;
+      let projectNumber: string | null = null;
+      if (input.projectNumber) {
+        const project = await prisma.project.findFirst({
+          where: { deletedAt: null, number: { contains: String(input.projectNumber), mode: "insensitive" } },
+          select: { id: true, number: true },
+        });
+        if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+        projectId = project.id;
+        projectNumber = project.number;
+      }
+
+      const poDate = parseOptionalDate(input.poDate);
+      if (poDate === "invalid") return { resultText: "Format tanggal PO tidak valid — gunakan format YYYY-MM-DD." };
+      const startDate = parseOptionalDate(input.startDate);
+      if (startDate === "invalid") return { resultText: "Format tanggal mulai tidak valid — gunakan format YYYY-MM-DD." };
+      const endDate = parseOptionalDate(input.endDate);
+      if (endDate === "invalid") return { resultText: "Format tanggal selesai tidak valid — gunakan format YYYY-MM-DD." };
+
+      const dup = await prisma.purchaseOrder.findFirst({ where: { customerId: resolved.customer.id, number, deletedAt: null } });
+      if (dup) return { resultText: `PO "${number}" untuk customer ${resolved.customer.companyName} sudah tercatat.` };
+
+      return {
+        resultText: "Menunggu konfirmasi user sebelum PO customer benar-benar dicatat.",
+        pendingAction: {
+          toolName: "create_customer_po",
+          args: {
+            customerId: resolved.customer.id, projectId, number, poValue,
+            poDate: (poDate ?? new Date()).toISOString(),
+            startDate: startDate ? startDate.toISOString() : null,
+            endDate: endDate ? endDate.toISOString() : null,
+            paymentTerms: input.paymentTerms ? String(input.paymentTerms) : null,
+            deliveryTerms: input.deliveryTerms ? String(input.deliveryTerms) : null,
+          },
+          description:
+            `Catat PO customer — ${number} dari ${resolved.customer.companyName} — ${formatCurrency(poValue)}` +
+            (projectNumber ? ` — project ${projectNumber}` : ""),
+        },
+      };
+    }
+
+    case "create_contract": {
+      requirePermission(actor.role, "sales", "create");
+      const resolved = await resolveCustomerByName(String(input.customerName ?? ""));
+      if ("note" in resolved) return { resultText: resolved.note };
+      const contractValue = Number(input.contractValue);
+      if (!Number.isFinite(contractValue) || contractValue <= 0) return { resultText: "Sebutkan nilai kontrak (Rupiah) yang valid." };
+      const startDate = parseOptionalDate(input.startDate);
+      const endDate = parseOptionalDate(input.endDate);
+      if (startDate === "invalid" || !startDate) return { resultText: "Sebutkan tanggal mulai kontrak yang valid, format YYYY-MM-DD." };
+      if (endDate === "invalid" || !endDate) return { resultText: "Sebutkan tanggal berakhir kontrak yang valid, format YYYY-MM-DD." };
+
+      let projectId: string | null = null;
+      let projectNumber: string | null = null;
+      if (input.projectNumber) {
+        const project = await prisma.project.findFirst({
+          where: { deletedAt: null, number: { contains: String(input.projectNumber), mode: "insensitive" } },
+          select: { id: true, number: true },
+        });
+        if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+        projectId = project.id;
+        projectNumber = project.number;
+      }
+
+      return {
+        resultText: "Menunggu konfirmasi user sebelum kontrak benar-benar dibuat.",
+        pendingAction: {
+          toolName: "create_contract",
+          args: {
+            customerId: resolved.customer.id, projectId,
+            contractValue, startDate: startDate.toISOString(), endDate: endDate.toISOString(),
+            notes: input.notes ? String(input.notes) : null,
+          },
+          description:
+            `Buat kontrak DRAFT — ${resolved.customer.companyName} — ${formatCurrency(contractValue)}\n` +
+            `Berlaku: ${formatDate(startDate)} - ${formatDate(endDate)}` +
+            (projectNumber ? ` — project ${projectNumber}` : ""),
+        },
+      };
+    }
+
     default:
       return { resultText: `Tool "${toolName}" tidak dikenali.` };
   }
@@ -1680,6 +2231,92 @@ export async function runConfirmedAssistantAction(
     case "trash_document": {
       const doc = await moveDocumentToTrash(String(args.documentId), actor);
       return `"${doc.originalName}" berhasil dipindahkan ke Trash (masih bisa dipulihkan lewat app).`;
+    }
+    case "create_opportunity": {
+      const result = await createOpportunity({
+        customerId: String(args.customerId),
+        contactId: args.contactId ? String(args.contactId) : null,
+        name: String(args.name),
+        description: args.description ? String(args.description) : null,
+        estimatedValue: Number(args.estimatedValue),
+        probability: Number(args.probability),
+        expectedClosingDate: args.expectedClosingDate ? String(args.expectedClosingDate) : null,
+        salesPicId: String(args.salesPicId),
+        source: args.source ? String(args.source) : null,
+      });
+      if (!result.ok) throw new Error(result.error);
+      const opp = await prisma.opportunity.findUniqueOrThrow({ where: { id: result.data.id }, select: { number: true } });
+      return `Opportunity ${opp.number} berhasil dibuat.`;
+    }
+    case "update_opportunity_stage": {
+      const result = await updateOpportunityStage(String(args.opportunityId), args.status as never);
+      if (!result.ok) throw new Error(result.error);
+      const opp = await prisma.opportunity.findUniqueOrThrow({ where: { id: String(args.opportunityId) }, select: { number: true } });
+      return `Stage ${opp.number} berhasil diubah menjadi ${args.status}.`;
+    }
+    case "create_customer": {
+      const result = await createCustomer({
+        companyName: String(args.companyName),
+        customerType: args.customerType ? String(args.customerType) : "PROSPECT",
+        industry: args.industry ? String(args.industry) : null,
+        address: args.address ? String(args.address) : null,
+        city: args.city ? String(args.city) : null,
+        province: args.province ? String(args.province) : null,
+        phone: args.phone ? String(args.phone) : null,
+        email: args.email ? String(args.email) : null,
+        website: args.website ? String(args.website) : null,
+        taxId: args.taxId ? String(args.taxId) : null,
+        notes: args.notes ? String(args.notes) : null,
+        status: "ACTIVE",
+      });
+      if (!result.ok) throw new Error(result.error);
+      const customer = await prisma.customer.findUniqueOrThrow({ where: { id: result.data.id }, select: { number: true } });
+      return `Customer ${customer.number} (${args.companyName}) berhasil dibuat.`;
+    }
+    case "create_contact": {
+      const result = await createContact({
+        customerId: String(args.customerId),
+        name: String(args.name),
+        position: args.position ? String(args.position) : null,
+        department: args.department ? String(args.department) : null,
+        email: args.email ? String(args.email) : null,
+        phone: args.phone ? String(args.phone) : null,
+        whatsapp: args.whatsapp ? String(args.whatsapp) : null,
+        isPrimary: Boolean(args.isPrimary),
+        notes: args.notes ? String(args.notes) : null,
+      });
+      if (!result.ok) throw new Error(result.error);
+      return `Kontak "${args.name}" berhasil ditambahkan.`;
+    }
+    case "create_customer_po": {
+      const result = await createPurchaseOrder({
+        customerId: String(args.customerId),
+        projectId: args.projectId ? String(args.projectId) : null,
+        number: String(args.number),
+        poDate: String(args.poDate),
+        poValue: Number(args.poValue),
+        startDate: args.startDate ? String(args.startDate) : null,
+        endDate: args.endDate ? String(args.endDate) : null,
+        paymentTerms: args.paymentTerms ? String(args.paymentTerms) : null,
+        deliveryTerms: args.deliveryTerms ? String(args.deliveryTerms) : null,
+        status: "PENDING",
+      });
+      if (!result.ok) throw new Error(result.error);
+      return `PO customer "${args.number}" berhasil dicatat.`;
+    }
+    case "create_contract": {
+      const result = await createContract({
+        customerId: String(args.customerId),
+        projectId: args.projectId ? String(args.projectId) : null,
+        contractValue: Number(args.contractValue),
+        startDate: String(args.startDate),
+        endDate: String(args.endDate),
+        notes: args.notes ? String(args.notes) : null,
+        status: "DRAFT",
+      });
+      if (!result.ok) throw new Error(result.error);
+      const contract = await prisma.contract.findUniqueOrThrow({ where: { id: result.data.id }, select: { number: true } });
+      return `Kontrak ${contract.number} berhasil dibuat sebagai DRAFT.`;
     }
     default:
       throw new ForbiddenError(`Aksi "${toolName}" tidak dikenali.`);
