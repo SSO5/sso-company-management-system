@@ -1,5 +1,5 @@
 "use client";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -23,13 +23,26 @@ interface MyDirective {
   assignedBy: { name: string };
 }
 
-export function MyDirectivesPanel({ directives }: { directives: MyDirective[] }) {
+export function MyDirectivesPanel({ directives, openId }: { directives: MyDirective[]; openId?: string }) {
   const [pendingId, setPendingId] = useState<string | null>(null);
-  const [replyOpenId, setReplyOpenId] = useState<string | null>(null);
+  const [replyOpenId, setReplyOpenId] = useState<string | null>(openId ?? null);
   const [replyDraft, setReplyDraft] = useState("");
   const [, startTransition] = useTransition();
   const router = useRouter();
   const { toast } = useToast();
+  const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // Deep-linked from a WA/email/in-app notification (?open=<id>) — jump
+  // straight to that task instead of leaving the person to scan the list.
+  useEffect(() => {
+    if (!openId) return;
+    const target = directives.find((d) => d.id === openId);
+    if (!target) return;
+    if (target.status === "OPEN") setReplyOpenId(openId);
+    const el = itemRefs.current[openId];
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openId]);
 
   function onComplete(id: string) {
     setPendingId(id);
@@ -79,7 +92,15 @@ export function MyDirectivesPanel({ directives }: { directives: MyDirective[] })
         )}
 
         {open.map((d) => (
-          <div key={d.id} className="rounded-lg border border-primary/25 bg-primary/[0.04] px-3 py-2.5">
+          <div
+            key={d.id}
+            ref={(el) => {
+              itemRefs.current[d.id] = el;
+            }}
+            className={`rounded-lg border px-3 py-2.5 ${
+              d.id === openId ? "border-primary bg-primary/[0.08] ring-2 ring-primary/30" : "border-primary/25 bg-primary/[0.04]"
+            }`}
+          >
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-start gap-2.5 min-w-0">
                 <CircleDashed className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
@@ -132,13 +153,21 @@ export function MyDirectivesPanel({ directives }: { directives: MyDirective[] })
         ))}
 
         {done.length > 0 && (
-          <details className="pt-1">
+          <details className="pt-1" open={done.some((d) => d.id === openId)}>
             <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
               {done.length} tugas selesai
             </summary>
             <div className="mt-1.5 space-y-1.5">
               {done.map((d) => (
-                <div key={d.id} className="flex items-start gap-2.5 rounded-lg border border-border px-3 py-2 opacity-70">
+                <div
+                  key={d.id}
+                  ref={(el) => {
+                    itemRefs.current[d.id] = el;
+                  }}
+                  className={`flex items-start gap-2.5 rounded-lg border px-3 py-2 ${
+                    d.id === openId ? "border-primary ring-2 ring-primary/30" : "border-border opacity-70"
+                  }`}
+                >
                   <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
                   <div className="min-w-0">
                     <p className="text-sm">{d.title}</p>

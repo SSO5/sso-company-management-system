@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -37,15 +37,28 @@ const ROLE_LABEL: Record<string, string> = {
 export function DirectiveGiverPanel({
   assignableUsers,
   given,
+  initialTab,
+  highlightBatchId,
 }: {
   assignableUsers: AssignableUser[];
   given: GivenBatch[];
+  initialTab?: string;
+  highlightBatchId?: string;
 }) {
-  const [tab, setTab] = useState("new");
+  const [tab, setTab] = useState(initialTab ?? "new");
   const [targetType, setTargetType] = useState<"USER" | "ROLE" | "ALL">("ALL");
   const [pending, setPending] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+  const batchRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // Deep-linked from a WA/email/in-app notification about a specific
+  // reply/completion (?tab=given&batch=<id>) — jump straight to that batch.
+  useEffect(() => {
+    if (!highlightBatchId || tab !== "given") return;
+    batchRefs.current[highlightBatchId]?.scrollIntoView({ behavior: "smooth", block: "center" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightBatchId, tab]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -161,7 +174,15 @@ export function DirectiveGiverPanel({
             {given.map((b) => {
               const doneCount = b.recipients.filter((r) => r.status === "DONE").length;
               return (
-                <div key={b.batchId} className="rounded-lg border border-border px-3 py-2.5">
+                <div
+                  key={b.batchId}
+                  ref={(el) => {
+                    batchRefs.current[b.batchId] = el;
+                  }}
+                  className={`rounded-lg border px-3 py-2.5 ${
+                    b.batchId === highlightBatchId ? "border-primary ring-2 ring-primary/30" : "border-border"
+                  }`}
+                >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-sm font-medium">{b.title}</p>

@@ -3,7 +3,11 @@ import { listMyDirectivesAction, listGivenDirectivesAction, listAssignableUsersA
 import { MyDirectivesPanel } from "@/components/tasks/my-directives-panel";
 import { DirectiveGiverPanel } from "@/components/tasks/directive-giver-panel";
 
-export default async function TasksPage() {
+export default async function TasksPage({
+  searchParams,
+}: {
+  searchParams: { open?: string; tab?: string; batch?: string };
+}) {
   const actor = await requireUser();
   const isAdmin = actor.role === "ADMIN";
 
@@ -24,9 +28,16 @@ export default async function TasksPage() {
         </p>
       </div>
 
-      <MyDirectivesPanel directives={myDirectives} />
+      <MyDirectivesPanel directives={myDirectives} openId={searchParams.open} />
 
-      {isAdmin && <DirectiveGiverPanel assignableUsers={assignableUsers} given={given} />}
+      {isAdmin && (
+        <DirectiveGiverPanel
+          assignableUsers={assignableUsers}
+          given={given}
+          initialTab={searchParams.tab === "given" ? "given" : "new"}
+          highlightBatchId={searchParams.batch}
+        />
+      )}
     </div>
   );
 }

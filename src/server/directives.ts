@@ -62,24 +62,30 @@ export async function createDirectiveAction(input: unknown): Promise<ActionResul
 
     const batchId = randomUUID();
 
-    await prisma.$transaction(async (tx) => {
-      await tx.directive.createMany({
-        data: recipients.map((r) => ({
-          batchId,
-          title: data.title,
-          description: data.description || null,
-          dueDate: data.dueDate || null,
-          assignedToId: r.id,
-          assignedById: actor.userId,
-        })),
-      });
+    // Created one-by-one (not createMany) so each row's own id is known
+    // right away — needed to deep-link each recipient's WA/email straight
+    // to THEIR task instead of the generic /tasks list.
+    const created = await prisma.$transaction(async (tx) => {
+      const rows = [];
       for (const r of recipients) {
+        const row = await tx.directive.create({
+          data: {
+            batchId,
+            title: data.title,
+            description: data.description || null,
+            dueDate: data.dueDate || null,
+            assignedToId: r.id,
+            assignedById: actor.userId,
+          },
+          select: { id: true, assignedToId: true },
+        });
+        rows.push(row);
         await notifyUser(tx, {
           userId: r.id,
           type: "DIRECTIVE_ASSIGNED",
           title: "Tugas baru dari Direktur",
           message: data.title,
-          link: "/tasks",
+          link: `/tasks?open=${row.id}`,
         });
       }
       await logActivity(tx, {
@@ -89,16 +95,24 @@ export async function createDirectiveAction(input: unknown): Promise<ActionResul
         entityId: batchId,
         description: `Memberi tugas "${data.title}" ke ${recipients.length} user (${data.target.type})`,
       });
+      return rows;
     });
 
-    await dispatchOutbound(
-      { userIds: recipients.map((r) => r.id) },
-      {
-        title: "Tugas baru dari Direktur",
-        message: data.title + (data.description ? `\n${data.description}` : ""),
-        link: "/tasks",
-      }
-    ).catch((err) => console.error("[createDirectiveAction] dispatchOutbound failed:", err));
+    // Sent per-recipient (not one batched dispatchOutbound call) precisely
+    // so the WA/email link opens directly on that person's own task —
+    // WA is just a notification + a button in, never a place to reply.
+    await Promise.allSettled(
+      created.map((row) =>
+        dispatchOutbound(
+          { userId: row.assignedToId },
+          {
+            title: "Tugas baru dari Direktur",
+            message: data.title + (data.description ? `\n${data.description}` : ""),
+            link: `/tasks?open=${row.id}`,
+          }
+        )
+      )
+    );
 
     revalidatePath("/tasks");
     return { batchId, recipientCount: recipients.length };
@@ -134,7 +148,7 @@ export async function completeDirectiveAction(id: string): Promise<ActionResult<
           type: "DIRECTIVE_COMPLETED",
           title: "Tugas selesai",
           message: `Tugas "${existing.title}" telah ditandai selesai.`,
-          link: "/tasks/given",
+          link: `/tasks?tab=given&batch=${existing.batchId}`,
         });
       }
     });
@@ -168,7 +182,7 @@ export async function respondToDirectiveAction(id: string, input: unknown): Prom
         type: "DIRECTIVE_RESPONDED",
         title: "Balasan tugas dari karyawan",
         message: `${actor.name} membalas "${existing.title}": ${response}`,
-        link: "/tasks",
+        link: `/tasks?tab=given&batch=${existing.batchId}`,
       });
     });
 
@@ -177,7 +191,7 @@ export async function respondToDirectiveAction(id: string, input: unknown): Prom
       {
         title: "Balasan tugas dari karyawan",
         message: `${actor.name} membalas "${existing.title}":\n${response}`,
-        link: "/tasks",
+        link: `/tasks?tab=given&batch=${existing.batchId}`,
       }
     ).catch((err) => console.error("[respondToDirectiveAction] dispatchOutbound failed:", err));
 
