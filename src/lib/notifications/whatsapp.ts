@@ -21,6 +21,51 @@ function isConfigured() {
   return process.env.NOTIFICATIONS_OUTBOUND_ENABLED === "true" && !!process.env.FONNTE_TOKEN;
 }
 
+/**
+ * Same Fonnte call as sendWhatsApp, but for the self-service "Test
+ * Notifikasi" button (Settings > Profil Saya) — returns WHY it failed in
+ * plain language instead of a bare boolean, so a non-technical admin can
+ * diagnose a broken WA setup (missing env var vs disconnected Fonnte
+ * device vs bad token) without ever needing to read a server log.
+ */
+export async function testWhatsAppConnection(input: SendWhatsAppInput): Promise<{ ok: boolean; reason: string }> {
+  if (process.env.NOTIFICATIONS_OUTBOUND_ENABLED !== "true") {
+    return {
+      ok: false,
+      reason: 'Notifikasi outbound belum diaktifkan — env var NOTIFICATIONS_OUTBOUND_ENABLED di Vercel belum "true".',
+    };
+  }
+  if (!process.env.FONNTE_TOKEN) {
+    return { ok: false, reason: "Token Fonnte belum diisi — env var FONNTE_TOKEN kosong di Vercel." };
+  }
+  try {
+    const res = await fetch("https://api.fonnte.com/send", {
+      method: "POST",
+      headers: {
+        Authorization: process.env.FONNTE_TOKEN,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({ target: input.to, message: input.message }),
+    });
+    const body = await res.json().catch(() => null);
+    if (!res.ok) {
+      return {
+        ok: false,
+        reason: `Fonnte menolak request (HTTP ${res.status})${body?.reason ? ` — "${body.reason}"` : ""}. Cek apakah token Fonnte benar.`,
+      };
+    }
+    if (body && body.status === false) {
+      return {
+        ok: false,
+        reason: `Fonnte menolak pesan — "${body.reason || "alasan tidak diketahui"}". Kemungkinan besar device Fonnte terputus (perlu scan ulang QR di fonnte.com) atau token salah.`,
+      };
+    }
+    return { ok: true, reason: "Pesan berhasil dikirim ke Fonnte — cek WhatsApp Anda dalam beberapa detik." };
+  } catch (err) {
+    return { ok: false, reason: `Gagal menghubungi Fonnte: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
 export async function sendWhatsApp(input: SendWhatsAppInput): Promise<boolean> {
   if (!isConfigured()) {
     // TEMPORARY DIAGNOSTIC (remove once WA/email confirmed working) — same
