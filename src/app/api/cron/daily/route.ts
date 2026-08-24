@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
 import { refreshOverdueInvoices, refreshBillingSchedule } from "@/lib/workflows/finance";
 import { refreshProjectRiskNotifications } from "@/lib/workflows/project";
-import { escalateStaleApprovals, sendDailyDigest } from "@/lib/workflows/cron-jobs";
+import {
+  escalateStaleApprovals,
+  sendDailyDigest,
+  remindInvoicesDueSoon,
+  remindMilestonesDueSoon,
+  remindContractsExpiringSoon,
+  remindQuotationsExpiringSoon,
+} from "@/lib/workflows/cron-jobs";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +40,10 @@ export async function GET(req: Request) {
     ["billingSchedule", refreshBillingSchedule],
     ["projectRisk", refreshProjectRiskNotifications],
     ["staleApprovals", escalateStaleApprovals],
+    ["invoicesDueSoon", remindInvoicesDueSoon],
+    ["milestonesDueSoon", remindMilestonesDueSoon],
+    ["contractsExpiringSoon", remindContractsExpiringSoon],
+    ["quotationsExpiringSoon", remindQuotationsExpiringSoon],
     ["dailyDigest", sendDailyDigest],
   ];
 

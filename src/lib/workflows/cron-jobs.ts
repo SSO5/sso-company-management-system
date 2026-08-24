@@ -1,7 +1,13 @@
 import { prisma } from "@/lib/db";
-import { notifyRole } from "@/lib/workflows/notify";
+import { notifyRole, notifyUser } from "@/lib/workflows/notify";
 import { dispatchOutbound } from "@/lib/notifications/dispatch";
 import { formatDate } from "@/lib/utils";
+
+const REMINDER_DEDUPE_DAYS = 3;
+
+function dedupeSince(days: number) {
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+}
 
 /**
  * Escalates Quotation/Invoice/Vendor PO/Expense that have sat in SUBMITTED
@@ -61,6 +67,159 @@ export async function escalateStaleApprovals(): Promise<number> {
 }
 
 /**
+ * Reminds FINANCE about issued invoices due within 3 days — everything else
+ * about invoices only reacts AFTER the due date passes (refreshOverdueInvoices)
+ * or after a PO exists but nothing's been invoiced yet (refreshBillingSchedule).
+ * This is the missing "before it's actually late" nudge. One combined
+ * notification per run, deduped per invoice against the last 3 days so the
+ * daily cron doesn't re-notify the same invoice every single day of its
+ * due-soon window.
+ */
+export async function remindInvoicesDueSoon(): Promise<number> {
+  const in3Days = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+  const invoices = await prisma.invoice.findMany({
+    where: { deletedAt: null, status: { in: ["ISSUED", "PARTIALLY_PAID"] }, dueDate: { gte: new Date(), lte: in3Days } },
+    select: { number: true, dueDate: true, customer: { select: { companyName: true } } },
+  });
+  if (invoices.length === 0) return 0;
+
+  const alreadyNotified = await prisma.notification.findFirst({
+    where: { type: "INVOICE_DUE_SOON", createdAt: { gt: dedupeSince(REMINDER_DEDUPE_DAYS) } },
+  });
+  if (alreadyNotified) return 0;
+
+  const title = `${invoices.length} invoice jatuh tempo dalam 3 hari`;
+  const message = invoices.map((i) => `- ${i.number} — ${i.customer.companyName} — jatuh tempo ${formatDate(i.dueDate)}`).join("\n");
+  const link = "/finance/receivables";
+
+  await prisma.$transaction((tx) => notifyRole(tx, "FINANCE", { type: "INVOICE_DUE_SOON", title, message, link }));
+  await dispatchOutbound({ role: "FINANCE" }, { title, message, link }).catch((err) =>
+    console.error("[remindInvoicesDueSoon] dispatchOutbound failed:", err)
+  );
+  return invoices.length;
+}
+
+/**
+ * Reminds the assigned PM about milestones due within 3 days — everything
+ * else about milestone dates only reacts AFTER they've already slipped
+ * (refreshDelayedMilestones flips them to DELAYED). One notification per PM
+ * (not a single company-wide broadcast — a PM only needs to hear about
+ * their own projects), deduped per PM against the last 3 days. Milestones
+ * with no PM assigned yet are skipped — nobody to notify.
+ */
+export async function remindMilestonesDueSoon(): Promise<number> {
+  const in3Days = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+  const milestones = await prisma.projectMilestone.findMany({
+    where: {
+      status: { in: ["PENDING", "IN_PROGRESS"] },
+      dueDate: { gte: new Date(), lte: in3Days },
+      project: { deletedAt: null, projectManagerId: { not: null } },
+    },
+    select: { name: true, dueDate: true, project: { select: { number: true, name: true, projectManagerId: true } } },
+  });
+  if (milestones.length === 0) return 0;
+
+  const byPm = new Map<string, typeof milestones>();
+  for (const m of milestones) {
+    const pmId = m.project.projectManagerId!;
+    byPm.set(pmId, [...(byPm.get(pmId) ?? []), m]);
+  }
+
+  let notifiedCount = 0;
+  for (const [pmId, items] of byPm) {
+    const alreadyNotified = await prisma.notification.findFirst({
+      where: { type: "MILESTONE_DUE_SOON", userId: pmId, createdAt: { gt: dedupeSince(REMINDER_DEDUPE_DAYS) } },
+    });
+    if (alreadyNotified) continue;
+
+    const title = `${items.length} milestone jatuh tempo dalam 3 hari`;
+    const message = items.map((m) => `- ${m.project.number} — ${m.name} — target ${formatDate(m.dueDate)}`).join("\n");
+    const link = "/projects";
+
+    await prisma.$transaction((tx) => notifyUser(tx, { userId: pmId, type: "MILESTONE_DUE_SOON", title, message, link }));
+    await dispatchOutbound({ userId: pmId }, { title, message, link }).catch((err) =>
+      console.error("[remindMilestonesDueSoon] dispatchOutbound failed:", err)
+    );
+    notifiedCount += items.length;
+  }
+  return notifiedCount;
+}
+
+/**
+ * Reminds SALES about ACTIVE contracts expiring within 14 days — there was
+ * no signal at all before this that a contract was about to lapse. One
+ * combined notification per run, deduped against the last 3 days.
+ */
+export async function remindContractsExpiringSoon(): Promise<number> {
+  const in14Days = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+  const contracts = await prisma.contract.findMany({
+    where: { deletedAt: null, status: "ACTIVE", endDate: { gte: new Date(), lte: in14Days } },
+    select: { number: true, endDate: true, customer: { select: { companyName: true } } },
+  });
+  if (contracts.length === 0) return 0;
+
+  const alreadyNotified = await prisma.notification.findFirst({
+    where: { type: "CONTRACT_EXPIRING_SOON", createdAt: { gt: dedupeSince(REMINDER_DEDUPE_DAYS) } },
+  });
+  if (alreadyNotified) return 0;
+
+  const title = `${contracts.length} kontrak berakhir dalam 14 hari`;
+  const message = contracts.map((c) => `- ${c.number} — ${c.customer.companyName} — berakhir ${formatDate(c.endDate)}`).join("\n");
+  const link = "/sales/contracts";
+
+  await prisma.$transaction((tx) => notifyRole(tx, "SALES", { type: "CONTRACT_EXPIRING_SOON", title, message, link }));
+  await dispatchOutbound({ role: "SALES" }, { title, message, link }).catch((err) =>
+    console.error("[remindContractsExpiringSoon] dispatchOutbound failed:", err)
+  );
+  return contracts.length;
+}
+
+/**
+ * Reminds each Sales PIC about their own quotations nearing validUntil
+ * within 3 days and still not WON/LOST/EXPIRED/CANCELLED — a personal
+ * follow-up nudge rather than a broadcast, since it's that person's deal to
+ * chase. Deduped per salesPic against the last 3 days.
+ */
+export async function remindQuotationsExpiringSoon(): Promise<number> {
+  const in3Days = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+  const quotations = await prisma.quotation.findMany({
+    where: {
+      deletedAt: null,
+      status: { notIn: ["WON", "LOST", "EXPIRED", "CANCELLED", "DRAFT"] },
+      validUntil: { gte: new Date(), lte: in3Days },
+    },
+    select: { number: true, revision: true, validUntil: true, salesPicId: true, customer: { select: { companyName: true } } },
+  });
+  if (quotations.length === 0) return 0;
+
+  const byPic = new Map<string, typeof quotations>();
+  for (const q of quotations) {
+    byPic.set(q.salesPicId, [...(byPic.get(q.salesPicId) ?? []), q]);
+  }
+
+  let notifiedCount = 0;
+  for (const [picId, items] of byPic) {
+    const alreadyNotified = await prisma.notification.findFirst({
+      where: { type: "QUOTATION_EXPIRING_SOON", userId: picId, createdAt: { gt: dedupeSince(REMINDER_DEDUPE_DAYS) } },
+    });
+    if (alreadyNotified) continue;
+
+    const title = `${items.length} quotation Anda mendekati masa berlaku`;
+    const message = items
+      .map((q) => `- ${q.number}${q.revision > 0 ? `.R${q.revision}` : ""} — ${q.customer.companyName} — berlaku sampai ${formatDate(q.validUntil!)}`)
+      .join("\n");
+    const link = "/sales/quotations";
+
+    await prisma.$transaction((tx) => notifyUser(tx, { userId: picId, type: "QUOTATION_EXPIRING_SOON", title, message, link }));
+    await dispatchOutbound({ userId: picId }, { title, message, link }).catch((err) =>
+      console.error("[remindQuotationsExpiringSoon] dispatchOutbound failed:", err)
+    );
+    notifiedCount += items.length;
+  }
+  return notifiedCount;
+}
+
+/**
  * One combined "how's the business today" push to ADMIN (Direktur) — the
  * closest thing to an executive digest that doesn't require opening the
  * app. Deliberately skips sending anything on a fully-quiet day (nothing
@@ -68,25 +227,31 @@ export async function escalateStaleApprovals(): Promise<number> {
  * saying "0, 0, 0" trains people to ignore the channel.
  */
 export async function sendDailyDigest(): Promise<boolean> {
-  const [overdueInvoices, atRiskProjects, submittedQuotations, submittedInvoices, submittedVendorPOs, submittedExpenses] = await Promise.all([
-    prisma.invoice.findMany({ where: { deletedAt: null, status: "OVERDUE" }, select: { grandTotal: true, paidAmount: true, withholdingTax: true } }),
-    prisma.project.count({ where: { deletedAt: null, status: "AT_RISK" } }),
-    prisma.quotation.count({ where: { deletedAt: null, status: { in: ["SUBMITTED", "UNDER_REVIEW"] } } }),
-    prisma.invoice.count({ where: { deletedAt: null, status: "SUBMITTED" } }),
-    prisma.vendorPurchaseOrder.count({ where: { deletedAt: null, status: "SUBMITTED" } }),
-    prisma.projectExpense.count({ where: { deletedAt: null, approvalStatus: "SUBMITTED" } }),
-  ]);
+  const [overdueInvoices, atRiskProjects, submittedQuotations, submittedInvoices, submittedVendorPOs, submittedExpenses, staleTrashCount] =
+    await Promise.all([
+      prisma.invoice.findMany({ where: { deletedAt: null, status: "OVERDUE" }, select: { grandTotal: true, paidAmount: true, withholdingTax: true } }),
+      prisma.project.count({ where: { deletedAt: null, status: "AT_RISK" } }),
+      prisma.quotation.count({ where: { deletedAt: null, status: { in: ["SUBMITTED", "UNDER_REVIEW"] } } }),
+      prisma.invoice.count({ where: { deletedAt: null, status: "SUBMITTED" } }),
+      prisma.vendorPurchaseOrder.count({ where: { deletedAt: null, status: "SUBMITTED" } }),
+      prisma.projectExpense.count({ where: { deletedAt: null, approvalStatus: "SUBMITTED" } }),
+      // Visibility only — nothing here is ever auto-deleted. A human still
+      // has to review and permanently purge from the Trash UI; this just
+      // stops old trashed files from being silently forgotten forever.
+      prisma.document.count({ where: { deletedAt: { lt: dedupeSince(30) } } }),
+    ]);
 
   const totalOverdue = overdueInvoices.reduce((s, i) => s + (Number(i.grandTotal) - Number(i.paidAmount) - Number(i.withholdingTax)), 0);
   const totalPendingApprovals = submittedQuotations + submittedInvoices + submittedVendorPOs + submittedExpenses;
 
-  if (overdueInvoices.length === 0 && atRiskProjects === 0 && totalPendingApprovals === 0) return false;
+  if (overdueInvoices.length === 0 && atRiskProjects === 0 && totalPendingApprovals === 0 && staleTrashCount === 0) return false;
 
   const title = "Ringkasan harian SSO Connect";
   const message =
     `Invoice overdue: ${overdueInvoices.length} (Rp ${totalOverdue.toLocaleString("id-ID")})\n` +
     `Project berisiko (AT_RISK): ${atRiskProjects}\n` +
-    `Approval menunggu: ${totalPendingApprovals}`;
+    `Approval menunggu: ${totalPendingApprovals}` +
+    (staleTrashCount > 0 ? `\nDokumen di Trash >30 hari: ${staleTrashCount} (review manual, tidak dihapus otomatis)` : "");
   const link = "/dashboard";
 
   await prisma.$transaction((tx) => notifyRole(tx, "ADMIN", { type: "DAILY_DIGEST", title, message, link }));
