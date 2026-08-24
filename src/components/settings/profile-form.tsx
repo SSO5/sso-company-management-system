@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
-import { updateOwnProfileAction } from "@/server/settings/profile";
+import { updateOwnProfileAction, sendTestWhatsAppNotificationAction } from "@/server/settings/profile";
 import { brandingUrl } from "@/lib/utils";
 import { TITLE_OPTIONS } from "@/lib/validation/auth";
 
@@ -17,8 +17,17 @@ interface OwnProfile {
 export function ProfileForm({ profile }: { profile: OwnProfile }) {
   const [pending, setPending] = useState(false);
   const [preview, setPreview] = useState<string | null>(brandingUrl(profile.avatarUrl));
+  const [testingWa, setTestingWa] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+
+  async function onTestWhatsApp() {
+    setTestingWa(true);
+    const res = await sendTestWhatsAppNotificationAction();
+    setTestingWa(false);
+    if (res.ok) toast({ title: "Test terkirim", description: res.data.reason, variant: "success" });
+    else toast({ title: "Test gagal — ini sebabnya", description: res.error, variant: "destructive" });
+  }
 
   function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -73,7 +82,15 @@ export function ProfileForm({ profile }: { profile: OwnProfile }) {
         <div className="space-y-1">
           <Label>Nomor WhatsApp</Label>
           <Input name="whatsappNumber" defaultValue={profile.whatsappNumber ?? ""} placeholder="0812xxxxxxx" />
-          <p className="text-[11px] text-muted-foreground">Untuk notifikasi approval &amp; jatuh tempo.</p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] text-muted-foreground">Untuk notifikasi approval &amp; jatuh tempo.</p>
+            <Button type="button" variant="outline" size="sm" onClick={onTestWhatsApp} disabled={testingWa}>
+              {testingWa ? "Mengirim..." : "Test Notifikasi"}
+            </Button>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Simpan dulu nomor di atas kalau baru diisi/diubah, baru klik Test Notifikasi — akan kirim 1 pesan WA nyata ke nomor yang tersimpan.
+          </p>
         </div>
       </div>
 

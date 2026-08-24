@@ -6,6 +6,7 @@ import { logActivity } from "@/lib/workflows/audit";
 import { runAction, type ActionResult } from "@/lib/action-helpers";
 import { assertFileAllowed, saveBrandingAsset } from "@/lib/storage";
 import { whatsappNumberSchema } from "@/lib/validation/auth";
+import { testWhatsAppConnection } from "@/lib/notifications/whatsapp";
 import { z } from "zod";
 
 /** "Profil Saya" — every signed-in user can read and edit their OWN name,
@@ -68,5 +69,33 @@ export async function updateOwnProfileAction(formData: FormData): Promise<Action
     revalidatePath("/dashboard");
     revalidatePath("/", "layout");
     return { id: actor.userId };
+  });
+}
+
+/**
+ * Self-service diagnostic for "I never get WhatsApp notifications, I don't
+ * know why" — sends one real test message to the caller's OWN saved
+ * whatsappNumber via Fonnte and reports back exactly why it failed (env var
+ * missing, bad token, disconnected Fonnte device) instead of a silent
+ * boolean, so a non-technical admin can self-diagnose without reading a
+ * server log they don't have access to.
+ */
+export async function sendTestWhatsAppNotificationAction(): Promise<ActionResult<{ reason: string }>> {
+  return runAction(async () => {
+    const actor = await requireUserOrThrow();
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { id: actor.userId },
+      select: { name: true, whatsappNumber: true },
+    });
+    if (!user.whatsappNumber) {
+      throw new Error("Nomor WhatsApp Anda belum diisi — isi dulu nomornya di atas dan klik \"Simpan Profil\", baru coba Test Notifikasi lagi.");
+    }
+
+    const result = await testWhatsAppConnection({
+      to: user.whatsappNumber,
+      message: `Halo ${user.name}, ini pesan test dari SSO Connect. Kalau Anda menerima ini, notifikasi WhatsApp sudah berfungsi dengan baik!`,
+    });
+    if (!result.ok) throw new Error(result.reason);
+    return { reason: result.reason };
   });
 }
