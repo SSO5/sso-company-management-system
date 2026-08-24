@@ -252,6 +252,15 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
+  // Login brute-force protection (spec gap identified Aug 2026 — the login
+  // form previously accepted unlimited password attempts). failedLoginAttempts
+  // resets to 0 on any successful login; on hitting MAX_FAILED_LOGIN_ATTEMPTS
+  // (see login/actions.ts) it sets lockedUntil instead of continuing to climb,
+  // so a locked account always has a bounded, known unlock time rather than
+  // an ever-growing counter.
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+
   // Quotation PDF signature block (spec: PIC/signer must be customizable per
   // quotation, not one fixed company signer). "title" is the jabatan printed
   // under the name (e.g. "Direktur", "Marketing Manager"). signatureImageUrl

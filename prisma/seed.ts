@@ -25,7 +25,7 @@
 import { PrismaClient } from "@prisma/client";
 import { hashPassword } from "../src/lib/auth/password";
 import { generateNumber } from "../src/lib/numbering";
-import { ensureCompanyFolders, createOpportunityFolders } from "../src/lib/workflows/folders";
+import { createOpportunityFolders } from "../src/lib/workflows/folders";
 import {
   createQuotation,
   submitQuotationForApproval, approveQuotation, markQuotationWon, markQuotationSent,
@@ -189,7 +189,6 @@ async function main() {
   });
 
   await resetTransactionalData(prisma);
-  await prisma.$transaction((tx) => ensureCompanyFolders(tx));
 
   // ---- Users — real org structure confirmed by the founder (11 Aug 2026):
   // Faldy=Dirut, Sulton=CFO+COO, Aldo=GM (all three ADMIN — Aldo is ADMIN
