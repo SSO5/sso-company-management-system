@@ -46,6 +46,10 @@ export const NAV: NavGroup[] = [
     icon: "LayoutDashboard",
     items: [
       { label: "Tugas & Ringkasan", href: "/dashboard" },
+      // Direktur -> employee task/reminder, in-system instead of personal WA.
+      // Every role sees "Tugas dari Direktur" (their own assigned tasks);
+      // ADMIN gets the "beri tugas" form inside the same page (see /tasks).
+      { label: "Tugas dari Direktur", href: "/tasks" },
       // Self-service — every role can set their own photo/jabatan/WA,
       // unlike Settings > Pengguna which stays Admin-only. Lives here (not
       // Pengaturan) since that whole group is hidden from non-Admin/IT roles.

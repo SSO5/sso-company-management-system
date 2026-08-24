@@ -202,3 +202,16 @@ export function requireDataCorrector(role: UserRole) {
     );
   }
 }
+
+/**
+ * Giving a Directive (manual task/reminder to one or more employees through
+ * the system, instead of a personal WhatsApp message) is a Direktur-only
+ * capability — same reasoning as requireDataCorrector: this reaches across
+ * every module/role at once, so it stays a single explicit ADMIN gate rather
+ * than a module entry in MATRIX.
+ */
+export function requireDirectiveGiver(role: UserRole) {
+  if (role !== "ADMIN") {
+    throw new ForbiddenError("Only Admin (Direktur) can give a task/reminder to other users.");
+  }
+}
