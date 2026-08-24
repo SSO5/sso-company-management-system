@@ -12,7 +12,7 @@ import { simulateQuotationRevision, commitQuotationRevision } from "@/lib/workfl
 import { createProgressReport, addProgressReportItem } from "@/lib/workflows/progress-report";
 import { moveDocumentToTrash, uploadDocument } from "@/lib/workflows/documents";
 import { renameDocumentFile, relocateDocument } from "@/lib/workflows/corrections";
-import { generateProgressReportFromDocument } from "@/server/projects/progress-reports";
+import { generateProgressReportForActor } from "@/server/projects/progress-reports";
 import { isExtractableMimeType } from "@/lib/ai/client";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { RevisionAction } from "@/lib/ai/parse-revision-command";
@@ -1657,10 +1657,9 @@ export async function runConfirmedAssistantAction(
         },
         actor
       );
-      const result = await generateProgressReportFromDocument(doc.id, projectId);
-      if (!result.ok) throw new Error(result.error);
+      const result = await generateProgressReportForActor(doc.id, projectId, actor);
       const report = await prisma.progressReport.findUniqueOrThrow({
-        where: { id: result.data.progressReportId },
+        where: { id: result.progressReportId },
         include: { items: true },
       });
       const photoCount = report.items.filter((i) => i.photoBeforeKey || i.photoAfterKey).length;

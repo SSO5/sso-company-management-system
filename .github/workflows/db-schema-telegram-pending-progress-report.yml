@@ -1,0 +1,54 @@
+name: DB Schema - Add TelegramPendingProgressReport table (one-off)
+
+# Manual-only, one-off schema change for the "buat progress report dari
+# file" Telegram automation (see app/api/telegram/webhook/route.ts and
+# lib/workflows/telegram-progress-report.ts): adds the
+# TelegramPendingProgressReport table, which holds one attached file
+# (base64) + resolved project between the user's initial message and their
+# "ya"/"batal" reply — same reasoning as TelegramPendingInvoice/
+# TelegramPendingRevision. Purely additive — one new table, no drops, no
+# data loss.
+on:
+  workflow_dispatch:
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install PostgreSQL 18 client tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common
+          yes '' | sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh
+          sudo apt-get install -y postgresql-client-18
+          echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
+
+      - name: Apply schema change
+        env:
+          NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
+        run: |
+          set -e
+          psql "$NEW_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE TABLE IF NOT EXISTS "TelegramPendingProgressReport" (
+              "id" TEXT NOT NULL,
+              "chatId" TEXT NOT NULL,
+              "projectId" TEXT NOT NULL,
+              "projectNumber" TEXT NOT NULL,
+              "fileName" TEXT NOT NULL,
+              "mimeType" TEXT NOT NULL,
+              "dataBase64" TEXT NOT NULL,
+              "previewText" TEXT NOT NULL,
+              "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              "expiresAt" TIMESTAMP(3) NOT NULL,
+
+              CONSTRAINT "TelegramPendingProgressReport_pkey" PRIMARY KEY ("id")
+          );
+
+          CREATE INDEX IF NOT EXISTS "TelegramPendingProgressReport_chatId_idx" ON "TelegramPendingProgressReport"("chatId");
+          SQL
+
+      - name: Verify
+        env:
+          NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
+        run: |
+          psql "$NEW_DATABASE_URL" -tAc "SELECT table_name FROM information_schema.tables WHERE table_name = 'TelegramPendingProgressReport';"

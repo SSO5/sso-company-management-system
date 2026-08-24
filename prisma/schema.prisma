@@ -713,6 +713,26 @@ model TelegramPendingInvoice {
   @@index([chatId])
 }
 
+// Holds the attached file (base64) between "buat progress report dari file
+// ini" and the user's "ya" — a serverless webhook can't rely on in-memory
+// state surviving to the next Telegram message, same reasoning as every
+// other TelegramPending* row. Committing re-runs the exact same
+// generateProgressReportForActor pipeline the in-app AISSO chat uses.
+model TelegramPendingProgressReport {
+  id            String   @id @default(cuid())
+  chatId        String
+  projectId     String
+  projectNumber String
+  fileName      String
+  mimeType      String
+  dataBase64    String
+  previewText   String
+  createdAt     DateTime @default(now())
+  expiresAt     DateTime
+
+  @@index([chatId])
+}
+
 model CostingSection {
   id             String       @id @default(cuid())
   costingSheetId String

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requirePermission, ForbiddenError } from "@/lib/permissions";
 import { logActivity } from "@/lib/workflows/audit";
-import { sendTelegramMessage, sendTelegramDocument } from "@/lib/notifications/telegram";
+import { sendTelegramMessage, sendTelegramDocument, getTelegramFileBuffer } from "@/lib/notifications/telegram";
 import { parseRevisionCommand, type RevisionAction } from "@/lib/ai/parse-revision-command";
 import { resolveActorByTelegramChatId, simulateQuotationRevision, commitQuotationRevision } from "@/lib/workflows/telegram-automation";
 import { parseCostingDraftMessage } from "@/lib/ai/parse-costing-draft";
@@ -18,21 +18,40 @@ import {
 } from "@/lib/workflows/telegram-costing-draft";
 import { parseInvoiceCommand } from "@/lib/ai/parse-invoice-command";
 import { simulateInvoice, commitInvoice } from "@/lib/workflows/telegram-invoice";
+import { parseProgressReportCommand } from "@/lib/ai/parse-progress-report-command";
+import { simulateProgressReportFromDocument } from "@/lib/workflows/telegram-progress-report";
+import { isExtractableMimeType } from "@/lib/ai/client";
+import { uploadDocument } from "@/lib/workflows/documents";
+import { generateProgressReportForActor } from "@/server/projects/progress-reports";
+import { renderProgressReportPdf } from "@/lib/pdf/render-progress-report-pdf";
 
 const PENDING_TTL_MINUTES = 10;
 const CONFIRM_WORDS = new Set(["ya", "iya", "y", "yes", "ok", "oke"]);
 const CANCEL_WORDS = new Set(["batal", "tidak", "no", "cancel"]);
 const NEW_COSTING_TRIGGER = /\b(buat|bikin)\s+costing\b/i;
 const NEW_INVOICE_TRIGGER = /\b(buat|bikin)\s+invoice\b/i;
+const NEW_PROGRESS_REPORT_TRIGGER = /\b(progress\s*report|laporan)\b/i;
+
+interface TelegramAttachment {
+  fileId: string;
+  fileName: string;
+  mimeType: string;
+}
 
 interface TelegramUpdate {
-  message?: { chat?: { id?: number | string }; text?: string };
+  message?: {
+    chat?: { id?: number | string };
+    text?: string;
+    caption?: string;
+    document?: { file_id: string; file_name?: string; mime_type?: string };
+    photo?: { file_id: string; width: number; height: number }[];
+  };
 }
 
 /**
- * Single entry point for the quotation-revision-via-Telegram automation
- * (see the Telegram chat with @BotFather, then `setWebhook` with this
- * route's public URL + `secret_token` matching TELEGRAM_WEBHOOK_SECRET —
+ * Single entry point for the quotation-revision + progress-report-from-file
+ * automation (see the Telegram chat with @BotFather, then `setWebhook` with
+ * this route's public URL + `secret_token` matching TELEGRAM_WEBHOOK_SECRET —
  * Telegram echoes that value back on every call as the
  * x-telegram-bot-api-secret-token header, which is how this route tells a
  * genuine Telegram call apart from a stranger hitting the URL directly).
@@ -49,12 +68,20 @@ export async function POST(req: Request) {
   }
 
   const update = (await req.json().catch(() => null)) as TelegramUpdate | null;
-  const chatId = update?.message?.chat?.id != null ? String(update.message.chat.id) : null;
-  const text = update?.message?.text?.trim();
-  if (!chatId || !text) return NextResponse.json({ ok: true });
+  const message = update?.message;
+  const chatId = message?.chat?.id != null ? String(message.chat.id) : null;
+  // A file sent with a caption puts the user's words in `caption`, not
+  // `text` — treat either as "the text of this message" everywhere below.
+  const text = (message?.text ?? message?.caption ?? "").trim();
+  const attachment: TelegramAttachment | null = message?.document
+    ? { fileId: message.document.file_id, fileName: message.document.file_name || "document.pdf", mimeType: message.document.mime_type || "application/pdf" }
+    : message?.photo && message.photo.length > 0
+      ? { fileId: message.photo[message.photo.length - 1].file_id, fileName: "photo.jpg", mimeType: "image/jpeg" }
+      : null;
+  if (!chatId || (!text && !attachment)) return NextResponse.json({ ok: true });
 
   try {
-    await handleMessage(chatId, text);
+    await handleMessage(chatId, text, attachment);
   } catch (err) {
     console.error("[telegram-webhook] unhandled error:", err);
     await sendTelegramMessage(chatId, "Terjadi kesalahan tak terduga — coba lagi, atau hubungi Admin.");
@@ -62,13 +89,117 @@ export async function POST(req: Request) {
   return NextResponse.json({ ok: true });
 }
 
-async function handleMessage(chatId: string, text: string) {
+async function handleMessage(chatId: string, text: string, attachment: TelegramAttachment | null) {
   const actor = await resolveActorByTelegramChatId(chatId);
   if (!actor) {
     await sendTelegramMessage(
       chatId,
       `Chat ID Anda: ${chatId}\n\nNomor ini belum terdaftar. Minta Admin mendaftarkan Chat ID ini di halaman Edit User Anda (Pengaturan > Users) sebelum bisa dipakai.`
     );
+    return;
+  }
+
+  const pendingProgressReport = await prisma.telegramPendingProgressReport.findFirst({
+    where: { chatId, expiresAt: { gt: new Date() } },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (pendingProgressReport) {
+    const normalized = text.trim().toLowerCase();
+    if (CONFIRM_WORDS.has(normalized)) {
+      await prisma.telegramPendingProgressReport.deleteMany({ where: { chatId } });
+      try {
+        requirePermission(actor.role, "project", "create");
+      } catch (err) {
+        await sendTelegramMessage(chatId, err instanceof ForbiddenError ? err.message : "Anda tidak punya izin membuat progress report.");
+        return;
+      }
+      try {
+        const buffer = Buffer.from(pendingProgressReport.dataBase64, "base64");
+        const folder = await prisma.folder.findFirst({
+          where: { projectId: pendingProgressReport.projectId, routeKey: "PROJECT/PROGRESS_REPORT" },
+        });
+        const doc = await uploadDocument(
+          {
+            buffer,
+            originalName: pendingProgressReport.fileName,
+            mimeType: pendingProgressReport.mimeType,
+            folderId: folder?.id,
+            projectId: pendingProgressReport.projectId,
+            relatedEntityType: "PROGRESS_REPORT",
+          },
+          actor
+        );
+        const result = await generateProgressReportForActor(doc.id, pendingProgressReport.projectId, actor);
+        await logActivity(prisma, {
+          userId: actor.userId, action: "CREATE", entityType: "PROGRESS_REPORT", entityId: result.progressReportId,
+          description: `Dibuat via Telegram oleh ${actor.name} dari "${pendingProgressReport.fileName}"`,
+        });
+        const { buffer: pdfBuffer, fileName: pdfFileName } = await renderProgressReportPdf(result.progressReportId);
+        await sendTelegramDocument(
+          chatId,
+          pdfBuffer,
+          pdfFileName,
+          `Progress report untuk project ${pendingProgressReport.projectNumber} berhasil dibuat, lengkap dengan foto dari dokumen aslinya.`
+        );
+      } catch (err) {
+        console.error("[telegram-webhook] progress report commit failed:", err);
+        await sendTelegramMessage(chatId, `Gagal membuat progress report: ${err instanceof Error ? err.message : "kesalahan tidak diketahui"}`);
+      }
+      return;
+    }
+    if (CANCEL_WORDS.has(normalized)) {
+      await prisma.telegramPendingProgressReport.deleteMany({ where: { chatId } });
+      await sendTelegramMessage(chatId, "Dibatalkan — tidak ada yang tersimpan.");
+      return;
+    }
+    await sendTelegramMessage(chatId, 'Masih menunggu konfirmasi progress report sebelumnya — balas "ya" atau "batal" dulu.');
+    return;
+  }
+
+  if (attachment) {
+    if (!NEW_PROGRESS_REPORT_TRIGGER.test(text)) {
+      await sendTelegramMessage(
+        chatId,
+        'File diterima, tapi belum jelas mau diapakan. Untuk membuat progress report dari file ini, kirim ulang dengan caption yang menyebutkan "progress report" dan nomor project-nya, contoh: "Progress report project 001/PRJ/OPS/VIII/2026".'
+      );
+      return;
+    }
+    try {
+      requirePermission(actor.role, "project", "create");
+    } catch (err) {
+      await sendTelegramMessage(chatId, err instanceof ForbiddenError ? err.message : "Anda tidak punya izin membuat progress report.");
+      return;
+    }
+    if (!isExtractableMimeType(attachment.mimeType)) {
+      await sendTelegramMessage(chatId, `Tipe file "${attachment.mimeType}" tidak didukung — lampirkan PDF atau foto.`);
+      return;
+    }
+    const buffer = await getTelegramFileBuffer(attachment.fileId);
+    if (!buffer) {
+      await sendTelegramMessage(chatId, "Gagal mengunduh file dari Telegram — coba kirim ulang.");
+      return;
+    }
+    const parsed = await parseProgressReportCommand(text);
+    const simulation = await simulateProgressReportFromDocument(parsed.projectNumber, attachment.fileName);
+    if (!simulation.ok || !simulation.projectId || !simulation.projectNumber) {
+      await sendTelegramMessage(chatId, simulation.error ?? "Gagal memproses permintaan progress report.");
+      return;
+    }
+    await prisma.telegramPendingProgressReport.deleteMany({ where: { chatId } });
+    await prisma.telegramPendingProgressReport.create({
+      data: {
+        chatId,
+        projectId: simulation.projectId,
+        projectNumber: simulation.projectNumber,
+        fileName: attachment.fileName,
+        mimeType: attachment.mimeType,
+        dataBase64: buffer.toString("base64"),
+        previewText: simulation.previewText ?? "",
+        expiresAt: new Date(Date.now() + PENDING_TTL_MINUTES * 60 * 1000),
+      },
+    });
+    await sendTelegramMessage(chatId, simulation.previewText ?? "");
     return;
   }
 
