@@ -91,6 +91,7 @@ export const progressReportItemSchema = z.object({
   // Unit heading in the printed report, e.g. "DINAMO MOTOR 55 KW".
   sectionName: z.string().optional().nullable(),
   partName: z.string().min(2, "Part/checkpoint name is required."),
+  quantity: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
   isDone: z.coerce.boolean().default(false),
   sortOrder: z.coerce.number().int().default(0),

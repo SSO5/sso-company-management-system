@@ -47,6 +47,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
           items: report.items.map((i, idx) => ({
             sectionName: i.sectionName,
             partName: i.partName,
+            quantity: i.quantity,
             notes: i.notes,
             isDone: i.isDone,
             photoBefore: photos[idx * 2] ?? null,

@@ -72,6 +72,7 @@ export async function addProgressReportItem(
       data: {
         progressReportId: data.progressReportId,
         partName: data.partName,
+        quantity: data.quantity ?? null,
         notes: data.notes ?? null,
         isDone: data.isDone,
         sortOrder: data.sortOrder,
@@ -88,7 +89,7 @@ export async function addProgressReportItem(
 
 export async function updateProgressReportItem(
   id: string,
-  data: Partial<Pick<ProgressReportItemInput, "partName" | "notes" | "isDone">>,
+  data: Partial<Pick<ProgressReportItemInput, "partName" | "quantity" | "notes" | "isDone">>,
   photos: ProgressReportItemPhotos,
   actorId: string
 ) {
