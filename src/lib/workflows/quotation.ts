@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { generateNumber } from "@/lib/numbering";
 import { logActivity } from "@/lib/workflows/audit";
 import { notifyRole, dispatchPendingNotifications } from "@/lib/workflows/notify";
+import { dispatchOutbound } from "@/lib/notifications/dispatch";
 import { calcQuotationTotals } from "@/lib/workflows/calculations";
 import { snapshotCostingSheetRevision, snapshotQuotationRevision } from "@/lib/workflows/revision-history";
 import { convertQuotationToProject } from "@/lib/workflows/project";
@@ -205,13 +206,13 @@ export async function updateQuotation(quotationId: string, input: QuotationInput
 
 /** Draft -> Submitted. Locks commercial fields and notifies the approver (Admin). */
 export async function submitQuotationForApproval(quotationId: string, actor: SessionPayload) {
-  return prisma.$transaction(async (tx) => {
+  const quotation = await prisma.$transaction(async (tx) => {
     const existing = await tx.quotation.findUniqueOrThrow({ where: { id: quotationId } });
     if (existing.status !== "DRAFT") {
       throw new Error("Only draft quotations can be submitted for approval.");
     }
 
-    const quotation = await tx.quotation.update({
+    const updated = await tx.quotation.update({
       where: { id: quotationId },
       data: {
         status: "SUBMITTED",
@@ -225,31 +226,42 @@ export async function submitQuotationForApproval(quotationId: string, actor: Ses
       userId: actor.userId,
       action: "STATUS_CHANGE",
       entityType: "QUOTATION",
-      entityId: quotation.id,
-      description: `${quotation.number}: Draft -> Submitted for approval`,
+      entityId: updated.id,
+      description: `${updated.number}: Draft -> Submitted for approval`,
     });
 
     await notifyRole(tx, "ADMIN", {
       type: "QUOTATION_APPROVAL",
       title: "Quotation awaiting approval",
-      message: `${quotation.number} was submitted by ${actor.name} and needs your approval.`,
-      link: `/sales/quotations/${quotation.id}`,
+      message: `${updated.number} was submitted by ${actor.name} and needs your approval.`,
+      link: `/sales/quotations/${updated.id}`,
     });
 
-    await advanceOpportunityStage(tx, quotation.opportunityId, "PROPOSAL");
+    await advanceOpportunityStage(tx, updated.opportunityId, "PROPOSAL");
 
-    return quotation;
+    return updated;
   });
+
+  await dispatchOutbound(
+    { role: "ADMIN" },
+    {
+      title: "Quotation menunggu approval",
+      message: `${quotation.number} diajukan oleh ${actor.name} dan menunggu approval Anda.`,
+      link: `/sales/quotations/${quotation.id}`,
+    }
+  ).catch((err) => console.error("[submitQuotationForApproval] dispatchOutbound failed:", err));
+
+  return quotation;
 }
 
 export async function approveQuotation(quotationId: string, actor: SessionPayload) {
-  return prisma.$transaction(async (tx) => {
+  const quotation = await prisma.$transaction(async (tx) => {
     const existing = await tx.quotation.findUniqueOrThrow({ where: { id: quotationId } });
     requireQuotationApprover(actor.role, actor.userId, existing.submittedById);
     if (!["SUBMITTED", "UNDER_REVIEW"].includes(existing.status)) {
       throw new Error("Only submitted quotations can be approved.");
     }
-    const quotation = await tx.quotation.update({
+    const updated = await tx.quotation.update({
       where: { id: quotationId },
       data: { status: "APPROVED", approvedAt: new Date(), approvedById: actor.userId },
     });
@@ -258,28 +270,39 @@ export async function approveQuotation(quotationId: string, actor: SessionPayloa
       userId: actor.userId,
       action: "APPROVE",
       entityType: "QUOTATION",
-      entityId: quotation.id,
-      description: `${quotation.number}: Approved by ${actor.name}`,
+      entityId: updated.id,
+      description: `${updated.number}: Approved by ${actor.name}`,
     });
 
-    await notifyUserBySalesPic(tx, quotation.salesPicId, {
+    await notifyUserBySalesPic(tx, updated.salesPicId, {
       type: "QUOTATION_APPROVED",
       title: "Quotation approved",
-      message: `${quotation.number} has been approved and can now be sent to the customer.`,
-      link: `/sales/quotations/${quotation.id}`,
+      message: `${updated.number} has been approved and can now be sent to the customer.`,
+      link: `/sales/quotations/${updated.id}`,
     });
 
-    await advanceOpportunityStage(tx, quotation.opportunityId, "PROPOSAL");
+    await advanceOpportunityStage(tx, updated.opportunityId, "PROPOSAL");
 
-    return quotation;
+    return updated;
   });
+
+  await dispatchOutbound(
+    { userId: quotation.salesPicId },
+    {
+      title: "Quotation disetujui",
+      message: `${quotation.number} telah disetujui dan bisa dikirim ke customer.`,
+      link: `/sales/quotations/${quotation.id}`,
+    }
+  ).catch((err) => console.error("[approveQuotation] dispatchOutbound failed:", err));
+
+  return quotation;
 }
 
 export async function rejectQuotation(quotationId: string, reason: string, actor: SessionPayload) {
-  return prisma.$transaction(async (tx) => {
+  const quotation = await prisma.$transaction(async (tx) => {
     const existing = await tx.quotation.findUniqueOrThrow({ where: { id: quotationId } });
     requireQuotationApprover(actor.role, actor.userId, existing.submittedById);
-    const quotation = await tx.quotation.update({
+    const updated = await tx.quotation.update({
       where: { id: quotationId },
       data: {
         status: "REJECTED",
@@ -294,19 +317,26 @@ export async function rejectQuotation(quotationId: string, reason: string, actor
       userId: actor.userId,
       action: "REJECT",
       entityType: "QUOTATION",
-      entityId: quotation.id,
-      description: `${quotation.number}: Rejected - ${reason}`,
+      entityId: updated.id,
+      description: `${updated.number}: Rejected - ${reason}`,
     });
 
-    await notifyUserBySalesPic(tx, quotation.salesPicId, {
+    await notifyUserBySalesPic(tx, updated.salesPicId, {
       type: "QUOTATION_REJECTED",
       title: "Quotation rejected",
-      message: `${quotation.number} was rejected: ${reason}`,
-      link: `/sales/quotations/${quotation.id}`,
+      message: `${updated.number} was rejected: ${reason}`,
+      link: `/sales/quotations/${updated.id}`,
     });
 
-    return quotation;
+    return updated;
   });
+
+  await dispatchOutbound(
+    { userId: quotation.salesPicId },
+    { title: "Quotation ditolak", message: `${quotation.number} ditolak: ${reason}`, link: `/sales/quotations/${quotation.id}` }
+  ).catch((err) => console.error("[rejectQuotation] dispatchOutbound failed:", err));
+
+  return quotation;
 }
 
 export async function markQuotationSent(quotationId: string, actor: SessionPayload) {
