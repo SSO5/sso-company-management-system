@@ -525,7 +525,7 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
 
 export interface ToolExecutionResult {
   resultText: string;
-  pendingAction?: { toolName: string; args: Record<string, unknown>; description: string; hasSourceFile?: boolean };
+  pendingAction?: { toolName: string; args: Record<string, unknown>; description: string };
 }
 
 async function findQuotationByNumber(numberFragment: string) {
@@ -1343,7 +1343,7 @@ export async function executeAssistantTool(
       if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
 
       return {
-        resultText: "Menunggu konfirmasi user — termasuk pilihan simpan atau hapus file sumber — sebelum progress report benar-benar dibuat.",
+        resultText: "Menunggu konfirmasi user sebelum progress report benar-benar dibuat.",
         pendingAction: {
           toolName: "create_progress_report_from_document",
           args: {
@@ -1353,8 +1353,7 @@ export async function executeAssistantTool(
             mimeType: attachment.mimeType,
             dataBase64: attachment.dataBase64,
           },
-          description: `Upload "${attachment.fileName}" ke folder Progress Report project ${project.number}, lalu generate checklist progress report otomatis (standar SSO) dari isinya.`,
-          hasSourceFile: true,
+          description: `Upload "${attachment.fileName}" ke folder Progress Report project ${project.number}, lalu generate checklist progress report otomatis (standar SSO) dari isinya. File sumber akan tersimpan di folder Progress Report project ini.`,
         },
       };
     }
@@ -1498,8 +1497,7 @@ export async function executeAssistantTool(
 export async function runConfirmedAssistantAction(
   toolName: string,
   args: Record<string, unknown>,
-  actor: SessionPayload,
-  keepSourceFile?: boolean
+  actor: SessionPayload
 ): Promise<string> {
   switch (toolName) {
     case "approve_quotation": {
@@ -1649,11 +1647,7 @@ export async function runConfirmedAssistantAction(
       const result = await generateProgressReportFromDocument(doc.id, projectId);
       if (!result.ok) throw new Error(result.error);
       const report = await prisma.progressReport.findUniqueOrThrow({ where: { id: result.data.progressReportId } });
-      if (keepSourceFile === false) {
-        await moveDocumentToTrash(doc.id, actor);
-        return `${report.number} berhasil dibuat dari file "${args.fileName}" — file sumber sudah dipindah ke Trash sesuai pilihan Anda.`;
-      }
-      return `${report.number} berhasil dibuat dari file "${args.fileName}" — file sumber tersimpan di folder Progress Report project ${args.projectNumber}.`;
+      return `${report.number} berhasil dibuat dari file "${args.fileName}" (file sumber tersimpan di folder Progress Report project ${args.projectNumber}). Buka halaman Progress Report project ini di app untuk lihat/cetak PDF-nya.`;
     }
     case "rename_document": {
       await renameDocumentFile(String(args.documentId), String(args.newName), String(args.reason), actor);

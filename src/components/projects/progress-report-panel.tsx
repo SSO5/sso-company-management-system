@@ -16,7 +16,7 @@ import {
   addProgressReportItemAction,
   deleteProgressReportItemAction,
 } from "@/server/projects/progress-reports";
-import { Plus, CheckCircle2, Circle, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, CheckCircle2, Circle, Trash2, ChevronDown, ChevronRight, Eye, Download } from "lucide-react";
 
 interface ProgressReportItem {
   id: string;
@@ -125,6 +125,16 @@ export function ProgressReportPanel({
                 <div className="flex items-center gap-2">
                   <Badge variant="outline">{doneCount}/{r.items.length} selesai</Badge>
                   <span className="text-xs text-muted-foreground">Disusun oleh {r.preparedBy.name}</span>
+                  <a href={`/api/progress-reports/${r.id}/pdf?view=1`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+                    <Button size="sm" variant="ghost" title="Lihat / Cetak PDF">
+                      <Eye className="h-3.5 w-3.5" />
+                    </Button>
+                  </a>
+                  <a href={`/api/progress-reports/${r.id}/pdf`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+                    <Button size="sm" variant="ghost" title="Download PDF">
+                      <Download className="h-3.5 w-3.5" />
+                    </Button>
+                  </a>
                   <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); onDeleteReport(r.id); }}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>

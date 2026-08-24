@@ -24,8 +24,6 @@ function readFileAsBase64(file: File): Promise<string> {
 interface PendingAction {
   id: string;
   description: string;
-  hasSourceFile?: boolean;
-  keepSourceFile?: boolean;
   resolved?: "confirmed" | "cancelled";
   resultText?: string;
 }
@@ -99,20 +97,13 @@ export function AssistantWidget() {
       {
         role: "assistant",
         content: res.data.reply,
-        pendingAction: res.data.pendingAction
-          ? {
-              id: res.data.pendingAction.id,
-              description: res.data.pendingAction.description,
-              hasSourceFile: res.data.pendingAction.hasSourceFile,
-              keepSourceFile: true,
-            }
-          : undefined,
+        pendingAction: res.data.pendingAction ? { id: res.data.pendingAction.id, description: res.data.pendingAction.description } : undefined,
       },
     ]);
   }
 
-  async function onConfirm(msgIndex: number, id: string, keepSourceFile?: boolean) {
-    const res = await confirmAssistantAction(id, keepSourceFile);
+  async function onConfirm(msgIndex: number, id: string) {
+    const res = await confirmAssistantAction(id);
     setMessages((prev) =>
       prev.map((m, i) =>
         i === msgIndex && m.pendingAction
@@ -126,12 +117,6 @@ export function AssistantWidget() {
     } else {
       toast({ title: "Gagal menjalankan aksi", description: res.error, variant: "destructive" });
     }
-  }
-
-  function onToggleKeepSourceFile(msgIndex: number, checked: boolean) {
-    setMessages((prev) =>
-      prev.map((m, i) => (i === msgIndex && m.pendingAction ? { ...m, pendingAction: { ...m.pendingAction, keepSourceFile: checked } } : m))
-    );
   }
 
   async function onCancel(msgIndex: number, id: string) {
@@ -211,20 +196,10 @@ export function AssistantWidget() {
                   {m.pendingAction && (
                     <div className="mt-2 rounded-md border border-border bg-card p-2 text-xs text-foreground">
                       <p className="font-medium">{m.pendingAction.description}</p>
-                      {!m.pendingAction.resolved && m.pendingAction.hasSourceFile && (
-                        <label className="mt-2 flex items-center gap-2 text-xs">
-                          <input
-                            type="checkbox"
-                            checked={m.pendingAction.keepSourceFile ?? true}
-                            onChange={(e) => onToggleKeepSourceFile(i, e.target.checked)}
-                          />
-                          Simpan file sumber ke folder Progress Report (kalau tidak dicentang, file akan dihapus/masuk Trash setelah laporan dibuat)
-                        </label>
-                      )}
                       {!m.pendingAction.resolved ? (
                         <div className="mt-2 flex gap-2">
                           <button
-                            onClick={() => onConfirm(i, m.pendingAction!.id, m.pendingAction!.hasSourceFile ? m.pendingAction!.keepSourceFile : undefined)}
+                            onClick={() => onConfirm(i, m.pendingAction!.id)}
                             className="rounded-md bg-primary px-2 py-1 text-xs font-medium text-primary-foreground hover:opacity-90"
                           >
                             Konfirmasi
