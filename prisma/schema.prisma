@@ -319,6 +319,8 @@ model User {
   vendorPOsRejected       VendorPurchaseOrder[] @relation("VendorPORejectedBy")
   progressReportsCreated  ProgressReport[]      @relation("ProgressReportCreatedBy")
   progressReportsPrepared ProgressReport[]      @relation("ProgressReportPreparedBy")
+  directivesAssigned      Directive[]           @relation("DirectiveAssignedTo")
+  directivesGiven         Directive[]           @relation("DirectiveAssignedBy")
 
   @@index([role])
 }
@@ -1633,4 +1635,53 @@ model CompanySettings {
   dashboardBackgroundUrl String?
 
   updatedAt DateTime @updatedAt
+}
+
+// ============================================================================
+// DIRECTIVE — a manual task/reminder ADMIN (Direktur) hands to one or more
+// employees through the system instead of a personal WhatsApp message (Aug
+// 2026 founder request). One "give task" action can target a single user, an
+// entire role (all PM / all Finance / all Sales), or literally everyone —
+// but it is NEVER stored as one shared row. Every recipient gets their own
+// Directive row (own OPEN/DONE status, own completedAt), all carrying the
+// same batchId, so the Direktur's "tugas yang saya berikan" view can group
+// them back into one card while still showing exactly who has and hasn't
+// completed it — a single shared row could never answer "siapa yang belum".
+// ============================================================================
+enum DirectiveStatus {
+  OPEN
+  DONE
+}
+
+model Directive {
+  id          String   @id @default(cuid())
+  // Groups every per-recipient row created by the same "give task" action —
+  // even a single-recipient one gets a batchId, so the given-view never has
+  // to special-case "batch of one" vs "broadcast".
+  batchId     String
+  title       String
+  description String?
+  dueDate     DateTime?
+
+  assignedToId String
+  assignedTo   User   @relation("DirectiveAssignedTo", fields: [assignedToId], references: [id])
+  assignedById String
+  assignedBy   User   @relation("DirectiveAssignedBy", fields: [assignedById], references: [id])
+
+  status      DirectiveStatus @default(OPEN)
+  completedAt DateTime?
+
+  // Free-text reply from the recipient (e.g. "kendala apa yang dialami") —
+  // independent of status: a reply doesn't require marking the task DONE,
+  // and marking DONE doesn't require a reply. Lets Direktur ask a question
+  // through the system instead of a personal WA and actually read answers.
+  response    String?
+  respondedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([assignedToId, status])
+  @@index([batchId])
+  @@index([assignedById])
 }
