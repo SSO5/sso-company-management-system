@@ -23,7 +23,7 @@ Selain ngobrol bebas, kamu adalah AI AGENT yang benar-benar terhubung ke SELURUH
 - Buat invoice baru untuk satu project — jumlah (net, sebelum PPN) selalu dalam Rupiah eksplisit dari user, tidak pernah dihitung dari persen. Bisa sekalian isi nomor & tanggal PO customer (customerPO/poDate), PIC customer (contactName), dan PPN (taxPercent, default 11% — dihitung otomatis oleh SISTEM lewat rumus yang sama persis dengan invoice manual di app, bukan kamu hitung sendiri). Kalau invoice ini invoice pertama project itu, deskripsinya otomatis mengikuti scope/description dari quotation asalnya, bukan cuma nama project.
 - Buat Vendor Purchase Order baru untuk belanja/procurement ke vendor luar (nama vendor, item-item, PPN, opsional dikaitkan ke satu project).
 - Buat Progress Report (laporan progres lapangan) untuk satu project, dengan daftar checkpoint pekerjaan yang DIKETIK MANUAL oleh user — foto before/after tetap harus diupload manual di app sesudahnya, chat tidak bisa upload FOTO KE checkpoint tertentu.
-- Kalau user MELAMPIRKAN file (PDF laporan lapangan / foto checklist) dan minta dibuatkan progress report DARI FILE itu, pakai create_progress_report_from_document — BUKAN create_progress_report. Tool ini pakai mesin ekstraksi AI standar SSO (bukan cuma kamu baca sekilas), sekaligus meng-upload file itu ke folder Progress Report project yang benar. Sebelum benar-benar jalan, user akan diminta konfirmasi DAN ditanya eksplisit: file sumbernya mau disimpan di folder Progress Report, atau dihapus (ke Trash) setelah laporannya jadi — ini pilihan wajib, bukan basa-basi, jadi selalu sebutkan kedua pilihan itu ke user saat mengajukan tool ini.
+- Kalau user MELAMPIRKAN file (PDF laporan lapangan / foto checklist) dan minta dibuatkan progress report DARI FILE itu, pakai create_progress_report_from_document — BUKAN create_progress_report. Tool ini pakai mesin ekstraksi AI standar SSO (bukan cuma kamu baca sekilas), sekaligus meng-upload file itu ke folder Progress Report project yang benar (file sumber otomatis tersimpan di sana, tidak perlu ditanyakan). Setelah berhasil, sampaikan ke user bahwa untuk lihat/cetak PDF laporannya, tinggal buka halaman Progress Report project itu di app.
 - BACA progress report yang SUDAH ADA (get_progress_report) — status checklist per-checkpoint, sudah selesai atau belum, catatannya. Kalau user tanya "checklist project X gimana" atau "item apa yang belum selesai di laporan Y", pakai tool ini — JANGAN bilang tidak bisa/harus cek manual di app.
 - Kelola dokumen yang sudah tersimpan di sistem: cari/lihat daftar dokumen (list_documents), ganti nama file (rename_document), pindahkan file ke folder lain kalau salah taruh (move_document), dan hapus/pindah ke Trash (trash_document, masih bisa dipulihkan). Rename/move/trash hanya benar-benar jalan untuk role Admin/IT (koreksi data) — kalau role user tidak berwenang, tool akan menolak dengan jelas, sampaikan apa adanya.
 - User bisa MELAMPIRKAN file (PDF atau foto) langsung di chat ini. Kalau ada file terlampir dan itu memang untuk jadi Progress Report resmi, pakai create_progress_report_from_document (lihat di atas) — jangan proses manual sendiri. Untuk jenis dokumen LAIN (PO customer, invoice referensi, dsb.) yang tidak punya tool ekstraksi khusus, KAMU BISA MEMBACA ISI FILE ITU LANGSUNG (teks, tabel, gambar) seperti membaca dokumen biasa — pakai itu untuk mengisi field costing/quotation/invoice/vendor PO yang relevan (mis. dari PDF PO customer, ambil nomor PO, tanggal, item, harga), lalu ajukan tool pembuatan dokumen yang sesuai dengan field yang sudah terisi dari hasil bacaanmu. Tetap jangan menebak angka yang TIDAK ada di file itu — kalau ada info yang kurang/tidak jelas terbaca, tanya ke user, jangan mengarang.
@@ -60,7 +60,7 @@ export interface AssistantAttachment {
 
 export interface AssistantReply {
   reply: string;
-  pendingAction?: { id: string; description: string; hasSourceFile?: boolean };
+  pendingAction?: { id: string; description: string };
 }
 
 const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024; // 15MB — well under the 25MB server action body limit once base64-encoded
@@ -95,7 +95,7 @@ export async function sendAssistantMessage(
       { role: "user", content: userContent },
     ];
 
-    let pendingAction: { id: string; description: string; hasSourceFile?: boolean } | undefined;
+    let pendingAction: { id: string; description: string } | undefined;
 
     for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
       const response = await client.messages.create({
@@ -131,11 +131,7 @@ export async function sendAssistantMessage(
               expiresAt: new Date(Date.now() + PENDING_TTL_MINUTES * 60 * 1000),
             },
           });
-          pendingAction = {
-            id: row.id,
-            description: execResult.pendingAction.description,
-            hasSourceFile: execResult.pendingAction.hasSourceFile,
-          };
+          pendingAction = { id: row.id, description: execResult.pendingAction.description };
         }
 
         toolResults.push({ type: "tool_result", tool_use_id: block.id, content: execResult.resultText });
@@ -147,10 +143,7 @@ export async function sendAssistantMessage(
   });
 }
 
-export async function confirmAssistantAction(
-  id: string,
-  keepSourceFile?: boolean
-): Promise<ActionResult<{ message: string }>> {
+export async function confirmAssistantAction(id: string): Promise<ActionResult<{ message: string }>> {
   return runAction(async () => {
     const actor = await requireUserOrThrow();
     const pending = await prisma.assistantPendingAction.findFirst({
@@ -158,12 +151,7 @@ export async function confirmAssistantAction(
     });
     if (!pending) throw new Error("Aksi ini sudah kedaluwarsa atau tidak ditemukan — minta AI ulangi permintaannya.");
     await prisma.assistantPendingAction.deleteMany({ where: { userId: actor.userId } });
-    const message = await runConfirmedAssistantAction(
-      pending.toolName,
-      pending.argsJson as Record<string, unknown>,
-      actor,
-      keepSourceFile
-    );
+    const message = await runConfirmedAssistantAction(pending.toolName, pending.argsJson as Record<string, unknown>, actor);
     return { message };
   });
 }
