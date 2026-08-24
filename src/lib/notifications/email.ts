@@ -53,18 +53,6 @@ async function getTransporter() {
 
 export async function sendEmail(input: SendEmailInput): Promise<boolean> {
   if (!isConfigured()) {
-    // TEMPORARY DIAGNOSTIC (safe to remove once WA/email confirmed working):
-    // never logs actual secret values, only presence/length, so we can see
-    // exactly which of the 3 required env vars is missing/malformed without
-    // needing more screenshots back and forth.
-    console.log("[notifications/email] config-check", {
-      enabledRaw: JSON.stringify(process.env.NOTIFICATIONS_OUTBOUND_ENABLED),
-      enabledMatches: process.env.NOTIFICATIONS_OUTBOUND_ENABLED === "true",
-      smtpUserPresent: !!process.env.SMTP_USER,
-      smtpUserLength: process.env.SMTP_USER?.length ?? 0,
-      smtpAppPasswordPresent: !!process.env.SMTP_APP_PASSWORD,
-      smtpAppPasswordLength: process.env.SMTP_APP_PASSWORD?.length ?? 0,
-    });
     console.log(`[notifications/email] SKIPPED (not configured) -> ${input.to}: ${input.subject}`);
     return false;
   }

@@ -90,58 +90,6 @@ export const OPPORTUNITY_FOLDER_TEMPLATE: FolderTemplateNode[] = [
   { name: "6. Dokumen Kontrak", routeKey: "SALES/CONTRACT" },
 ];
 
-export const COMPANY_FOLDER_TEMPLATE: FolderTemplateNode[] = [
-  {
-    name: "Administrasi",
-    children: [
-      { name: "Surat Masuk" }, { name: "Surat Keluar" }, { name: "Dokumen Internal" },
-      { name: "Notulen & Berita Acara" }, { name: "SOP & Prosedur" },
-    ],
-  },
-  {
-    name: "Keuangan",
-    children: [
-      { name: "Anggaran & RAB" }, { name: "Invoice" }, { name: "Bukti Pembayaran" },
-      { name: "Laporan Keuangan" }, { name: "Pajak" }, { name: "Rekening & Bank" },
-    ],
-  },
-  {
-    name: "HR",
-    children: [
-      { name: "Data Karyawan" }, { name: "Kontrak & Perjanjian" }, { name: "Absensi & Cuti" },
-      { name: "Payroll" }, { name: "Rekrutmen" }, { name: "Penilaian Kinerja" },
-    ],
-  },
-  {
-    name: "Legal",
-    children: [
-      { name: "Akta & Legalitas" }, { name: "Perjanjian" }, { name: "Kontrak" },
-      { name: "Perizinan" }, { name: "Dokumen Hukum" },
-    ],
-  },
-  {
-    name: "Marketing",
-    children: [
-      { name: "Branding" }, { name: "Proposal" }, { name: "Materi Promosi" },
-      { name: "Social Media" }, { name: "Campaign" }, { name: "Dokumentasi" },
-    ],
-  },
-  { name: "Project" },
-  {
-    name: "Dokumen Perusahaan",
-    children: [
-      { name: "Profil Perusahaan" }, { name: "Company Profile" }, { name: "Struktur Organisasi" },
-      { name: "Visi & Misi" }, { name: "Dokumen Strategis" },
-    ],
-  },
-  {
-    name: "Arsip",
-    children: [
-      { name: "Arsip 2026" }, { name: "Arsip 2025" }, { name: "Arsip 2024" }, { name: "Arsip Lainnya" },
-    ],
-  },
-];
-
 /**
  * Materializes a folder template as real rows using ONE `createMany` round
  * trip per tree depth (2 for PROJECT/COMPANY templates, 1 for OPPORTUNITY's
@@ -326,13 +274,6 @@ export async function mergeOpportunityFoldersIntoProject(
   }
 
   await tx.folder.delete({ where: { id: oppRoot.id } }); // cascades to its 6 (now-empty) children
-}
-
-/** Idempotent — safe to call on every app boot / seed. Skips if company folders already exist. */
-export async function ensureCompanyFolders(tx: Prisma.TransactionClient) {
-  const existing = await tx.folder.findFirst({ where: { kind: "COMPANY", parentId: null } });
-  if (existing) return;
-  await createTree(tx, COMPANY_FOLDER_TEMPLATE, { kind: "COMPANY", parentPath: "Company Documents" });
 }
 
 /**

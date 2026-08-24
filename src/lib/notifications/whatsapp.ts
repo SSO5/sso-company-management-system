@@ -68,14 +68,6 @@ export async function testWhatsAppConnection(input: SendWhatsAppInput): Promise<
 
 export async function sendWhatsApp(input: SendWhatsAppInput): Promise<boolean> {
   if (!isConfigured()) {
-    // TEMPORARY DIAGNOSTIC (remove once WA/email confirmed working) — same
-    // reasoning as email.ts: shows which var is missing without leaking it.
-    console.log("[notifications/whatsapp] config-check", {
-      enabledRaw: JSON.stringify(process.env.NOTIFICATIONS_OUTBOUND_ENABLED),
-      enabledMatches: process.env.NOTIFICATIONS_OUTBOUND_ENABLED === "true",
-      fonnteTokenPresent: !!process.env.FONNTE_TOKEN,
-      fonnteTokenLength: process.env.FONNTE_TOKEN?.length ?? 0,
-    });
     console.log(`[notifications/whatsapp] SKIPPED (not configured) -> ${input.to}: ${input.message.slice(0, 60)}`);
     return false;
   }
