@@ -20,6 +20,8 @@ import { createPurchaseOrder, createContract } from "@/server/sales/purchase-ord
 import { createTask, updateTaskStatus, createMilestone, updateMilestoneStatus, createExpense, submitExpenseAction } from "@/server/projects/tasks";
 import { updateProject, markCompletedAction, closeProjectAction } from "@/server/projects/projects";
 import { recordPaymentAction } from "@/server/finance/payments";
+import { getSalesReport, getFinanceReport, getProjectReport, getProfitabilityReport, getExecutiveReport } from "@/server/reports/reports";
+import { globalSearch } from "@/server/search";
 import { isExtractableMimeType } from "@/lib/ai/client";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { RevisionAction } from "@/lib/ai/parse-revision-command";
@@ -892,6 +894,43 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
         notes: { type: "string", description: "Opsional, catatan." },
       },
       required: ["invoiceNumber", "amount"],
+    },
+  },
+  {
+    name: "get_sales_report",
+    description: "Ringkasan laporan Sales — total opportunity, total nilai quotation, nilai Won/Lost, win rate, revenue per sales PIC, top customer by revenue. Sama dengan halaman Reports > Sales di app.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "get_finance_report",
+    description: "Ringkasan laporan Finance — revenue tertagih, sudah dibayar, PPh dipotong, outstanding, overdue, total expense, gross profit. Sama dengan halaman Reports > Finance di app.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "get_project_report",
+    description: "Ringkasan laporan Project — jumlah project per status, rata-rata progress, rata-rata deviasi jadwal, daftar project yang punya sinyal risiko. Sama dengan halaman Reports > Project di app.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "get_profitability_report",
+    description: "Ranking profitabilitas project (revenue, cost, gross margin), diurutkan dari gross profit tertinggi. Sama dengan halaman Reports > Profitability di app.",
+    input_schema: {
+      type: "object",
+      properties: { limit: { type: "number", description: "Maksimal hasil (opsional, default 10, maks 30)." } },
+    },
+  },
+  {
+    name: "get_executive_report",
+    description: "Ringkasan eksekutif gabungan Sales + Finance + Project dalam satu jawaban — pakai ini untuk pertanyaan umum seperti 'bagaimana kondisi perusahaan sekarang' atau 'summary bisnis bulan ini'.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "global_search",
+    description: "Cari di SEMUA modul sekaligus (customer, quotation, project, invoice, opportunity) berdasarkan satu kata kunci — pakai ini kalau user tidak menyebutkan modul spesifik, mis. 'cari X' tanpa konteks lain.",
+    input_schema: {
+      type: "object",
+      properties: { query: { type: "string", description: "Kata kunci pencarian, minimal 2 karakter." } },
+      required: ["query"],
     },
   },
 ];
@@ -2564,6 +2603,79 @@ export async function executeAssistantTool(
             `\nBukti: "${attachment.fileName}"`,
         },
       };
+    }
+
+    case "get_sales_report": {
+      requirePermission(actor.role, "reports", "view");
+      const r = await getSalesReport();
+      return {
+        resultText:
+          `Total opportunity: ${r.totalOpportunities}\n` +
+          `Total nilai quotation: ${formatCurrency(r.totalQuotationValue)}\n` +
+          `Won: ${formatCurrency(r.wonValue)} — Lost: ${formatCurrency(r.lostValue)} — Win rate: ${r.winRate}%` +
+          (r.revenueByCustomer.length > 0
+            ? `\nTop customer (revenue Won): ${r.revenueByCustomer.slice(0, 5).map((c) => `${c.name} (${formatCurrency(c.value)})`).join(", ")}`
+            : "") +
+          (r.revenueBySalesPic.length > 0
+            ? `\nRevenue per sales: ${r.revenueBySalesPic.map((s) => `${s.name} (${formatCurrency(s.value)})`).join(", ")}`
+            : ""),
+      };
+    }
+
+    case "get_finance_report": {
+      requirePermission(actor.role, "reports", "view");
+      const r = await getFinanceReport();
+      return {
+        resultText:
+          `Revenue (tertagih): ${formatCurrency(r.revenue)}\n` +
+          `Sudah dibayar: ${formatCurrency(r.paid)} — PPh dipotong: ${formatCurrency(r.withholdingTax)}\n` +
+          `Outstanding: ${formatCurrency(r.outstanding)} — Overdue: ${formatCurrency(r.overdue)}\n` +
+          `Total expense: ${formatCurrency(r.totalExpenses)} — Gross profit: ${formatCurrency(r.grossProfit)}`,
+      };
+    }
+
+    case "get_project_report": {
+      requirePermission(actor.role, "reports", "view");
+      const r = await getProjectReport();
+      return {
+        resultText:
+          `Total project: ${r.total} — Active: ${r.active} — Completed: ${r.completed} — At Risk: ${r.atRisk} — Delayed: ${r.delayed}\n` +
+          `Rata-rata progress: ${r.avgProgress}% — Rata-rata deviasi jadwal: ${r.avgScheduleDeviation}%\n` +
+          (r.riskyProjects.length > 0
+            ? `Project berisiko: ${r.riskyProjects.slice(0, 8).map((p) => `${p.number} (${p.customerName}, ${p.signals.length} sinyal)`).join(", ")}`
+            : "Tidak ada project dengan sinyal risiko saat ini."),
+      };
+    }
+
+    case "get_profitability_report": {
+      requirePermission(actor.role, "reports", "view");
+      const rows = await getProfitabilityReport();
+      if (rows.length === 0) return { resultText: "Belum ada project untuk dihitung profitabilitasnya." };
+      return {
+        resultText: rows
+          .slice(0, clampLimit(input.limit, 10, 30))
+          .map((r) => `- ${r.number} (${r.customer}) — Revenue: ${formatCurrency(r.revenue)} — Cost: ${formatCurrency(r.cost)} — Margin: ${r.grossMargin}%`)
+          .join("\n"),
+      };
+    }
+
+    case "get_executive_report": {
+      requirePermission(actor.role, "reports", "view");
+      const r = await getExecutiveReport();
+      return {
+        resultText:
+          `RINGKASAN EKSEKUTIF\n\n` +
+          `Sales: ${r.sales.totalOpportunities} opportunity, Won ${formatCurrency(r.sales.wonValue)}, win rate ${r.sales.winRate}%\n` +
+          `Finance: Revenue ${formatCurrency(r.finance.revenue)}, Outstanding ${formatCurrency(r.finance.outstanding)}, Gross profit ${formatCurrency(r.finance.grossProfit)}\n` +
+          `Project: ${r.project.total} total (${r.project.active} active, ${r.project.completed} selesai, ${r.project.atRisk} at risk), rata-rata progress ${r.project.avgProgress}%`,
+      };
+    }
+
+    case "global_search": {
+      const q = String(input.query ?? "");
+      const results = await globalSearch(q);
+      if (results.length === 0) return { resultText: `Tidak ada hasil untuk "${q}".` };
+      return { resultText: results.map((r) => `- [${r.type}] ${r.label}`).join("\n") };
     }
 
     default:
