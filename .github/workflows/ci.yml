@@ -1,0 +1,29 @@
+name: CI
+
+# No test suite exists in this repo yet, so this gate runs the same checks
+# that are run by hand before every PR: typecheck + lint. Catches a broken
+# PR before merge instead of relying on someone remembering to run these
+# locally. Doesn't run `next build` (would need a reachable DATABASE_URL and
+# meaningfully more CI minutes for marginal extra coverage over typecheck).
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      - run: npm run lint
