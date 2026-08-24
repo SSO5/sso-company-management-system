@@ -19,6 +19,7 @@ import { createContact } from "@/server/sales/contacts";
 import { createPurchaseOrder, createContract } from "@/server/sales/purchase-orders";
 import { createTask, updateTaskStatus, createMilestone, updateMilestoneStatus, createExpense, submitExpenseAction } from "@/server/projects/tasks";
 import { updateProject, markCompletedAction, closeProjectAction } from "@/server/projects/projects";
+import { recordPaymentAction } from "@/server/finance/payments";
 import { isExtractableMimeType } from "@/lib/ai/client";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { RevisionAction } from "@/lib/ai/parse-revision-command";
@@ -93,6 +94,7 @@ export const WRITE_TOOLS = new Set([
   "update_project_progress",
   "mark_project_completed",
   "close_project",
+  "create_payment",
 ]);
 
 /** A file attached to the current chat turn — passed through to tools that can act on it (mirrors AssistantAttachment in src/server/assistant.ts). */
@@ -859,6 +861,37 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
       type: "object",
       properties: { projectNumber: { type: "string", description: "Nomor project, boleh sebagian." } },
       required: ["projectNumber"],
+    },
+  },
+  {
+    name: "list_payments",
+    description: "Cari/daftar pembayaran (payment) yang sudah tercatat, dengan filter opsional.",
+    input_schema: {
+      type: "object",
+      properties: {
+        invoiceNumber: { type: "string", description: "Filter nomor invoice, boleh sebagian (opsional)." },
+        customerName: { type: "string", description: "Filter nama customer, boleh sebagian (opsional)." },
+        limit: { type: "number", description: "Maksimal hasil (opsional, default 15, maks 30)." },
+      },
+    },
+  },
+  {
+    name: "create_payment",
+    description:
+      "Catat pembayaran (payment) untuk satu invoice — WAJIB ada file bukti transfer/kwitansi yang dilampirkan di chat ini (foto/PDF), sama seperti aturan 'harus ada bukti' di fitur ini pada app. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    input_schema: {
+      type: "object",
+      properties: {
+        invoiceNumber: { type: "string", description: "Nomor invoice yang dibayar, boleh sebagian." },
+        amount: { type: "number", description: "Jumlah yang diterima (cash masuk), dalam Rupiah — TIDAK termasuk PPh yang dipotong customer." },
+        paymentDate: { type: "string", description: "Opsional, tanggal pembayaran, format YYYY-MM-DD (default hari ini)." },
+        method: { type: "string", enum: ["BANK_TRANSFER", "CASH", "CHECK", "CREDIT_CARD", "OTHER"], description: "Opsional (default BANK_TRANSFER)." },
+        referenceNumber: { type: "string", description: "Opsional, nomor referensi transfer/kwitansi." },
+        bankAccount: { type: "string", description: "Opsional, rekening bank tujuan/asal." },
+        withholdingTax: { type: "number", description: "Opsional, PPh 23 (atau sejenis) yang dipotong customer, dalam Rupiah (default 0)." },
+        notes: { type: "string", description: "Opsional, catatan." },
+      },
+      required: ["invoiceNumber", "amount"],
     },
   },
 ];
@@ -2478,6 +2511,61 @@ export async function executeAssistantTool(
       };
     }
 
+    case "list_payments": {
+      requirePermission(actor.role, "finance", "view");
+      const rows = await prisma.payment.findMany({
+        where: {
+          deletedAt: null,
+          ...(input.invoiceNumber ? { invoice: { number: { contains: String(input.invoiceNumber), mode: "insensitive" } } } : {}),
+          ...(input.customerName ? { customer: { companyName: { contains: String(input.customerName), mode: "insensitive" } } } : {}),
+        },
+        select: { amount: true, paymentDate: true, method: true, invoice: { select: { number: true } }, customer: { select: { companyName: true } } },
+        orderBy: { paymentDate: "desc" },
+        take: clampLimit(input.limit),
+      });
+      if (rows.length === 0) return { resultText: "Tidak ada payment yang cocok." };
+      return {
+        resultText: rows
+          .map((p) => `- ${p.invoice.number} — ${p.customer.companyName} — ${formatCurrency(Number(p.amount))} (${p.method}) — ${formatDate(p.paymentDate)}`)
+          .join("\n"),
+      };
+    }
+
+    case "create_payment": {
+      requirePermission(actor.role, "finance", "create");
+      if (!attachment) {
+        return { resultText: "Lampirkan dulu file bukti transfer/kwitansi (foto/PDF) di chat ini, baru minta catat payment-nya." };
+      }
+      const inv = await findInvoiceByNumber(String(input.invoiceNumber ?? ""));
+      if (!inv) return { resultText: `Invoice "${input.invoiceNumber}" tidak ditemukan.` };
+      const amount = Number(input.amount);
+      if (!Number.isFinite(amount) || amount <= 0) return { resultText: "Sebutkan jumlah pembayaran (Rupiah) yang valid." };
+      const paymentDate = parseOptionalDate(input.paymentDate);
+      if (paymentDate === "invalid") return { resultText: "Format tanggal pembayaran tidak valid — gunakan format YYYY-MM-DD." };
+      const method = ["BANK_TRANSFER", "CASH", "CHECK", "CREDIT_CARD", "OTHER"].includes(String(input.method)) ? String(input.method) : "BANK_TRANSFER";
+      const withholdingTax = Number.isFinite(Number(input.withholdingTax)) ? Number(input.withholdingTax) : 0;
+
+      return {
+        resultText: "Menunggu konfirmasi user sebelum payment benar-benar dicatat.",
+        pendingAction: {
+          toolName: "create_payment",
+          args: {
+            invoiceId: inv.id,
+            paymentDate: (paymentDate ?? new Date()).toISOString(),
+            amount, method, withholdingTax,
+            referenceNumber: input.referenceNumber ? String(input.referenceNumber) : null,
+            bankAccount: input.bankAccount ? String(input.bankAccount) : null,
+            notes: input.notes ? String(input.notes) : null,
+            fileName: attachment.fileName, mimeType: attachment.mimeType, dataBase64: attachment.dataBase64,
+          },
+          description:
+            `Catat payment — invoice ${inv.number} (${inv.customer.companyName}) — ${formatCurrency(amount)} (${method})` +
+            (withholdingTax > 0 ? ` + PPh dipotong ${formatCurrency(withholdingTax)}` : "") +
+            `\nBukti: "${attachment.fileName}"`,
+        },
+      };
+    }
+
     default:
       return { resultText: `Tool "${toolName}" tidak dikenali.` };
   }
@@ -2823,6 +2911,24 @@ export async function runConfirmedAssistantAction(
       const result = await closeProjectAction(String(args.projectId));
       if (!result.ok) throw new Error(result.error);
       return "Project berhasil di-Close.";
+    }
+    case "create_payment": {
+      const fd = new FormData();
+      fd.set("invoiceId", String(args.invoiceId));
+      fd.set("paymentDate", String(args.paymentDate));
+      fd.set("amount", String(args.amount));
+      fd.set("method", String(args.method));
+      fd.set("withholdingTax", String(args.withholdingTax));
+      if (args.referenceNumber) fd.set("referenceNumber", String(args.referenceNumber));
+      if (args.bankAccount) fd.set("bankAccount", String(args.bankAccount));
+      if (args.notes) fd.set("notes", String(args.notes));
+      const buffer = Buffer.from(String(args.dataBase64), "base64");
+      fd.set("file", new Blob([buffer], { type: String(args.mimeType) }), String(args.fileName));
+
+      const result = await recordPaymentAction(fd);
+      if (!result.ok) throw new Error(result.error);
+      const invoice = await prisma.invoice.findUniqueOrThrow({ where: { id: String(args.invoiceId) }, select: { number: true } });
+      return `Payment untuk invoice ${invoice.number} berhasil dicatat.`;
     }
     default:
       throw new ForbiddenError(`Aksi "${toolName}" tidak dikenali.`);
