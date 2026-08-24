@@ -1,0 +1,31 @@
+name: Cron - Daily automation (overdue, risk, approvals, digest)
+
+# Hits /api/cron/daily on the deployed app once a day. This is the only
+# thing that actually schedules refreshOverdueInvoices/refreshBillingSchedule/
+# refreshProjectRiskNotifications (and the newer stale-approval escalation +
+# daily digest) — none of them run on their own otherwise, only when a human
+# happens to open the right page. See src/app/api/cron/daily/route.ts.
+#
+# Requires two repo secrets:
+#   APP_BASE_URL  — the production URL, e.g. https://your-app.vercel.app
+#   CRON_SECRET   — same random string set as the CRON_SECRET env var on Vercel
+on:
+  schedule:
+    - cron: "0 0 * * *" # 00:00 UTC = 07:00 WIB
+  workflow_dispatch:
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call daily cron endpoint
+        env:
+          APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -e
+          if [ -z "$APP_BASE_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "APP_BASE_URL and/or CRON_SECRET repo secrets are not set yet — skipping." >&2
+            exit 1
+          fi
+          curl -sS -f -X GET "$APP_BASE_URL/api/cron/daily" -H "Authorization: Bearer $CRON_SECRET"
