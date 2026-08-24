@@ -37,7 +37,11 @@ const MATRIX: PermissionMatrix = {
   SALES: {
     sales: ["view", "create", "update", "approve"], // "approve" here == submit-for-approval / mark won-lost, not final Admin approval
     finance: ["view"],
-    project: ["view"],
+    // "create" added so Sales can log Progress Reports from the field
+    // (including via AISSO's create_progress_report/_from_document) —
+    // this is a module-wide grant, so it also opens Project Task,
+    // Milestone, and Project Expense creation, not just Progress Report.
+    project: ["view", "create"],
     documents: ["view", "create"],
     reports: ["view"],
   },
