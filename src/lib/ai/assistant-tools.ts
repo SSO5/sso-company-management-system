@@ -1659,8 +1659,16 @@ export async function runConfirmedAssistantAction(
       );
       const result = await generateProgressReportFromDocument(doc.id, projectId);
       if (!result.ok) throw new Error(result.error);
-      const report = await prisma.progressReport.findUniqueOrThrow({ where: { id: result.data.progressReportId } });
-      return `${report.number} berhasil dibuat dari file "${args.fileName}" (file sumber tersimpan di folder Progress Report project ${args.projectNumber}). Buka halaman Progress Report project ini di app untuk lihat/cetak PDF-nya.`;
+      const report = await prisma.progressReport.findUniqueOrThrow({
+        where: { id: result.data.progressReportId },
+        include: { items: true },
+      });
+      const photoCount = report.items.filter((i) => i.photoBeforeKey || i.photoAfterKey).length;
+      const photoNote = photoCount > 0 ? `, ${photoCount} di antaranya sudah dilengkapi foto asli dari dokumen` : "";
+      return (
+        `${report.number} berhasil dibuat dari file "${args.fileName}" — ${report.items.length} checkpoint${photoNote}. File sumber tersimpan di folder Progress Report project ${args.projectNumber}.\n` +
+        `[PDF_URL]/api/progress-reports/${report.id}/pdf?view=1`
+      );
     }
     case "rename_document": {
       await renameDocumentFile(String(args.documentId), String(args.newName), String(args.reason), actor);
