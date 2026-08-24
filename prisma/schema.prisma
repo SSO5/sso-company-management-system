@@ -1678,10 +1678,20 @@ model Directive {
   response    String?
   respondedAt DateTime?
 
+  // When the recipient's WA/email notification was actually sent — null
+  // means still queued. Kept separate from creation on purpose: a broadcast
+  // to many recipients must NOT fire all their WA messages in the same
+  // instant (that pattern is what triggers WhatsApp's own anti-spam block),
+  // so dispatch is deferred to dispatchPendingDirectiveNotifications(),
+  // drained gradually by a frequent cron (see api/cron/directives) instead
+  // of happening synchronously inside createDirectiveAction.
+  notifiedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([assignedToId, status])
   @@index([batchId])
   @@index([assignedById])
+  @@index([notifiedAt])
 }

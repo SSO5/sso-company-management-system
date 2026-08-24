@@ -1,0 +1,36 @@
+name: Cron - Directive notification queue (Tugas dari Direktur)
+
+# Hits /api/cron/directives every 5 minutes — GitHub Actions' shortest
+# supported schedule interval — to drain the WA/email queue for "Tugas dari
+# Direktur" a couple of recipients at a time. This exists as a SEPARATE,
+# much more frequent cron from cron-daily.yml specifically so a broadcast
+# (e.g. "kirim ke Semua User") never fires every recipient's WhatsApp
+# message in the same instant — that burst pattern is what got the
+# founder's WhatsApp number flagged/restricted by Meta before. See
+# src/lib/workflows/cron-jobs.ts's dispatchPendingDirectiveNotifications()
+# for the full reasoning and src/server/directives.ts's createDirectiveAction
+# for why it defers sending instead of doing it synchronously.
+#
+# Requires the same two repo secrets as cron-daily.yml:
+#   APP_BASE_URL  — the production URL, e.g. https://your-app.vercel.app
+#   CRON_SECRET   — same random string set as the CRON_SECRET env var on Vercel
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call directive-queue cron endpoint
+        env:
+          APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -e
+          if [ -z "$APP_BASE_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "APP_BASE_URL and/or CRON_SECRET repo secrets are not set yet — skipping." >&2
+            exit 1
+          fi
+          curl -sS -f -X GET "$APP_BASE_URL/api/cron/directives" -H "Authorization: Bearer $CRON_SECRET"

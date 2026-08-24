@@ -260,3 +260,54 @@ export async function sendDailyDigest(): Promise<boolean> {
   );
   return true;
 }
+
+// How many pending Directive rows one run sends — kept small on purpose.
+// This job runs every ~5 minutes (see api/cron/directives), so a broadcast
+// to e.g. 8-10 people spreads across several ticks instead of firing all at
+// once, which is the exact pattern that gets a WhatsApp number flagged.
+const DIRECTIVE_DISPATCH_BATCH_SIZE = 2;
+// Short gap between the (at most two) sends within a single run — the real
+// spacing comes from the cron interval itself, not from sleeping in-request
+// (a long in-request sleep risks the serverless function timing out).
+const DIRECTIVE_DISPATCH_INTRA_BATCH_DELAY_MS = 4000;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Drains queued "Tugas dari Direktur" notifications (createDirectiveAction
+ * deliberately does NOT send WA/email itself — see its own comment) a
+ * couple at a time, oldest first. Every recipient still gets their own
+ * deep-linked message (/tasks?open=<id>); this only changes WHEN it's sent,
+ * not who it goes to or what it says.
+ */
+export async function dispatchPendingDirectiveNotifications(): Promise<number> {
+  const pending = await prisma.directive.findMany({
+    where: { notifiedAt: null },
+    orderBy: { createdAt: "asc" },
+    take: DIRECTIVE_DISPATCH_BATCH_SIZE,
+    select: { id: true, title: true, description: true, assignedToId: true },
+  });
+  if (pending.length === 0) return 0;
+
+  let sent = 0;
+  for (const row of pending) {
+    try {
+      await dispatchOutbound(
+        { userId: row.assignedToId },
+        {
+          title: "Tugas baru dari Direktur",
+          message: row.title + (row.description ? `\n${row.description}` : ""),
+          link: `/tasks?open=${row.id}`,
+        }
+      );
+      await prisma.directive.update({ where: { id: row.id }, data: { notifiedAt: new Date() } });
+      sent++;
+    } catch (err) {
+      console.error(`[dispatchPendingDirectiveNotifications] failed for directive ${row.id}:`, err);
+    }
+    if (row !== pending[pending.length - 1]) await sleep(DIRECTIVE_DISPATCH_INTRA_BATCH_DELAY_MS);
+  }
+  return sent;
+}

@@ -63,10 +63,15 @@ export async function createDirectiveAction(input: unknown): Promise<ActionResul
     const batchId = randomUUID();
 
     // Created one-by-one (not createMany) so each row's own id is known
-    // right away — needed to deep-link each recipient's WA/email straight
-    // to THEIR task instead of the generic /tasks list.
-    const created = await prisma.$transaction(async (tx) => {
-      const rows = [];
+    // right away — needed to deep-link each recipient's in-app notification
+    // straight to THEIR task instead of the generic /tasks list. WA/email is
+    // deliberately NOT sent here at all: firing every recipient's outbound
+    // notification in the same instant is exactly the burst pattern that
+    // gets a WhatsApp number flagged/blocked. It's picked up instead by
+    // dispatchPendingDirectiveNotifications() (cron-jobs.ts), which drains
+    // rows with notifiedAt still null a few at a time, spread across a
+    // frequent cron — see api/cron/directives.
+    await prisma.$transaction(async (tx) => {
       for (const r of recipients) {
         const row = await tx.directive.create({
           data: {
@@ -77,9 +82,8 @@ export async function createDirectiveAction(input: unknown): Promise<ActionResul
             assignedToId: r.id,
             assignedById: actor.userId,
           },
-          select: { id: true, assignedToId: true },
+          select: { id: true },
         });
-        rows.push(row);
         await notifyUser(tx, {
           userId: r.id,
           type: "DIRECTIVE_ASSIGNED",
@@ -95,24 +99,7 @@ export async function createDirectiveAction(input: unknown): Promise<ActionResul
         entityId: batchId,
         description: `Memberi tugas "${data.title}" ke ${recipients.length} user (${data.target.type})`,
       });
-      return rows;
     });
-
-    // Sent per-recipient (not one batched dispatchOutbound call) precisely
-    // so the WA/email link opens directly on that person's own task —
-    // WA is just a notification + a button in, never a place to reply.
-    await Promise.allSettled(
-      created.map((row) =>
-        dispatchOutbound(
-          { userId: row.assignedToId },
-          {
-            title: "Tugas baru dari Direktur",
-            message: data.title + (data.description ? `\n${data.description}` : ""),
-            link: `/tasks?open=${row.id}`,
-          }
-        )
-      )
-    );
 
     revalidatePath("/tasks");
     return { batchId, recipientCount: recipients.length };
