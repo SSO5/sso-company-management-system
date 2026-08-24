@@ -7,6 +7,7 @@ export interface ExtractedProgressItem {
   quantity: string | null;
   notes: string | null;
   isDone: boolean;
+  photoCount: number;
 }
 
 export interface ExtractedProgressReport {
@@ -34,7 +35,8 @@ Ekstrak checklist per bagian/komponen yang diperiksa atau dikerjakan. Balas HANY
       "partName": string,               // item/komponen yang diperiksa atau dikerjakan, contoh "Bearing 6313 SKF ZZ C3"
       "quantity": string atau null,     // jumlah persis dari dokumen, termasuk satuannya, contoh "2 pc" atau "4 pc" — jangan mengarang kalau tidak disebutkan
       "notes": string atau null,        // keterangan tambahan persis dari dokumen (kondisi, tindakan, status pengadaan spare part, dll)
-      "isDone": boolean                 // true HANYA jika dokumen secara eksplisit menyatakan item ini sudah selesai/OK/terpasang; false jika masih berjalan/menunggu/belum, atau tidak disebutkan statusnya
+      "isDone": boolean,                // true HANYA jika dokumen secara eksplisit menyatakan item ini sudah selesai/OK/terpasang; false jika masih berjalan/menunggu/belum, atau tidak disebutkan statusnya
+      "photoCount": number              // HITUNG berapa foto/gambar yang menyertai baris/item ini di dokumen (0 kalau tidak ada foto sama sekali). Ini dipakai untuk mencocokkan foto asli dari dokumen ke checklist item, jadi hitung persis apa yang terlihat, jangan menebak.
     }
   ]
 }
@@ -75,6 +77,7 @@ export async function extractProgressReport(
           quantity: typeof i.quantity === "string" && i.quantity.trim() ? i.quantity.trim() : null,
           notes: typeof i.notes === "string" && i.notes.trim() ? i.notes.trim() : null,
           isDone: Boolean(i.isDone),
+          photoCount: typeof i.photoCount === "number" && Number.isFinite(i.photoCount) ? Math.max(0, Math.min(4, Math.round(i.photoCount))) : 0,
         }))
     : [];
 

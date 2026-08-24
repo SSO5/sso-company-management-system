@@ -10,6 +10,7 @@ import { generateNumber } from "@/lib/numbering";
 import { logActivity } from "@/lib/workflows/audit";
 import { isExtractableMimeType } from "@/lib/ai/client";
 import { extractProgressReport } from "@/lib/ai/extract-progress-report";
+import { extractEmbeddedPhotos } from "@/lib/pdf/extract-embedded-images";
 import {
   createProgressReport,
   deleteProgressReport,
@@ -223,6 +224,26 @@ export async function generateProgressReportFromDocument(
     const buffer = await driver.read(doc.storagePath);
     const extracted = await extractProgressReport(buffer, doc.mimeType, doc.originalName);
 
+    // Pull the real photos out of the source PDF so the generated report
+    // carries the same evidence photos the document shows per checkpoint —
+    // not just the extracted text. Distributed across items using each
+    // item's own photoCount, in document order (see extract-embedded-images.ts
+    // for why this is a best-effort match rather than a guaranteed one).
+    const embeddedPhotos = doc.mimeType === "application/pdf" ? await extractEmbeddedPhotos(buffer) : [];
+    let photoCursor = 0;
+    const itemPhotos: { photoBeforeKey?: string; photoBeforeSize?: number; photoAfterKey?: string; photoAfterSize?: number }[] = [];
+    for (const it of extracted.items) {
+      const slots: (typeof itemPhotos)[number] = {};
+      const take = Math.min(it.photoCount, 2, embeddedPhotos.length - photoCursor);
+      for (let slot = 0; slot < take; slot++) {
+        const photoBuf = embeddedPhotos[photoCursor++];
+        const saved = await driver.save(photoBuf, { originalName: `${doc.originalName}-photo-${photoCursor}.jpg`, mimeType: "image/jpeg" });
+        if (slot === 0) { slots.photoBeforeKey = saved.storageKey; slots.photoBeforeSize = saved.fileSize; }
+        else { slots.photoAfterKey = saved.storageKey; slots.photoAfterSize = saved.fileSize; }
+      }
+      itemPhotos.push(slots);
+    }
+
     const nameMatch = doc.originalName.match(FILE_NAME_DATE);
     const fallbackDate = nameMatch ? new Date(Number(nameMatch[1]), Number(nameMatch[2]) - 1, Number(nameMatch[3])) : doc.uploadedAt;
     const inspectionDate = extracted.inspectionDate ? new Date(extracted.inspectionDate) : fallbackDate;
@@ -232,6 +253,11 @@ export async function generateProgressReportFromDocument(
     const report = await prisma.$transaction(async (tx) => {
       let r;
       if (existing) {
+        const oldItems = await tx.progressReportItem.findMany({ where: { progressReportId: existing.id } });
+        for (const oldItem of oldItems) {
+          if (oldItem.photoBeforeKey) await driver.delete(oldItem.photoBeforeKey).catch(() => {});
+          if (oldItem.photoAfterKey) await driver.delete(oldItem.photoAfterKey).catch(() => {});
+        }
         await tx.progressReportItem.deleteMany({ where: { progressReportId: existing.id } });
         r = await tx.progressReport.update({
           where: { id: existing.id },
@@ -261,6 +287,7 @@ export async function generateProgressReportFromDocument(
             notes: it.notes,
             isDone: it.isDone,
             sortOrder: i,
+            ...itemPhotos[i],
           })),
         });
       }

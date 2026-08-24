@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { X, Send, Paperclip, FileText } from "lucide-react";
+import { X, Send, Paperclip, FileText, FileDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
 import { sendAssistantMessage, confirmAssistantAction, cancelAssistantAction } from "@/server/assistant";
@@ -26,6 +26,16 @@ interface PendingAction {
   description: string;
   resolved?: "confirmed" | "cancelled";
   resultText?: string;
+  fileUrl?: string;
+}
+
+/** AISSO can embed a "\n[PDF_URL]<path>" suffix on a confirm result to hand
+ * back a file the user can open right in the chat — split it off so the
+ * URL renders as a real button instead of raw text in the bubble. */
+function splitFileUrl(message: string): { text: string; fileUrl?: string } {
+  const match = message.match(/\n\[PDF_URL\](\S+)$/);
+  if (!match) return { text: message };
+  return { text: message.slice(0, match.index), fileUrl: match[1] };
 }
 
 interface ChatMessage {
@@ -104,15 +114,14 @@ export function AssistantWidget() {
 
   async function onConfirm(msgIndex: number, id: string) {
     const res = await confirmAssistantAction(id);
+    const { text: resultText, fileUrl } = res.ok ? splitFileUrl(res.data.message) : { text: res.error, fileUrl: undefined };
     setMessages((prev) =>
       prev.map((m, i) =>
-        i === msgIndex && m.pendingAction
-          ? { ...m, pendingAction: { ...m.pendingAction, resolved: "confirmed", resultText: res.ok ? res.data.message : res.error } }
-          : m
+        i === msgIndex && m.pendingAction ? { ...m, pendingAction: { ...m.pendingAction, resolved: "confirmed", resultText, fileUrl } } : m
       )
     );
     if (res.ok) {
-      toast({ title: res.data.message, variant: "success" });
+      toast({ title: resultText, variant: "success" });
       router.refresh();
     } else {
       toast({ title: "Gagal menjalankan aksi", description: res.error, variant: "destructive" });
@@ -212,9 +221,18 @@ export function AssistantWidget() {
                           </button>
                         </div>
                       ) : (
-                        <p className="mt-1 text-muted-foreground">
-                          {m.pendingAction.resolved === "confirmed" ? m.pendingAction.resultText ?? "Selesai." : "Dibatalkan."}
-                        </p>
+                        <>
+                          <p className="mt-1 text-muted-foreground">
+                            {m.pendingAction.resolved === "confirmed" ? m.pendingAction.resultText ?? "Selesai." : "Dibatalkan."}
+                          </p>
+                          {m.pendingAction.resolved === "confirmed" && m.pendingAction.fileUrl && (
+                            <a href={m.pendingAction.fileUrl} target="_blank" rel="noreferrer">
+                              <button className="mt-2 flex items-center gap-1.5 rounded-md bg-primary px-2 py-1 text-xs font-medium text-primary-foreground hover:opacity-90">
+                                <FileDown className="h-3.5 w-3.5" /> Lihat PDF
+                              </button>
+                            </a>
+                          )}
+                        </>
                       )}
                     </div>
                   )}
