@@ -13,6 +13,11 @@ import type { PdfImageSrc } from "@/lib/pdf/branding";
  * mean SSO's own document and the app's document look like two different
  * companies, and the team would keep making the real one by hand.
  *
+ * The letterhead (logo top-left, company name/address block top-right, rule
+ * beneath, repeated on every page) matches SSO's real "LAPORAN INSPEKSI
+ * TEKNIS" letterhead exactly — same Header/Footer pattern already used in
+ * quotation-document.tsx, so every SSO PDF shares one letterhead standard.
+ *
  * One thing is ADDED, because it was the actual complaint: a summary block for
  * management. The checkpoint table answers "what was done to which part" — it
  * never answered "how far along is this job and is it on time". That question
@@ -20,58 +25,81 @@ import type { PdfImageSrc } from "@/lib/pdf/branding";
  */
 
 const NAVY = "#1F3864";
-const BORDER = "#D0D5DD";
+const GOLD = "#D99A2B";
+const BORDER = "#D8DCE3";
+const GRAY_BODY = "#4B5563";
 
 const s = StyleSheet.create({
-  page: { paddingTop: 26, paddingBottom: 34, paddingHorizontal: 26, fontSize: 8, fontFamily: "Helvetica", color: "#101828" },
+  page: { paddingTop: 74, paddingBottom: 40, paddingHorizontal: 26, fontSize: 8, fontFamily: "Helvetica", color: "#101828" },
 
-  titleRow: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
-  logo: { height: 26, marginRight: 10 },
-  title: { fontSize: 12, fontFamily: "Helvetica-Bold", color: NAVY },
+  // Letterhead — logo left, company block right, rule beneath — repeated on every page.
+  headerFixed: { position: "absolute", top: 20, left: 26, right: 26, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+  headerRuleWrap: { position: "absolute", top: 54, left: 26, right: 26 },
+  headerRule: { borderTopWidth: 0.75, borderTopColor: BORDER },
+  logo: { width: 88, height: 23, objectFit: "contain" },
+  companyBlock: { alignItems: "flex-end" },
+  companyName: { fontSize: 8.5, fontFamily: "Helvetica-Bold", color: "#111827" },
+  companyLine: { fontSize: 7, color: GRAY_BODY, marginTop: 1 },
 
-  metaBox: { borderWidth: 1, borderColor: NAVY, marginBottom: 8 },
-  metaRow: { flexDirection: "row" },
-  metaCell: { flex: 1, paddingVertical: 3, paddingHorizontal: 5, flexDirection: "row" },
-  metaLabel: { width: 62, color: "#475467" },
-  metaValue: { flex: 1, fontFamily: "Helvetica-Bold" },
-  projectBar: { backgroundColor: NAVY, color: "#FFFFFF", paddingVertical: 3, paddingHorizontal: 5, fontFamily: "Helvetica-Bold", fontSize: 8.5 },
+  title: { fontSize: 12, fontFamily: "Helvetica-Bold", color: NAVY, marginBottom: 8, letterSpacing: 0.3 },
 
-  summaryBox: { borderWidth: 1, borderColor: BORDER, backgroundColor: "#F8FAFC", padding: 7, marginBottom: 9 },
-  summaryHead: { flexDirection: "row", justifyContent: "space-between", marginBottom: 3 },
-  summaryTitle: { fontFamily: "Helvetica-Bold", fontSize: 8.5, color: NAVY },
+  metaBox: { borderWidth: 0.75, borderColor: BORDER, borderRadius: 3, marginBottom: 8, overflow: "hidden" },
+  metaRow: { flexDirection: "row", borderBottomWidth: 0.75, borderColor: BORDER },
+  metaCell: { flex: 1, paddingVertical: 4, paddingHorizontal: 6, flexDirection: "row" },
+  metaLabel: { width: 68, color: "#667085" },
+  metaValue: { flex: 1, fontFamily: "Helvetica-Bold", color: "#101828" },
+  projectBar: { backgroundColor: NAVY, color: "#FFFFFF", paddingVertical: 4, paddingHorizontal: 6, fontFamily: "Helvetica-Bold", fontSize: 8.5 },
+
+  summaryBox: { borderWidth: 0.75, borderColor: BORDER, borderRadius: 3, backgroundColor: "#F8FAFC", padding: 8, marginBottom: 10 },
+  summaryHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
+  summaryTitle: { fontFamily: "Helvetica-Bold", fontSize: 8, color: NAVY, letterSpacing: 0.4 },
   pctWrap: { flexDirection: "row", alignItems: "center" },
-  pctLabel: { fontFamily: "Helvetica-Bold", fontSize: 9, color: NAVY, marginRight: 5 },
-  barTrack: { width: 90, height: 6, backgroundColor: "#E4E7EC" },
-  barFill: { height: 6, backgroundColor: NAVY },
+  pctLabel: { fontFamily: "Helvetica-Bold", fontSize: 9, color: NAVY, marginRight: 6 },
+  barTrack: { width: 90, height: 5, backgroundColor: "#E4E7EC", borderRadius: 2.5 },
+  barFill: { height: 5, backgroundColor: GOLD, borderRadius: 2.5 },
   summaryText: { lineHeight: 1.4, color: "#344054" },
 
   thead: { flexDirection: "row", backgroundColor: NAVY },
-  th: { color: "#FFFFFF", fontFamily: "Helvetica-Bold", fontSize: 7.5, paddingVertical: 4, paddingHorizontal: 4, textAlign: "center" },
+  th: { color: "#FFFFFF", fontFamily: "Helvetica-Bold", fontSize: 7, paddingVertical: 5, paddingHorizontal: 4, textAlign: "center", letterSpacing: 0.4 },
 
-  sectionRow: { backgroundColor: "#EEF2F7", borderBottomWidth: 1, borderColor: BORDER },
-  sectionText: { fontFamily: "Helvetica-Bold", fontSize: 8, color: NAVY, paddingVertical: 3, paddingHorizontal: 5 },
+  sectionRow: { flexDirection: "row", alignItems: "stretch", backgroundColor: "#EEF2F7", borderBottomWidth: 0.75, borderColor: BORDER },
+  sectionAccent: { width: 3, backgroundColor: GOLD },
+  sectionText: { fontFamily: "Helvetica-Bold", fontSize: 7.5, color: NAVY, paddingVertical: 4, paddingHorizontal: 6, letterSpacing: 0.3 },
 
-  tr: { flexDirection: "row", borderBottomWidth: 1, borderColor: BORDER, minHeight: 54 },
-  td: { paddingVertical: 4, paddingHorizontal: 4, borderRightWidth: 1, borderColor: BORDER },
+  tr: { flexDirection: "row", borderBottomWidth: 0.75, borderColor: BORDER, minHeight: 54 },
+  trAlt: { backgroundColor: "#FAFBFC" },
+  td: { paddingVertical: 4, paddingHorizontal: 4, borderRightWidth: 0.75, borderColor: BORDER },
   photoCell: { alignItems: "center", justifyContent: "center" },
   photo: { maxHeight: 62, maxWidth: 86, objectFit: "contain" },
   noPhoto: { color: "#98A2B3", fontSize: 7 },
 
-  doneTag: { color: "#067647", fontFamily: "Helvetica-Bold", fontSize: 7 },
-  openTag: { color: "#B54708", fontFamily: "Helvetica-Bold", fontSize: 7 },
+  doneTag: { color: "#067647", fontFamily: "Helvetica-Bold", fontSize: 7, marginTop: 2 },
+  openTag: { color: "#B54708", fontFamily: "Helvetica-Bold", fontSize: 7, marginTop: 2 },
 
-  signWrap: { marginTop: 16, flexDirection: "row", justifyContent: "flex-end" },
+  signWrap: { marginTop: 18, flexDirection: "row", justifyContent: "flex-end" },
   signBox: { width: 170, alignItems: "center" },
   signImg: { height: 42, marginVertical: 3 },
-  signName: { fontFamily: "Helvetica-Bold", borderTopWidth: 1, borderColor: "#98A2B3", paddingTop: 3, width: "100%", textAlign: "center" },
+  signName: { fontFamily: "Helvetica-Bold", borderTopWidth: 0.75, borderColor: "#98A2B3", paddingTop: 3, width: "100%", textAlign: "center" },
   signTitle: { color: "#475467", fontSize: 7.5 },
 
-  footer: { position: "absolute", bottom: 16, left: 26, right: 26, flexDirection: "row", justifyContent: "space-between", color: "#98A2B3", fontSize: 7 },
+  footerFixed: { position: "absolute", bottom: 16, left: 26, right: 26 },
+  footerRule: { borderTopWidth: 0.75, borderTopColor: BORDER, marginBottom: 5 },
+  footerRow: { flexDirection: "row", justifyContent: "space-between" },
+  footerText: { color: "#98A2B3", fontSize: 7 },
 });
 
 // Column widths must total 100%. Photos get the most room because they are the
 // evidence — the reason the customer reads this document at all.
 const W = { no: "5%", part: "24%", before: "22%", after: "22%", notes: "27%" };
+
+interface CompanyInfo {
+  companyName: string;
+  address: string | null;
+  addressLine2: string | null;
+  city: string | null;
+  province: string | null;
+  phone: string | null;
+}
 
 export interface ProgressReportPdfItem {
   sectionName: string | null;
@@ -96,13 +124,42 @@ export interface ProgressReportPdfProps {
     customerName: string;
     items: ProgressReportPdfItem[];
   };
-  company: { companyName: string };
+  company: CompanyInfo;
   logo: PdfImageSrc | null;
   signature: PdfImageSrc | null;
 }
 
 function fmtDate(d: Date): string {
-  return new Date(d).toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" });
+  return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "long", year: "numeric" }).format(new Date(d));
+}
+
+function Header({ company, logo }: { company: CompanyInfo; logo: PdfImageSrc | null }) {
+  const line2 = company.addressLine2 || [company.city, company.province].filter(Boolean).join(", ");
+  return (
+    <>
+      <View style={s.headerFixed} fixed>
+        {logo ? <Image src={logo} style={s.logo} /> : <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: NAVY }}>SINERGI</Text>}
+        <View style={s.companyBlock}>
+          <Text style={s.companyName}>{company.companyName.toUpperCase()}</Text>
+          {company.address ? <Text style={s.companyLine}>{company.address}</Text> : null}
+          {line2 ? <Text style={s.companyLine}>{line2}</Text> : null}
+        </View>
+      </View>
+      <View style={s.headerRuleWrap} fixed><View style={s.headerRule} /></View>
+    </>
+  );
+}
+
+function Footer({ company, report }: { company: CompanyInfo; report: { number: string } }) {
+  return (
+    <View style={s.footerFixed} fixed>
+      <View style={s.footerRule} />
+      <View style={s.footerRow}>
+        <Text style={s.footerText}>{company.companyName} · {report.number}</Text>
+        <Text style={s.footerText} render={({ pageNumber, totalPages }) => `Halaman ${pageNumber} dari ${totalPages}`} />
+      </View>
+    </View>
+  );
 }
 
 function Meta({ label, value }: { label: string; value: string }) {
@@ -139,10 +196,9 @@ export function ProgressReportPdfDocument({ report, company, logo, signature }: 
   return (
     <Document title={`Progress Report ${report.number}`} author={company.companyName}>
       <Page size="A4" style={s.page}>
-        <View style={s.titleRow}>
-          {logo && <Image src={logo} style={s.logo} />}
-          <Text style={s.title}>PROGRESS PENGERJAAN — {report.projectName.toUpperCase()}</Text>
-        </View>
+        <Header company={company} logo={logo} />
+
+        <Text style={s.title}>LAPORAN INSPEKSI TEKNIS (INSPECTION REPORT)</Text>
 
         <View style={s.metaBox}>
           <View style={s.metaRow}>
@@ -187,10 +243,11 @@ export function ProgressReportPdfDocument({ report, company, logo, signature }: 
         {groups.map((g, gi) => (
           <View key={`${g.name}-${gi}`}>
             <View style={s.sectionRow} wrap={false}>
+              <View style={s.sectionAccent} />
               <Text style={s.sectionText}>{g.name.toUpperCase()}</Text>
             </View>
             {g.items.map((item, i) => (
-              <View key={`${gi}-${i}`} style={s.tr} wrap={false}>
+              <View key={`${gi}-${i}`} style={[s.tr, ...(i % 2 === 1 ? [s.trAlt] : [])]} wrap={false}>
                 <Text style={[s.td, { width: W.no, textAlign: "center" }]}>{i + 1}</Text>
                 <Text style={[s.td, { width: W.part }]}>{item.partName}</Text>
                 <PhotoCell img={item.photoBefore} width={W.before} />
@@ -215,10 +272,7 @@ export function ProgressReportPdfDocument({ report, company, logo, signature }: 
           </View>
         </View>
 
-        <View style={s.footer} fixed>
-          <Text>{company.companyName} · {report.number}</Text>
-          <Text render={({ pageNumber, totalPages }) => `Halaman ${pageNumber} dari ${totalPages}`} />
-        </View>
+        <Footer company={company} report={report} />
       </Page>
     </Document>
   );

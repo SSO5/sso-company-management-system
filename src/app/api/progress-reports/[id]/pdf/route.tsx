@@ -53,7 +53,14 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
             photoAfter: photos[idx * 2 + 1] ?? null,
           })),
         }}
-        company={{ companyName: settings?.companyName || "PT Sarana Sinergi Optima" }}
+        company={{
+          companyName: settings?.companyName || "PT Sarana Sinergi Optima",
+          address: settings?.address ?? null,
+          addressLine2: settings?.addressLine2 ?? null,
+          city: settings?.city ?? null,
+          province: settings?.province ?? null,
+          phone: settings?.phone ?? null,
+        }}
         logo={logo}
         signature={signature}
       />
