@@ -11,6 +11,7 @@ import { logActivity } from "@/lib/workflows/audit";
 import { isExtractableMimeType } from "@/lib/ai/client";
 import { extractProgressReport } from "@/lib/ai/extract-progress-report";
 import { extractEmbeddedPhotos } from "@/lib/pdf/extract-embedded-images";
+import type { SessionPayload } from "@/lib/auth/session";
 import {
   createProgressReport,
   deleteProgressReport,
@@ -213,7 +214,25 @@ export async function generateProgressReportFromDocument(
 ): Promise<ActionResult<{ progressReportId: string }>> {
   return runAction(async () => {
     const actor = await requireUserOrThrow();
-    requirePermission(actor.role, "project", "create");
+    return generateProgressReportForActor(documentId, projectId, actor);
+  });
+}
+
+/**
+ * Same generation logic as generateProgressReportFromDocument, but taking an
+ * explicit actor instead of deriving one via requireUserOrThrow() (which
+ * needs a real Next.js request/cookie context) — so callers with their own
+ * already-resolved identity (AISSO's confirm step, the Telegram bot via
+ * resolveActorByTelegramChatId) can call this directly. The cookie-based
+ * action above is the one thing the browser-invoked Documents panel calls;
+ * everyone else should call this.
+ */
+export async function generateProgressReportForActor(
+  documentId: string,
+  projectId: string,
+  actor: SessionPayload
+): Promise<{ progressReportId: string }> {
+  requirePermission(actor.role, "project", "create");
 
     const doc = await prisma.document.findUniqueOrThrow({ where: { id: documentId } });
     if (!isExtractableMimeType(doc.mimeType)) {
@@ -301,7 +320,6 @@ export async function generateProgressReportFromDocument(
       return r;
     });
 
-    revalidatePath(`/projects/${projectId}`);
-    return { progressReportId: report.id };
-  });
+  revalidatePath(`/projects/${projectId}`);
+  return { progressReportId: report.id };
 }

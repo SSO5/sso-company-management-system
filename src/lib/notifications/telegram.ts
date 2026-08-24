@@ -41,6 +41,36 @@ export async function sendTelegramMessage(chatId: string, text: string): Promise
   }
 }
 
+/** Downloads a file a user attached to a Telegram message (file_id from
+ * message.document/message.photo) — the two-step dance Telegram's Bot API
+ * requires: getFile resolves file_id to a temporary file_path, which is
+ * then fetched from a *different* host (api.telegram.org/file/...). */
+export async function getTelegramFileBuffer(fileId: string): Promise<Buffer | null> {
+  if (!isConfigured()) {
+    console.log(`[notifications/telegram] SKIPPED getFile (not configured) -> ${fileId}`);
+    return null;
+  }
+  try {
+    const metaRes = await fetch(apiUrl("getFile") + `?file_id=${encodeURIComponent(fileId)}`);
+    if (!metaRes.ok) {
+      console.error(`[notifications/telegram] getFile FAILED -> ${fileId}: HTTP ${metaRes.status}`);
+      return null;
+    }
+    const meta = (await metaRes.json()) as { ok: boolean; result?: { file_path?: string } };
+    if (!meta.ok || !meta.result?.file_path) return null;
+
+    const fileRes = await fetch(`https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${meta.result.file_path}`);
+    if (!fileRes.ok) {
+      console.error(`[notifications/telegram] file download FAILED -> ${fileId}: HTTP ${fileRes.status}`);
+      return null;
+    }
+    return Buffer.from(await fileRes.arrayBuffer());
+  } catch (err) {
+    console.error(`[notifications/telegram] getTelegramFileBuffer FAILED -> ${fileId}:`, err);
+    return null;
+  }
+}
+
 export async function sendTelegramDocument(
   chatId: string,
   buffer: Buffer,
