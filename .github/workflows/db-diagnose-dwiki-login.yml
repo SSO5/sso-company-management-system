@@ -1,0 +1,58 @@
+name: DB Diagnose - Dwiki login issue (read-only, one-off)
+
+# Read-only diagnostic: user "Dwiki" reports being unable to log in on his
+# phone; Faldy tried helping from his own phone and also couldn't. Checks
+# the User row for lock state (failedLoginAttempts/lockedUntil — see
+# src/app/(auth)/login/actions.ts), isActive, and recent LOGIN activity.
+# SELECT only — no UPDATE/INSERT/DELETE.
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install PostgreSQL 18 client tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common
+          yes '' | sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh
+          sudo apt-get install -y postgresql-client-18
+          echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
+
+      - name: Find matching user(s)
+        env:
+          NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
+        run: |
+          psql "$NEW_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          SELECT
+            id, name, email, role, "isActive",
+            "lastLoginAt", "failedLoginAttempts", "lockedUntil",
+            CASE WHEN "lockedUntil" IS NOT NULL AND "lockedUntil" > now()
+                 THEN round(extract(epoch FROM ("lockedUntil" - now())) / 60)
+                 ELSE NULL END AS minutes_left_locked,
+            "createdAt"
+          FROM "User"
+          WHERE name ILIKE '%dwiki%' OR email ILIKE '%dwiki%' OR name ILIKE '%faldy%' OR email ILIKE '%faldy%'
+          ORDER BY name;
+          SQL
+
+      - name: Recent LOGIN activity for these users
+        env:
+          NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
+        run: |
+          psql "$NEW_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          SELECT a."createdAt", a.action, a.description, u.name, u.email
+          FROM "ActivityLog" a
+          JOIN "User" u ON u.id = a."userId"
+          WHERE (u.name ILIKE '%dwiki%' OR u.email ILIKE '%dwiki%'
+                 OR u.name ILIKE '%faldy%' OR u.email ILIKE '%faldy%')
+          ORDER BY a."createdAt" DESC
+          LIMIT 20;
+          SQL
+
+      - name: Current server time (for lock-expiry comparison)
+        env:
+          NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
+        run: |
+          psql "$NEW_DATABASE_URL" -v ON_ERROR_STOP=1 -c "SELECT now();"
