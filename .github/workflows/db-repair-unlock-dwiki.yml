@@ -1,0 +1,42 @@
+name: DB Repair - Unlock Dwiki's account (one-off)
+
+# Dwiki (dwikifebrian58@gmail.com, id cmskx9h64002bzxgrffrpyyrn) tripped the
+# new login brute-force lock (5 wrong attempts -> 15min lock, see
+# src/app/(auth)/login/actions.ts) around 2026-08-25 14:00 WIB. Founder
+# asked to clear it immediately instead of waiting out the timer. Scoped to
+# this exact user id only — clears lockedUntil/failedLoginAttempts, the
+# same reset that happens automatically on a successful login.
+on:
+  workflow_dispatch:
+
+jobs:
+  unlock:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install PostgreSQL 18 client tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common
+          yes '' | sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh
+          sudo apt-get install -y postgresql-client-18
+          echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
+
+      - name: Clear lockout for Dwiki's account
+        env:
+          NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
+        run: |
+          psql "$NEW_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          UPDATE "User"
+          SET "lockedUntil" = NULL, "failedLoginAttempts" = 0
+          WHERE id = 'cmskx9h64002bzxgrffrpyyrn';
+          SQL
+
+      - name: Verify unlocked
+        env:
+          NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
+        run: |
+          psql "$NEW_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          SELECT id, name, email, "failedLoginAttempts", "lockedUntil"
+          FROM "User"
+          WHERE id = 'cmskx9h64002bzxgrffrpyyrn';
+          SQL
