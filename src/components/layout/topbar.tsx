@@ -5,10 +5,11 @@ import Link from "next/link";
 import { Search, LogOut, Bell, Menu } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { brandingUrl } from "@/lib/utils";
+import { MoodSwitcher } from "@/components/layout/mood-switcher";
 
 export function Topbar({
-  userName, role, avatarUrl, unreadCount = 0, onMenuClick,
-}: { userName: string; role: string; avatarUrl: string | null; unreadCount?: number; onMenuClick?: () => void }) {
+  userName, role, avatarUrl, unreadCount = 0, uiMood = "default", onMenuClick,
+}: { userName: string; role: string; avatarUrl: string | null; unreadCount?: number; uiMood?: string; onMenuClick?: () => void }) {
   const avatarSrc = brandingUrl(avatarUrl);
   const initials = userName.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
   const router = useRouter();
@@ -20,7 +21,7 @@ export function Topbar({
   }
 
   return (
-    <header className="flex h-14 items-center justify-between gap-2 border-b border-border bg-card px-3 sm:px-5">
+    <header className="mood-card flex h-14 items-center justify-between gap-2 rounded-none border-b border-border bg-card px-3 sm:px-5">
       <div className="flex min-w-0 flex-1 items-center gap-2">
         {onMenuClick && (
           <button
@@ -41,6 +42,9 @@ export function Topbar({
             className="h-8 min-w-0 border-0 shadow-none focus-visible:ring-0"
           />
         </form>
+        <div className="flex flex-1 items-center justify-center">
+          <MoodSwitcher currentMood={uiMood} />
+        </div>
       </div>
       <div className="flex shrink-0 items-center gap-2 sm:gap-4">
         {/* Used to be a dead placeholder button — no data, no click target.

@@ -11,7 +11,11 @@ export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElemen
   return (
     <div
       className={cn(
-        "rounded-xl border border-border/70 bg-card text-card-foreground",
+        // "mood-card" is an otherwise-inert hook: Settings > Profil Saya's
+        // per-user "suasana" picker targets it in globals.css to swap in a
+        // glass (translucent + blurred) treatment without touching every
+        // Card call site — see the "SUASANA" block in globals.css.
+        "mood-card rounded-xl border border-border/70 bg-card text-card-foreground",
         "shadow-[0_1px_2px_0_rgb(16_24_40/0.04),0_1px_3px_0_rgb(16_24_40/0.06)]",
         className
       )}
@@ -23,7 +27,7 @@ export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDiv
   return <div className={cn("flex flex-col space-y-1 p-4 pb-3", className)} {...props} />;
 }
 export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
-  return <h3 className={cn("text-sm font-semibold leading-none tracking-tight", className)} {...props} />;
+  return <h3 className={cn("mood-heading text-sm font-semibold leading-none tracking-tight", className)} {...props} />;
 }
 export function CardDescription({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
   return <p className={cn("text-xs text-muted-foreground", className)} {...props} />;

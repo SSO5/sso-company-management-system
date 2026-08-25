@@ -67,3 +67,74 @@
   background-color: rgba(255, 255, 255, 0.15);
   border-radius: 9999px;
 }
+
+/* ==========================================================================
+   SUASANA — personal, self-service visual moods (User.uiMood, see
+   lib/ui-moods.ts and components/layout/mood-switcher.tsx). Independent of
+   Settings > Tema above (that one is Admin-only/company-wide and only ever
+   swaps --primary/--ring). Each mood only touches: the app-shell background
+   (.mood-shell), the shared Card/Topbar glass treatment (.mood-card), and
+   heading typeface (.mood-heading) — the sidebar, page layout, and every
+   page's actual content stay exactly as they are; only the "skin" changes.
+   "default" (no [data-mood] match) renders nothing here — today's look,
+   untouched.
+   ========================================================================== */
+
+/* Operations Deck — dark, industrial, real workshop photo backdrop */
+[data-mood="operations-deck"].mood-shell {
+  background:
+    linear-gradient(180deg, rgba(6, 9, 20, 0.55) 0%, rgba(6, 9, 20, 0.72) 100%),
+    url("/mood-operations-deck-bg.jpg") center 60% / cover no-repeat fixed,
+    #05070d;
+  color: #eef2fb;
+}
+[data-mood="operations-deck"] .mood-card {
+  background: rgba(30, 38, 64, 0.32) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  color: #eef2fb;
+}
+[data-mood="operations-deck"] .mood-card .text-muted-foreground { color: #b7bfd4; }
+[data-mood="operations-deck"] .mood-heading { font-family: var(--font-operations-deck), sans-serif; }
+
+/* Vision Glass — light, warm bokeh backdrop, cream frosted glass */
+[data-mood="vision-glass"].mood-shell {
+  background:
+    radial-gradient(38% 42% at 18% 22%, rgba(255, 197, 138, 0.85), transparent 70%),
+    radial-gradient(32% 38% at 78% 18%, rgba(255, 229, 196, 0.8), transparent 70%),
+    radial-gradient(46% 52% at 62% 82%, rgba(180, 205, 160, 0.5), transparent 70%),
+    linear-gradient(160deg, #fdf5ea 0%, #f6ebdd 100%);
+}
+[data-mood="vision-glass"] .mood-card {
+  background: rgba(255, 255, 255, 0.5) !important;
+  border-color: rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  color: #3a3226;
+}
+[data-mood="vision-glass"] .mood-card .text-muted-foreground { color: #8a7c63; }
+[data-mood="vision-glass"] .mood-heading { font-family: var(--font-vision-glass), serif; font-style: italic; }
+
+/* Aurora Glass — dark, vivid neon-gradient backdrop */
+[data-mood="aurora-glass"].mood-shell {
+  background:
+    radial-gradient(50% 55% at 15% 18%, rgba(99, 102, 241, 0.5), transparent 65%),
+    radial-gradient(45% 55% at 85% 15%, rgba(236, 72, 153, 0.45), transparent 65%),
+    radial-gradient(55% 60% at 50% 95%, rgba(168, 85, 247, 0.4), transparent 65%),
+    linear-gradient(160deg, #100a28 0%, #05030f 100%);
+  color: #f1edff;
+}
+[data-mood="aurora-glass"] .mood-card {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  color: #f1edff;
+}
+[data-mood="aurora-glass"] .mood-card .text-muted-foreground { color: #b3aad6; }
+[data-mood="aurora-glass"] .mood-heading { font-family: var(--font-aurora-glass), sans-serif; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-ping { animation: none; }
+}
