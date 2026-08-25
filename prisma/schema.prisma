@@ -261,6 +261,14 @@ model User {
   failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?
 
+  // Personal visual "suasana" (mood) — self-service, per-user, purely
+  // cosmetic (background/card-glass/accent/font), picked via the topbar
+  // switcher (see components/layout/mood-switcher.tsx). Independent of
+  // CompanySettings.themePreset (that one's Admin-only and company-wide,
+  // just an accent-color swap) — this is each person's own preference and
+  // never affects what a colleague sees. "default" = today's exact look.
+  uiMood String @default("default")
+
   // Quotation PDF signature block (spec: PIC/signer must be customizable per
   // quotation, not one fixed company signer). "title" is the jabatan printed
   // under the name (e.g. "Direktur", "Marketing Manager"). signatureImageUrl

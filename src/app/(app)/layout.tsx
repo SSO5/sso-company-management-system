@@ -16,7 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Not carried in the session cookie (see session.ts's SessionPayload) —
   // it's mutable via self-service Profil Saya, so it's read fresh on every
   // request instead of going stale until the 12h cookie re-issues.
-  const user = await prisma.user.findUnique({ where: { id: session.userId }, select: { avatarUrl: true } });
+  const user = await prisma.user.findUnique({ where: { id: session.userId }, select: { avatarUrl: true, uiMood: true } });
   const preset = getThemePreset(theme.themePreset);
 
   return (
@@ -26,7 +26,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           color moves — success/warning/destructive stay put on purpose, see
           lib/theme-presets.ts. */}
       <style>{`:root { --primary: ${preset.primary}; --ring: ${preset.ring}; }`}</style>
-      <AppShell role={session.role} userName={session.name} unreadCount={unreadCount} avatarUrl={user?.avatarUrl ?? null}>
+      <AppShell role={session.role} userName={session.name} unreadCount={unreadCount} avatarUrl={user?.avatarUrl ?? null} uiMood={user?.uiMood ?? "default"}>
         {children}
       </AppShell>
       <AssistantWidget />
