@@ -17,7 +17,7 @@ export function AppShell({
 
   return (
     <div className="mood-shell flex h-screen bg-secondary" data-mood={uiMood}>
-      <Sidebar role={role} userName={userName} avatarUrl={avatarUrl} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar role={role} userName={userName} avatarUrl={avatarUrl} uiMood={uiMood} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Topbar userName={userName} role={role} avatarUrl={avatarUrl} unreadCount={unreadCount} uiMood={uiMood} onMenuClick={() => setSidebarOpen(true)} />
         <main className="mood-main flex-1 overflow-y-auto p-3 sm:p-6">{children}</main>

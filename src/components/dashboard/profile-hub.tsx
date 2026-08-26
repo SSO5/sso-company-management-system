@@ -43,7 +43,7 @@ export function ProfileHub(p: ProfileHubProps) {
   const initials = p.name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
 
   return (
-    <div className="rounded-xl border border-border/70 bg-card">
+    <div className="mood-card rounded-xl border border-border/70 bg-card">
       {bgSrc && (
         <div className="relative h-36 overflow-hidden rounded-t-xl sm:h-48">
           {/* eslint-disable-next-line @next/next/no-img-element */}
