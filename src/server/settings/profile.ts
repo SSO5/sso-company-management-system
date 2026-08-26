@@ -75,10 +75,11 @@ export async function updateOwnProfileAction(formData: FormData): Promise<Action
 /**
  * Self-service diagnostic for "I never get WhatsApp notifications, I don't
  * know why" — sends one real test message to the caller's OWN saved
- * whatsappNumber via Fonnte and reports back exactly why it failed (env var
- * missing, bad token, disconnected Fonnte device) instead of a silent
- * boolean, so a non-technical admin can self-diagnose without reading a
- * server log they don't have access to.
+ * whatsappNumber via whichever provider is configured (see
+ * lib/notifications/whatsapp.ts) and reports back exactly why it failed
+ * (env var missing, bad/expired token, disconnected Fonnte device, template
+ * not yet approved) instead of a silent boolean, so a non-technical admin
+ * can self-diagnose without reading a server log they don't have access to.
  */
 export async function sendTestWhatsAppNotificationAction(): Promise<ActionResult<{ reason: string }>> {
   return runAction(async () => {
@@ -93,7 +94,9 @@ export async function sendTestWhatsAppNotificationAction(): Promise<ActionResult
 
     const result = await testWhatsAppConnection({
       to: user.whatsappNumber,
-      message: `Halo ${user.name}, ini pesan test dari SSO Connect. Kalau Anda menerima ini, notifikasi WhatsApp sudah berfungsi dengan baik!`,
+      recipientName: user.name,
+      title: "Test Notifikasi",
+      message: "Kalau Anda menerima ini, notifikasi WhatsApp sudah berfungsi dengan baik!",
     });
     if (!result.ok) throw new Error(result.reason);
     return { reason: result.reason };

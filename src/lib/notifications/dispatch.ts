@@ -58,12 +58,6 @@ function buildEmailHtml(payload: OutboundPayload, recipientName: string) {
   `;
 }
 
-function buildWaMessage(payload: OutboundPayload, recipientName: string) {
-  const appUrl = process.env.APP_BASE_URL || "";
-  const linkLine = payload.link ? `\n\n${appUrl}${payload.link}` : "";
-  return `Halo ${recipientName},\n\n*${payload.title}*\n${payload.message}${linkLine}\n\n— SSO Connect`;
-}
-
 async function dispatchToUser(
   user: { name: string; email: string | null; whatsappNumber: string | null },
   payload: OutboundPayload
@@ -73,7 +67,13 @@ async function dispatchToUser(
     jobs.push(sendEmail({ to: user.email, subject: payload.title, html: buildEmailHtml(payload, user.name) }));
   }
   if (user.whatsappNumber) {
-    jobs.push(sendWhatsApp({ to: user.whatsappNumber, message: buildWaMessage(payload, user.name) }));
+    jobs.push(sendWhatsApp({
+      to: user.whatsappNumber,
+      recipientName: user.name,
+      title: payload.title,
+      message: payload.message,
+      link: payload.link,
+    }));
   }
   if (jobs.length === 0) return { attempted: false, delivered: false };
   const results = await Promise.allSettled(jobs);
@@ -84,16 +84,19 @@ async function dispatchToUser(
 /**
  * Both sendEmail/sendWhatsApp return `false` for two very different
  * situations: "not configured yet" (expected, safe default before
- * SMTP_APP_PASSWORD/FONNTE_TOKEN exist) and "configured but the actual send
- * failed" (a real problem — expired credential, provider outage, rate
- * limit). Only the latter is worth alerting on; this mirrors the same
- * NOTIFICATIONS_OUTBOUND_ENABLED + credential-presence check email.ts's own
- * isConfigured() uses, so "attempted" here means the same thing it does
- * there.
+ * SMTP_APP_PASSWORD/a WhatsApp provider exists) and "configured but the
+ * actual send failed" (a real problem — expired credential, provider
+ * outage, rate limit). Only the latter is worth alerting on; this mirrors
+ * the same NOTIFICATIONS_OUTBOUND_ENABLED + credential-presence check
+ * email.ts's own isConfigured() uses, so "attempted" here means the same
+ * thing it does there.
  */
 function isOutboundConfigured(): boolean {
   if (process.env.NOTIFICATIONS_OUTBOUND_ENABLED !== "true") return false;
-  return Boolean(process.env.SMTP_USER && process.env.SMTP_APP_PASSWORD) || Boolean(process.env.FONNTE_TOKEN);
+  const hasWhatsApp =
+    Boolean(process.env.WHATSAPP_CLOUD_API_TOKEN && process.env.WHATSAPP_CLOUD_API_PHONE_NUMBER_ID) ||
+    Boolean(process.env.FONNTE_TOKEN);
+  return Boolean(process.env.SMTP_USER && process.env.SMTP_APP_PASSWORD) || hasWhatsApp;
 }
 
 const DELIVERY_FAILURE_ALERT_DEDUPE_HOURS = 6;

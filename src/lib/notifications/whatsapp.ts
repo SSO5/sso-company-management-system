@@ -1,97 +1,45 @@
-// NOTE: no "server-only" import (see dispatch.ts for why) — this file is
-// only imported from server-side code, and the package itself crashes when
-// loaded outside Next.js's build pipeline (e.g. standalone tsx scripts).
 /**
- * Outbound WhatsApp via Fonnte (fonnte.com) — chosen over Wablas/Starsender
- * for SSO because it has a pay-as-you-go plan with no monthly minimum, a
- * simple single-token REST API (no Meta Business verification/WABA
- * approval needed, unlike the official WhatsApp Cloud API), and connects by
- * scanning a QR code with a normal WA number in a few minutes.
- *
- * Same no-op-until-configured pattern as email.ts: safe to deploy before
- * FONNTE_TOKEN exists.
+ * Outbound WhatsApp — provider router. Two providers exist:
+ *  - whatsapp-cloud.ts: Meta's official WhatsApp Business Cloud API. Used
+ *    automatically whenever WHATSAPP_CLOUD_API_TOKEN and
+ *    WHATSAPP_CLOUD_API_PHONE_NUMBER_ID are both set — the sanctioned
+ *    method, so the sending number does not get suspended the way an
+ *    unofficial gateway eventually does.
+ *  - whatsapp-fonnte.ts: the older unofficial WA Web gateway, kept as a
+ *    fallback for whoever hasn't finished Cloud API setup yet.
+ * Cloud API wins whenever both are configured (see .env.example for setup
+ * of either). Neither configured, or NOTIFICATIONS_OUTBOUND_ENABLED isn't
+ * "true" -> every call below is a safe no-op, same as before.
  */
-export interface SendWhatsAppInput {
-  /** International format without "+", e.g. "6281234567890". */
-  to: string;
-  message: string;
+import type { SendWhatsAppInput, WhatsAppSendResult } from "./whatsapp-types";
+import { isCloudApiConfigured, sendWhatsAppCloud, testWhatsAppConnectionCloud } from "./whatsapp-cloud";
+import { sendWhatsAppFonnte, testWhatsAppConnectionFonnte } from "./whatsapp-fonnte";
+
+export type { SendWhatsAppInput };
+
+function outboundEnabled() {
+  return process.env.NOTIFICATIONS_OUTBOUND_ENABLED === "true";
 }
 
-function isConfigured() {
-  return process.env.NOTIFICATIONS_OUTBOUND_ENABLED === "true" && !!process.env.FONNTE_TOKEN;
-}
-
 /**
- * Same Fonnte call as sendWhatsApp, but for the self-service "Test
- * Notifikasi" button (Settings > Profil Saya) — returns WHY it failed in
- * plain language instead of a bare boolean, so a non-technical admin can
- * diagnose a broken WA setup (missing env var vs disconnected Fonnte
- * device vs bad token) without ever needing to read a server log.
+ * For the self-service "Test Notifikasi" button (Settings > Profil Saya) —
+ * returns WHY it failed in plain language instead of a bare boolean, so a
+ * non-technical admin can self-diagnose without reading a server log.
  */
-export async function testWhatsAppConnection(input: SendWhatsAppInput): Promise<{ ok: boolean; reason: string }> {
-  if (process.env.NOTIFICATIONS_OUTBOUND_ENABLED !== "true") {
+export async function testWhatsAppConnection(input: SendWhatsAppInput): Promise<WhatsAppSendResult> {
+  if (!outboundEnabled()) {
     return {
       ok: false,
       reason: 'Notifikasi outbound belum diaktifkan — env var NOTIFICATIONS_OUTBOUND_ENABLED di Vercel belum "true".',
     };
   }
-  if (!process.env.FONNTE_TOKEN) {
-    return { ok: false, reason: "Token Fonnte belum diisi — env var FONNTE_TOKEN kosong di Vercel." };
-  }
-  try {
-    const res = await fetch("https://api.fonnte.com/send", {
-      method: "POST",
-      headers: {
-        Authorization: process.env.FONNTE_TOKEN,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({ target: input.to, message: input.message }),
-    });
-    const body = await res.json().catch(() => null);
-    if (!res.ok) {
-      return {
-        ok: false,
-        reason: `Fonnte menolak request (HTTP ${res.status})${body?.reason ? ` — "${body.reason}"` : ""}. Cek apakah token Fonnte benar.`,
-      };
-    }
-    if (body && body.status === false) {
-      return {
-        ok: false,
-        reason: `Fonnte menolak pesan — "${body.reason || "alasan tidak diketahui"}". Kemungkinan besar device Fonnte terputus (perlu scan ulang QR di fonnte.com) atau token salah.`,
-      };
-    }
-    return { ok: true, reason: "Pesan berhasil dikirim ke Fonnte — cek WhatsApp Anda dalam beberapa detik." };
-  } catch (err) {
-    return { ok: false, reason: `Gagal menghubungi Fonnte: ${err instanceof Error ? err.message : String(err)}` };
-  }
+  return isCloudApiConfigured() ? testWhatsAppConnectionCloud(input) : testWhatsAppConnectionFonnte(input);
 }
 
 export async function sendWhatsApp(input: SendWhatsAppInput): Promise<boolean> {
-  if (!isConfigured()) {
-    console.log(`[notifications/whatsapp] SKIPPED (not configured) -> ${input.to}: ${input.message.slice(0, 60)}`);
+  if (!outboundEnabled()) {
+    console.log(`[notifications/whatsapp] SKIPPED (outbound disabled) -> ${input.to}`);
     return false;
   }
-  try {
-    const res = await fetch("https://api.fonnte.com/send", {
-      method: "POST",
-      headers: {
-        Authorization: process.env.FONNTE_TOKEN as string,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({ target: input.to, message: input.message }),
-    });
-    if (!res.ok) {
-      console.error(`[notifications/whatsapp] FAILED -> ${input.to}: HTTP ${res.status}`);
-      return false;
-    }
-    const body = await res.json().catch(() => null);
-    if (body && body.status === false) {
-      console.error(`[notifications/whatsapp] FAILED -> ${input.to}:`, body.reason || body);
-      return false;
-    }
-    return true;
-  } catch (err) {
-    console.error(`[notifications/whatsapp] FAILED -> ${input.to}:`, err);
-    return false;
-  }
+  return isCloudApiConfigured() ? sendWhatsAppCloud(input) : sendWhatsAppFonnte(input);
 }
