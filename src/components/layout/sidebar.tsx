@@ -28,8 +28,8 @@ function stripQuery(href: string): string {
  * the list doesn't run far past the fold on a phone screen.
  */
 export function Sidebar({
-  role, userName, avatarUrl, open, onClose,
-}: { role: UserRole; userName: string; avatarUrl: string | null; open: boolean; onClose: () => void }) {
+  role, userName, avatarUrl, uiMood = "default", open, onClose,
+}: { role: UserRole; userName: string; avatarUrl: string | null; uiMood?: string; open: boolean; onClose: () => void }) {
   const pathname = usePathname();
   const avatarSrc = brandingUrl(avatarUrl);
   const initials = userName.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
@@ -74,10 +74,15 @@ export function Sidebar({
       )}
       <aside
         className={cn(
-          "sidebar-scroll fixed inset-y-0 left-0 z-50 flex h-screen w-64 flex-col overflow-y-auto bg-primary text-primary-foreground transition-transform duration-200 ease-in-out",
+          // "mood-sidebar" is the same kind of inert hook as Card's
+          // "mood-card" (see components/ui/card.tsx) — Settings > Profil
+          // Saya's "suasana" picker overrides its background/text color in
+          // globals.css's SUASANA block; on the default mood it does nothing.
+          "sidebar-scroll mood-sidebar fixed inset-y-0 left-0 z-50 flex h-screen w-64 flex-col overflow-y-auto bg-primary text-primary-foreground transition-transform duration-200 ease-in-out",
           "md:static md:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full"
         )}
+        data-ui-mood={uiMood}
       >
         <div className="flex items-center justify-between gap-2 px-5 py-5">
           <Image

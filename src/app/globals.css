@@ -135,6 +135,34 @@
 [data-mood="aurora-glass"] .mood-card .text-muted-foreground { color: #b3aad6; }
 [data-mood="aurora-glass"] .mood-heading { font-family: var(--font-aurora-glass), sans-serif; }
 
+/* Sidebar: same three moods, applied to the nav rail itself (it renders
+   solid --primary by default; each mood turns it into a glass panel that
+   matches the rest of that mood's chrome instead of staying flat navy). */
+[data-mood="operations-deck"] .mood-sidebar {
+  background: rgba(10, 14, 28, 0.5) !important;
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+[data-mood="vision-glass"] .mood-sidebar {
+  background: rgba(255, 255, 255, 0.45) !important;
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border-right: 1px solid rgba(255, 255, 255, 0.6);
+  color: #3a3226 !important;
+}
+[data-mood="vision-glass"] .mood-sidebar .text-white\/55,
+[data-mood="vision-glass"] .mood-sidebar .text-primary-foreground\/80 { color: #7a6d58 !important; }
+[data-mood="vision-glass"] .mood-sidebar .bg-white\/10,
+[data-mood="vision-glass"] .mood-sidebar .bg-white\/\[0\.06\] { background: rgba(161, 90, 46, 0.1) !important; }
+[data-mood="vision-glass"] .mood-sidebar .bg-white\/15 { background: rgba(161, 90, 46, 0.18) !important; }
+[data-mood="aurora-glass"] .mood-sidebar {
+  background: rgba(16, 10, 40, 0.5) !important;
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-ping { animation: none; }
 }
