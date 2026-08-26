@@ -36,7 +36,7 @@ export function Dialog({
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 pt-16">
       <div
         className={cn(
-          "w-full max-w-lg rounded-lg border border-border bg-card p-5 shadow-lg",
+          "mood-card w-full max-w-lg rounded-lg border border-border bg-card p-5 shadow-lg",
           className
         )}
         role="dialog"

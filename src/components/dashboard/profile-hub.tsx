@@ -25,6 +25,7 @@ interface ProfileHubProps {
   unreadNotifications: number;
   backgroundUrl: string | null;
   canUpload: boolean;
+  uiMood?: string;
 }
 
 function daysSince(d: Date): number {
@@ -41,6 +42,70 @@ export function ProfileHub(p: ProfileHubProps) {
   const avatarSrc = brandingUrl(p.avatarUrl);
   const bgSrc = brandingUrl(p.backgroundUrl);
   const initials = p.name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  // A "suasana" (mood) is a whole different visual concept, not just a
+  // recolor — the giant 512px overlapping-photo hero reads as distinctly
+  // "default SSO Connect" on its own, so every non-default mood swaps it for
+  // a compact hero: a small avatar sitting inline with the name/stats in one
+  // row, matching the mood gallery's own mockups. See lib/ui-moods.ts.
+  const compact = (p.uiMood ?? "default") !== "default";
+
+  if (compact) {
+    return (
+      <div className="mood-card overflow-hidden rounded-xl border border-border/70 bg-card p-5 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          {avatarSrc ? (
+            <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl border-2 border-card bg-muted shadow-sm sm:h-20 sm:w-20">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={avatarSrc} alt={p.name} className="h-full w-full object-cover object-top" />
+            </div>
+          ) : (
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border-2 border-card bg-primary text-xl font-bold text-primary-foreground shadow-sm sm:h-20 sm:w-20 sm:text-2xl">
+              {initials}
+            </div>
+          )}
+
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className={cn(signatureFont.className, "truncate text-[28px] leading-none text-[#2454d1] sm:text-[34px]")}>{p.name}</p>
+                <p className="mt-1 truncate text-sm text-muted-foreground">
+                  {p.title ? `${p.title} · ` : ""}{p.role.replace("_", " ")} · {daysSince(p.createdAt)} hari aktif
+                </p>
+              </div>
+              <Link href="/settings/profile" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border hover:bg-accent" title="Edit Profil">
+                <Pencil className="h-4 w-4" />
+              </Link>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5"><Mail className="h-3.5 w-3.5" /> {p.email}</span>
+              {p.whatsappNumber && <span className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> {p.whatsappNumber}</span>}
+            </div>
+          </div>
+
+          <div className="flex shrink-0 gap-6 border-t border-border pt-3 sm:border-t-0 sm:border-l sm:pl-6 sm:pt-0">
+            <div>
+              <p className="text-[11px] text-muted-foreground">Tugas Saya</p>
+              <p data-tabular className="text-2xl font-semibold">{p.taskCount}</p>
+            </div>
+            <div>
+              <p className="max-w-[7rem] truncate text-[11px] text-muted-foreground">{p.projectCountLabel}</p>
+              <p data-tabular className="text-2xl font-semibold">{p.projectCount}</p>
+            </div>
+            <div>
+              <p className="text-[11px] text-muted-foreground">Notifikasi</p>
+              <p data-tabular className="text-2xl font-semibold">{p.unreadNotifications}</p>
+            </div>
+          </div>
+        </div>
+
+        {p.canUpload && (
+          <div className="mt-4">
+            <AiSmartUploadCard />
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="mood-card rounded-xl border border-border/70 bg-card">
