@@ -176,7 +176,7 @@ export function AssistantWidget() {
       )}
 
       {open && (
-        <div className="fixed bottom-24 right-5 z-40 flex h-[32rem] w-96 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xl">
+        <div className="mood-card fixed bottom-24 right-5 z-40 flex h-[32rem] w-96 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xl">
           <div className="flex items-center gap-2 border-b border-border px-4 py-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/aisso-icon-v2.png" alt="" className="h-7 w-7 rounded-full object-cover" />

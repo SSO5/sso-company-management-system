@@ -35,7 +35,7 @@ export default async function DashboardPage() {
   const [profile, myActiveProjectCount] = await Promise.all([
     prisma.user.findUniqueOrThrow({
       where: { id: actor.userId },
-      select: { avatarUrl: true, title: true, whatsappNumber: true, createdAt: true },
+      select: { avatarUrl: true, title: true, whatsappNumber: true, createdAt: true, uiMood: true },
     }),
     prisma.project.count({ where: { deletedAt: null, status: "ACTIVE", projectManagerId: actor.userId } }),
   ]);
@@ -104,6 +104,7 @@ export default async function DashboardPage() {
         unreadNotifications={notifications.unreadCount}
         backgroundUrl={theme.dashboardBackgroundUrl}
         canUpload={canUpload}
+        uiMood={profile.uiMood}
       />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_360px]">

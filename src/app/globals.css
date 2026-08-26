@@ -88,14 +88,27 @@
     #05070d;
   color: #eef2fb;
 }
-[data-mood="operations-deck"] .mood-card {
+/* Any element still using the plain bg-card/bg-background/border-border
+   utilities — Dialog, AISSO's floating panel, and the various form panels
+   that never went through the shared <Card> — gets caught here too, not just
+   .mood-card. This is what makes the default light look actually disappear
+   everywhere once a mood is active, instead of only inside components that
+   remembered to opt in. Un-layered, so it still beats Tailwind's
+   @layer-utilities versions of these same classes regardless of DOM nesting. */
+[data-mood="operations-deck"] .mood-card,
+[data-mood="operations-deck"] .bg-card {
   background: rgba(30, 38, 64, 0.32) !important;
   border-color: rgba(255, 255, 255, 0.16) !important;
   backdrop-filter: blur(16px) saturate(160%);
   -webkit-backdrop-filter: blur(16px) saturate(160%);
   color: #eef2fb;
 }
-[data-mood="operations-deck"] .mood-card .text-muted-foreground { color: #b7bfd4; }
+[data-mood="operations-deck"] .bg-background { background: rgba(10, 14, 28, 0.55) !important; color: #eef2fb; }
+[data-mood="operations-deck"] .bg-muted { background: rgba(255, 255, 255, 0.08) !important; }
+[data-mood="operations-deck"] .border-border { border-color: rgba(255, 255, 255, 0.16) !important; }
+[data-mood="operations-deck"] .mood-card .text-muted-foreground,
+[data-mood="operations-deck"] .bg-card .text-muted-foreground,
+[data-mood="operations-deck"] .text-muted-foreground { color: #b7bfd4; }
 [data-mood="operations-deck"] .mood-heading { font-family: var(--font-operations-deck), sans-serif; }
 
 /* Vision Glass — light, warm bokeh backdrop, cream frosted glass */
@@ -106,14 +119,20 @@
     radial-gradient(46% 52% at 62% 82%, rgba(180, 205, 160, 0.5), transparent 70%),
     linear-gradient(160deg, #fdf5ea 0%, #f6ebdd 100%);
 }
-[data-mood="vision-glass"] .mood-card {
+[data-mood="vision-glass"] .mood-card,
+[data-mood="vision-glass"] .bg-card {
   background: rgba(255, 255, 255, 0.5) !important;
   border-color: rgba(255, 255, 255, 0.85) !important;
   backdrop-filter: blur(20px) saturate(160%);
   -webkit-backdrop-filter: blur(20px) saturate(160%);
   color: #3a3226;
 }
-[data-mood="vision-glass"] .mood-card .text-muted-foreground { color: #8a7c63; }
+[data-mood="vision-glass"] .bg-background { background: rgba(255, 250, 242, 0.6) !important; color: #3a3226; }
+[data-mood="vision-glass"] .bg-muted { background: rgba(161, 90, 46, 0.08) !important; }
+[data-mood="vision-glass"] .border-border { border-color: rgba(255, 255, 255, 0.7) !important; }
+[data-mood="vision-glass"] .mood-card .text-muted-foreground,
+[data-mood="vision-glass"] .bg-card .text-muted-foreground,
+[data-mood="vision-glass"] .text-muted-foreground { color: #8a7c63; }
 [data-mood="vision-glass"] .mood-heading { font-family: var(--font-vision-glass), serif; font-style: italic; }
 
 /* Aurora Glass — dark, vivid neon-gradient backdrop */
@@ -125,14 +144,20 @@
     linear-gradient(160deg, #100a28 0%, #05030f 100%);
   color: #f1edff;
 }
-[data-mood="aurora-glass"] .mood-card {
+[data-mood="aurora-glass"] .mood-card,
+[data-mood="aurora-glass"] .bg-card {
   background: rgba(255, 255, 255, 0.06) !important;
   border-color: rgba(255, 255, 255, 0.18) !important;
   backdrop-filter: blur(18px) saturate(160%);
   -webkit-backdrop-filter: blur(18px) saturate(160%);
   color: #f1edff;
 }
-[data-mood="aurora-glass"] .mood-card .text-muted-foreground { color: #b3aad6; }
+[data-mood="aurora-glass"] .bg-background { background: rgba(16, 10, 40, 0.55) !important; color: #f1edff; }
+[data-mood="aurora-glass"] .bg-muted { background: rgba(255, 255, 255, 0.08) !important; }
+[data-mood="aurora-glass"] .border-border { border-color: rgba(255, 255, 255, 0.18) !important; }
+[data-mood="aurora-glass"] .mood-card .text-muted-foreground,
+[data-mood="aurora-glass"] .bg-card .text-muted-foreground,
+[data-mood="aurora-glass"] .text-muted-foreground { color: #b3aad6; }
 [data-mood="aurora-glass"] .mood-heading { font-family: var(--font-aurora-glass), sans-serif; }
 
 /* Sidebar: same three moods, applied to the nav rail itself (it renders
