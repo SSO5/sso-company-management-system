@@ -1,0 +1,83 @@
+name: DB Seed - Chart of Accounts from PT SSO's real bookkeeping (one-off)
+
+# Manual-only, one-off data seed: populates ChartOfAccount with PT Sarana
+# Sinergi Optima's actual Chart of Accounts (34 accounts, EPC-specific:
+# Piutang Retensi Proyek, WIP, PPh Final Jasa Konstruksi 2.65%, etc.) and
+# opening balances as of 31 Agustus 2026, taken directly from the founder's
+# real "Kode Akun" and "Neraca" sheets (LAPORAN_KEUANGAN_SSO.xlsx). Verified
+# the balance sheet is internally consistent before writing this (Total
+# Aktiva = Total Kewajiban + Ekuitas = Rp132,230,277) — see PR description.
+#
+# Idempotent: ON CONFLICT (code) DO NOTHING, safe to re-run without
+# duplicating rows or clobbering anything entered by hand since Phase 1
+# shipped. P&L-type accounts (Pendapatan/Beban) get opening balance 0, since
+# a Balance Sheet snapshot never carries period P&L balances — those reset
+# each period and the "Laba (Rugi) Tahun Berjalan" equity line already
+# captures the accumulated result.
+on:
+  workflow_dispatch:
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install PostgreSQL 18 client tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common
+          yes '' | sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh
+          sudo apt-get install -y postgresql-client-18
+          echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
+
+      - name: Seed Chart of Accounts
+        env:
+          NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
+        run: |
+          set -e
+          psql "$NEW_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          INSERT INTO "ChartOfAccount" ("id","code","name","type","isActive","openingBalance","openingBalanceDate","createdAt","updatedAt")
+          VALUES
+            (gen_random_uuid()::text, '1101', 'Kas dan Bank', 'ASSET', true, 40273527, '2026-08-31', now(), now()),
+            (gen_random_uuid()::text, '1102', 'Piutang Usaha & Tagihan Proyek (Incl. PPN Keluaran)', 'ASSET', true, 0, '2026-08-31', now(), now()),
+            (gen_random_uuid()::text, '1103', 'Piutang Retensi Proyek (5%)', 'ASSET', true, 0, '2026-08-31', now(), now()),
+            (gen_random_uuid()::text, '1104', 'Persediaan Proyek / Work in Progress (WIP)', 'ASSET', true, 0, '2026-08-31', now(), now()),
+            (gen_random_uuid()::text, '1105', 'PPN Masukan (Kredit Pajak)', 'ASSET', true, 0, '2026-08-31', now(), now()),
+            (gen_random_uuid()::text, '1106', 'Uang Muka ke Vendor / DP Pengadaan Proyek', 'ASSET', true, 48480750, '2026-08-31', now(), now()),
+            (gen_random_uuid()::text, '1107', 'Piutang Pemegang Saham (Setoran Modal Blm Disetor)', 'ASSET', true, 43476000, '2026-08-31', now(), now()),
+            (gen_random_uuid()::text, '1201', 'Peralatan & Inventaris Kantor', 'ASSET', true, 0, '2026-08-31', now(), now()),
+            (gen_random_uuid()::text, '1202', 'Akum. Penyusutan Bangunan', 'ASSET', true, 0, '2026-08-31', now(), now()),
+            (gen_random_uuid()::text, '2101', 'Utang Usaha - Vendor (Incl. PPN)', 'LIABILITY', true, 0, '2026-08-31', now(), now()),
+            (gen_random_uuid()::text, '2102', 'Utang PPN Keluaran', 'LIABILITY', true, 0, '2026-08-31', now(), now()),
+            (gen_random_uuid()::text, '2103', 'Utang PPh Final Jasa Konstruksi (Ps. 4 ayat 2)', 'LIABILITY', true, 0, '2026-08-31', now(), now()),
+            (gen_random_uuid()::text, '2104', 'Utang PPh Pasal 21 (Karyawan)', 'LIABILITY', true, 0, '2026-08-31', now(), now()),
+            (gen_random_uuid()::text, '2105', 'Utang PPh Pasal 23 (Jasa & Sewa)', 'LIABILITY', true, 873527, '2026-08-31', now(), now()),
+            (gen_random_uuid()::text, '2106', 'Utang Gaji & Sewa Belum Dibayar (Netto)', 'LIABILITY', true, 0, '2026-08-31', now(), now()),
+            (gen_random_uuid()::text, '2107', 'Utang kepada Pemegang Saham (Talangan Pendirian)', 'LIABILITY', true, -750, '2026-08-31', now(), now()),
+            (gen_random_uuid()::text, '2108', 'Uang Muka dari Pelanggan (Advance dari Kontrak)', 'LIABILITY', true, 88944000, '2026-08-31', now(), now()),
+            (gen_random_uuid()::text, '3101', 'Modal Disetor Tunai (Founders)', 'EQUITY', true, 43476000, '2026-08-31', now(), now()),
+            (gen_random_uuid()::text, '3102', 'Tambahan Modal Disetor (Agio)', 'EQUITY', true, 0, '2026-08-31', now(), now()),
+            (gen_random_uuid()::text, '3201', 'Saldo Laba Ditahan Awal (Rugi Pra-Operasi)', 'EQUITY', true, 0, '2026-08-31', now(), now()),
+            (gen_random_uuid()::text, '3202', 'Laba (Rugi) Tahun Berjalan', 'EQUITY', true, -1062500, '2026-08-31', now(), now()),
+            (gen_random_uuid()::text, '4101', 'Pendapatan Kontrak Proyek EPC', 'REVENUE', true, 0, '2026-08-31', now(), now()),
+            (gen_random_uuid()::text, '5101', 'Beban Langsung Proyek / HPP (Engineering, Procurement, Construction)', 'EXPENSE', true, 0, '2026-08-31', now(), now()),
+            (gen_random_uuid()::text, '6101', 'Beban Gaji & Tunjangan Kantor', 'EXPENSE', true, 0, '2026-08-31', now(), now()),
+            (gen_random_uuid()::text, '6102', 'Beban Sewa Kantor / Fasilitas', 'EXPENSE', true, 0, '2026-08-31', now(), now()),
+            (gen_random_uuid()::text, '6103', 'Beban Utilitas & Operasional Kantor', 'EXPENSE', true, 0, '2026-08-31', now(), now()),
+            (gen_random_uuid()::text, '6104', 'Beban Pemasaran & Tender', 'EXPENSE', true, 0, '2026-08-31', now(), now()),
+            (gen_random_uuid()::text, '6105', 'Beban Legalitas & Sertifikasi', 'EXPENSE', true, 0, '2026-08-31', now(), now()),
+            (gen_random_uuid()::text, '7101', 'Beban Penyusutan', 'EXPENSE', true, 0, '2026-08-31', now(), now()),
+            (gen_random_uuid()::text, '8101', 'Beban Pajak Final Jasa Konstruksi (PPh Final 2,65%)', 'EXPENSE', true, 0, '2026-08-31', now(), now())
+          ON CONFLICT ("code") DO NOTHING;
+          SQL
+
+      - name: Verify seed and balance
+        env:
+          NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
+        run: |
+          psql "$NEW_DATABASE_URL" -tAc "SELECT count(*) || ' accounts' FROM \"ChartOfAccount\";"
+          psql "$NEW_DATABASE_URL" -tAc "
+            SELECT 'Total Aktiva: ' || sum(\"openingBalance\") FROM \"ChartOfAccount\" WHERE type = 'ASSET';
+          "
+          psql "$NEW_DATABASE_URL" -tAc "
+            SELECT 'Total Kewajiban + Ekuitas: ' || sum(\"openingBalance\") FROM \"ChartOfAccount\" WHERE type IN ('LIABILITY','EQUITY');
+          "
