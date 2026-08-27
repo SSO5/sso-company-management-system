@@ -55,3 +55,31 @@ export const paymentSchema = z.object({
   withholdingTax: z.coerce.number().nonnegative().default(0),
 });
 export type PaymentInput = z.infer<typeof paymentSchema>;
+
+// ---------------------------------------------------------------------------
+// GENERAL LEDGER — Phase 1 (Chart of Accounts + company-wide operating
+// expenses). See prisma/schema.prisma's "GENERAL LEDGER" section for why
+// CompanyExpense is separate from ProjectExpense.
+// ---------------------------------------------------------------------------
+
+export const chartOfAccountSchema = z.object({
+  code: z.string().min(1, "Kode akun wajib diisi."),
+  name: z.string().min(2, "Nama akun wajib diisi."),
+  type: z.enum(["ASSET", "LIABILITY", "EQUITY", "REVENUE", "EXPENSE"]),
+  description: z.string().optional().nullable(),
+  isActive: z.boolean().default(true),
+  openingBalance: z.coerce.number().default(0),
+  openingBalanceDate: z.coerce.date().optional().nullable(),
+});
+export type ChartOfAccountInput = z.infer<typeof chartOfAccountSchema>;
+
+export const companyExpenseSchema = z.object({
+  accountId: z.string().optional().nullable(),
+  description: z.string().min(2, "Deskripsi wajib diisi."),
+  vendor: z.string().optional().nullable(),
+  date: z.coerce.date(),
+  amount: z.coerce.number().positive(),
+  tax: z.coerce.number().nonnegative().default(0),
+  paymentStatus: z.enum(["UNPAID", "PAID"]).default("UNPAID"),
+});
+export type CompanyExpenseInput = z.infer<typeof companyExpenseSchema>;

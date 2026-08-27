@@ -89,6 +89,15 @@ export const NAV: NavGroup[] = [
       { label: "Pembayaran", href: "/finance/payments" },
       { label: "Piutang", href: "/finance/receivables" },
       { label: "Pengeluaran", href: "/finance/expenses" },
+      // General Ledger Phase 1 (Aug 2026) — Beban Operasional is company-wide
+      // cost (gaji, sewa kantor, dll) that isn't tied to a Project, so it's
+      // its own item rather than folded into "Pengeluaran" (ProjectExpense).
+      { label: "Beban Operasional", href: "/finance/company-expenses" },
+      // Bagan Akun ownership is Admin + the internal accountant (FINANCE
+      // role) specifically, per the founder's own answer — not the whole
+      // Keuangan group, which is why this one item carries its own roles
+      // override instead of inheriting the group's.
+      { label: "Bagan Akun", href: "/settings/chart-of-accounts", roles: ["ADMIN", "FINANCE"] },
     ],
   },
   {
