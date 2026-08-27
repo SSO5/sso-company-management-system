@@ -189,6 +189,7 @@ enum NumberEntityType {
   GENERAL_DOCUMENT
   VENDOR_PO
   PROGRESS_REPORT
+  COMPANY_EXPENSE
 }
 
 // Outbound procurement PO — SSO buying from a supplier/vendor to fulfill a
@@ -338,6 +339,10 @@ model User {
   progressReportsPrepared ProgressReport[]      @relation("ProgressReportPreparedBy")
   directivesAssigned      Directive[]           @relation("DirectiveAssignedTo")
   directivesGiven         Directive[]           @relation("DirectiveAssignedBy")
+  companyExpensesCreated   CompanyExpense[] @relation("CompanyExpenseCreatedBy")
+  companyExpensesSubmitted CompanyExpense[] @relation("CompanyExpenseSubmittedBy")
+  companyExpensesApproved  CompanyExpense[] @relation("CompanyExpenseApprovedBy")
+  companyExpensesRejected  CompanyExpense[] @relation("CompanyExpenseRejectedBy")
 
   @@index([role])
 }
@@ -1620,6 +1625,7 @@ model CompanySettings {
   // hardcoding "ENG-REP", consistent with how quotationPrefix/costingPrefix
   // etc. are all Settings-editable.
   progressReportPrefix String @default("ENG-REP/OPS")
+  companyExpensePrefix String @default("OPX/FIN")
   numberPadding     Int    @default(3)
 
   // "PAYMENT INSTRUCTIONS" bank block printed on the Invoice PDF (spec:
@@ -1711,4 +1717,91 @@ model Directive {
   @@index([batchId])
   @@index([assignedById])
   @@index([notifiedAt])
+}
+
+// ============================================================================
+// GENERAL LEDGER — Phase 1 (Aug 2026 founder request: bring proper
+// bookkeeping in-house, no external accounting software). This phase is
+// deliberately scoped to two things only: a Chart of Accounts to classify
+// money against, and CompanyExpense to record OPERATING costs that do NOT
+// belong to any single Project (salaries, office rent, utilities) — the
+// one real gap found when auditing the existing Finance module, since
+// ProjectExpense.projectId is required and cannot represent a company-wide
+// cost. Journal/double-entry auto-posting and financial statements
+// (Neraca/Laba Rugi/Arus Kas) are a later phase, layered on top of this —
+// nothing here changes Invoice/Payment/ProjectExpense/VendorPurchaseOrder.
+// ============================================================================
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+model ChartOfAccount {
+  id          String      @id @default(cuid())
+  // Standard Indonesian numbering convention: 1-xxx Aset, 2-xxx Liabilitas,
+  // 3-xxx Ekuitas, 4-xxx Pendapatan, 5/6-xxx Beban — editable by whoever owns
+  // the COA (see Settings > Bagan Akun), not enforced by this field itself.
+  code        String      @unique
+  name        String
+  type        AccountType
+  description String?
+  isActive    Boolean     @default(true)
+
+  // Saldo awal (opening balance) — Phase 1 keeps this as a plain snapshot
+  // field rather than an opening JournalEntry, since Journal/JournalLine
+  // don't exist yet in this phase. openingBalanceDate records the "as of"
+  // date the founder/accountant entered when setting this account up.
+  openingBalance     Decimal   @db.Decimal(18, 2) @default(0)
+  openingBalanceDate DateTime?
+
+  companyExpenses CompanyExpense[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type])
+}
+
+model CompanyExpense {
+  id        String @id @default(cuid())
+  number    String @unique // OPX-2026-0001
+
+  // Nullable on purpose: the COA may not be fully populated yet when Finance
+  // starts recording company expenses — better to let the expense exist
+  // unclassified than to block recording it entirely.
+  accountId String?
+  account   ChartOfAccount? @relation(fields: [accountId], references: [id])
+
+  description String
+  vendor      String?
+  date        DateTime @default(now())
+  amount      Decimal  @db.Decimal(18, 2)
+  tax         Decimal  @db.Decimal(18, 2) @default(0)
+  total       Decimal  @db.Decimal(18, 2)
+
+  paymentStatus  ExpensePaymentStatus  @default(UNPAID)
+  approvalStatus ExpenseApprovalStatus @default(DRAFT)
+
+  submittedAt   DateTime?
+  submittedById String?
+  submittedBy   User?     @relation("CompanyExpenseSubmittedBy", fields: [submittedById], references: [id])
+  approvedAt    DateTime?
+  approvedById  String?
+  approvedBy    User?     @relation("CompanyExpenseApprovedBy", fields: [approvedById], references: [id])
+  rejectedAt    DateTime?
+  rejectedById  String?
+  rejectedBy    User?     @relation("CompanyExpenseRejectedBy", fields: [rejectedById], references: [id])
+  rejectionReason String?
+
+  createdById String
+  createdBy   User     @relation("CompanyExpenseCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([approvalStatus])
+  @@index([accountId])
 }

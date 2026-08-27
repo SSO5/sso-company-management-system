@@ -173,6 +173,17 @@ export function requireInvoiceApprover(role: UserRole, actorId: string, submitte
   requireApprover(role, actorId, submittedById, "an invoice");
 }
 
+/**
+ * Company Expense approval — same rule, applied to company-wide operating
+ * costs (salaries, office rent, utilities) that aren't tied to any single
+ * Project. Kept as its own function (rather than reusing
+ * requireExpenseApprover) so its error message names the right document
+ * type, matching the one-function-per-document-type convention above.
+ */
+export function requireCompanyExpenseApprover(role: UserRole, actorId: string, submittedById: string | null = null) {
+  requireApprover(role, actorId, submittedById, "a company expense");
+}
+
 /** Only Admin or the assigned Project Manager may close a project. */
 export function requireProjectCloser(role: UserRole, isAssignedPM: boolean) {
   if (role !== "ADMIN" && !(role === "PROJECT_MANAGER" && isAssignedPM)) {
