@@ -1,5 +1,5 @@
 "use server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/current-user";
 import { runAction, type ActionResult } from "@/lib/action-helpers";
@@ -34,11 +34,24 @@ export async function getMyNotifications(limit = 12) {
  * Just the count — used by the topbar bell, which renders on every single
  * page (not just /dashboard), so it deliberately doesn't pull the full
  * getMyNotifications() list on every navigation.
+ *
+ * Cached for a short window (perf: this app's DB round-trip is expensive —
+ * Neon in a different region from Vercel's default function region, see
+ * lib/db.ts — and since the layout that calls this wraps EVERY route, an
+ * uncached query here was paying that cost on every single navigation, not
+ * just page loads that actually need fresh data. A badge count doesn't need
+ * per-request precision; a mark-as-read explicitly revalidates it below.
  */
 export async function getUnreadNotificationCount(): Promise<number> {
   const actor = await requireUserOrThrow();
-  return prisma.notification.count({ where: { userId: actor.userId, isRead: false } });
+  return getCachedUnreadCount(actor.userId);
 }
+
+const getCachedUnreadCount = unstable_cache(
+  (userId: string) => prisma.notification.count({ where: { userId, isRead: false } }),
+  ["unread-notification-count"],
+  { revalidate: 20, tags: ["unread-notification-count"] }
+);
 
 export async function markAllNotificationsRead(): Promise<ActionResult<{ count: number }>> {
   return runAction(async () => {
@@ -48,6 +61,7 @@ export async function markAllNotificationsRead(): Promise<ActionResult<{ count: 
       data: { isRead: true },
     });
     revalidatePath("/dashboard");
+    revalidateTag("unread-notification-count");
     return { count: res.count };
   });
 }
@@ -62,6 +76,7 @@ export async function markNotificationRead(id: string): Promise<ActionResult<{ i
       data: { isRead: true },
     });
     revalidatePath("/dashboard");
+    revalidateTag("unread-notification-count");
     return { id };
   });
 }
