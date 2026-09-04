@@ -71,6 +71,7 @@ export async function addProgressReportItem(
     const created = await tx.progressReportItem.create({
       data: {
         progressReportId: data.progressReportId,
+        sectionName: data.sectionName ?? null,
         partName: data.partName,
         quantity: data.quantity ?? null,
         notes: data.notes ?? null,

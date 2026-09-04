@@ -414,6 +414,15 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
       type: "object",
       properties: {
         vendorName: { type: "string", description: "Nama vendor/supplier." },
+        vendorAddress: { type: "string", description: "Opsional, alamat lengkap vendor — WAJIB diisi kalau user menyebutkannya (muncul di kotak 'Kepada Yth' PDF)." },
+        vendorEmail: { type: "string", description: "Opsional, email vendor." },
+        vendorAttn: { type: "string", description: "Opsional, nama orang yang dituju di vendor (Attn)." },
+        deliveryName: { type: "string", description: "Opsional, nama penerima/paket dikirim ke (drop-ship, mis. site customer)." },
+        deliveryAddress: { type: "string", description: "Opsional, alamat pengiriman barang." },
+        deliveryAttn: { type: "string", description: "Opsional, penanggung jawab penerimaan di alamat pengiriman." },
+        quotationRef: { type: "string", description: "Opsional, nomor penawaran/quotation dari vendor itu sendiri." },
+        projectRef: { type: "string", description: "Opsional, referensi job/project internal yang dicantumkan di PO." },
+        poDate: { type: "string", description: "Opsional, tanggal PO format YYYY-MM-DD (default hari ini)." },
         projectNumber: { type: "string", description: "Nomor project yang jadi tujuan belanja ini (opsional)." },
         items: {
           type: "array",
@@ -455,8 +464,9 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
             type: "object",
             properties: {
               partName: { type: "string", description: "Nama part/checkpoint yang diperiksa/dikerjakan." },
+              sectionName: { type: "string", description: "Opsional, nama kelompok/unit/bagian untuk mengelompokkan baris (mis. 'Unit A', 'Pekerjaan Mekanikal') — baris berurutan dengan sectionName sama tergabung jadi satu grup berjudul di PDF. Kosongkan kalau laporan datar tanpa pengelompokan." },
               quantity: { type: "string", description: "Opsional, jumlah termasuk satuannya, mis. '2 pc'." },
-              notes: { type: "string", description: "Opsional, catatan untuk checkpoint ini." },
+              notes: { type: "string", description: "Opsional, catatan untuk checkpoint ini — BEBAS, boleh panjang, boleh mencakup beberapa kolom dari tabel asal user (status, keterangan teknis, hasil ukur, dll). Gabungkan kolom tabel asal yang tidak punya field khusus ke sini dengan rapi." },
               isDone: { type: "boolean", description: "Opsional, apakah checkpoint ini sudah selesai (default false)." },
             },
             required: ["partName"],
@@ -1769,13 +1779,23 @@ export async function executeAssistantTool(
           toolName: "create_vendor_po",
           args: {
             vendorName, items, taxPercent, discount, projectId,
+            vendorAddress: input.vendorAddress ? String(input.vendorAddress) : null,
+            vendorEmail: input.vendorEmail ? String(input.vendorEmail) : null,
+            vendorAttn: input.vendorAttn ? String(input.vendorAttn) : null,
+            deliveryName: input.deliveryName ? String(input.deliveryName) : null,
+            deliveryAddress: input.deliveryAddress ? String(input.deliveryAddress) : null,
+            deliveryAttn: input.deliveryAttn ? String(input.deliveryAttn) : null,
+            quotationRef: input.quotationRef ? String(input.quotationRef) : null,
+            projectRef: input.projectRef ? String(input.projectRef) : null,
+            poDate: input.poDate ? String(input.poDate) : null,
             paymentTerms: input.paymentTerms ? String(input.paymentTerms) : null,
             deliveryTerms: input.deliveryTerms ? String(input.deliveryTerms) : null,
             notes: input.notes ? String(input.notes) : null,
           },
           description:
             `Buat Vendor PO — ${vendorName} (${items.length} item)\n` +
-            `Total: ${formatCurrency(totals.grandTotal)} (termasuk PPN ${taxPercent}%)`,
+            `Total: ${formatCurrency(totals.grandTotal)} (termasuk PPN ${taxPercent}%)` +
+            (input.vendorAddress ? `\nAlamat vendor: ${String(input.vendorAddress)}` : ""),
         },
       };
     }
@@ -2785,10 +2805,19 @@ export async function runConfirmedAssistantAction(
     }
     case "create_vendor_po": {
       const items = args.items as { description: string; quantity: number; unit: string; unitPrice: number }[];
+      const parsedPoDate = args.poDate ? new Date(String(args.poDate)) : null;
       const poInput: VendorPurchaseOrderInput = {
         vendorName: String(args.vendorName),
-        poDate: new Date(),
+        poDate: parsedPoDate && !isNaN(parsedPoDate.getTime()) ? parsedPoDate : new Date(),
         projectId: args.projectId ? String(args.projectId) : null,
+        vendorAddress: args.vendorAddress ? String(args.vendorAddress) : null,
+        vendorEmail: args.vendorEmail ? String(args.vendorEmail) : null,
+        vendorAttn: args.vendorAttn ? String(args.vendorAttn) : null,
+        deliveryName: args.deliveryName ? String(args.deliveryName) : null,
+        deliveryAddress: args.deliveryAddress ? String(args.deliveryAddress) : null,
+        deliveryAttn: args.deliveryAttn ? String(args.deliveryAttn) : null,
+        quotationRef: args.quotationRef ? String(args.quotationRef) : null,
+        projectRef: args.projectRef ? String(args.projectRef) : null,
         discount: Number(args.discount) || 0,
         taxPercent: Number(args.taxPercent) || 0,
         paymentTerms: args.paymentTerms ? String(args.paymentTerms) : null,
@@ -2800,7 +2829,7 @@ export async function runConfirmedAssistantAction(
       return `${po.number} berhasil dibuat sebagai DRAFT (Total: ${formatCurrency(Number(po.grandTotal))}).`;
     }
     case "create_progress_report": {
-      const items = args.items as { partName: string; quantity: string | null; notes: string | null; isDone: boolean }[];
+      const items = args.items as { partName: string; sectionName?: string | null; quantity: string | null; notes: string | null; isDone: boolean }[];
       const report = await createProgressReport(
         {
           projectId: String(args.projectId),
@@ -2814,6 +2843,7 @@ export async function runConfirmedAssistantAction(
         await addProgressReportItem(
           {
             progressReportId: report.id,
+            sectionName: items[i].sectionName ? String(items[i].sectionName) : null,
             partName: items[i].partName,
             quantity: items[i].quantity,
             notes: items[i].notes,

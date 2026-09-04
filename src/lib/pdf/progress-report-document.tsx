@@ -70,6 +70,7 @@ const s = StyleSheet.create({
   sectionText: { fontFamily: "Helvetica-Bold", fontSize: 7.5, color: NAVY, paddingVertical: 4, paddingHorizontal: 6, letterSpacing: 0.3 },
 
   tr: { flexDirection: "row", borderBottomWidth: 0.75, borderColor: BORDER, minHeight: 54 },
+  trCompact: { minHeight: 26 },
   trAlt: { backgroundColor: "#FAFBFC" },
   td: { paddingVertical: 4, paddingHorizontal: 4, borderRightWidth: 0.75, borderColor: BORDER },
   photoCell: { alignItems: "center", justifyContent: "center", flexDirection: "row" },
@@ -91,11 +92,9 @@ const s = StyleSheet.create({
   footerText: { color: "#98A2B3", fontSize: 7 },
 });
 
-// Column widths must total 100%. Foto gets the most room because it's the
-// evidence — the reason the customer reads this document at all. Matches
-// SSO's real report layout: one Foto column (not split before/after), a
-// Jumlah column for quantities, "Spesifikasi" instead of "Bagian yang dicek".
-const W = { no: "5%", foto: "27%", spec: "23%", qty: "9%", notes: "36%" };
+// Column widths are derived per report inside the component (`cw`) — the
+// baseline (photo + quantity present) is No 5% · Foto 27% · Spesifikasi 23%
+// · Jumlah 9% · Keterangan 36%; empty columns are omitted, never left blank.
 
 interface CompanyInfo {
   companyName: string;
@@ -204,6 +203,21 @@ export function ProgressReportPdfDocument({ report, company, logo, signature }: 
   const done = report.items.filter((i) => i.isDone).length;
   const pct = report.overallPercent ?? (report.items.length ? Math.round((done / report.items.length) * 100) : 0);
 
+  // Adaptive columns: a column that carries no data anywhere in the report is
+  // omitted entirely and its width redistributed — a photo-less checklist
+  // shouldn't waste 27% on an empty Foto column, and a report with no
+  // quantities shouldn't print a Jumlah column full of dashes.
+  const hasPhotos = report.items.some((i) => i.photoBefore || i.photoAfter);
+  const hasQuantities = report.items.some((i) => i.quantity?.trim());
+  // Widths always total 100% for whichever columns actually render.
+  const cw = hasPhotos
+    ? hasQuantities
+      ? { no: "5%", foto: "27%", spec: "23%", qty: "9%", notes: "36%" }
+      : { no: "5%", foto: "27%", spec: "26%", qty: "0%", notes: "42%" }
+    : hasQuantities
+      ? { no: "5%", foto: "0%", spec: "34%", qty: "9%", notes: "52%" }
+      : { no: "5%", foto: "0%", spec: "38%", qty: "0%", notes: "57%" };
+
   return (
     <Document title={`Progress Report ${report.number}`} author={company.companyName}>
       <Page size="A4" style={s.page}>
@@ -244,11 +258,11 @@ export function ProgressReportPdfDocument({ report, company, logo, signature }: 
         </View>
 
         <View style={s.thead} fixed>
-          <Text style={[s.th, { width: W.no }]}>No.</Text>
-          <Text style={[s.th, { width: W.foto }]}>Foto</Text>
-          <Text style={[s.th, { width: W.spec }]}>Spesifikasi</Text>
-          <Text style={[s.th, { width: W.qty }]}>Jumlah</Text>
-          <Text style={[s.th, { width: W.notes }]}>Keterangan</Text>
+          <Text style={[s.th, { width: cw.no }]}>No.</Text>
+          {hasPhotos ? <Text style={[s.th, { width: cw.foto }]}>Foto</Text> : null}
+          <Text style={[s.th, { width: cw.spec }]}>Spesifikasi</Text>
+          {hasQuantities ? <Text style={[s.th, { width: cw.qty }]}>Jumlah</Text> : null}
+          <Text style={[s.th, { width: cw.notes }]}>Keterangan</Text>
         </View>
 
         {groups.map((g, gi) => (
@@ -258,12 +272,14 @@ export function ProgressReportPdfDocument({ report, company, logo, signature }: 
               <Text style={s.sectionText}>{g.name.toUpperCase()}</Text>
             </View>
             {g.items.map((item, i) => (
-              <View key={`${gi}-${i}`} style={[s.tr, ...(i % 2 === 1 ? [s.trAlt] : [])]} wrap={false}>
-                <Text style={[s.td, { width: W.no, textAlign: "center" }]}>{i + 1}</Text>
-                <PhotoCell before={item.photoBefore} after={item.photoAfter} width={W.foto} />
-                <Text style={[s.td, { width: W.spec }]}>{item.partName}</Text>
-                <Text style={[s.td, { width: W.qty, textAlign: "center" }]}>{item.quantity || "-"}</Text>
-                <View style={[s.td, { width: W.notes, borderRightWidth: 0 }]}>
+              <View key={`${gi}-${i}`} style={[s.tr, ...(hasPhotos ? [] : [s.trCompact]), ...(i % 2 === 1 ? [s.trAlt] : [])]} wrap={false}>
+                <Text style={[s.td, { width: cw.no, textAlign: "center" }]}>{i + 1}</Text>
+                {hasPhotos ? <PhotoCell before={item.photoBefore} after={item.photoAfter} width={cw.foto} /> : null}
+                <Text style={[s.td, { width: cw.spec }]}>{item.partName}</Text>
+                {hasQuantities ? (
+                  <Text style={[s.td, { width: cw.qty, textAlign: "center" }]}>{item.quantity || "-"}</Text>
+                ) : null}
+                <View style={[s.td, { width: cw.notes, borderRightWidth: 0 }]}>
                   <Text>{item.notes || "-"}</Text>
                   <Text style={item.isDone ? s.doneTag : s.openTag}>
                     {item.isDone ? "SELESAI" : "DALAM PROSES"}
