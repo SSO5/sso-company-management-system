@@ -12,7 +12,7 @@ function SubmitButton() {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" className="w-full" disabled={pending}>
-      {pending ? "Signing in..." : "Sign in"}
+      {pending ? "Masuk…" : "Masuk"}
     </Button>
   );
 }
@@ -44,7 +44,7 @@ export default function LoginPage() {
           <SubmitButton />
         </form>
         <p className="mt-6 text-center text-[11px] text-muted-foreground">
-          Demo accounts are seeded via <code>npm run db:seed</code> — see README.
+          Akun demo dibuat lewat <code>npm run db:seed</code> — lihat README.
         </p>
       </div>
     </div>

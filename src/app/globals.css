@@ -23,9 +23,14 @@
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
     --success: 142 71% 35%;
-    --success-foreground: 0 0% 100%;
+    /* Dark text on the saturated success/warning fills — white on these
+       hues only reaches ~2.1–2.9:1 contrast, which fails WCAG AA at the
+       12px badge size. These foreground tokens are only ever used on top
+       of (or tinted with) their own background color, so dark text is
+       correct in every call site. */
+    --success-foreground: 142 70% 12%;
     --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
+    --warning-foreground: 38 92% 16%;
     --border: 214 20% 90%;
     --input: 214 20% 90%;
     --ring: 222 47% 40%;

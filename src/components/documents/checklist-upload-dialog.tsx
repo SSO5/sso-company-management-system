@@ -1,7 +1,7 @@
 "use client";
 import { useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -57,7 +57,7 @@ export function ChecklistUploadDialog({
 }: {
   items: ChecklistItem[];
   jobLabel: string;
-  trigger?: React.ReactNode;
+  trigger?: React.ReactElement;
   defaultRouteKey?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -112,11 +112,10 @@ export function ChecklistUploadDialog({
 
   return (
     <>
-      <span onClick={() => setOpen(true)} className="contents">
-        {trigger ?? (
-          <Button size="sm"><Upload className="h-3.5 w-3.5" /> Unggah dokumen</Button>
-        )}
-      </span>
+      <DialogTrigger
+        trigger={trigger ?? <Button size="sm"><Upload className="h-3.5 w-3.5" /> Unggah dokumen</Button>}
+        onClick={() => setOpen(true)}
+      />
       <Dialog
         open={open}
         onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}

@@ -1,3 +1,4 @@
+/* eslint-disable jsx-a11y/alt-text -- react-pdf Image renders into a PDF, not HTML */
 import { Document, Page, Text, View, Image, StyleSheet } from "@react-pdf/renderer";
 import { formatMoneyForPdf, formatPdfDate } from "@/lib/pdf/format";
 import type { PdfImageSrc } from "@/lib/pdf/branding";

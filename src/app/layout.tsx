@@ -41,7 +41,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${sora.variable} ${fraunces.variable} ${spaceGrotesk.variable}`}>
+    <html lang="id" className={`${sora.variable} ${fraunces.variable} ${spaceGrotesk.variable}`}>
       <body>{children}</body>
     </html>
   );

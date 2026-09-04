@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { createCustomer } from "@/server/sales/customers";
 
-export function CustomerFormDialog({ trigger }: { trigger: React.ReactNode }) {
+export function CustomerFormDialog({ trigger }: { trigger: React.ReactElement }) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const router = useRouter();
@@ -34,7 +34,7 @@ export function CustomerFormDialog({ trigger }: { trigger: React.ReactNode }) {
 
   return (
     <>
-      <span onClick={() => setOpen(true)}>{trigger}</span>
+      <DialogTrigger trigger={trigger} onClick={() => setOpen(true)} />
       <Dialog open={open} onOpenChange={setOpen} title="New Customer" description="Creates a numbered customer record (CUS-YYYY-####).">
         <form onSubmit={onSubmit} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">

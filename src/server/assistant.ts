@@ -65,6 +65,36 @@ export interface AssistantReply {
 
 const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024; // 15MB — well under the 25MB server action body limit once base64-encoded
 
+/**
+ * Translates raw Anthropic API failures into plain Indonesian. Previously a
+ * billing/auth error reached the chat verbatim — users saw the full JSON
+ * ("credit balance is too low…", request_id and all), which is meaningless
+ * to non-technical staff and leaks internals. Matching by status first,
+ * message text second, so new upstream error shapes degrade gracefully.
+ */
+function friendlyAnthropicError(err: unknown): Error {
+  const status = typeof err === "object" && err !== null && "status" in err ? (err as { status?: number }).status : undefined;
+  const raw = err instanceof Error ? err.message : String(err);
+  const lower = raw.toLowerCase();
+
+  if (status === 401 || status === 403 || lower.includes("authentication") || lower.includes("invalid api key") || lower.includes("invalid x-api-key")) {
+    return new Error("Kunci API AI tidak valid — minta admin memeriksa ANTHROPIC_API_KEY pada pengaturan server.");
+  }
+  if (lower.includes("credit balance") || lower.includes("billing") || lower.includes("quota")) {
+    return new Error("Kredit API AI habis — isi ulang di console.anthropic.com (Plans & Billing), lalu coba lagi.");
+  }
+  if (status === 429 || lower.includes("rate_limit") || lower.includes("rate limit")) {
+    return new Error("AI sedang sibuk — tunggu beberapa saat dan coba lagi.");
+  }
+  if (status === 529 || status === 500 || status === 502 || status === 503 || lower.includes("overloaded") || lower.includes("temporarily")) {
+    return new Error("Layanan AI sedang gangguan — coba lagi dalam beberapa saat.");
+  }
+  if (err instanceof TypeError || lower.includes("fetch") || lower.includes("network") || lower.includes("timeout") || lower.includes("econn")) {
+    return new Error("Tidak terhubung ke layanan AI — periksa koneksi internet/server, lalu coba lagi.");
+  }
+  return new Error("Layanan AI bermasalah saat ini — coba lagi; kalau berulang, catat waktunya untuk admin.");
+}
+
 export async function sendAssistantMessage(
   history: AssistantMessage[],
   message: string,
@@ -98,13 +128,18 @@ export async function sendAssistantMessage(
     let pendingAction: { id: string; description: string } | undefined;
 
     for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
-      const response = await client.messages.create({
-        model: assistantModel(),
-        max_tokens: 1500,
-        system: SYSTEM_PROMPT,
-        tools: ASSISTANT_TOOLS,
-        messages,
-      });
+      let response: Anthropic.Message;
+      try {
+        response = await client.messages.create({
+          model: assistantModel(),
+          max_tokens: 1500,
+          system: SYSTEM_PROMPT,
+          tools: ASSISTANT_TOOLS,
+          messages,
+        });
+      } catch (err) {
+        throw friendlyAnthropicError(err);
+      }
 
       if (response.stop_reason !== "tool_use") {
         const textBlock = response.content.find((b): b is Anthropic.TextBlock => b.type === "text");

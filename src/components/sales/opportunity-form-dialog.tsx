@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +16,7 @@ export function OpportunityFormDialog({
   contacts,
   salesUsers,
 }: {
-  trigger: React.ReactNode;
+  trigger: React.ReactElement;
   customers: { id: string; companyName: string; number: string }[];
   contacts: { id: string; customerId: string; name: string }[];
   salesUsers: { id: string; name: string }[];
@@ -45,7 +45,7 @@ export function OpportunityFormDialog({
 
   return (
     <>
-      <span onClick={() => setOpen(true)}>{trigger}</span>
+      <DialogTrigger trigger={trigger} onClick={() => setOpen(true)} />
       <Dialog open={open} onOpenChange={setOpen} title="New Opportunity">
         <form onSubmit={onSubmit} className="space-y-3">
           <div className="space-y-1">

@@ -1,9 +1,10 @@
 "use client";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,7 +25,7 @@ function suggestWithholding(netAmount: number): number {
   return round2((netAmount * 0.02) / 1.09);
 }
 
-export function RecordPaymentDialog({ invoiceId, outstanding, trigger }: { invoiceId: string; outstanding: number; trigger: React.ReactNode }) {
+export function RecordPaymentDialog({ invoiceId, outstanding, trigger }: { invoiceId: string; outstanding: number; trigger: React.ReactElement }) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [amount, setAmount] = useState("");
@@ -58,14 +59,24 @@ export function RecordPaymentDialog({ invoiceId, outstanding, trigger }: { invoi
 
   return (
     <>
-      <span onClick={() => setOpen(true)}>{trigger}</span>
+      <DialogTrigger trigger={trigger} onClick={() => setOpen(true)} />
       <Dialog open={open} onOpenChange={setOpen} title="Record Payment" description={`Outstanding balance: ${formatCurrency(outstanding)}`}>
         <form onSubmit={onSubmit} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1"><Label>Payment Date</Label><Input name="paymentDate" type="date" required defaultValue={new Date().toISOString().slice(0,10)} /></div>
             <div className="space-y-1">
               <Label>Amount diterima (tunai)</Label>
-              <Input name="amount" type="number" min={0} max={outstanding} required value={amount} onChange={(e) => setAmount(e.target.value)} />
+              {/* CurrencyInput: thousand-grouped display ("150.000.000") with
+                  the plain digits submitted under name="amount" — one zero
+                  too many is otherwise invisible in a bare number field. */}
+              <CurrencyInput
+                name="amount"
+                required
+                min={0}
+                max={outstanding}
+                value={amount}
+                onChange={(n) => setAmount(n === null ? "" : String(n))}
+              />
             </div>
             <div className="space-y-1">
               <Label>Method</Label>
@@ -87,7 +98,12 @@ export function RecordPaymentDialog({ invoiceId, outstanding, trigger }: { invoi
             {hasWithholding && (
               <div className="col-span-2 space-y-1">
                 <Label>PPh 23 dipotong</Label>
-                <Input type="number" min={0} max={outstanding} value={withholdingTax} onChange={(e) => setWithholdingTax(e.target.value)} />
+                <CurrencyInput
+                  min={0}
+                  max={outstanding}
+                  value={withholdingTax}
+                  onChange={(n) => setWithholdingTax(n === null ? "" : String(n))}
+                />
                 <p className="text-[11px] text-muted-foreground">
                   Estimasi otomatis (2% dari DPP) — sesuaikan dengan Bukti Potong yang diterima.
                 </p>

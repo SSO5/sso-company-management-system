@@ -42,7 +42,7 @@ export function CostingForm({ customers, opportunities, costingId, defaultValues
 
   const { fields: sectionFields, append: appendSection, remove: removeSection } = useFieldArray({ control, name: "sections" });
   const watchedCustomerId = useWatch({ control, name: "customerId" });
-  const watchedSections = useWatch({ control, name: "sections" }) || [];
+  const watchedSections = useWatch({ control, name: "sections" });
   const watchedOperationalCost = useWatch({ control, name: "operationalCost" });
   const watchedPpnPercent = useWatch({ control, name: "ppnPercent" });
   const watchedPphFinalPercent = useWatch({ control, name: "pphFinalPercent" });
@@ -51,7 +51,7 @@ export function CostingForm({ customers, opportunities, costingId, defaultValues
   const summary = useMemo(() => {
     try {
       return calcCostingSummary(
-        watchedSections.map((s) => ({ items: (s?.items || []).filter((i) => i && i.costUnitPrice !== undefined) })),
+        (watchedSections || []).map((s) => ({ items: (s?.items || []).filter((i) => i && i.costUnitPrice !== undefined) })),
         {
           operationalCost: Number(watchedOperationalCost || 0),
           ppnPercent: Number(watchedPpnPercent ?? 11),
