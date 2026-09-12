@@ -1,4 +1,7 @@
+"use client";
+import { useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Users, Target, Calculator, FileText, FileCheck,
   Building2, ListChecks, FolderOpen, Truck,
@@ -17,64 +20,104 @@ const ICONS: Record<string, LucideIcon> = {
   LayoutDashboard, BarChart3, UserCog, Hash, LifeBuoy, History,
 };
 
-/**
- * Halaman "Semua Modul": grid ikon berwarna, disusun mengikuti urutan kerja
- * perusahaan dan disaring per role (lihat lib/launcher.ts).
- *
- * Ini komponen server murni — tidak ada state, tidak ada efek, jadi tidak
- * perlu "use client". Seluruhnya terkirim sebagai HTML.
- */
+/** Lama animasi keluar sebelum pindah halaman. Harus PENDEK — gerakan yang
+ *  terasa mewah sekali akan terasa lambat pada klik kesepuluh hari itu. */
+const EXIT_MS = 260;
+
 export function AppLauncher({
   role,
   counts,
 }: {
   role: UserRole;
-  /**
-   * Lencana angka per href, diambil pemanggil dari data yang memang sudah
-   * dihitung untuk dashboard. Hanya diisi untuk hal yang BUTUH TINDAKAN —
-   * lencana pada sesuatu yang cuma "ada isinya" melatih orang mengabaikannya.
-   */
   counts?: Record<string, { value: number; tone: "urgent" | "attention" }>;
 }) {
   const sections = launcherForRole(role);
+  const router = useRouter();
+  const [leaving, setLeaving] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
+
+  /**
+   * "Masuk ke ruangan baru": saat satu ikon diklik, seluruh grid mundur dan
+   * memudar sementara ikon yang ditekan justru maju membesar — seolah kamera
+   * bergerak menembusnya. Begitu selesai, halaman tujuan masuk dengan animasi
+   * room-enter di globals.css, jadi gerakannya menyambung jadi satu.
+   *
+   * Tautannya tetap <Link href> sungguhan: klik tengah, Ctrl+klik, dan
+   * keyboard tetap bekerja seperti tautan biasa. Hanya klik kiri polos yang
+   * ditahan sebentar untuk memutar animasinya.
+   */
+  function onTileClick(e: React.MouseEvent<HTMLAnchorElement>, href: string) {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    // Hormati orang yang mual melihat gerakan — langsung pindah tanpa jeda.
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    e.preventDefault();
+    setLeaving(href);
+    // Prefetch sudah jalan sejak <Link> terlihat, jadi jeda ini dipakai untuk
+    // animasi, bukan untuk menunggu data.
+    window.setTimeout(() => startTransition(() => router.push(href)), EXIT_MS);
+  }
 
   return (
-    <div className="space-y-8">
+    <div
+      className={cn(
+        "space-y-11 transition-[opacity,transform] duration-[260ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
+        leaving && "scale-[0.97] opacity-0"
+      )}
+    >
       {sections.map((section) => (
         <section key={section.label}>
-          <div className="mb-4 flex items-center gap-2.5">
-            {section.step && (
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">
-                {section.step}
-              </span>
-            )}
-            <h2 className="text-[11px] font-bold uppercase tracking-[0.09em] text-muted-foreground">
-              {section.label}
-            </h2>
-            <span className="hidden truncate text-xs text-muted-foreground/70 sm:block">{section.hint}</span>
-            <div className="h-px flex-1 bg-border" />
+          {/* Judul di tengah, diapit garis tipis yang memudar ke tepi. Ini
+              memberi tiap tahap kesan babak tersendiri, bukan sekadar daftar
+              yang disambung. */}
+          <div className="mb-7 flex flex-col items-center">
+            <div className="flex w-full items-center gap-4">
+              <span className="h-px flex-1 bg-gradient-to-r from-transparent to-border" />
+              <div className="flex shrink-0 items-center gap-2.5">
+                {section.step && (
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">
+                    {section.step}
+                  </span>
+                )}
+                <h2 className="mood-heading text-[15px] font-semibold tracking-tight">{section.label}</h2>
+              </div>
+              <span className="h-px flex-1 bg-gradient-to-l from-transparent to-border" />
+            </div>
+            <p className="mt-2 text-center text-xs text-muted-foreground">{section.hint}</p>
           </div>
 
-          <div className="grid grid-cols-3 gap-x-4 gap-y-6 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
+          <div className="mx-auto flex max-w-4xl flex-wrap justify-center gap-x-3 gap-y-7">
             {section.tiles.map((tile) => {
               const Icon = ICONS[tile.icon] ?? FileText;
               const badge = counts?.[tile.href];
+              const isTarget = leaving === tile.href;
               return (
                 <Link
                   key={tile.href}
                   href={tile.href}
                   title={tile.hint}
-                  className="group flex flex-col items-center gap-2.5 rounded-lg p-1 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  onClick={(e) => onTileClick(e, tile.href)}
+                  className={cn(
+                    "group flex w-[104px] flex-col items-center gap-2.5 rounded-xl p-1 text-center",
+                    "transition-[transform,opacity] duration-[260ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    // Ikon yang ditekan maju membesar sementara sisanya mundur.
+                    isTarget && "z-10 scale-[1.22]",
+                    leaving && !isTarget && "scale-95 opacity-0"
+                  )}
                 >
                   <span className="relative">
                     <span
-                      // Warna datang dari data, bukan kelas Tailwind: daftar
-                      // warnanya hidup di lib/launcher.ts supaya satu berkas
-                      // itu saja yang perlu dibaca untuk tahu tampilan grid.
                       style={{ backgroundColor: tile.color }}
-                      className="flex h-[58px] w-[58px] items-center justify-center rounded-2xl shadow-[0_2px_5px_0_rgb(16_24_40/0.13)] transition-transform duration-200 group-hover:-translate-y-0.5 group-active:translate-y-0"
+                      className={cn(
+                        "flex h-16 w-16 items-center justify-center rounded-[20px]",
+                        "shadow-[0_3px_8px_0_rgb(16_24_40/0.16)]",
+                        "transition-[transform,box-shadow] duration-200",
+                        "group-hover:-translate-y-1 group-hover:shadow-[0_8px_18px_0_rgb(16_24_40/0.22)]",
+                        "group-active:translate-y-0 group-active:shadow-[0_2px_5px_0_rgb(16_24_40/0.16)]"
+                      )}
                     >
-                      <Icon className="h-[26px] w-[26px] text-white" strokeWidth={2} />
+                      <Icon className="h-7 w-7 text-white" strokeWidth={1.9} />
                     </span>
                     {badge && badge.value > 0 && (
                       <span
@@ -89,7 +132,7 @@ export function AppLauncher({
                       </span>
                     )}
                   </span>
-                  <span className="text-xs font-medium leading-tight">{tile.label}</span>
+                  <span className="text-[12.5px] font-medium leading-tight">{tile.label}</span>
                 </Link>
               );
             })}

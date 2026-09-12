@@ -73,11 +73,19 @@ export function AppShell({
   const moodForcesRail = uiMood !== "default";
   const compact = moodForcesRail || (railOverride ?? isWorkRoute(pathname));
 
+  // Di halaman launcher, grid ikon ITU navigasinya — sidebar di sebelahnya
+  // hanya mengulang hal yang sama dengan bentuk lebih kecil, dan memakan
+  // lebar yang justru dibutuhkan grid. Ia disembunyikan di situ saja, bukan
+  // dihapus: begitu masuk ke sebuah modul, berpindah ke modul lain harus
+  // tetap satu klik, bukan pulang dulu ke launcher.
+  const hideSidebar = pathname === "/apps";
+
   return (
     // Cangkang berwarna merek. Sidebar memakai bg-primary yang sama, jadi
     // keduanya menyatu jadi satu bidang — yang terlihat "mengambang" di
     // atasnya hanyalah panel konten di sebelah kanan.
     <div className="mood-shell flex h-screen bg-primary" data-mood={uiMood}>
+      {!hideSidebar && (
       <Sidebar
         role={role}
         userName={userName}
@@ -88,6 +96,7 @@ export function AppShell({
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
+      )}
       {/* PANEL KONTEN. Di layar lebar ia menjauh dari tepi dan bersudut 28px
           sehingga terbaca sebagai lembar terpisah di atas cangkang biru; di
           layar sempit margin dan sudutnya dilepas, karena memakan ruang yang
@@ -95,7 +104,15 @@ export function AppShell({
           murni — kartu di dalam halaman berwarna putih, dan kalau panelnya
           ikut putih kartu-kartu itu lenyap tak berbatas. */}
       <div className="flex flex-1 flex-col overflow-hidden bg-background md:my-3 md:mr-3 md:rounded-[28px]">
-        <Topbar userName={userName} role={role} avatarUrl={avatarUrl} unreadCount={unreadCount} uiMood={uiMood} onMenuClick={() => setSidebarOpen(true)} />
+        <Topbar
+          userName={userName}
+          role={role}
+          avatarUrl={avatarUrl}
+          unreadCount={unreadCount}
+          uiMood={uiMood}
+          // Tanpa sidebar, tombol hamburger tidak punya yang dibuka.
+          onMenuClick={hideSidebar ? undefined : () => setSidebarOpen(true)}
+        />
         {/* key={pathname} membuat React memasang ulang pembungkusnya tiap ganti
             rute, sehingga animasi "masuk ruangan" di globals.css berjalan
             lagi. Sidebar ada di luar elemen ini dan sengaja tidak ikut

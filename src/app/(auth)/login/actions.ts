@@ -73,5 +73,8 @@ export async function loginAction(_prev: LoginFormState, formData: FormData): Pr
     }),
   ]);
 
-  redirect("/dashboard");
+  // Halaman pertama setelah login adalah grid modul, bukan dashboard KPI.
+  // Angka omzet perusahaan hanya relevan untuk Direktur; lima orang lainnya
+  // membuka aplikasi untuk MENGERJAKAN sesuatu, dan grid itulah petanya.
+  redirect("/apps");
 }
