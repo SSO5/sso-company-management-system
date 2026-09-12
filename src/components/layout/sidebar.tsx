@@ -145,9 +145,16 @@ export function Sidebar({
         {compact ? (
           <>
             <div className="flex flex-col items-center gap-1 px-2 pb-3 pt-5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 text-[11px] font-bold tracking-wide">
+              {/* Logo = jalan pulang. Di aplikasi mana pun orang menganggap
+                  logo membawa mereka kembali ke awal, jadi ia menunjuk ke
+                  grid modul, bukan sekadar hiasan. */}
+              <Link
+                href="/apps"
+                title="Semua Modul"
+                className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 text-[11px] font-bold tracking-wide transition-colors hover:bg-white/20"
+              >
                 SSO
-              </div>
+              </Link>
               <button
                 type="button"
                 onClick={onClose}
@@ -217,14 +224,17 @@ export function Sidebar({
         ) : (
           <>
             <div className="flex items-center justify-between gap-2 px-5 py-5">
-              <Image
-                src="/logo-wordmark.png"
-                alt="SSO Connect — PT Sarana Sinergi Optima"
-                width={220}
-                height={64}
-                priority
-                className="h-9 w-auto"
-              />
+              {/* Sama seperti di mode rail: logo membawa pulang ke grid modul. */}
+              <Link href="/apps" title="Semua Modul" className="shrink-0 rounded-md transition-opacity hover:opacity-80">
+                <Image
+                  src="/logo-wordmark.png"
+                  alt="SSO Connect — PT Sarana Sinergi Optima"
+                  width={220}
+                  height={64}
+                  priority
+                  className="h-9 w-auto"
+                />
+              </Link>
               <button
                 type="button"
                 onClick={onClose}
