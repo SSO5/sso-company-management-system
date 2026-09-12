@@ -45,6 +45,14 @@ const config: Config = {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
         },
+        // Warna merek apa adanya (lihat globals.css). Dipakai untuk aksen
+        // yang memang harus tampil sebagai identitas perusahaan — bukan
+        // pengganti primary/warning, yang punya arti semantik sendiri.
+        brand: {
+          blue: "hsl(var(--brand-blue))",
+          gold: "hsl(var(--brand-gold))",
+          "gold-ink": "hsl(var(--brand-gold-ink))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

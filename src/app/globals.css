@@ -12,7 +12,10 @@
     --foreground: 222 20% 12%;
     --card: 0 0% 100%;
     --card-foreground: 222 20% 12%;
-    --primary: 222 47% 20%;
+    /* Biru merek SSO (#2F62C6) diperdalam jadi #1E3F7D — biru asli terlalu
+       terang sebagai bidang besar; teks putih di atasnya menyilaukan kalau
+       ditatap seharian. Lihat --brand-blue untuk nilai aslinya. */
+    --primary: 219 61% 30%;
     --primary-foreground: 0 0% 100%;
     --secondary: 210 20% 96%;
     --secondary-foreground: 222 20% 12%;
@@ -29,11 +32,20 @@
        of (or tinted with) their own background color, so dark text is
        correct in every call site. */
     --success-foreground: 142 70% 12%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 38 92% 16%;
+    /* Digeser dari amber (38) ke oranye (29): emas merek #F9CB28 dipakai
+       untuk aksi/merek, jadi badge peringatan harus jelas berbeda — kalau
+       sama, orang berhenti bisa membedakan "ini tombol" dari "ini masalah". */
+    --warning: 29 76% 50%;
+    --warning-foreground: 29 80% 15%;
     --border: 214 20% 90%;
     --input: 214 20% 90%;
-    --ring: 222 47% 40%;
+    --ring: 220 62% 48%;
+    /* Warna merek apa adanya, dari sarana-sinergi.netlify.app.
+       --brand-gold SELALU dipasangkan dengan --brand-gold-ink: teks putih
+       di atas emas hanya mencapai 1,9:1 dan tidak terbaca. */
+    --brand-blue: 220 62% 48%;
+    --brand-gold: 47 95% 57%;
+    --brand-gold-ink: 45 100% 25%;
     --radius: 0.75rem;
   }
 }
@@ -195,4 +207,47 @@
 
 @media (prefers-reduced-motion: reduce) {
   .animate-ping { animation: none; }
+}
+
+/* ==========================================================================
+   MOTION — dua gerakan, dua aturan
+   1. "Masuk ruangan": tiap ganti rute, area konten mekar dari 0.88 dengan
+      titik tumpu di kiri-tengah (sejajar menu yang baru ditekan), sudutnya
+      menyusut dari 38px ke radius normal. Sidebar sengaja TIDAK ikut
+      bergerak — ia lorong yang tetap, hanya ruangannya yang berganti.
+   2. Panel kiri menciut jadi ikon di layar kerja (lihat app-shell.tsx).
+
+   Catatan teknis: animasinya sengaja TIDAK memakai will-change/forwards.
+   Elemen ber-transform jadi containing block untuk anak position:fixed —
+   kalau transform-nya menetap, Dialog dan Toast di dalamnya ikut terjebak.
+   Karena animasi ini tidak menyimpan state akhir, transform hilang begitu
+   selesai dan containing block kembali normal.
+   ========================================================================== */
+@keyframes room-enter {
+  from {
+    opacity: 0.55;
+    transform: scale(0.88);
+    border-radius: 38px;
+    box-shadow: 0 20px 44px rgba(8, 22, 50, 0.32);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+.room-enter {
+  animation: room-enter 520ms cubic-bezier(0.22, 1, 0.36, 1);
+  transform-origin: 0% 50%;
+}
+
+/* Lebar panel kiri. Label memudar lebih cepat (220ms) daripada panelnya
+   menyempit (460ms) — kalau bersamaan, teksnya terlihat terjepit. */
+.rail-anim { transition: width 460ms cubic-bezier(0.22, 1, 0.36, 1); }
+.rail-label { transition: opacity 220ms cubic-bezier(0.22, 1, 0.36, 1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .room-enter { animation: none; }
+  .rail-anim, .rail-label { transition: none; }
 }

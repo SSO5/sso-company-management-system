@@ -17,7 +17,12 @@ export interface ThemePreset {
 }
 
 export const THEME_PRESETS: ThemePreset[] = [
-  { id: "navy", label: "Navy (Default)", primary: "222 47% 20%", ring: "222 47% 40%", swatch: "#1c2b4a" },
+  // Warna resmi perusahaan, diambil dari variabel CSS di
+  // sarana-sinergi.netlify.app (--blue #2F62C6), diperdalam ke #1E3F7D agar
+  // nyaman sebagai bidang besar. Ditaruh pertama sehingga jadi nilai balik
+  // getThemePreset() untuk perusahaan yang belum pernah memilih tema.
+  { id: "sso", label: "SSO (Resmi)", primary: "219 61% 30%", ring: "220 62% 48%", swatch: "#1e3f7d" },
+  { id: "navy", label: "Navy", primary: "222 47% 20%", ring: "222 47% 40%", swatch: "#1c2b4a" },
   { id: "slate", label: "Slate", primary: "215 25% 27%", ring: "215 25% 45%", swatch: "#334255" },
   { id: "forest", label: "Hijau Tua", primary: "150 35% 18%", ring: "150 35% 34%", swatch: "#1b3a2c" },
   { id: "maroon", label: "Maroon", primary: "350 45% 24%", ring: "350 45% 42%", swatch: "#552430" },
