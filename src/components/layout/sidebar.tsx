@@ -311,8 +311,16 @@ export function Sidebar({
                               key={item.href}
                               href={item.href}
                               className={cn(
-                                "block rounded-md px-3 py-1.5 text-sm transition-colors",
-                                active ? "bg-white/15 font-medium" : "text-primary-foreground/80 hover:bg-white/10"
+                                "block px-3 py-1.5 text-sm transition-colors",
+                                // Menu aktif jadi "lidah": -mr-3 membatalkan
+                                // padding nav sehingga ia menyentuh tepi kanan
+                                // sidebar dan menyatu dengan panel konten,
+                                // seolah panel itu ditarik keluar oleh menu
+                                // yang sedang dibuka. Warnanya bg-background,
+                                // sama persis dengan panelnya.
+                                active
+                                  ? "-mr-3 rounded-l-lg bg-background pr-3 font-semibold text-primary"
+                                  : "rounded-md text-primary-foreground/80 hover:bg-white/10"
                               )}
                             >
                               {item.label}

@@ -7,6 +7,22 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      // Poppins menggantikan tumpukan huruf sistem di SELURUH aplikasi.
+      // Cadangannya tetap lengkap: kalau Google Fonts tidak terjangkau,
+      // tampilannya turun ke huruf sistem tanpa ada yang rusak.
+      fontFamily: {
+        sans: [
+          "var(--font-poppins)",
+          "ui-sans-serif",
+          "system-ui",
+          "-apple-system",
+          "Segoe UI",
+          "Roboto",
+          "Helvetica Neue",
+          "Arial",
+          "sans-serif",
+        ],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

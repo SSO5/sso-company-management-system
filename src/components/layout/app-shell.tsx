@@ -74,7 +74,10 @@ export function AppShell({
   const compact = moodForcesRail || (railOverride ?? isWorkRoute(pathname));
 
   return (
-    <div className="mood-shell flex h-screen bg-secondary" data-mood={uiMood}>
+    // Cangkang berwarna merek. Sidebar memakai bg-primary yang sama, jadi
+    // keduanya menyatu jadi satu bidang — yang terlihat "mengambang" di
+    // atasnya hanyalah panel konten di sebelah kanan.
+    <div className="mood-shell flex h-screen bg-primary" data-mood={uiMood}>
       <Sidebar
         role={role}
         userName={userName}
@@ -85,7 +88,13 @@ export function AppShell({
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
-      <div className="flex flex-1 flex-col overflow-hidden">
+      {/* PANEL KONTEN. Di layar lebar ia menjauh dari tepi dan bersudut 28px
+          sehingga terbaca sebagai lembar terpisah di atas cangkang biru; di
+          layar sempit margin dan sudutnya dilepas, karena memakan ruang yang
+          memang tidak ada. Latarnya bg-background (putih tulang), BUKAN putih
+          murni — kartu di dalam halaman berwarna putih, dan kalau panelnya
+          ikut putih kartu-kartu itu lenyap tak berbatas. */}
+      <div className="flex flex-1 flex-col overflow-hidden bg-background md:my-3 md:mr-3 md:rounded-[28px]">
         <Topbar userName={userName} role={role} avatarUrl={avatarUrl} unreadCount={unreadCount} uiMood={uiMood} onMenuClick={() => setSidebarOpen(true)} />
         {/* key={pathname} membuat React memasang ulang pembungkusnya tiap ganti
             rute, sehingga animasi "masuk ruangan" di globals.css berjalan
