@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { trashDocument } from "@/server/documents/documents";
 import { formatDateTime, cn } from "@/lib/utils";
-import { FileText, Eye, Download, Trash2, X } from "lucide-react";
+import { FileText, ExternalLink, Download, Trash2, X } from "lucide-react";
+import { FilePreview } from "@/components/documents/file-preview";
 
 interface DocumentRow {
   id: string; originalName: string; fileSize: number; uploadedAt: Date;
@@ -68,7 +69,7 @@ export function DocumentsListWithPanel({ documents, folderId }: { documents: Doc
       </div>
 
       {selected && (
-        <div className="w-80 shrink-0 rounded-lg border border-border bg-card p-4">
+        <div className="w-[440px] shrink-0 rounded-lg border border-border bg-card p-4">
           <div className="mb-3 flex items-center justify-between">
             <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Detail Dokumen</span>
             <button type="button" onClick={() => setSelectedId(null)} aria-label="Tutup" className="text-muted-foreground hover:text-foreground">
@@ -76,12 +77,16 @@ export function DocumentsListWithPanel({ documents, folderId }: { documents: Doc
             </button>
           </div>
 
-          <div className="mb-4 flex h-32 flex-col items-center justify-center gap-2 rounded-md border border-border bg-muted">
-            <div className="flex h-11 w-11 items-center justify-center rounded-md bg-primary/10">
-              <FileText className="h-6 w-6 text-primary" />
-            </div>
-            <span className="text-[11px] text-muted-foreground">Preview belum tersedia — gunakan Lihat</span>
-          </div>
+          {/* Isi berkas tampil di sini — foto, PDF, video, dan teks langsung
+              terbaca tanpa pindah tab. Lihat file-preview.tsx untuk format
+              yang memang tidak bisa dirender browser. */}
+          <FilePreview
+            key={selected.id}
+            documentId={selected.id}
+            filename={selected.originalName}
+            fileSize={selected.fileSize}
+            className="mb-4"
+          />
 
           <p className="break-words text-sm font-semibold">{selected.originalName}</p>
           <p className="mb-4 text-xs text-muted-foreground">{formatBytes(selected.fileSize)}</p>
@@ -93,11 +98,11 @@ export function DocumentsListWithPanel({ documents, folderId }: { documents: Doc
           </div>
 
           <div className="flex gap-2">
-            <a href={`/api/files/${selected.id}?view=1`} target="_blank" rel="noreferrer" className="flex-1">
-              <Button className="w-full"><Eye className="h-3.5 w-3.5" /> Lihat</Button>
+            <a href={`/api/files/${selected.id}`} className="flex-1">
+              <Button className="w-full"><Download className="h-3.5 w-3.5" /> Unduh</Button>
             </a>
-            <a href={`/api/files/${selected.id}`} target="_blank" rel="noreferrer">
-              <Button variant="outline" size="icon"><Download className="h-3.5 w-3.5" /></Button>
+            <a href={`/api/files/${selected.id}?view=1`} target="_blank" rel="noreferrer" title="Buka di tab baru">
+              <Button variant="outline" size="icon"><ExternalLink className="h-3.5 w-3.5" /></Button>
             </a>
             <Button variant="outline" size="icon" disabled={pending} onClick={() => onDelete(selected.id)}>
               <Trash2 className="h-3.5 w-3.5" />
