@@ -94,6 +94,7 @@ export async function getDashboardData() {
       projectNumber: p.number,
       customerName: p.customer.companyName,
       atRisk: p.status === "AT_RISK" || risk.length > 0,
+      hasPlan: p.milestones.some(m => Number(m.weightPercent) > 0),
       planned: curve.asOfToday.planned,
       actual: curve.asOfToday.actual,
       billed: curve.asOfToday.billed,

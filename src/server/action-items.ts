@@ -360,13 +360,14 @@ export async function getMyActionItems(): Promise<ActionItem[]> {
   }
   for (const r of latestReportsPerProject(openProgressReports)) {
     const open = r.items.filter((i) => !i.isDone).length;
-    if (open === 0) continue;
+    const historicalOpen = openProgressReports.filter(old => old.project.id === r.project.id && old.id !== r.id && old.items.some(i => !i.isDone)).length;
+    if (open === 0 && historicalOpen === 0) continue;
     items.push({
       id: `progrep-open-${r.id}`,
       module: "project",
       severity: "attention",
-      title: `${open} checkpoint${open > 1 ? "s" : ""} belum selesai — ${r.number}`,
-      subtitle: r.project.name,
+      title: open > 0 ? `${open} checkpoint pada laporan terbaru perlu ditinjau — ${r.number}` : `Tinjau ${historicalOpen} laporan historis yang masih terbuka`,
+      subtitle: `${r.project.name}${historicalOpen ? ` · ${historicalOpen} laporan lama masih terbuka; tidak otomatis dianggap selesai` : ""}`,
       href: `/projects/${r.project.id}?tab=progress`,
       dueDate: null,
     });
