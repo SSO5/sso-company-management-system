@@ -128,7 +128,14 @@ export async function generateProgressReportForActor(documentId: string, project
     await prisma.document.updateMany({ where: { id: documentId, processingStartedAt: started }, data: { processingState: "READY", processingError: null } });
     return result;
   } catch (error) {
-    await prisma.document.updateMany({ where: { id: documentId, processingStartedAt: started }, data: { processingState: "FAILED", processingError: "Draf belum berhasil dibuat. File asli tetap tersimpan; gunakan Coba lagi." } });
-    throw error;
+    const status = typeof error === "object" && error !== null && "status" in error ? Number(error.status) : null;
+    const message = status === 401 || status === 403
+      ? "Akses layanan AI belum valid. Administrator perlu memperbarui kredensial AI. File asli tetap tersimpan; tidak perlu unggah ulang."
+      : status === 429
+        ? "Layanan AI sedang membatasi permintaan. Administrator perlu memeriksa kuota. File asli tetap tersimpan."
+        : "Draf belum berhasil dibuat. File asli tetap tersimpan; gunakan Coba lagi. Jika berulang, hubungi administrator.";
+    await prisma.document.updateMany({ where: { id: documentId, processingStartedAt: started }, data: { processingState: "FAILED", processingError: message } });
+    // Provider responses may contain internal request details; return only a safe, actionable message.
+    throw new Error(message);
   }
 }
