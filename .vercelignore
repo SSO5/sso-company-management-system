@@ -3,6 +3,7 @@
 tmp
 prototypes
 artifacts
+docs
 private-storage
 .npm-cache
 .next

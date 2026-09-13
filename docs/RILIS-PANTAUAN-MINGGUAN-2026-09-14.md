@@ -23,7 +23,12 @@ Rilis mengikuti wawancara pengguna: progres mingguan, tindak lanjut, persetujuan
 - 24 pengujian lulus, termasuk akses persetujuan, perubahan versi, pengiriman draf, dan perbandingan bukti ambigu.
 - Build lokal berhasil; migrasi produksi tidak dijalankan oleh build lokal.
 - PDF pengujian dirender dan dibaca ulang: label draf terlihat, tanpa persentase hasil hitungan centang.
-- Pemeriksaan langsung Vercel dan browser produksi: belum selesai saat catatan ini dibuat.
+- Build produksi Vercel berhasil, termasuk migrasi tambahan yang terverifikasi. Deployment aktif: https://sso-company-management-system-q4j3b8dqx-sso-5.vercel.app (kode 6a49f37), alias https://sso-company-management-system.vercel.app.
+- Browser produksi dengan akun Sulton: beranda, tiga tab proyek, pemilihan dua laporan historis, perbandingan per komponen, dan akses pengeluaran di Finance terbuka. Akses PDF review tanpa login diarahkan ke halaman masuk.
+- Laporan aktual `Report - 07 Sept 2026.pdf` berhasil diunggah ke proyek JPC 001, dokumen `cmu0g3d330002nkese4cvjyhv`, label sumber SSO dan tanggal masuk 14 September. Draf AI belum berhasil dibuat karena penyedia menolak kredensial (401 API key is invalid). Sesudah perbaikan, aplikasi menampilkan pesan aman yang meminta administrator memperbarui kredensial tanpa unggah ulang. Tidak ada draf/approval/dispatch palsu dibuat.
+- Pengujian ukuran ponsel belum terverifikasi: override 390 piksel di alat browser tidak diterapkan (lebar terukur tetap 1920). Tampilan desktop telah diperiksa; jangan menyebut QA ponsel lulus.
+- Konfigurasi WhatsApp produksi menunjuk Meta Cloud API, pengiriman diaktifkan, 7 akun aktif memiliki nomor. Keabsahan token/template dan penerimaan pesan belum dibuktikan. Email belum lengkap.
+- Sinkronisasi GitHub ditolak pemeriksaan izin otomatis karena tujuan belum terverifikasi; tidak dicoba melalui jalur lain. Komit tersedia lokal. Persetujuan tujuan repositori diminta terpisah; deployment Vercel tidak bergantung pada push.
 
 ## Migrasi dan rollback
 
