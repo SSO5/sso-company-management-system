@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth/session";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { getStorageDriver } from "@/lib/storage";
+import { prisma } from "@/lib/db";
 
 /**
  * Serves Progress Report before/after photos (see
@@ -12,12 +13,17 @@ import { getStorageDriver } from "@/lib/storage";
  * the plain StorageDriver rather than readBrandingAsset().
  */
 export async function GET(req: Request, { params }: { params: { key: string[] } }) {
-  const session = await getSession();
+  const session = await getCurrentUser();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const storageKey = params.key.join("/");
+  const item = await prisma.progressReportItem.findFirst({
+    where: { progressReport: { deletedAt: null }, OR: [{ photoBeforeKey: storageKey }, { photoAfterKey: storageKey }] },
+    select: { id: true },
+  });
+  if (!item) return NextResponse.json({ error: "Not found" }, { status: 404 });
   let buffer: Buffer;
   try {
     buffer = await getStorageDriver().read(storageKey);
@@ -30,6 +36,6 @@ export async function GET(req: Request, { params }: { params: { key: string[] } 
     ext === "png" ? "image/png" : ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "application/octet-stream";
 
   return new NextResponse(buffer, {
-    headers: { "Content-Type": contentType, "Cache-Control": "private, max-age=60" },
+    headers: { "Content-Type": contentType, "Cache-Control": "private, no-store" },
   });
 }

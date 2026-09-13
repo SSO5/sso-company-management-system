@@ -1,4 +1,5 @@
 "use client";
+import { displayLabel } from "@/lib/display-labels";
 import { can } from "@/lib/permissions";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -98,12 +99,12 @@ export function ExpensePanel({
       projectId,
     });
     if (res.ok) {
-      toast({ title: "Expense recorded", variant: "success" });
+      toast({ title: "Biaya dicatat", variant: "success" });
       setOpen(false);
       router.refresh();
     } else
       toast({
-        title: "Unable to record expense",
+        title: "Tidak dapat mencatat biaya",
         description: res.error,
         variant: "destructive",
       });
@@ -119,13 +120,13 @@ export function ExpensePanel({
     const res = await markExpensePaidAction(fd);
     setPending(false);
     if (res.ok) {
-      toast({ title: "Expense marked as paid", variant: "success" });
+      toast({ title: "Pembayaran biaya dicatat", variant: "success" });
       setPayId(null);
       setPayFile(null);
       router.refresh();
     } else
       toast({
-        title: "Unable to mark as paid",
+        title: "Tidak dapat mencatat pembayaran",
         description: res.error,
         variant: "destructive",
       });
@@ -138,7 +139,7 @@ export function ExpensePanel({
     if (res.ok) router.refresh();
     else
       toast({
-        title: "Action failed",
+        title: "Tindakan gagal",
         description: res.error,
         variant: "destructive",
       });
@@ -150,7 +151,7 @@ export function ExpensePanel({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          Total recorded cost:{" "}
+          Total biaya tercatat:{" "}
           <span className="font-medium text-foreground">
             {formatCurrency(totalCost)}
           </span>
@@ -160,27 +161,27 @@ export function ExpensePanel({
           size="sm"
           onClick={() => setOpen(true)}
         >
-          <Plus className="h-3.5 w-3.5" /> Add Expense
+          <Plus className="h-3.5 w-3.5" /> Tambah Biaya
         </Button>
       </div>
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Number</TableHead>
-            <TableHead>Category</TableHead>
-            <TableHead>Description</TableHead>
-            <TableHead>Date</TableHead>
+            <TableHead>Nomor</TableHead>
+            <TableHead>Kategori</TableHead>
+            <TableHead>Keterangan</TableHead>
+            <TableHead>Tanggal</TableHead>
             <TableHead>Total</TableHead>
-            <TableHead>Payment</TableHead>
-            <TableHead>Approval</TableHead>
-            <TableHead>Actions</TableHead>
+            <TableHead>Pembayaran</TableHead>
+            <TableHead>Persetujuan</TableHead>
+            <TableHead>Tindakan</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {expenses.map((e) => (
             <TableRow key={e.id}>
               <TableCell className="font-mono text-xs">{e.number}</TableCell>
-              <TableCell>{e.category}</TableCell>
+              <TableCell>{displayLabel(e.category)}</TableCell>
               <TableCell>
                 {e.description}
                 {e.vendorPurchaseOrderId && (
@@ -199,14 +200,14 @@ export function ExpensePanel({
                 <Badge
                   variant={e.paymentStatus === "PAID" ? "success" : "secondary"}
                 >
-                  {e.paymentStatus}
+                  {displayLabel(e.paymentStatus)}
                 </Badge>
               </TableCell>
               <TableCell>
                 <Badge
                   variant={APPROVAL_VARIANT[e.approvalStatus] ?? "default"}
                 >
-                  {e.approvalStatus}
+                  {displayLabel(e.approvalStatus)}
                 </Badge>
                 {e.approvalStatus === "REJECTED" && e.rejectionReason && (
                   <p className="mt-0.5 text-[11px] text-destructive">
@@ -269,7 +270,7 @@ export function ExpensePanel({
       </Table>
       {expenses.length === 0 && (
         <p className="text-sm text-muted-foreground">
-          No expenses recorded yet.
+          Belum ada biaya tercatat.
         </p>
       )}
 
@@ -288,7 +289,7 @@ export function ExpensePanel({
           />
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setRejectId(null)}>
-              Cancel
+              Batal
             </Button>
             <Button
               variant="destructive"
@@ -343,7 +344,7 @@ export function ExpensePanel({
                 setPayFile(null);
               }}
             >
-              Cancel
+              Batal
             </Button>
             <Button type="submit" disabled={pending || !payFile}>
               {pending ? "Saving..." : "Mark as Paid"}
@@ -356,25 +357,25 @@ export function ExpensePanel({
         <form onSubmit={onSubmit} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>Category</Label>
+              <Label>Kategori</Label>
               <Select name="category" defaultValue="OTHER">
                 {CATEGORIES.map((c) => (
                   <option key={c} value={c}>
-                    {c}
+                    {displayLabel(c)}
                   </option>
                 ))}
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>Date</Label>
+              <Label>Tanggal</Label>
               <Input name="date" type="date" required />
             </div>
             <div className="space-y-1">
-              <Label>Amount (IDR)</Label>
+              <Label>Nilai (Rp)</Label>
               <Input name="amount" type="number" min={0} required />
             </div>
             <div className="space-y-1">
-              <Label>Tax (IDR)</Label>
+              <Label>Pajak (Rp)</Label>
               <Input name="tax" type="number" min={0} defaultValue={0} />
             </div>
             <div className="space-y-1">
@@ -388,7 +389,7 @@ export function ExpensePanel({
             Paid&quot; dengan bukti bayar terlampir.
           </p>
           <div className="space-y-1">
-            <Label>Description</Label>
+            <Label>Keterangan</Label>
             <Textarea name="description" rows={2} required />
           </div>
           <div className="flex justify-end gap-2 pt-2">
@@ -397,7 +398,7 @@ export function ExpensePanel({
               variant="outline"
               onClick={() => setOpen(false)}
             >
-              Cancel
+              Batal
             </Button>
             <Button type="submit">Record Expense</Button>
           </div>

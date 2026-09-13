@@ -1,157 +1,58 @@
-// NOTE: deliberately no "server-only" import here (see whatsapp.ts/email.ts
-// for the same note) — this module is only ever reached from workflows/*.ts
-// (server-side business logic), never from a client component, but the
-// "server-only" package itself unconditionally throws when loaded outside
-// Next.js's webpack pipeline (e.g. `tsx prisma/seed.ts`), which broke
-// `npm run db:seed` entirely. Next.js's own server/client boundary checks
-// (the "use server"/"use client" directives elsewhere) already prevent this
-// from leaking into client bundles, so this marker was redundant anyway.
+// Called only from server workflows, after the business transaction commits.
 import { prisma } from "@/lib/db";
-import { sendEmail } from "@/lib/notifications/email";
-import { sendWhatsApp } from "@/lib/notifications/whatsapp";
+import { sendEmail } from "./email";
+import { sendWhatsApp } from "./whatsapp";
+import { escapeHtml, notificationConfig, notificationLink, summarizeChannel } from "./config";
 import { notifyRole } from "@/lib/workflows/notify";
 import type { UserRole } from "@prisma/client";
-
-/**
- * Unified outbound dispatch (email + WhatsApp) for a notification event —
- * the "who to reach" layer sitting on top of email.ts/whatsapp.ts's "how to
- * reach". Deliberately kept OUTSIDE every Prisma $transaction: this makes
- * two external HTTP calls per recipient, and the Won-transaction timeout
- * bug (see lib/db.ts's comment) already proved that external round-trips
- * inside an interactive transaction risk "Transaction already closed" on a
- * remote DB. Every call site must invoke this AFTER its transaction has
- * committed — never from inside a `prisma.$transaction(async (tx) => ...)`
- * callback.
- *
- * Best-effort by design: a failed email or WA send is logged, never thrown
- * — the underlying business action (quotation approved, PO submitted, etc.)
- * has already been saved successfully by the time this runs, so a
- * notification hiccup must never look like the action itself failed.
- */
-export interface OutboundTarget {
-  role?: UserRole;
-  userId?: string;
-  userIds?: string[];
-  /** Every active user. For company-wide announcements only. */
-  allActive?: boolean;
+export interface OutboundTarget { role?: UserRole; userId?: string; userIds?: string[]; allActive?: boolean }
+export interface OutboundPayload { title: string; message: string; link?: string }
+type Outcome = { channel: "email" | "whatsapp"; accepted: boolean };
+function buildEmailHtml(payload: OutboundPayload, name: string) {
+  const link = notificationLink(payload.link);
+  return `<div style="font-family:Arial,sans-serif;max-width:480px;margin:auto"><p>Halo ${escapeHtml(name)},</p><h3>${escapeHtml(payload.title)}</h3><p>${escapeHtml(payload.message).replace(/\r?\n/g, "<br>")}</p>${link ? `<p><a href="${escapeHtml(link)}">Buka di SSO Connect</a></p>` : ""}<p>SSO Connect — PT Sarana Sinergi Optima</p></div>`;
 }
-
-export interface OutboundPayload {
-  title: string;
-  message: string;
-  link?: string;
+async function dispatchToUser(user: { name: string; email: string | null; whatsappNumber: string | null }, payload: OutboundPayload): Promise<Outcome[]> {
+  const config = notificationConfig();
+  const jobs: { channel: Outcome["channel"]; work: Promise<boolean> }[] = [];
+  if (config.emailReady && user.email) jobs.push({ channel: "email", work: sendEmail({ to: user.email, subject: payload.title, html: buildEmailHtml(payload, user.name) }) });
+  if (config.whatsappReady && user.whatsappNumber) jobs.push({ channel: "whatsapp", work: sendWhatsApp({ to: user.whatsappNumber, recipientName: user.name, ...payload }) });
+  const results = await Promise.allSettled(jobs.map((job) => job.work));
+  return results.map((result, i) => ({ channel: jobs[i].channel, accepted: result.status === "fulfilled" && result.value }));
 }
-
-function buildEmailHtml(payload: OutboundPayload, recipientName: string) {
-  const appUrl = process.env.APP_BASE_URL || "";
-  const linkHtml = payload.link
-    ? `<p style="margin-top:16px"><a href="${appUrl}${payload.link}" style="background:#1F3864;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;display:inline-block">Buka di SSO Connect</a></p>`
-    : "";
-  return `
-    <div style="font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:0 auto">
-      <p>Halo ${recipientName},</p>
-      <p style="font-weight:600;font-size:15px">${payload.title}</p>
-      <p style="color:#333">${payload.message}</p>
-      ${linkHtml}
-      <p style="margin-top:24px;color:#888;font-size:12px">SSO Connect — PT Sarana Sinergi Optima. Notifikasi otomatis, mohon tidak membalas email ini.</p>
-    </div>
-  `;
+async function alertChannelFailure(channel: Outcome["channel"], attempted: number, accepted: number, provider: string) {
+  const type = channel === "email" ? "OUTBOUND_EMAIL_FAILED" : "OUTBOUND_WHATSAPP_FAILED";
+  const since = new Date(Date.now() - 6 * 60 * 60 * 1000);
+  const recent = await prisma.notification.findFirst({ where: { type, createdAt: { gt: since } }, select: { id: true } });
+  if (recent) return;
+  const label = channel === "email" ? "Email" : `WhatsApp (${provider === "cloud" ? "Cloud API" : "Fonnte"})`;
+  await prisma.$transaction((tx) => notifyRole(tx, "ADMIN", {
+    type, title: `${label}: ada permintaan yang gagal`,
+    message: `${accepted} dari ${attempted} permintaan diterima penyedia. Periksa konfigurasi dan status penyedia. Diterima penyedia belum membuktikan pesan sampai ke penerima. Tidak ada pengiriman ulang otomatis.`,
+    link: "/settings/integrations",
+  }));
 }
-
-async function dispatchToUser(
-  user: { name: string; email: string | null; whatsappNumber: string | null },
-  payload: OutboundPayload
-): Promise<{ attempted: boolean; delivered: boolean }> {
-  const jobs: Promise<boolean>[] = [];
-  if (user.email) {
-    jobs.push(sendEmail({ to: user.email, subject: payload.title, html: buildEmailHtml(payload, user.name) }));
-  }
-  if (user.whatsappNumber) {
-    jobs.push(sendWhatsApp({
-      to: user.whatsappNumber,
-      recipientName: user.name,
-      title: payload.title,
-      message: payload.message,
-      link: payload.link,
-    }));
-  }
-  if (jobs.length === 0) return { attempted: false, delivered: false };
-  const results = await Promise.allSettled(jobs);
-  const delivered = results.some((r) => r.status === "fulfilled" && r.value === true);
-  return { attempted: true, delivered };
-}
-
-/**
- * Both sendEmail/sendWhatsApp return `false` for two very different
- * situations: "not configured yet" (expected, safe default before
- * SMTP_APP_PASSWORD/a WhatsApp provider exists) and "configured but the
- * actual send failed" (a real problem — expired credential, provider
- * outage, rate limit). Only the latter is worth alerting on; this mirrors
- * the same NOTIFICATIONS_OUTBOUND_ENABLED + credential-presence check
- * email.ts's own isConfigured() uses, so "attempted" here means the same
- * thing it does there.
- */
-function isOutboundConfigured(): boolean {
-  if (process.env.NOTIFICATIONS_OUTBOUND_ENABLED !== "true") return false;
-  const hasWhatsApp =
-    Boolean(process.env.WHATSAPP_CLOUD_API_TOKEN && process.env.WHATSAPP_CLOUD_API_PHONE_NUMBER_ID) ||
-    Boolean(process.env.FONNTE_TOKEN);
-  return Boolean(process.env.SMTP_USER && process.env.SMTP_APP_PASSWORD) || hasWhatsApp;
-}
-
-const DELIVERY_FAILURE_ALERT_DEDUPE_HOURS = 6;
-
-/**
- * Surfaces a total outbound delivery failure as an in-app ADMIN
- * notification — the only visibility this app has into "the WA/email
- * credentials configured months ago quietly stopped working" without a
- * dedicated error-monitoring service. Deduped to at most once per ~6h so a
- * prolonged provider outage doesn't flood the notification bell.
- */
-async function alertOutboundDeliveryFailure(originalTitle: string) {
-  try {
-    const recent = await prisma.notification.findFirst({
-      where: { type: "OUTBOUND_DELIVERY_FAILED", createdAt: { gt: new Date(Date.now() - DELIVERY_FAILURE_ALERT_DEDUPE_HOURS * 60 * 60 * 1000) } },
-    });
-    if (recent) return;
-
-    const title = "Pengiriman notifikasi WA/email gagal";
-    const message = `Notifikasi "${originalTitle}" gagal terkirim ke SEMUA penerima meski SMTP/Fonnte sudah dikonfigurasi. Cek kredensial (App Password Gmail / token Fonnte) atau kemungkinan provider sedang bermasalah.`;
-    await prisma.$transaction((tx) => notifyRole(tx, "ADMIN", { type: "OUTBOUND_DELIVERY_FAILED", title, message }));
-  } catch (err) {
-    console.error("[notifications/dispatch] alertOutboundDeliveryFailure failed:", err);
-  }
-}
-
-/**
- * Fire-and-forget outbound dispatch. Always resolves, never rejects — wrap
- * with `.catch()` at the call site anyway as defense in depth (see
- * markQuotationWon for the established pattern).
- */
+/** Best effort; never turn a saved business action into a failed UI response. No automatic retries. */
 export async function dispatchOutbound(target: OutboundTarget, payload: OutboundPayload): Promise<void> {
   try {
-    const where = target.allActive
-      ? { isActive: true }
-      : target.userIds?.length
-      ? { id: { in: target.userIds }, isActive: true }
-      : target.userId
-      ? { id: target.userId, isActive: true }
-      : target.role
-      ? { role: target.role, isActive: true }
-      : null;
-    const users = where
-      ? await prisma.user.findMany({ where, select: { name: true, email: true, whatsappNumber: true } })
-      : [];
-    const outcomes = await Promise.allSettled(users.map((u) => dispatchToUser(u, payload)));
-
-    if (isOutboundConfigured()) {
-      const attempted = outcomes.filter((o): o is PromiseFulfilledResult<{ attempted: boolean; delivered: boolean }> => o.status === "fulfilled" && o.value.attempted);
-      const allFailed = attempted.length > 0 && attempted.every((o) => !o.value.delivered);
-      if (allFailed) {
-        await alertOutboundDeliveryFailure(payload.title);
-      }
+    const config = notificationConfig();
+    if (!config.enabled || (!config.emailReady && !config.whatsappReady)) return;
+    const where = target.allActive ? { isActive: true }
+      : target.userIds?.length ? { id: { in: target.userIds }, isActive: true }
+      : target.userId ? { id: target.userId, isActive: true }
+      : target.role ? { role: target.role, isActive: true } : null;
+    if (!where) return;
+    const users = await prisma.user.findMany({ where, select: { name: true, email: true, whatsappNumber: true } });
+    const outcomes: Outcome[] = [];
+    for (let offset = 0; offset < users.length; offset += 5) {
+      const batch = await Promise.allSettled(users.slice(offset, offset + 5).map((user) => dispatchToUser(user, payload)));
+      for (const result of batch) if (result.status === "fulfilled") outcomes.push(...result.value);
     }
-  } catch (err) {
-    console.error("[notifications/dispatch] dispatchOutbound failed:", err);
+    for (const channel of ["email", "whatsapp"] as const) {
+      const summary = summarizeChannel(outcomes, channel);
+      if (summary.failed) await alertChannelFailure(channel, summary.attempted, summary.accepted, config.provider);
+    }
+  } catch {
+    console.error("[notifications/dispatch] outbound request or diagnostic could not complete");
   }
 }

@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { prisma } from "@/lib/db";
-import { getSession } from "@/lib/auth/session";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { loadPdfImage } from "@/lib/pdf/branding";
 import { VendorPoPdfDocument } from "@/lib/pdf/vendor-po-document";
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
-  const session = await getSession();
+  const session = await getCurrentUser();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

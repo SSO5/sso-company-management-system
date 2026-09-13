@@ -64,7 +64,9 @@ export default async function DataPage({
     ]);
   // Check just the visible page against the database, not an unbounded in-memory scan.
   const similar = documents.length
-    ? await prisma.document.findMany({
+    ? await prisma.document.groupBy({
+        by: ["originalName", "fileSize", "folderId"],
+        _count: { id: true },
         where: {
           deletedAt: null,
           OR: documents.map((d) => ({
@@ -73,13 +75,12 @@ export default async function DataPage({
             fileSize: d.fileSize,
           })),
         },
-        select: { originalName: true, fileSize: true, folderId: true },
       })
     : [];
   const counts = new Map<string, number>();
   for (const d of similar) {
     const key = duplicateDocumentKey(d);
-    counts.set(key, (counts.get(key) ?? 0) + 1);
+    counts.set(key, (counts.get(key) ?? 0) + d._count.id);
   }
   const href = (p: number) =>
     `/data?view=${view}&q=${encodeURIComponent(q)}&page=${p}`;
@@ -112,6 +113,7 @@ export default async function DataPage({
           </strong>
         </Link>
       </div>
+      <Link href="/data/review" className="inline-block rounded-xl border px-4 py-3 text-sm font-medium text-primary">Tinjau kemiripan dokumen →</Link>
       <nav className="flex flex-wrap gap-2" aria-label="Jenis data">
         {[
           ["files", "File & bukti"],
@@ -222,6 +224,7 @@ export default async function DataPage({
                     {(d.fileSize / 1024 / 1024).toFixed(2)} MB
                   </span>
                   <div className="flex flex-wrap gap-4">
+                    <a className="py-2 font-medium text-primary" href={`/api/files/${d.id}?view=1`} target="_blank" rel="noopener noreferrer">Buka file asli ↗</a>
                     {d.folderId && (
                       <Link
                         className="py-2 font-medium text-primary"

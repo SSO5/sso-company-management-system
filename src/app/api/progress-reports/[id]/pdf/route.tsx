@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getSession } from "@/lib/auth/session";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { renderProgressReportPdf, ProgressReportPdfNotFoundError } from "@/lib/pdf/render-progress-report-pdf";
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
-  const session = await getSession();
+  const session = await getCurrentUser();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {

@@ -257,7 +257,7 @@ export function DocumentsPanel({
       )}
 
       <Section
-        title="Sales Origin"
+        title="Asal Dokumen Penjualan"
         hint="Opportunity, Costing, dan Quotation (Won) harus lengkap — Sales yang mengupload, read-only di sini"
       >
         <div className="space-y-2">
@@ -319,8 +319,8 @@ export function DocumentsPanel({
       </Section>
 
       <Section
-        title="Customer Purchase Order"
-        hint="What the customer sent SSO to confirm this job — read-only here, sourced from Sales"
+        title="PO Pelanggan"
+        hint="PO dari pelanggan untuk pekerjaan ini. Data berasal dari ruang Penjualan."
         action={
           purchaseOrderFolderId && (
             <PoExtractUploadDialog
@@ -333,7 +333,7 @@ export function DocumentsPanel({
       >
         {purchaseOrders.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No customer PO recorded for this project yet.
+            Belum ada PO pelanggan pada proyek ini.
           </p>
         ) : (
           <div className="space-y-2">
@@ -384,13 +384,13 @@ export function DocumentsPanel({
       </Section>
 
       <Section
-        title="Vendor Purchase Orders"
-        hint="What SSO sent to suppliers to fulfill this job"
+        title="PO Vendor"
+        hint="Pesanan SSO kepada vendor untuk melaksanakan pekerjaan ini"
       >
         {vendorPurchaseOrders.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No vendor PO issued for this project yet — create one from
-            Procurement &gt; Vendor Purchase Orders and pick this project under
+            Belum ada PO vendor pada proyek ini. Buat melalui
+            Procurement &gt; PO Vendor and pick this project under
             &quot;Linked Project&quot;.
           </p>
         ) : (
@@ -433,10 +433,10 @@ export function DocumentsPanel({
         )}
       </Section>
 
-      <Section title="Invoices to Customer">
+      <Section title="Invoice Pelanggan">
         {invoices.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No invoice issued for this project yet.
+            Belum ada catatan invoice pada proyek ini.
           </p>
         ) : (
           <div className="space-y-2">
@@ -471,7 +471,7 @@ export function DocumentsPanel({
                     )}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    Paid {formatCurrency(Number(inv.paidAmount))}
+                    Kas dibayar {formatCurrency(Number(inv.paidAmount))}
                   </span>
                   <Badge variant={INVOICE_VARIANT[inv.status]}>
                     {inv.status}

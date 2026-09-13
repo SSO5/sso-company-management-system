@@ -1,4 +1,5 @@
 "use client";
+import { displayLabel } from "@/lib/display-labels";
 import { can } from "@/lib/permissions";
 import type { UserRole } from "@prisma/client";
 import { useState } from "react";
@@ -58,12 +59,12 @@ export function TaskPanel({
     const payload = { ...Object.fromEntries(fd.entries()), projectId };
     const res = await createTask(payload);
     if (res.ok) {
-      toast({ title: "Task added", variant: "success" });
+      toast({ title: "Tugas ditambahkan", variant: "success" });
       setOpen(false);
       router.refresh();
     } else
       toast({
-        title: "Unable to add task",
+        title: "Tidak dapat menambah tugas",
         description: res.error,
         variant: "destructive",
       });
@@ -77,11 +78,11 @@ export function TaskPanel({
           size="sm"
           onClick={() => setOpen(true)}
         >
-          <Plus className="h-3.5 w-3.5" /> Add Task
+          <Plus className="h-3.5 w-3.5" /> Tambah Tugas
         </Button>
       </div>
       {tasks.length === 0 && (
-        <p className="text-sm text-muted-foreground">No tasks yet.</p>
+        <p className="text-sm text-muted-foreground">Belum ada tugas.</p>
       )}
       <div className="space-y-2">
         {tasks.map((t) => (
@@ -92,17 +93,17 @@ export function TaskPanel({
             <div>
               <p className="text-sm font-medium">{t.title}</p>
               <p className="text-xs text-muted-foreground">
-                {t.assignedTo?.name ?? "Unassigned"}{" "}
-                {t.dueDate && `· Due ${formatDate(t.dueDate)}`}
+                {t.assignedTo?.name ?? "Belum ditugaskan"}{" "}
+                {t.dueDate && `· Target ${formatDate(t.dueDate)}`}
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant={PRIORITY_VARIANT[t.priority]}>{t.priority}</Badge>
+              <Badge variant={PRIORITY_VARIANT[t.priority]}>{displayLabel(t.priority)}</Badge>
               <Select
                 className="h-7 w-32 text-xs"
                 disabled={!can(role, "project", "update")}
                 aria-label="Ubah status tugas"
-                defaultValue={t.status}
+                value={t.status}
                 onChange={async (e) => {
                   const res = await updateTaskStatus(
                     t.id,
@@ -112,7 +113,7 @@ export function TaskPanel({
                   if (res.ok) router.refresh();
                   else
                     toast({
-                      title: "Unable to update task",
+                      title: "Tidak dapat memperbarui tugas",
                       description: res.error,
                       variant: "destructive",
                     });
@@ -120,7 +121,7 @@ export function TaskPanel({
               >
                 {STATUSES.map((s) => (
                   <option key={s} value={s}>
-                    {s.replace("_", " ")}
+                    {displayLabel(s)}
                   </option>
                 ))}
               </Select>
@@ -129,21 +130,21 @@ export function TaskPanel({
         ))}
       </div>
 
-      <Dialog open={open} onOpenChange={setOpen} title="New Task">
+      <Dialog open={open} onOpenChange={setOpen} title="Tugas Baru">
         <form onSubmit={onSubmit} className="space-y-3">
           <div className="space-y-1">
-            <Label>Title</Label>
+            <Label>Judul</Label>
             <Input name="title" required />
           </div>
           <div className="space-y-1">
-            <Label>Description</Label>
+            <Label>Keterangan</Label>
             <Textarea name="description" rows={2} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>Assigned To</Label>
+              <Label>Penanggung Jawab</Label>
               <Select name="assignedToId" defaultValue="">
-                <option value="">Unassigned</option>
+                <option value="">Belum ditugaskan</option>
                 {assignees.map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.name}
@@ -152,20 +153,20 @@ export function TaskPanel({
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>Priority</Label>
+              <Label>Prioritas</Label>
               <Select name="priority" defaultValue="MEDIUM">
-                <option value="LOW">Low</option>
-                <option value="MEDIUM">Medium</option>
-                <option value="HIGH">High</option>
-                <option value="CRITICAL">Critical</option>
+                <option value="LOW">Rendah</option>
+                <option value="MEDIUM">Sedang</option>
+                <option value="HIGH">Tinggi</option>
+                <option value="CRITICAL">Mendesak</option>
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>Start Date</Label>
+              <Label>Tanggal Mulai</Label>
               <Input name="startDate" type="date" />
             </div>
             <div className="space-y-1">
-              <Label>Due Date</Label>
+              <Label>Tanggal Target</Label>
               <Input name="dueDate" type="date" />
             </div>
           </div>
@@ -175,9 +176,9 @@ export function TaskPanel({
               variant="outline"
               onClick={() => setOpen(false)}
             >
-              Cancel
+              Batal
             </Button>
-            <Button type="submit">Add Task</Button>
+            <Button type="submit">Tambah Tugas</Button>
           </div>
         </form>
       </Dialog>

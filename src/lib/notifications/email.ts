@@ -25,6 +25,7 @@ export interface SendEmailInput {
   html: string;
   text?: string;
 }
+import { smtpConnectionOptions } from "./config";
 
 let cachedTransporter: unknown = null;
 
@@ -40,9 +41,7 @@ async function getTransporter() {
   if (cachedTransporter) return cachedTransporter;
   const nodemailer = await import("nodemailer");
   cachedTransporter = nodemailer.default.createTransport({
-    host: process.env.SMTP_HOST || "smtp.gmail.com",
-    port: Number(process.env.SMTP_PORT || 465),
-    secure: true, // 465 = implicit TLS
+    ...smtpConnectionOptions(),
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_APP_PASSWORD,
@@ -53,24 +52,23 @@ async function getTransporter() {
 
 export async function sendEmail(input: SendEmailInput): Promise<boolean> {
   if (!isConfigured()) {
-    console.log(`[notifications/email] SKIPPED (not configured) -> ${input.to}: ${input.subject}`);
     return false;
   }
   try {
     const transporter = (await getTransporter()) as {
-      sendMail: (opts: Record<string, unknown>) => Promise<unknown>;
+      sendMail: (opts: Record<string, unknown>) => Promise<{ accepted?: unknown[] }>;
     };
     const fromName = process.env.SMTP_FROM_NAME || "SSO Connect";
-    await transporter.sendMail({
+    const result = await transporter.sendMail({
       from: `"${fromName}" <${process.env.SMTP_USER}>`,
       to: input.to,
       subject: input.subject,
       html: input.html,
       text: input.text || input.html.replace(/<[^>]+>/g, " "),
     });
-    return true;
+    return Boolean(result.accepted?.length);
   } catch (err) {
-    console.error(`[notifications/email] FAILED -> ${input.to}:`, err);
+    console.error("[notifications/email] provider request failed", { code: (err as { code?: string })?.code || "UNKNOWN" });
     return false;
   }
 }

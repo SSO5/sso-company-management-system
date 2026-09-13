@@ -20,6 +20,7 @@ export function SCurvePanel({
   totalWeight: number;
   asOfToday: { planned: number; actual: number; billed: number };
 }) {
+  const hasPlan = totalWeight > 0;
   const gapActualVsPlanned = round1(asOfToday.actual - asOfToday.planned);
   const gapBilledVsActual = round1(asOfToday.billed - asOfToday.actual);
 
@@ -27,7 +28,7 @@ export function SCurvePanel({
     <div className="space-y-4">
       {totalWeight !== 100 && (
         <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
-          Total bobot milestone saat ini <span className="font-medium">{totalWeight}%</span> — idealnya 100% supaya Kurva S mencerminkan seluruh scope project. Cek tab Milestones untuk melengkapi bobotnya.
+          Total bobot milestone saat ini <span className="font-medium">{totalWeight}%</span> — idealnya 100% supaya Kurva S mencerminkan seluruh lingkup proyek. Cek tab Tahapan untuk melengkapi bobotnya.
         </div>
       )}
 
@@ -38,8 +39,8 @@ export function SCurvePanel({
             <p className="text-xs text-muted-foreground">Realisasi (s/d hari ini)</p>
             <p className="text-lg font-semibold">{asOfToday.actual}%</p>
             <div className="mt-1">
-              <Badge variant={gapActualVsPlanned >= 0 ? "success" : "warning"}>
-                {gapActualVsPlanned >= 0 ? "Sesuai / lebih cepat dari rencana" : `Terlambat ${Math.abs(gapActualVsPlanned)}% dari rencana`}
+              <Badge variant={!hasPlan ? "outline" : gapActualVsPlanned >= 0 ? "success" : "warning"}>
+                {!hasPlan ? "Rencana belum tersedia" : gapActualVsPlanned >= 0 ? "Sesuai / lebih cepat dari rencana" : `Tertinggal ${Math.abs(gapActualVsPlanned)} poin persentase`}
               </Badge>
             </div>
           </CardContent>
@@ -49,23 +50,24 @@ export function SCurvePanel({
             <p className="text-xs text-muted-foreground">Penagihan (kumulatif)</p>
             <p className="text-lg font-semibold">{asOfToday.billed}%</p>
             <div className="mt-1">
-              <Badge variant={gapBilledVsActual <= 0 ? "success" : "warning"}>
-                {gapBilledVsActual <= 0 ? "Sejalan / tertinggal dari realisasi (aman)" : `Mendahului realisasi ${Math.abs(gapBilledVsActual)}% — cek sebelum invoice berikutnya`}
+              <Badge variant="outline">
+                {!hasPlan ? "Belum dapat dibandingkan dengan realisasi" : gapBilledVsActual === 0 ? "Sama dengan persentase realisasi" : `${gapBilledVsActual > 0 ? "Di atas" : "Di bawah"} realisasi ${Math.abs(gapBilledVsActual)} poin persentase`}
               </Badge>
             </div>
           </CardContent>
         </Card>
       </div>
 
+      <p className="text-xs text-muted-foreground">Penagihan mengikuti syarat kontrak, termasuk uang muka. Perbandingan dengan progres bukan penilaian otomatis bahwa penagihan aman atau bermasalah.</p>
       <Card>
         <CardHeader>
-          <CardTitle>Kurva S — Progress vs Penagihan</CardTitle>
+          <CardTitle>Kurva S — Progres dan Penagihan</CardTitle>
           <CardDescription>Rencana &amp; Realisasi dari bobot milestone; Penagihan dari invoice yang sudah terbit terhadap nilai kontrak.</CardDescription>
         </CardHeader>
         <CardContent>
           {points.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
-              Belum ada data untuk kurva. Isi tanggal target &amp; bobot % di tiap Milestone (tab Milestones), lalu tandai selesai seiring pekerjaan berjalan.
+              Belum ada data untuk kurva. Isi tanggal target &amp; bobot % di tiap tahapan (tab Tahapan), lalu tandai selesai seiring pekerjaan berjalan.
             </p>
           ) : (
             <ResponsiveContainer width="100%" height={300}>

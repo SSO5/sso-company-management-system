@@ -300,7 +300,7 @@ export function SystemManualTabs() {
             <CardHeader><CardTitle>Alur Notifikasi</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               <FlowRow steps={["Aksi: Submit / Approve / Reject / Billing Due Soon", "Notifikasi in-app (selalu)", "Email (kalau dikonfigurasi)", "WhatsApp (kalau dikonfigurasi)"]} />
-              <p className="text-sm text-muted-foreground pt-2">Notifikasi in-app selalu jalan (tidak butuh setting apa pun) dan muncul lewat ikon lonceng di topbar dengan badge jumlah belum dibaca. Email &amp; WhatsApp baru terkirim setelah tiga variable di bawah ini diisi dan project di-redeploy.</p>
+              <p className="text-sm text-muted-foreground pt-2">Notifikasi in-app selalu jalan (tidak butuh setting apa pun) dan muncul lewat ikon lonceng di topbar dengan badge jumlah belum dibaca. Email &amp; WhatsApp baru terkirim setelah konfigurasi penyedia dilengkapi dan project di-redeploy.</p>
             </CardContent>
           </Card>
 
@@ -324,13 +324,9 @@ export function SystemManualTabs() {
           <Card>
             <CardHeader><CardTitle>Cara Mengaktifkan Email &amp; WhatsApp</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-sm">
-              <p>Isi 3 variable ini di Vercel → Settings → Environment Variables (Production), lalu redeploy:</p>
-              <div className="rounded-md border border-border bg-muted/40 p-3 font-mono text-xs space-y-1">
-                <div>SMTP_APP_PASSWORD=&lt;App Password Gmail&gt;</div>
-                <div>FONNTE_TOKEN=&lt;token device Fonnte&gt;</div>
-                <div>NOTIFICATIONS_OUTBOUND_ENABLED=true</div>
-              </div>
-              <p className="text-muted-foreground">App Password Gmail: myaccount.google.com/apppasswords (perlu 2-Step Verification aktif dulu). Token Fonnte: daftar di fonnte.com → Connect Device → scan QR dari WhatsApp yang mau dipakai → salin token di menu Device.</p>
+              <p>Buka Pengaturan → Integrasi &amp; Notifikasi untuk melihat penyedia yang dipilih dan kelengkapan konfigurasi tanpa mengirim pesan.</p>
+              <p>WhatsApp Cloud API resmi memerlukan token, ID nomor, dan template yang disetujui. Email memerlukan akun SMTP dan kredensial yang valid. Administrator mengatur rahasia ini pada hosting, bukan melalui pesan atau dokumen bersama.</p>
+              <p className="text-muted-foreground">Pengiriman hanya aktif jika sakelar outbound diaktifkan. Respons diterima penyedia belum membuktikan pesan tiba di ponsel atau kotak masuk. Pengujian dari Profil Saya mengirim satu pesan nyata ke nomor tersimpan.</p>
             </CardContent>
           </Card>
 
@@ -338,9 +334,9 @@ export function SystemManualTabs() {
             <CardHeader><CardTitle>Checklist Kalau Notifikasi Tidak Masuk</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-sm">
               <div>1. Cek user penerima sudah mengisi nomor WhatsApp di Settings → Users → Edit User.</div>
-              <div>2. Cek ketiga env variable di atas sudah diisi persis (huruf kecil semua untuk <span className="font-mono">true</span>), dan tercentang untuk <span className="font-medium">Production</span> — bukan cuma Preview.</div>
+              <div>2. Cek konfigurasi penyedia sudah diisi dengan benar (huruf kecil semua untuk <span className="font-mono">true</span>), dan tercentang untuk <span className="font-medium">Production</span> — bukan cuma Preview.</div>
               <div>3. Sudah redeploy <span className="text-muted-foreground">(env variable baru tidak otomatis kepakai di deployment lama)</span>.</div>
-              <div>4. Buka Vercel → Logs, filter kata &quot;notifications&quot; sekitar waktu aksi dilakukan — <span className="font-mono">SKIPPED</span> berarti env belum kebaca, <span className="font-mono">FAILED</span> berarti token/koneksi ke provider bermasalah.</div>
+              <div>4. Buka Vercel → Logs, filter kata &quot;notifications&quot; sekitar waktu aksi dilakukan dan buka halaman Integrasi &amp; Notifikasi untuk membedakan konfigurasi belum lengkap dengan penolakan penyedia.</div>
               <div>5. Pastikan yang dibuka adalah domain production utama (<span className="font-mono">*.vercel.app</span> yang statusnya &quot;Production&quot; di Settings → Domains), bukan link preview per-deployment yang berbeda-beda.</div>
             </CardContent>
           </Card>
@@ -352,7 +348,7 @@ export function SystemManualTabs() {
           <Card>
             <CardHeader><CardTitle>Tech Stack</CardTitle></CardHeader>
             <CardContent className="text-sm text-muted-foreground">
-              Next.js 14 (App Router) + TypeScript · Prisma ORM + PostgreSQL (Neon) · Cloudflare R2 (file storage) · Vercel (hosting) · @react-pdf/renderer (PDF) · exceljs (Excel) · nodemailer (email) · Fonnte (WhatsApp) · Anthropic Claude API (ekstraksi &amp; klasifikasi dokumen).
+              Next.js 14 (App Router) + TypeScript · Prisma ORM + PostgreSQL (Neon) · Cloudflare R2 (file storage) · Vercel (hosting) · @react-pdf/renderer (PDF) · exceljs (Excel) · nodemailer (email) · Meta Cloud API / penyedia lama (WhatsApp) · Anthropic Claude API (ekstraksi &amp; klasifikasi dokumen).
             </CardContent>
           </Card>
 
@@ -413,7 +409,7 @@ export function SystemManualTabs() {
               { label: "PIC Quotation otomatis ikut dari Opportunity", done: true },
               { label: "Branding SSO Connect + PWA (install ke HP)", done: true },
               { label: "Maker-checker: Vendor PO, Project Expense, Invoice", done: true },
-              { label: "Notifikasi Email (Gmail) + WhatsApp (Fonnte)", done: true },
+              { label: "Notifikasi Email + WhatsApp (bergantung konfigurasi penyedia)", done: true },
               { label: "Field WhatsApp di profil user", done: true },
               { label: "Role IT + alur Koreksi Dokumen/Nomor", done: true },
               { label: "Nomor PO customer memakai nomor asli (bukan auto-generate)", done: true },

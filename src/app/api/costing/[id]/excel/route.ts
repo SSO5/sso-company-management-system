@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 import { prisma } from "@/lib/db";
-import { getSession } from "@/lib/auth/session";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { calcCostingSummary } from "@/lib/workflows/calculations";
 import { formatDate, formatRevisedNumber } from "@/lib/utils";
 
@@ -33,7 +33,7 @@ const THIN_BORDER: Partial<ExcelJS.Borders> = {
 };
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
-  const session = await getSession();
+  const session = await getCurrentUser();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -45,7 +45,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       sections: { orderBy: { sortOrder: "asc" }, include: { items: { orderBy: { sortOrder: "asc" } } } },
     },
   });
-  if (!sheet) {
+  if (!sheet || sheet.deletedAt) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 

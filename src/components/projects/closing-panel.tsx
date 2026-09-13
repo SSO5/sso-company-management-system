@@ -19,6 +19,7 @@ export function ClosingPanel({
 
   return (
     <div className="space-y-4">
+      <p className="rounded-xl border bg-slate-50 p-4 text-sm leading-relaxed">Pemeriksaan ini otomatis. Aturan lama sistem memakai minimal satu invoice terbit dan penyelesaian 50% nilainya; ini bukan bukti pelunasan kontrak atau persetujuan keuangan. Tinjau seluruh tagihan, kewajiban, dan bukti pekerjaan sebelum menutup proyek.</p>
       <div className="space-y-2">
         {checklist.map((c) => (
           <div key={c.key} className="flex items-center gap-2 text-sm">
@@ -30,12 +31,12 @@ export function ClosingPanel({
 
       {!canClose && (
         <p className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          Project cannot be closed yet. Complete the missing items above.
+          Proyek belum dapat ditutup. Lengkapi persyaratan yang belum terpenuhi di atas.
         </p>
       )}
 
       {canManage && status !== "CLOSED" && (
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {status !== "COMPLETED" && (
             <Button
               variant="outline"
@@ -45,10 +46,10 @@ export function ClosingPanel({
                 const res = await markCompletedAction(projectId);
                 setPending(false);
                 if (res.ok) router.refresh();
-                else toast({ title: "Unable to mark completed", description: res.error, variant: "destructive" });
+                else toast({ title: "Tidak dapat menandai selesai", description: res.error, variant: "destructive" });
               }}
             >
-              Mark Completed
+              Tandai Selesai
             </Button>
           )}
           <Button
@@ -57,15 +58,15 @@ export function ClosingPanel({
               setPending(true);
               const res = await closeProjectAction(projectId);
               setPending(false);
-              if (res.ok) { toast({ title: "Project closed and archived", variant: "success" }); router.refresh(); }
-              else toast({ title: "Project cannot be closed", description: res.error, variant: "destructive" });
+              if (res.ok) { toast({ title: "Proyek ditutup dan diarsipkan", variant: "success" }); router.refresh(); }
+              else toast({ title: "Proyek belum dapat ditutup", description: res.error, variant: "destructive" });
             }}
           >
-            Close Project
+            Tutup Proyek
           </Button>
         </div>
       )}
-      {status === "CLOSED" && <p className="text-sm text-success">This project is closed and archived.</p>}
+      {status === "CLOSED" && <p className="text-sm text-success">Proyek sudah ditutup dan diarsipkan.</p>}
     </div>
   );
 }

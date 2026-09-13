@@ -75,12 +75,12 @@ export function MilestonePanel({
       projectId,
     });
     if (res.ok) {
-      toast({ title: "Milestone added", variant: "success" });
+      toast({ title: "Tahapan ditambahkan", variant: "success" });
       setOpen(false);
       router.refresh();
     } else
       toast({
-        title: "Unable to add milestone",
+        title: "Tidak dapat menambah tahapan",
         description: res.error,
         variant: "destructive",
       });
@@ -98,7 +98,7 @@ export function MilestonePanel({
     );
     setPending(false);
     if (res.ok) {
-      toast({ title: "Milestone diperbarui", variant: "success" });
+      toast({ title: "Tahapan diperbarui", variant: "success" });
       setEditing(null);
       router.refresh();
     } else
@@ -118,7 +118,7 @@ export function MilestonePanel({
       return;
     const res = await deleteMilestone(m.id, projectId);
     if (res.ok) {
-      toast({ title: "Milestone dihapus", variant: "success" });
+      toast({ title: "Tahapan dihapus", variant: "success" });
       router.refresh();
     } else
       toast({
@@ -156,7 +156,7 @@ export function MilestonePanel({
           size="sm"
           onClick={() => setOpen(true)}
         >
-          <Plus className="h-3.5 w-3.5" /> Add Milestone
+          <Plus className="h-3.5 w-3.5" /> Tambah Tahapan
         </Button>
       </div>
       <div className="space-y-2">
@@ -176,7 +176,7 @@ export function MilestonePanel({
               <div>
                 <p className="text-sm font-medium">{m.name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {m.dueDate ? `Due ${formatDate(m.dueDate)}` : "No due date"}
+                  {m.dueDate ? `Target ${formatDate(m.dueDate)}` : "Belum ada tanggal target"}
                 </p>
                 {m.sourcePurchaseOrder && (
                   <p className="text-[11px] text-muted-foreground">
@@ -216,7 +216,7 @@ export function MilestonePanel({
                       if (res.ok) router.refresh();
                       else
                         toast({
-                          title: "Unable to update",
+                          title: "Tidak dapat memperbarui",
                           description: res.error,
                           variant: "destructive",
                         });
@@ -255,7 +255,7 @@ export function MilestonePanel({
                     if (res.ok) router.refresh();
                     else
                       toast({
-                        title: "Unable to update",
+                        title: "Tidak dapat memperbarui",
                         description: res.error,
                         variant: "destructive",
                       });
@@ -289,18 +289,18 @@ export function MilestonePanel({
           </div>
         ))}
         {milestones.length === 0 && (
-          <p className="text-sm text-muted-foreground">No milestones yet.</p>
+          <p className="text-sm text-muted-foreground">Belum ada tahapan.</p>
         )}
       </div>
 
-      <Dialog open={open} onOpenChange={setOpen} title="New Milestone">
+      <Dialog open={open} onOpenChange={setOpen} title="Tahapan Baru">
         <form onSubmit={onCreate} className="space-y-3">
           <div className="space-y-1">
-            <Label>Name</Label>
+            <Label>Nama</Label>
             <Input name="name" required />
           </div>
           <div className="space-y-1">
-            <Label>Due Date</Label>
+            <Label>Tanggal Target</Label>
             <Input name="dueDate" type="date" />
           </div>
           <div className="space-y-1">
@@ -327,9 +327,9 @@ export function MilestonePanel({
               variant="outline"
               onClick={() => setOpen(false)}
             >
-              Cancel
+              Batal
             </Button>
-            <Button type="submit">Add Milestone</Button>
+            <Button type="submit">Tambah Tahapan</Button>
           </div>
         </form>
       </Dialog>
@@ -432,7 +432,7 @@ export function MilestonePanel({
               );
               setPending(false);
               if (res.ok) {
-                toast({ title: "Milestone selesai", variant: "success" });
+                toast({ title: "Tahapan selesai", variant: "success" });
                 setCompleting(null);
                 router.refresh();
               } else

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getSession } from "@/lib/auth/session";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { renderQuotationPdf, QuotationPdfNotFoundError } from "@/lib/pdf/render-quotation-pdf";
 
 /**
@@ -11,7 +11,7 @@ import { renderQuotationPdf, QuotationPdfNotFoundError } from "@/lib/pdf/render-
  * re-checked here — same choke-point pattern as /api/files/[id].
  */
 export async function GET(req: Request, { params }: { params: { id: string } }) {
-  const session = await getSession();
+  const session = await getCurrentUser();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

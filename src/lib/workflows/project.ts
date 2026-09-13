@@ -1,3 +1,4 @@
+import { summarizeIssuedInvoices } from "@/lib/invoice-summary";
 import type { Prisma, Quotation, Customer, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { generateNumber } from "@/lib/numbering";
@@ -171,6 +172,7 @@ export async function calculateProjectProfitability(projectId: string) {
       status: { in: ["ISSUED", "PARTIALLY_PAID", "PAID", "OVERDUE"] },
     },
     select: {
+      status: true,
       grandTotal: true,
       dpPercent: true,
       paidAmount: true,
@@ -180,20 +182,7 @@ export async function calculateProjectProfitability(projectId: string) {
 
   const revenue = Number(project.contractValue);
   const actualCost = Number(expenseAgg._sum.total ?? 0);
-  const totalInvoiced = projectInvoices.reduce(
-    (s, i) => s + invoiceDueAmount(i),
-    0,
-  );
-  const totalPaid = projectInvoices.reduce(
-    (s, i) => s + Number(i.paidAmount),
-    0,
-  );
-  // Tax legally withheld by the customer settles the invoice like cash —
-  // see invoiceOutstanding().
-  const totalWithheld = projectInvoices.reduce(
-    (s, i) => s + Number(i.withholdingTax),
-    0,
-  );
+  const { totalInvoiced, totalPaid, totalWithheld, outstanding } = summarizeIssuedInvoices(projectInvoices);
   const { grossProfit, grossMargin } = calcProfitability({
     revenue,
     cost: actualCost,
@@ -207,25 +196,25 @@ export async function calculateProjectProfitability(projectId: string) {
     totalInvoiced,
     totalPaid,
     totalWithheld,
-    outstanding: totalInvoiced - totalPaid - totalWithheld,
+    outstanding,
     grossProfit,
     grossMargin,
   };
 }
 
 const CLOSING_CHECK_DEFS: { key: string; label: string }[] = [
-  { key: "tasksCompleted", label: "All project tasks completed" },
-  { key: "deliverablesUploaded", label: "Final deliverables uploaded" },
-  { key: "bastUploaded", label: "BAST uploaded" },
-  { key: "finalReportUploaded", label: "Final report uploaded" },
-  { key: "invoicesCreated", label: "All invoices created" },
-  { key: "paymentReviewed", label: "Payment status reviewed" },
-  { key: "expensesRecorded", label: "Project expenses recorded" },
+  { key: "tasksCompleted", label: "Semua tugas proyek selesai" },
+  { key: "deliverablesUploaded", label: "Bukti hasil pekerjaan tersedia" },
+  { key: "bastUploaded", label: "BAST tersedia" },
+  { key: "finalReportUploaded", label: "Laporan akhir tersedia" },
+  { key: "invoicesCreated", label: "Minimal satu invoice sudah diterbitkan" },
+  { key: "paymentReviewed", label: "Minimal 50% nilai invoice terbit sudah diselesaikan" },
+  { key: "expensesRecorded", label: "Biaya proyek sudah dicatat" },
   {
     key: "financialResultCalculated",
-    label: "Project financial result calculated",
+    label: "Ringkasan nilai kontrak dan biaya dapat dihitung",
   },
-  { key: "customerDocsComplete", label: "Customer documents complete" },
+  { key: "customerDocsComplete", label: "BAST dan laporan akhir tersedia" },
 ];
 
 /**
@@ -260,20 +249,17 @@ export async function validateProjectClosing(projectId: string) {
     prisma.projectExpense.count({ where: { projectId, deletedAt: null } }),
   ]);
 
-  const totalInvoiced = invoices.reduce((s, i) => s + invoiceDueAmount(i), 0);
-  // Cash paid + tax legally withheld — see invoiceOutstanding().
-  const totalSettled = invoices.reduce(
-    (s, i) => s + Number(i.paidAmount) + Number(i.withholdingTax),
-    0,
-  );
+  const billing = summarizeIssuedInvoices(invoices);
+  const totalInvoiced = billing.totalInvoiced;
+  const totalSettled = totalInvoiced - billing.outstanding;
 
   const results: Record<string, boolean> = {
     tasksCompleted: openTasks === 0,
     deliverablesUploaded: Boolean(bast) || Boolean(finalReport), // at minimum one deliverable on file
     bastUploaded: Boolean(bast),
     finalReportUploaded: Boolean(finalReport),
-    invoicesCreated: invoices.length > 0,
-    paymentReviewed: totalInvoiced === 0 || totalSettled >= totalInvoiced * 0.5, // reviewed = not fully unpaid
+    invoicesCreated: billing.count > 0,
+    paymentReviewed: billing.count > 0 && (totalInvoiced === 0 || totalSettled >= totalInvoiced * 0.5), // reviewed = not fully unpaid
     expensesRecorded: expenses > 0,
     financialResultCalculated: true, // always computable on demand via calculateProjectProfitability
     customerDocsComplete: Boolean(bast) && Boolean(finalReport),

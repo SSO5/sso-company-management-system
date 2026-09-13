@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { prisma } from "@/lib/db";
-import { getSession } from "@/lib/auth/session";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { calcCostingSummary } from "@/lib/workflows/calculations";
 import { CostingPdfDocument } from "@/lib/pdf/costing-document";
 import { formatRevisedNumber } from "@/lib/utils";
@@ -15,7 +15,7 @@ import type { CostingSheetSnapshot } from "@/lib/workflows/revision-history";
  * operational cost, PPN/PPh, project title, date) comes from that
  * revision's frozen snapshot. */
 export async function GET(req: Request, { params }: { params: { id: string } }) {
-  const session = await getSession();
+  const session = await getCurrentUser();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

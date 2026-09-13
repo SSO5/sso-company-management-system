@@ -1,24 +1,8 @@
-/**
- * Outbound WhatsApp via Meta's official WhatsApp Business Cloud API
- * (developers.facebook.com/docs/whatsapp/cloud-api) — the sanctioned
- * alternative to whatsapp-fonnte.ts. whatsapp.ts (the provider router)
- * prefers this one automatically whenever WHATSAPP_CLOUD_API_TOKEN and
- * WHATSAPP_CLOUD_API_PHONE_NUMBER_ID are both set, since this is the method
- * WhatsApp itself sanctions — a number used this way does not get
- * suspended for "automation" the way an unofficial gateway eventually does.
- * See .env.example for the full setup walkthrough.
- *
- * The trade-off that shapes this whole file: Meta only allows sending
- * FREEFORM text when the recipient has messaged this business number
- * within the last 24 hours (a "customer service window"). Every
- * notification SSO Connect sends is business-initiated — nobody texts the
- * bot first — so every send here goes out as a pre-approved message
- * TEMPLATE instead, with the notification's name/title/message/link filled
- * into the template's four placeholders. The template itself has to be
- * created once in Meta's WhatsApp Manager (see .env.example) before this
- * will work; this file has no way to create or approve it via API.
+/** Official Meta Cloud API. Business-initiated notifications use an approved template.
+ * API acceptance is separate from delivery; no provider guarantees an account cannot be restricted.
  */
 import type { SendWhatsAppInput, WhatsAppSendResult } from "./whatsapp-types";
+import { notificationLink } from "./config";
 
 function apiVersion() {
   return process.env.WHATSAPP_CLOUD_API_VERSION || "v21.0";
@@ -42,15 +26,15 @@ export function isCloudApiConfigured() {
  * flatten it to one line before it ever reaches the API.
  */
 function sanitizeParam(value: string): string {
-  return value.replace(/[\n\t]+/g, " ").replace(/ {5,}/g, "    ").trim();
+  return value.replace(/[\r\n\t]+/g, " ").replace(/ {5,}/g, "    ").trim() || "—";
 }
 
 function buildTemplateBody(input: SendWhatsAppInput) {
   // Meta also rejects an empty parameter value, so the link slot always
   // gets something — the app's own base URL when no specific deep link
   // was given, rather than an empty string.
-  const appUrl = process.env.APP_BASE_URL || "";
-  const link = input.link ? `${appUrl}${input.link}` : appUrl || "https://sso-connect";
+  const link = notificationLink(input.link);
+  if (!link) throw new Error("Alamat tautan notifikasi tidak valid.");
   return {
     messaging_product: "whatsapp",
     to: input.to,
@@ -73,7 +57,7 @@ function buildTemplateBody(input: SendWhatsAppInput) {
   };
 }
 
-async function send(input: SendWhatsAppInput): Promise<{ ok: boolean; status: number; body: { error?: { message?: string } } | null }> {
+async function send(input: SendWhatsAppInput): Promise<{ ok: boolean; status: number; body: { messages?: { id?: string }[]; error?: { code?: number } } | null }> {
   const url = `https://graph.facebook.com/${apiVersion()}/${process.env.WHATSAPP_CLOUD_API_PHONE_NUMBER_ID}/messages`;
   const res = await fetch(url, {
     method: "POST",
@@ -82,9 +66,10 @@ async function send(input: SendWhatsAppInput): Promise<{ ok: boolean; status: nu
       "Content-Type": "application/json",
     },
     body: JSON.stringify(buildTemplateBody(input)),
+    signal: AbortSignal.timeout(15000),
   });
   const body = await res.json().catch(() => null);
-  return { ok: res.ok, status: res.status, body };
+  return { ok: res.ok && Boolean(body?.messages?.[0]?.id), status: res.status, body };
 }
 
 /**
@@ -103,7 +88,7 @@ export async function testWhatsAppConnectionCloud(input: SendWhatsAppInput): Pro
   try {
     const { ok, status, body } = await send(input);
     if (!ok) {
-      const metaMsg = body?.error?.message || "alasan tidak diketahui";
+      const metaMsg = body?.error?.code ? `kode ${body.error.code}` : "respons tidak memuat ID pesan";
       const hint =
         status === 401
           ? " Kemungkinan token sudah expired — generate token permanen baru lewat System User di Meta Business Settings."
@@ -112,26 +97,25 @@ export async function testWhatsAppConnectionCloud(input: SendWhatsAppInput): Pro
           : "";
       return { ok: false, reason: `WhatsApp Cloud API menolak request (HTTP ${status}) — "${metaMsg}".${hint}` };
     }
-    return { ok: true, reason: "Pesan berhasil dikirim lewat WhatsApp Cloud API — cek WhatsApp Anda dalam beberapa detik." };
+    return { ok: true, reason: "Permintaan diterima WhatsApp Cloud API. Penerimaan di ponsel belum terkonfirmasi; periksa pesan pada nomor tujuan." };
   } catch (err) {
-    return { ok: false, reason: `Gagal menghubungi WhatsApp Cloud API: ${err instanceof Error ? err.message : String(err)}` };
+    return { ok: false, reason: "WhatsApp Cloud API tidak dapat dihubungi atau responsnya tidak valid. Periksa koneksi dan konfigurasi integrasi." };
   }
 }
 
 export async function sendWhatsAppCloud(input: SendWhatsAppInput): Promise<boolean> {
   if (!isCloudApiConfigured()) {
-    console.log(`[notifications/whatsapp-cloud] SKIPPED (not configured) -> ${input.to}`);
     return false;
   }
   try {
     const { ok, status, body } = await send(input);
     if (!ok) {
-      console.error(`[notifications/whatsapp-cloud] FAILED -> ${input.to}: HTTP ${status}`, body?.error || body);
+      console.error("[notifications/whatsapp-cloud] provider request failed", { status, code: body?.error?.code });
       return false;
     }
     return true;
   } catch (err) {
-    console.error(`[notifications/whatsapp-cloud] FAILED -> ${input.to}:`, err);
+    console.error("[notifications/whatsapp-cloud] network or response failure");
     return false;
   }
 }

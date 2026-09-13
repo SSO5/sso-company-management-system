@@ -126,7 +126,7 @@ export function AiSmartUploadCard() {
       >
         <Sparkles className="h-10 w-10 text-[#2454d1]" />
         <p className="text-xl font-bold text-[#2454d1] sm:text-2xl">
-          Upload aja, aku yang simpenin!
+          Unggah dokumen dengan bantuan AI
         </p>
         <p className="max-w-sm text-sm text-muted-foreground">
           Kirim file apapun — biar AI yang bacain, tentuin project &amp;

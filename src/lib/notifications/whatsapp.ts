@@ -1,19 +1,10 @@
-/**
- * Outbound WhatsApp — provider router. Two providers exist:
- *  - whatsapp-cloud.ts: Meta's official WhatsApp Business Cloud API. Used
- *    automatically whenever WHATSAPP_CLOUD_API_TOKEN and
- *    WHATSAPP_CLOUD_API_PHONE_NUMBER_ID are both set — the sanctioned
- *    method, so the sending number does not get suspended the way an
- *    unofficial gateway eventually does.
- *  - whatsapp-fonnte.ts: the older unofficial WA Web gateway, kept as a
- *    fallback for whoever hasn't finished Cloud API setup yet.
- * Cloud API wins whenever both are configured (see .env.example for setup
- * of either). Neither configured, or NOTIFICATIONS_OUTBOUND_ENABLED isn't
- * "true" -> every call below is a safe no-op, same as before.
+/** Provider selection preserves existing setup; official Cloud API is preferred.
+ * No provider guarantees delivery or exemption from platform enforcement.
  */
 import type { SendWhatsAppInput, WhatsAppSendResult } from "./whatsapp-types";
-import { isCloudApiConfigured, sendWhatsAppCloud, testWhatsAppConnectionCloud } from "./whatsapp-cloud";
+import { sendWhatsAppCloud, testWhatsAppConnectionCloud } from "./whatsapp-cloud";
 import { sendWhatsAppFonnte, testWhatsAppConnectionFonnte } from "./whatsapp-fonnte";
+import { notificationConfig } from "./config";
 
 export type { SendWhatsAppInput };
 
@@ -33,13 +24,17 @@ export async function testWhatsAppConnection(input: SendWhatsAppInput): Promise<
       reason: 'Notifikasi outbound belum diaktifkan — env var NOTIFICATIONS_OUTBOUND_ENABLED di Vercel belum "true".',
     };
   }
-  return isCloudApiConfigured() ? testWhatsAppConnectionCloud(input) : testWhatsAppConnectionFonnte(input);
+  const config = notificationConfig();
+  if (!config.appUrlReady) return { ok: false, reason: "Alamat aplikasi HTTPS belum dikonfigurasi. Hubungi administrator." };
+  // Partial Cloud setup must not silently route a business message to another provider.
+  return config.cloudStarted ? testWhatsAppConnectionCloud(input) : testWhatsAppConnectionFonnte(input);
 }
 
 export async function sendWhatsApp(input: SendWhatsAppInput): Promise<boolean> {
   if (!outboundEnabled()) {
-    console.log(`[notifications/whatsapp] SKIPPED (outbound disabled) -> ${input.to}`);
     return false;
   }
-  return isCloudApiConfigured() ? sendWhatsAppCloud(input) : sendWhatsAppFonnte(input);
+  const config = notificationConfig();
+  if (!config.whatsappReady) return false;
+  return config.cloudStarted ? sendWhatsAppCloud(input) : sendWhatsAppFonnte(input);
 }

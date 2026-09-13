@@ -1,4 +1,5 @@
 "use server";
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/current-user";
@@ -30,9 +31,10 @@ export async function updateTaskStatus(id: string, projectId: string, status: Ta
   return runAction(async () => {
     const actor = await requireUserOrThrow();
     requirePermission(actor.role, "project", "update");
+    z.enum(["TODO", "IN_PROGRESS", "BLOCKED", "COMPLETED"]).parse(status);
     const progressPercent = status === "COMPLETED" ? 100 : status === "TODO" ? 0 : undefined;
     await prisma.$transaction(async (tx) => {
-      await tx.projectTask.update({ where: { id }, data: { status, ...(progressPercent !== undefined ? { progressPercent } : {}) } });
+      await tx.projectTask.update({ where: { id, projectId, deletedAt: null }, data: { status, ...(progressPercent !== undefined ? { progressPercent } : {}) } });
       await logActivity(tx, { userId: actor.userId, action: "STATUS_CHANGE", entityType: "PROJECT_TASK", entityId: id, description: `Task -> ${status}` });
     });
     revalidatePath(`/projects/${projectId}`);
@@ -75,8 +77,9 @@ export async function updateMilestoneStatus(
     // system treats something as done"). Every other transition, and every
     // other milestone flavor (PO_DATE/DP, or a manual PM-added one), is
     // unaffected.
+    z.enum(["PENDING", "IN_PROGRESS", "COMPLETED", "DELAYED"]).parse(status);
     if (status === "COMPLETED") {
-      const milestone = await prisma.projectMilestone.findUniqueOrThrow({ where: { id }, select: { dateBasis: true } });
+      const milestone = await prisma.projectMilestone.findUniqueOrThrow({ where: { id, projectId }, select: { dateBasis: true } });
       if (milestone.dateBasis === "ESTIMATED_DELIVERY") {
         throw new Error('Milestone pengiriman ini butuh bukti (surat jalan/BAST) — gunakan tombol "Tandai Selesai (upload bukti)", bukan dropdown ini.');
       }
@@ -90,7 +93,7 @@ export async function updateMilestoneStatus(
     const completedAt = status === "COMPLETED" ? new Date() : null;
     await prisma.$transaction(async (tx) => {
       await tx.projectMilestone.update({
-        where: { id },
+        where: { id, projectId },
         data: { status, completedAt, ...(progressPercent !== undefined ? { progressPercent } : {}) },
       });
       await logActivity(tx, { userId: actor.userId, action: "STATUS_CHANGE", entityType: "PROJECT_MILESTONE", entityId: id, description: `Milestone -> ${status}` });
@@ -119,7 +122,7 @@ export async function completeDeliveryMilestoneAction(
     requirePermission(actor.role, "project", "update");
     requirePermission(actor.role, "documents", "create");
 
-    const milestone = await prisma.projectMilestone.findUniqueOrThrow({ where: { id } });
+    const milestone = await prisma.projectMilestone.findUniqueOrThrow({ where: { id, projectId } });
     if (milestone.status === "COMPLETED") {
       throw new Error("Milestone ini sudah Completed.");
     }
@@ -141,7 +144,7 @@ export async function completeDeliveryMilestoneAction(
 
     await prisma.$transaction(async (tx) => {
       await tx.projectMilestone.update({
-        where: { id },
+        where: { id, projectId },
         data: { status: "COMPLETED", completedAt: new Date(), progressPercent: 100 },
       });
       await logActivity(tx, {
@@ -173,7 +176,7 @@ export async function updateMilestone(id: string, projectId: string, input: unkn
     requirePermission(actor.role, "project", "update");
     const data = milestoneUpdateSchema.parse(input);
     await prisma.$transaction(async (tx) => {
-      const updated = await tx.projectMilestone.update({ where: { id }, data });
+      const updated = await tx.projectMilestone.update({ where: { id, projectId }, data });
       await logActivity(tx, {
         userId: actor.userId, action: "UPDATE", entityType: "PROJECT_MILESTONE", entityId: id,
         description: `Updated milestone "${updated.name}"`,
@@ -191,9 +194,9 @@ export async function deleteMilestone(id: string, projectId: string): Promise<Ac
   return runAction(async () => {
     const actor = await requireUserOrThrow();
     requirePermission(actor.role, "project", "update");
-    const existing = await prisma.projectMilestone.findUniqueOrThrow({ where: { id } });
+    const existing = await prisma.projectMilestone.findUniqueOrThrow({ where: { id, projectId } });
     await prisma.$transaction(async (tx) => {
-      await tx.projectMilestone.delete({ where: { id } });
+      await tx.projectMilestone.delete({ where: { id, projectId } });
       await logActivity(tx, {
         userId: actor.userId, action: "DELETE", entityType: "PROJECT_MILESTONE", entityId: id,
         description: `Deleted milestone "${existing.name}"`,
@@ -269,6 +272,7 @@ export async function markExpensePaidAction(formData: FormData): Promise<ActionR
 
     const id = formData.get("id") as string;
     const projectId = formData.get("projectId") as string;
+    await prisma.projectExpense.findUniqueOrThrow({ where: { id, projectId, deletedAt: null }, select: { id: true } });
     const file = formData.get("file") as File | null;
     if (!file || file.size === 0) throw new Error("Upload bukti bayar (kwitansi/transfer) terlebih dahulu.");
 
@@ -279,6 +283,7 @@ export async function markExpensePaidAction(formData: FormData): Promise<ActionR
         mimeType: file.type || "application/octet-stream",
         projectId,
         relatedEntityType: "EXPENSE",
+        relatedEntityId: id,
       },
       actor
     );

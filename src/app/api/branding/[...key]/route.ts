@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth/session";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { readBrandingAsset } from "@/lib/storage";
 
 /**
@@ -12,7 +12,7 @@ import { readBrandingAsset } from "@/lib/storage";
  * is no per-user ACL here, unlike Documents.
  */
 export async function GET(req: Request, { params }: { params: { key: string[] } }) {
-  const session = await getSession();
+  const session = await getCurrentUser();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -27,6 +27,6 @@ export async function GET(req: Request, { params }: { params: { key: string[] } 
   const contentType = ext === "png" ? "image/png" : ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "application/octet-stream";
 
   return new NextResponse(buffer, {
-    headers: { "Content-Type": contentType, "Cache-Control": "private, max-age=60" },
+    headers: { "Content-Type": contentType, "Cache-Control": "private, no-store" },
   });
 }

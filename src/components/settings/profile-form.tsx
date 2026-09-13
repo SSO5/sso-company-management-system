@@ -25,7 +25,7 @@ export function ProfileForm({ profile }: { profile: OwnProfile }) {
     setTestingWa(true);
     const res = await sendTestWhatsAppNotificationAction();
     setTestingWa(false);
-    if (res.ok) toast({ title: "Test terkirim", description: res.data.reason, variant: "success" });
+    if (res.ok) toast({ title: "Permintaan diterima penyedia", description: res.data.reason, variant: "success" });
     else toast({ title: "Test gagal — ini sebabnya", description: res.error, variant: "destructive" });
   }
 
@@ -67,7 +67,7 @@ export function ProfileForm({ profile }: { profile: OwnProfile }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 border-t border-border pt-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-border pt-4">
         <div className="space-y-1"><Label>Nama</Label><Input name="name" defaultValue={profile.name} required /></div>
         <div className="space-y-1">
           <Label>Email</Label>

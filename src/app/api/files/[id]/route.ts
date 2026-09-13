@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getSession } from "@/lib/auth/session";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { getStorageDriver } from "@/lib/storage";
 
 /**
@@ -13,7 +13,7 @@ import { getStorageDriver } from "@/lib/storage";
  * calling driver.read() — this is the single choke point for all reads.
  */
 export async function GET(req: Request, { params }: { params: { id: string } }) {
-  const session = await getSession();
+  const session = await getCurrentUser();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -40,12 +40,14 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       },
     });
 
-    const disposition = isInlineView ? "inline" : "attachment";
+    const safeInline = ["application/pdf", "image/jpeg", "image/png", "image/webp", "image/gif"].includes(doc.mimeType);
+    const disposition = isInlineView && safeInline ? "inline" : "attachment";
     return new NextResponse(buffer, {
       headers: {
         "Content-Type": doc.mimeType,
         "Content-Disposition": `${disposition}; filename="${encodeURIComponent(doc.originalName)}"`,
         "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
       },
     });
   } catch (err) {

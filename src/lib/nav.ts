@@ -168,6 +168,7 @@ export const NAV: NavGroup[] = [
       { label: "Data Perusahaan", href: "/settings/company", roles: ["ADMIN"] },
       { label: "Tema", href: "/settings/theme", roles: ["ADMIN"] },
       { label: "Penyimpanan File", href: "/settings/storage" },
+      { label: "Integrasi & Notifikasi", href: "/settings/integrations" },
       { label: "Nomor Dokumen", href: "/numbering" },
       // The IT correction tool — see lib/workflows/corrections.ts.
       { label: "Koreksi Dokumen", href: "/settings/document-correction" },

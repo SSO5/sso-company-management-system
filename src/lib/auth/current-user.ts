@@ -19,6 +19,8 @@ const currentUser = cache(async (): Promise<SessionPayload | null> => {
     role: user.role,
   };
 });
+/** For API routes: return 401 rather than an HTML login redirect. */
+export const getCurrentUser = currentUser;
 export async function requireUser(): Promise<SessionPayload> {
   const user = await currentUser();
   if (!user) redirect("/login");
