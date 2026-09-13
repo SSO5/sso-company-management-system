@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { lockReport } from "./report-review";
 import { generateNumber } from "@/lib/numbering";
 import { logActivity } from "@/lib/workflows/audit";
 import { getStorageDriver } from "@/lib/storage";
@@ -6,9 +7,8 @@ import type { ProgressReportInput, ProgressReportItemInput } from "@/lib/validat
 
 /**
  * Field engineering progress/inspection reports (spec: real "ENG-REP-004"
- * template found in SSO's WhatsApp field archive). Deliberately NOT part of
- * the maker-checker approval chain — this is an internal record of what an
- * engineer did on site, not a commercial document needing Direktur sign-off.
+ * template found in SSO's WhatsApp field archive). Working copies stay editable;
+ * external issue requires a separate immutable director-approved review.
  * Numbering still goes through the same atomic generateNumber() as every
  * other document type, inside the same transaction as the row insert, so a
  * failed create never burns a number.
@@ -37,16 +37,9 @@ export async function createProgressReport(data: ProgressReportInput, actorId: s
 export async function deleteProgressReport(id: string, actorId: string) {
   return prisma.$transaction(async (tx) => {
     const report = await tx.progressReport.findUniqueOrThrow({ where: { id } });
-    // Best-effort cleanup of uploaded photos — not transactional (storage
-    // isn't part of the DB transaction), but a failed delete here should
-    // never block the DB row from being removed, so errors are swallowed.
-    const items = await tx.progressReportItem.findMany({ where: { progressReportId: id } });
-    const driver = getStorageDriver();
-    for (const item of items) {
-      if (item.photoBeforeKey) await driver.delete(item.photoBeforeKey).catch(() => {});
-      if (item.photoAfterKey) await driver.delete(item.photoAfterKey).catch(() => {});
-    }
-    await tx.progressReport.delete({ where: { id } });
+    await lockReport(tx, id);
+    // Preserve source evidence, review history and photos on archive.
+    await tx.progressReport.update({ where: { id }, data: { deletedAt: new Date() } });
     await logActivity(tx, {
       userId: actorId, action: "DELETE", entityType: "PROGRESS_REPORT", entityId: id,
       description: `Deleted progress report ${report.number}`,
@@ -68,6 +61,8 @@ export async function addProgressReportItem(
   actorId: string
 ) {
   return prisma.$transaction(async (tx) => {
+    await lockReport(tx, data.progressReportId);
+    await tx.progressReport.findUniqueOrThrow({ where: { id: data.progressReportId, deletedAt: null } });
     const created = await tx.progressReportItem.create({
       data: {
         progressReportId: data.progressReportId,
@@ -96,11 +91,9 @@ export async function updateProgressReportItem(
 ) {
   return prisma.$transaction(async (tx) => {
     const existing = await tx.progressReportItem.findUniqueOrThrow({ where: { id } });
-    // Replacing a photo deletes the old one from storage so orphaned files
-    // don't pile up in the bucket — same reasoning as branding asset swaps.
-    const driver = getStorageDriver();
-    if (photos.photoBeforeKey && existing.photoBeforeKey) await driver.delete(existing.photoBeforeKey).catch(() => {});
-    if (photos.photoAfterKey && existing.photoAfterKey) await driver.delete(existing.photoAfterKey).catch(() => {});
+    await lockReport(tx, existing.progressReportId);
+    await tx.progressReport.findUniqueOrThrow({ where: { id: existing.progressReportId, deletedAt: null } });
+    // Old photo keys can still be referenced by frozen review snapshots.
 
     const updated = await tx.progressReportItem.update({ where: { id }, data: { ...data, ...photos } });
     await logActivity(tx, {
@@ -114,9 +107,8 @@ export async function updateProgressReportItem(
 export async function deleteProgressReportItem(id: string, actorId: string) {
   return prisma.$transaction(async (tx) => {
     const existing = await tx.progressReportItem.findUniqueOrThrow({ where: { id } });
-    const driver = getStorageDriver();
-    if (existing.photoBeforeKey) await driver.delete(existing.photoBeforeKey).catch(() => {});
-    if (existing.photoAfterKey) await driver.delete(existing.photoAfterKey).catch(() => {});
+    await lockReport(tx, existing.progressReportId);
+    await tx.progressReport.findUniqueOrThrow({ where: { id: existing.progressReportId, deletedAt: null } });
     await tx.progressReportItem.delete({ where: { id } });
     await logActivity(tx, {
       userId: actorId, action: "DELETE", entityType: "PROGRESS_REPORT_ITEM", entityId: id,

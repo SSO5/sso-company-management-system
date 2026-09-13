@@ -1,0 +1,6 @@
+.vercel-sso-auth
+.env*
+tmp
+prototypes
+artifacts
+private-storage

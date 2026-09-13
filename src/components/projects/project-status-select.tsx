@@ -38,7 +38,7 @@ export function ProjectStatusSelect({ projectId, status, canManage }: { projectI
           else toast({ title: "Unable to update status", description: res.error, variant: "destructive" });
         });
       }}
-      className="h-7 text-xs"
+      className="h-11 w-auto min-w-40 text-sm" aria-label="Status proyek"
     >
       {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
     </Select>

@@ -11,33 +11,45 @@ import { runAction, type ActionResult } from "@/lib/action-helpers";
 import { submitExpenseForApproval, approveExpense, rejectExpense, markExpensePaid } from "@/lib/workflows/expense";
 import { uploadDocument } from "@/lib/workflows/documents";
 import type { TaskStatus } from "@prisma/client";
+import { notifyUser } from "@/lib/workflows/notify";
+import { dispatchOutbound } from "@/lib/notifications/dispatch";
 
 export async function createTask(input: unknown): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
     const actor = await requireUserOrThrow();
     requirePermission(actor.role, "project", "create");
+    if (!["ADMIN", "PROJECT_MANAGER"].includes(actor.role)) throw new Error("Penugasan tindak lanjut dilakukan manager.");
     const data = taskSchema.parse(input);
+    await prisma.project.findUniqueOrThrow({ where: { id: data.projectId, deletedAt: null } });
+    if (data.assignedToId) await prisma.user.findUniqueOrThrow({ where: { id: data.assignedToId, isActive: true } });
     const task = await prisma.$transaction(async (tx) => {
       const created = await tx.projectTask.create({ data: { ...data, createdById: actor.userId } });
+      if (created.assignedToId) await notifyUser(tx, { userId: created.assignedToId, type: "PROJECT_FOLLOWUP", title: "Tindak lanjut untuk Anda", message: created.title, link: `/projects/${data.projectId}?tab=tasks` });
       await logActivity(tx, { userId: actor.userId, action: "CREATE", entityType: "PROJECT_TASK", entityId: created.id, description: `Added task "${created.title}"` });
       return created;
     });
+    if (task.assignedToId) await dispatchOutbound({ userId: task.assignedToId }, { title: "Tindak lanjut proyek", message: `${task.title}${task.dueDate ? ` · Target ${task.dueDate.toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta" })}` : ""}`, link: `/projects/${data.projectId}?tab=tasks` });
     revalidatePath(`/projects/${data.projectId}`);
+    revalidatePath("/dashboard");
     return { id: task.id };
   });
 }
 
-export async function updateTaskStatus(id: string, projectId: string, status: TaskStatus): Promise<ActionResult<{ id: string }>> {
+export async function updateTaskStatus(id: string, projectId: string, status: TaskStatus, notes?: string): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
     const actor = await requireUserOrThrow();
-    requirePermission(actor.role, "project", "update");
+    const task = await prisma.projectTask.findUniqueOrThrow({ where: { id, projectId, deletedAt: null } });
+    if (!["ADMIN", "PROJECT_MANAGER"].includes(actor.role) && task.assignedToId !== actor.userId) throw new Error("Hanya PIC atau manager yang dapat memperbarui tindak lanjut.");
     z.enum(["TODO", "IN_PROGRESS", "BLOCKED", "COMPLETED"]).parse(status);
+    const result = notes === undefined ? undefined : z.string().trim().max(4000).parse(notes);
+    if (["BLOCKED", "COMPLETED"].includes(status) && !result) throw new Error("Catat hasil atau hambatan agar tim mengetahui tindak lanjutnya.");
     const progressPercent = status === "COMPLETED" ? 100 : status === "TODO" ? 0 : undefined;
     await prisma.$transaction(async (tx) => {
-      await tx.projectTask.update({ where: { id, projectId, deletedAt: null }, data: { status, ...(progressPercent !== undefined ? { progressPercent } : {}) } });
-      await logActivity(tx, { userId: actor.userId, action: "STATUS_CHANGE", entityType: "PROJECT_TASK", entityId: id, description: `Task -> ${status}` });
+      await tx.projectTask.update({ where: { id, projectId, deletedAt: null }, data: { status, ...(result !== undefined ? { notes: result } : {}), ...(progressPercent !== undefined ? { progressPercent } : {}) } });
+      await logActivity(tx, { userId: actor.userId, action: "STATUS_CHANGE", entityType: "PROJECT_TASK", entityId: id, description: `Tindak lanjut -> ${status}`, metadata: { previousStatus: task.status, previousNotes: task.notes, result: result ?? null } });
     });
     revalidatePath(`/projects/${projectId}`);
+    revalidatePath("/dashboard");
     return { id };
   });
 }

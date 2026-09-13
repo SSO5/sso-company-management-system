@@ -1,3 +1,4 @@
+import { getWeeklyProject } from "@/server/projects/weekly";
 import { getProjectDetail } from "@/server/projects/projects";
 import { listUsersForPicker } from "@/server/settings/users";
 import { getJobChecklistFor } from "@/server/document-checklist";
@@ -31,12 +32,14 @@ export default async function ProjectDetailPage({
     assignees,
     checklist,
     progressReportDocs,
+    weekly,
   ] = await Promise.all([
     getProjectDetail(params.id),
     requireUser(),
     listUsersForPicker(),
     getJobChecklistFor("PROJECT", params.id),
     getProgressReportDocuments(params.id),
+    getWeeklyProject(params.id),
   ]);
 
   const canManage =
@@ -93,7 +96,7 @@ export default async function ProjectDetailPage({
           hiding in. This never touches project.status itself (see
           computeProjectRiskSignals) — it's information for the PM to act on,
           not a status the system imposes. */}
-      {riskSignals.length > 0 && (
+      {false && riskSignals.length > 0 && (
         <div className="space-y-1.5 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2.5">
           <p className="flex items-center gap-1.5 text-sm font-medium text-destructive">
             <TriangleAlert className="h-4 w-4" /> Project ini butuh perhatian
@@ -121,6 +124,7 @@ export default async function ProjectDetailPage({
       )}
 
       <ProjectDetailTabs
+        weekly={weekly}
         projectId={project.id}
         customerId={project.customerId}
         purchaseOrderFolderId={purchaseOrderFolderId}

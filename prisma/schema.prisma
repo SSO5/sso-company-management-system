@@ -1052,6 +1052,7 @@ model Project {
   folders        Folder[]
   vendorPurchaseOrders VendorPurchaseOrder[]
   progressReports ProgressReport[]
+  weeklySettings ProjectWeeklySettings?
 
   @@index([status])
   @@index([customerId])
@@ -1194,6 +1195,7 @@ model ProgressReport {
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   inspectionDate DateTime
+  dateVerified Boolean @default(false)
   location       String?
 
   // Written for management, not for the workshop. The checkpoint table answers
@@ -1219,6 +1221,7 @@ model ProgressReport {
   // record disconnected from the document. Null for any report created the
   // old manual way, or if the source document is later deleted.
   sourceDocumentId String?   @unique
+  originalSourceDocumentId String?
   sourceDocument   Document? @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
   aiGenerated      Boolean   @default(false)
 
@@ -1229,8 +1232,56 @@ model ProgressReport {
   deletedAt   DateTime?
 
   items ProgressReportItem[]
+  reviews ProgressReportReview[]
 
   @@index([projectId])
+}
+
+model ProjectWeeklySettings {
+  projectId String @id
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  ownerId String?
+  vendorDueAt DateTime?
+  customerDueAt DateTime?
+  recipient String?
+  channel String @default("WhatsApp")
+  updatedAt DateTime @updatedAt
+}
+
+model ProgressReportReview {
+  id String @id @default(cuid())
+  reportId String
+  report ProgressReport @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  version Int
+  fingerprint String
+  snapshot Json
+  pdfKey String
+  pdfHash String
+  status String @default("PENDING")
+  approverId String
+  requestedById String
+  requestedAt DateTime @default(now())
+  decidedById String?
+  decidedAt DateTime?
+  decisionNote String?
+  notificationStatus String @default("NOT_SENT")
+  dispatch ProgressReportDispatch?
+  @@unique([reportId, version])
+  @@index([approverId, status])
+}
+
+model ProgressReportDispatch {
+  id String @id @default(cuid())
+  reviewId String @unique
+  review ProgressReportReview @relation(fields: [reviewId], references: [id], onDelete: Restrict)
+  recordedById String
+  recordedByName String
+  recordedAt DateTime @default(now())
+  sentAt DateTime
+  recipient String
+  channel String
+  method String @default("MANUAL_CONFIRMATION")
+  note String?
 }
 
 model ProgressReportItem {
@@ -1461,6 +1512,10 @@ model Document {
   uploadedBy   User     @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
   uploadedAt   DateTime @default(now())
   version      Int      @default(1)
+  progressFormat String @default("UNKNOWN")
+  processingState String @default("IDLE")
+  processingStartedAt DateTime?
+  processingError String?
   description  String?
 
   deletedAt   DateTime? // soft delete = Trash

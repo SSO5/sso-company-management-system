@@ -93,6 +93,7 @@ export async function correctDocumentNumber(
         break;
       }
       case "PROGRESS_REPORT": {
+        await tx.$queryRaw`SELECT id FROM "ProgressReport" WHERE id = ${id} FOR UPDATE`;
         const row = await tx.progressReport.findUniqueOrThrow({ where: { id } });
         oldNumber = row.number;
         await tx.progressReport.update({ where: { id }, data: { number: trimmed } });
@@ -139,6 +140,7 @@ export async function correctProgressReportDetails(
 
   await prisma.$transaction(async (tx) => {
     const row = await tx.progressReport.findUniqueOrThrow({ where: { id } });
+    await tx.$queryRaw`SELECT id FROM "ProgressReport" WHERE id = ${id} FOR UPDATE`;
     await tx.progressReport.update({
       where: { id },
       data: { number: trimmed, title: input.title, reportKind: input.reportKind || "PROGRES" },

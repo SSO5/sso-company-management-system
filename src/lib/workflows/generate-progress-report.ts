@@ -9,8 +9,10 @@ import { isExtractableMimeType } from "@/lib/ai/client";
 import { extractProgressReport } from "@/lib/ai/extract-progress-report";
 import { extractEmbeddedPhotos } from "@/lib/pdf/extract-embedded-images";
 import type { SessionPayload } from "@/lib/auth/session";
+import { lockReport } from "./report-review";
+import { parseReportDate } from "@/lib/weekly-policy";
 const FILE_NAME_DATE = /^(\d{4})-(\d{2})-(\d{2})\s*-\s*/;
-export async function generateProgressReportForActor(
+async function generateWorkingCopy(
   documentId: string,
   projectId: string,
   actor: SessionPayload,
@@ -37,45 +39,9 @@ export async function generateProgressReportForActor(
     doc.originalName,
   );
 
-  // Pull the real photos out of the source PDF so the generated report
-  // carries the same evidence photos the document shows per checkpoint â€”
-  // not just the extracted text. Distributed across items using each
-  // item's own photoCount, in document order (see extract-embedded-images.ts
-  // for why this is a best-effort match rather than a guaranteed one).
-  const embeddedPhotos =
-    doc.mimeType === "application/pdf"
-      ? await extractEmbeddedPhotos(buffer)
-      : [];
-  let photoCursor = 0;
-  const itemPhotos: {
-    photoBeforeKey?: string;
-    photoBeforeSize?: number;
-    photoAfterKey?: string;
-    photoAfterSize?: number;
-  }[] = [];
-  for (const it of extracted.items) {
-    const slots: (typeof itemPhotos)[number] = {};
-    const take = Math.min(
-      it.photoCount,
-      2,
-      embeddedPhotos.length - photoCursor,
-    );
-    for (let slot = 0; slot < take; slot++) {
-      const photoBuf = embeddedPhotos[photoCursor++];
-      const saved = await driver.save(photoBuf, {
-        originalName: `${doc.originalName}-photo-${photoCursor}.jpg`,
-        mimeType: "image/jpeg",
-      });
-      if (slot === 0) {
-        slots.photoBeforeKey = saved.storageKey;
-        slots.photoBeforeSize = saved.fileSize;
-      } else {
-        slots.photoAfterKey = saved.storageKey;
-        slots.photoAfterSize = saved.fileSize;
-      }
-    }
-    itemPhotos.push(slots);
-  }
+  // Never guess which image belongs to which component. The renderer appends
+  // the original PDF pages as source evidence, preserving their photo/table pairing.
+  const itemPhotos: { photoBeforeKey?: string; photoAfterKey?: string }[] = [];
 
   const nameMatch = doc.originalName.match(FILE_NAME_DATE);
   const fallbackDate = nameMatch
@@ -85,9 +51,8 @@ export async function generateProgressReportForActor(
         Number(nameMatch[3]),
       )
     : doc.uploadedAt;
-  const inspectionDate = extracted.inspectionDate
-    ? new Date(extracted.inspectionDate)
-    : fallbackDate;
+  const extractedDate = parseReportDate(extracted.inspectionDate);
+  const inspectionDate = extractedDate ?? fallbackDate;
 
   const existing = await prisma.progressReport.findUnique({
     where: { sourceDocumentId: documentId },
@@ -96,41 +61,27 @@ export async function generateProgressReportForActor(
   const report = await prisma.$transaction(async (tx) => {
     let r;
     if (existing) {
-      const oldItems = await tx.progressReportItem.findMany({
-        where: { progressReportId: existing.id },
-      });
-      for (const oldItem of oldItems) {
-        if (oldItem.photoBeforeKey)
-          await driver.delete(oldItem.photoBeforeKey).catch(() => {});
-        if (oldItem.photoAfterKey)
-          await driver.delete(oldItem.photoAfterKey).catch(() => {});
-      }
-      await tx.progressReportItem.deleteMany({
-        where: { progressReportId: existing.id },
-      });
-      r = await tx.progressReport.update({
+      await lockReport(tx, existing.id);
+      await tx.progressReport.update({
         where: { id: existing.id },
-        data: {
-          inspectionDate,
-          location: extracted.location,
-          summary: extracted.summary,
-          overallPercent: extracted.overallPercent,
-          aiGenerated: true,
-        },
+        data: { sourceDocumentId: null, originalSourceDocumentId: documentId },
       });
-    } else {
+    }
+    {
       const number = await generateNumber(tx, "PROGRESS_REPORT");
       r = await tx.progressReport.create({
         data: {
           number,
           projectId,
           inspectionDate,
+          dateVerified: Boolean(extractedDate),
           location: extracted.location,
           summary: extracted.summary,
           overallPercent: extracted.overallPercent,
           preparedById: actor.userId,
           createdById: actor.userId,
           sourceDocumentId: documentId,
+          originalSourceDocumentId: documentId,
           aiGenerated: true,
         },
       });
@@ -154,11 +105,30 @@ export async function generateProgressReportForActor(
       action: existing ? "UPDATE" : "CREATE",
       entityType: "PROGRESS_REPORT",
       entityId: r.id,
-      description: `${existing ? "Membuat ulang" : "Membuat"} checklist AI dari "${doc.originalName}" (${extracted.items.length} item, confidence: ${extracted.confidence})`,
+      description: `${existing ? "Membuat draf baru; versi lama dipertahankan" : "Membuat draf"} dari "${doc.originalName}" (${extracted.items.length} item, confidence: ${extracted.confidence})`,
     });
     return r;
   });
 
   revalidatePath(`/projects/${projectId}`);
   return { progressReportId: report.id };
+}
+
+export async function generateProgressReportForActor(documentId: string, projectId: string, actor: SessionPayload, force = false): Promise<{ progressReportId: string }> {
+  requirePermission(actor.role, "project", "create");
+  const doc = await prisma.document.findUniqueOrThrow({ where: { id: documentId, deletedAt: null }, include: { folder: true, progressReport: true } });
+  if (doc.folder?.projectId !== projectId) throw new Error("Dokumen tidak berada di proyek ini.");
+  if (doc.progressReport && !doc.progressReport.deletedAt && !force) return { progressReportId: doc.progressReport.id };
+  const started = new Date();
+  const claim = await prisma.document.updateMany({ where: { id: documentId, OR: [{ processingState: { not: "PROCESSING" } }, { processingStartedAt: { lt: new Date(Date.now() - 10 * 60000) } }] },
+    data: { processingState: "PROCESSING", processingStartedAt: started, processingError: null } });
+  if (!claim.count) throw new Error("Dokumen sedang diproses. Muat ulang sebentar lagi; jangan unggah ulang.");
+  try {
+    const result = await generateWorkingCopy(documentId, projectId, actor);
+    await prisma.document.updateMany({ where: { id: documentId, processingStartedAt: started }, data: { processingState: "READY", processingError: null } });
+    return result;
+  } catch (error) {
+    await prisma.document.updateMany({ where: { id: documentId, processingStartedAt: started }, data: { processingState: "FAILED", processingError: "Draf belum berhasil dibuat. File asli tetap tersimpan; gunakan Coba lagi." } });
+    throw error;
+  }
 }

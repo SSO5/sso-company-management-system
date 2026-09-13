@@ -2,7 +2,7 @@
 import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/current-user";
 import { computeBillingSchedule } from "@/lib/workflows/calculations";
-import { latestReportsPerProject } from "@/lib/workspace";
+import { isUntouchedTemplateTask } from "@/lib/weekly-policy";
 
 /**
  * Cross-divisional "to-do list per jobdes" (spec, Aug 2026): instead of a
@@ -352,24 +352,10 @@ export async function getMyActionItems(): Promise<ActionItem[]> {
       id: `mile-overdue-${m.id}`,
       module: "project",
       severity: "overdue",
-      title: `Milestone "${m.name}" terlambat`,
+      title: `Target tahapan "${m.name}" terlewat`,
       subtitle: m.project.name,
-      href: `/projects/${m.project.id}?tab=milestones`,
+      href: `/projects/${m.project.id}?tab=documents`,
       dueDate: m.dueDate,
-    });
-  }
-  for (const r of latestReportsPerProject(openProgressReports)) {
-    const open = r.items.filter((i) => !i.isDone).length;
-    const historicalOpen = openProgressReports.filter(old => old.project.id === r.project.id && old.id !== r.id && old.items.some(i => !i.isDone)).length;
-    if (open === 0 && historicalOpen === 0) continue;
-    items.push({
-      id: `progrep-open-${r.id}`,
-      module: "project",
-      severity: "attention",
-      title: open > 0 ? `${open} checkpoint pada laporan terbaru perlu ditinjau — ${r.number}` : `Tinjau ${historicalOpen} laporan historis yang masih terbuka`,
-      subtitle: `${r.project.name}${historicalOpen ? ` · ${historicalOpen} laporan lama masih terbuka; tidak otomatis dianggap selesai` : ""}`,
-      href: `/projects/${r.project.id}?tab=progress`,
-      dueDate: null,
     });
   }
   for (const p of unassignedProjects) {
@@ -394,6 +380,20 @@ export async function getMyActionItems(): Promise<ActionItem[]> {
       href: "/finance/receivables",
       dueDate: r.nextBillingDate,
     });
+  }
+
+  const [reportReviews, followups, weeklyCycles] = await Promise.all([
+    prisma.progressReportReview.findMany({ where: { status: "PENDING", approverId: actor.userId, report: { deletedAt: null, project: { deletedAt: null } } }, include: { report: { select: { projectId: true, number: true, project: { select: { name: true } } } } } }),
+    prisma.projectTask.findMany({ where: { deletedAt: null, status: { not: "COMPLETED" }, project: { deletedAt: null, status: { notIn: ["CLOSED", "CANCELLED"] } }, ...(actor.role === "ADMIN" ? {} : { assignedToId: actor.userId }) }, include: { project: { select: { name: true } } }, orderBy: { dueDate: "asc" } }),
+    prisma.projectWeeklySettings.findMany({ where: { project: { deletedAt: null, status: { notIn: ["CLOSED", "CANCELLED"] } }, ...(actor.role === "ADMIN" ? {} : { ownerId: actor.userId }) }, include: { project: { select: { name: true, progressReports: { where: { deletedAt: null }, select: { createdAt: true, reviews: { select: { dispatch: { select: { sentAt: true } } } } }, orderBy: { createdAt: "desc" }, take: 1 } } } } }),
+  ]);
+  for (const review of reportReviews) items.push({ id: `weekly-review-${review.id}`, module: "project", severity: "pending_approval", title: `Periksa laporan ${review.report.number} · versi ${review.version}`, subtitle: review.report.project.name, href: `/projects/${review.report.projectId}?tab=progress&review=${review.id}`, dueDate: null });
+  for (const task of followups.filter(t => !isUntouchedTemplateTask(t))) items.push({ id: `followup-${task.id}`, module: "project", severity: task.dueDate && task.dueDate < now ? "overdue" : task.status === "BLOCKED" ? "attention" : "due_soon", title: task.title, subtitle: `${task.project.name}${task.status === "BLOCKED" ? " · Ada hambatan" : ""}`, href: `/projects/${task.projectId}?tab=tasks`, dueDate: task.dueDate });
+  for (const cycle of weeklyCycles) {
+    const last = cycle.project.progressReports[0];
+    const target = cycle.customerDueAt;
+    const sent = last?.reviews.some(r => r.dispatch && target && r.dispatch.sentAt >= new Date(target.getTime() - 6 * 86400000));
+    if (target && target < now && !sent) items.push({ id: `weekly-send-${cycle.projectId}`, module: "project", severity: "overdue", title: "Target kirim laporan terlewat; catatan kirim belum tersedia", subtitle: cycle.project.name, href: `/projects/${cycle.projectId}?tab=progress`, dueDate: target });
   }
 
   const severityOrder: Record<ActionItemSeverity, number> = {

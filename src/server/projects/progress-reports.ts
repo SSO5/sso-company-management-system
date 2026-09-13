@@ -66,7 +66,7 @@ export async function getProgressReportDocuments(projectId: string) {
       uploadedBy: { select: { name: true } },
       // Already-generated checklist for this exact file, if any â€” lets the
       // UI show it immediately instead of a per-file loading round trip.
-      progressReport: { include: { items: { orderBy: { sortOrder: "asc" } } } },
+      progressReport: { select: { id: true, summary: true, overallPercent: true, aiGenerated: true, dateVerified: true, inspectionDate: true, items: { orderBy: { sortOrder: "asc" }, select: { id: true, sectionName: true, partName: true, quantity: true, notes: true, isDone: true } } } },
     },
   });
 
@@ -74,11 +74,12 @@ export async function getProgressReportDocuments(projectId: string) {
   const documents = docs
     .map((d) => {
       const m = d.originalName.match(DATE_PREFIX);
-      const reportDate = m
+      const reportDate = d.progressReport?.dateVerified ? d.progressReport.inspectionDate : m
         ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
         : d.uploadedAt;
       const displayName = m ? m[4] : d.originalName;
-      return { ...d, reportDate, displayName, dateFromFileName: Boolean(m) };
+      const { storagePath: _privateStorage, ...safeDocument } = d;
+      return { ...safeDocument, reportDate, displayName, dateFromFileName: !d.progressReport?.dateVerified && Boolean(m) };
     })
     .sort((a, b) => a.reportDate.getTime() - b.reportDate.getTime());
 
@@ -175,7 +176,7 @@ export async function updateProgressReportItemAction(
 ): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
     const actor = await requireUserOrThrow();
-    requirePermission(actor.role, "project", "update");
+    requirePermission(actor.role, "project", "create");
 
     const partNameRaw = formData.get("partName");
     const notesRaw = formData.get("notes");
@@ -248,10 +249,11 @@ const FILE_NAME_DATE = /^(\d{4})-(\d{2})-(\d{2})\s*-\s*/;
 export async function generateProgressReportFromDocument(
   documentId: string,
   projectId: string,
+  force = false,
 ): Promise<ActionResult<{ progressReportId: string }>> {
   return runAction(async () => {
     const actor = await requireUserOrThrow();
-    return generateProgressReportForActor(documentId, projectId, actor);
+    return generateProgressReportForActor(documentId, projectId, actor, force);
   });
 }
 

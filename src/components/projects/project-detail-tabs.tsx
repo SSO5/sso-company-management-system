@@ -3,9 +3,12 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Tabs } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TaskPanel } from "@/components/projects/task-panel";
+import { TaskPanel } from "@/components/projects/followup-panel";
 import { MilestonePanel } from "@/components/projects/milestone-panel";
-import { ExpensePanel } from "@/components/projects/expense-panel";
+import {
+  WeeklyWorkspace,
+  type WeeklyData,
+} from "@/components/projects/weekly-workspace";
 import { ClosingPanel } from "@/components/projects/closing-panel";
 import { DocumentsPanel } from "@/components/projects/documents-panel";
 import { SCurvePanel } from "@/components/projects/s-curve-panel";
@@ -18,6 +21,7 @@ import type {
 } from "@/lib/workflows/calculations";
 
 interface Props {
+  weekly: WeeklyData;
   projectId: string;
   customerId: string;
   purchaseOrderFolderId: string | null;
@@ -43,6 +47,9 @@ interface Props {
     dueDate: Date | null;
     progressPercent: number;
     assignedTo: { name: string } | null;
+    assignedToId?: string | null;
+    description?: string | null;
+    notes?: string | null;
   }[];
   milestones: {
     id: string;
@@ -153,24 +160,19 @@ interface Props {
 }
 
 const TABS = [
-  { value: "overview", label: "Ringkasan" },
-  { value: "documents", label: "Dokumen & Transaksi" },
-  { value: "tasks", label: "Tugas" },
-  { value: "milestones", label: "Tahapan" },
-  { value: "scurve", label: "Kurva Progres" },
-  { value: "progress", label: "Laporan Lapangan" },
-  { value: "costs", label: "Biaya" },
-  { value: "closing", label: "Penutupan" },
+  { value: "progress", label: "Progres Mingguan" },
+  { value: "tasks", label: "Tindak Lanjut" },
+  { value: "documents", label: "Dokumen & Riwayat" },
 ];
 
 export function ProjectDetailTabs(props: Props) {
   const params = useSearchParams();
-  const requested = params.get("tab") ?? "overview";
+  const requested = params.get("tab") ?? "progress";
   const [active, setActive] = useState(
-    TABS.some((t) => t.value === requested) ? requested : "overview",
+    TABS.some((t) => t.value === requested) ? requested : "progress",
   );
   useEffect(() => {
-    setActive(TABS.some((t) => t.value === requested) ? requested : "overview");
+    setActive(TABS.some((t) => t.value === requested) ? requested : "progress");
   }, [requested]);
   function changeTab(value: string) {
     setActive(value);
@@ -178,108 +180,77 @@ export function ProjectDetailTabs(props: Props) {
     url.searchParams.set("tab", value);
     window.history.pushState(null, "", url);
   }
-  const p = props.profitability;
 
-  const financeCards = [
-    { label: "Nilai Kontrak", value: formatCurrency(p.contractValue) },
-    { label: "Invoice Diterbitkan", value: formatCurrency(p.totalInvoiced) },
-    { label: "Kas Diterima", value: formatCurrency(p.totalPaid) },
-    { label: "Sisa Piutang", value: formatCurrency(p.outstanding) },
-    { label: "Anggaran", value: formatCurrency(p.budget) },
-    { label: "Biaya Tercatat", value: formatCurrency(p.actualCost) },
-    { label: "Kontrak − Biaya Tercatat", value: formatCurrency(p.grossProfit) },
-    { label: "Rasio Selisih Sementara", value: `${p.grossMargin}%` },
-  ];
-
+  const weeklyView = (historyOnly = false) => (
+    <WeeklyWorkspace
+      projectId={props.projectId}
+      folderId={props.progressReportFolderId}
+      data={props.weekly}
+      documents={props.progressReportDocuments}
+      role={props.role}
+      assignees={props.assignees}
+      historyOnly={historyOnly}
+    />
+  );
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <Tabs tabs={TABS} active={active} onChange={changeTab} />
-
-      <p className="text-xs text-muted-foreground">
-        Progres berasal dari milestone selesai. Checklist laporan merupakan
-        bukti lapangan yang perlu ditinjau sebelum memperbarui milestone.
-        Selisih kontrak dan biaya tercatat belum memperhitungkan biaya sisa
-        proyek.
-      </p>
-      {active === "overview" && (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          {financeCards.map((c) => (
-            <Card key={c.label}>
-              <CardHeader className="pb-1">
-                <CardTitle className="text-[11px] font-medium text-muted-foreground">
-                  {c.label}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-base font-semibold">{c.value}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {active === "documents" && (
-        <DocumentsPanel
-          projectId={props.projectId}
-          customerId={props.customerId}
-          purchaseOrderFolderId={props.purchaseOrderFolderId}
-          opportunity={props.opportunity}
-          quotation={props.quotation}
-          purchaseOrders={props.purchaseOrders}
-          vendorPurchaseOrders={props.vendorPurchaseOrders}
-          invoices={props.invoices}
-          salesOrigin={props.salesOrigin}
-          billingTimeline={props.billingTimeline}
-        />
-      )}
+      {active === "progress" && weeklyView()}
       {active === "tasks" && (
         <TaskPanel
           role={props.role}
           projectId={props.projectId}
           tasks={props.tasks}
           assignees={props.assignees}
+          actorId={props.weekly.actorId}
         />
       )}
-      {active === "milestones" && (
-        <MilestonePanel
-          role={props.role}
-          projectId={props.projectId}
-          milestones={props.milestones}
-        />
-      )}
-      {active === "scurve" && (
-        <SCurvePanel
-          points={props.sCurve.points}
-          totalWeight={props.sCurve.totalWeight}
-          asOfToday={props.sCurve.asOfToday}
-        />
-      )}
-      {active === "progress" && (
-        <ProgressReportDocumentsPanel
-          projectId={props.projectId}
-          folderId={props.progressReportFolderId}
-          documents={props.progressReportDocuments}
-          canEdit={["ADMIN", "PROJECT_MANAGER", "IT"].includes(props.role)}
-          canGenerate={["ADMIN", "PROJECT_MANAGER", "SALES"].includes(
-            props.role,
-          )}
-        />
-      )}
-      {active === "costs" && (
-        <ExpensePanel
-          projectId={props.projectId}
-          expenses={props.expenses}
-          role={props.role}
-        />
-      )}
-      {active === "closing" && (
-        <ClosingPanel
-          projectId={props.projectId}
-          checklist={props.closing.checklist}
-          canClose={props.closing.canClose}
-          status={props.status}
-          canManage={props.canManage}
-        />
+      {active === "documents" && (
+        <div className="space-y-5">
+          {weeklyView(true)}
+          <details className="rounded-xl border p-4">
+            <summary className="cursor-pointer text-sm font-semibold">
+              Dokumen kontrak dan transaksi terkait
+            </summary>
+            <div className="mt-4">
+              <DocumentsPanel
+                projectId={props.projectId}
+                customerId={props.customerId}
+                purchaseOrderFolderId={props.purchaseOrderFolderId}
+                opportunity={props.opportunity}
+                quotation={props.quotation}
+                purchaseOrders={props.purchaseOrders}
+                vendorPurchaseOrders={props.vendorPurchaseOrders}
+                invoices={props.invoices}
+                salesOrigin={props.salesOrigin}
+                billingTimeline={props.billingTimeline}
+              />
+            </div>
+          </details>
+          <details className="rounded-xl border p-4">
+            <summary className="cursor-pointer text-sm font-semibold">
+              Tahapan yang sudah tercatat & penutupan proyek
+            </summary>
+            <div className="mt-4 space-y-6">
+              <p className="text-xs text-muted-foreground">
+                Tahapan lama tetap tersedia. Tahapan pembayaran tidak mewakili
+                kemajuan fisik pekerjaan.
+              </p>
+              <MilestonePanel
+                role={props.role}
+                projectId={props.projectId}
+                milestones={props.milestones}
+              />
+              <ClosingPanel
+                projectId={props.projectId}
+                checklist={props.closing.checklist}
+                canClose={props.closing.canClose}
+                status={props.status}
+                canManage={props.canManage}
+              />
+            </div>
+          </details>
+        </div>
       )}
     </div>
   );

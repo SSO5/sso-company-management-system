@@ -131,6 +131,8 @@ export async function permanentlyDeleteDocument(
       "Only documents already in Trash can be permanently deleted.",
     );
   }
+  const retainedEvidence = await prisma.progressReport.findFirst({ where: { OR: [{ sourceDocumentId: documentId }, { originalSourceDocumentId: documentId }] }, select: { id: true } });
+  if (retainedEvidence) throw new Error("Dokumen merupakan bukti laporan proyek. File sumber tidak boleh dihapus permanen.");
   const driver = getStorageDriver();
   await driver.delete(doc.storagePath);
   await prisma.$transaction(async (tx) => {

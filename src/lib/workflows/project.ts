@@ -1,4 +1,5 @@
 import { summarizeIssuedInvoices } from "@/lib/invoice-summary";
+import { isUntouchedTemplateTask } from "@/lib/weekly-policy";
 import type { Prisma, Quotation, Customer, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { generateNumber } from "@/lib/numbering";
@@ -28,16 +29,12 @@ export interface PendingNotification {
   link?: string;
 }
 
-const DEFAULT_TASK_TEMPLATE = [
-  { title: "Kickoff meeting with customer", priority: "HIGH" as const },
-  { title: "Prepare project plan & timeline", priority: "HIGH" as const },
-  { title: "Assign project team", priority: "MEDIUM" as const },
-  { title: "Set up project documentation folder", priority: "LOW" as const },
-];
+// Follow-ups are created from actual project findings, never a generic template.
+
 
 /**
  * Deal-Won automation (spec sections 11 & 38). Runs entirely inside the
- * caller's transaction: Project -> folders -> default tasks -> activity log
+ * caller's transaction: Project -> folders -> activity log
  * (no default milestones — see the comment further down). If ANY step throws, Prisma rolls back the whole transaction
  * and the quotation status change that triggered this is undone too — there
  * is no partially-created project left behind.
@@ -93,15 +90,7 @@ export async function convertQuotationToProject(
     );
   }
 
-  await tx.projectTask.createMany({
-    data: DEFAULT_TASK_TEMPLATE.map((t) => ({
-      projectId: project.id,
-      title: t.title,
-      priority: t.priority,
-      status: "TODO",
-      createdById: actor.userId,
-    })),
-  });
+
 
   // No default milestone template is auto-created here anymore (removed Aug
   // 2026 — founder feedback: a generic "Planning/Development/Delivery/
@@ -228,7 +217,7 @@ export async function validateProjectClosing(projectId: string) {
   });
 
   const [openTasks, bast, finalReport, invoices, expenses] = await Promise.all([
-    prisma.projectTask.count({
+    prisma.projectTask.findMany({
       where: { projectId, deletedAt: null, status: { not: "COMPLETED" } },
     }),
     prisma.document.findFirst({
@@ -254,7 +243,7 @@ export async function validateProjectClosing(projectId: string) {
   const totalSettled = totalInvoiced - billing.outstanding;
 
   const results: Record<string, boolean> = {
-    tasksCompleted: openTasks === 0,
+    tasksCompleted: openTasks.filter(t => !isUntouchedTemplateTask(t)).length === 0,
     deliverablesUploaded: Boolean(bast) || Boolean(finalReport), // at minimum one deliverable on file
     bastUploaded: Boolean(bast),
     finalReportUploaded: Boolean(finalReport),

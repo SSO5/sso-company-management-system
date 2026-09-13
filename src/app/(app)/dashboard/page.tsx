@@ -1,3 +1,4 @@
+import { WeeklyOverview } from "@/components/dashboard/weekly-overview";
 import Link from "next/link";
 import { getDashboardData } from "@/server/dashboard";
 import { getMyActionItems } from "@/server/action-items";
@@ -38,8 +39,8 @@ export default async function DashboardPage() {
     },
     {
       label: "Proyek perlu perhatian",
-      value: kpis.atRiskProjects,
-      detail: "Risiko jadwal, biaya, atau status",
+      value: new Set(items.filter(i => i.module === "project").map(i => i.href.split("?")[0])).size,
+      detail: "Ada tindak lanjut atau keputusan",
       href: "/projects",
     },
   ];
@@ -53,7 +54,7 @@ export default async function DashboardPage() {
     {
       href: "/projects",
       title: "Ruang proyek",
-      desc: "Tahapan, biaya, laporan, dan dokumen",
+      desc: "Perubahan progres, tindak lanjut, dan laporan",
       Icon: FolderKanban,
     },
     {
@@ -127,74 +128,7 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       </div>
-      <Card>
-        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
-          <CardTitle>Kondisi proyek</CardTitle>
-          <Link href="/projects" className="text-sm text-primary">
-            Buka semua proyek →
-          </Link>
-        </CardHeader>
-        <CardContent>
-          <p className="mb-4 text-xs text-muted-foreground">
-            Realisasi mengikuti bobot milestone selesai, bukan persentase
-            checklist laporan. Selisih dalam poin persentase.
-          </p>
-          <div className="grid gap-3 lg:grid-cols-2">
-            {projectProgress.length === 0 ? (
-              <p className="workspace-muted">Belum ada proyek aktif.</p>
-            ) : (
-              projectProgress.map((p) => (
-                <Link
-                  key={p.projectId}
-                  href={`/projects/${p.projectId}?tab=milestones`}
-                  className="rounded-2xl border p-4 hover:bg-slate-50"
-                >
-                  <div className="flex flex-wrap justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="break-words text-sm font-semibold">
-                        {p.customerName}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {p.projectNumber}
-                      </p>
-                    </div>
-                    <span
-                      className={`workspace-pill ${p.atRisk ? "!bg-amber-50 !text-amber-800" : "!bg-emerald-50 !text-emerald-800"}`}
-                    >
-                      {p.atRisk ? "Perlu perhatian" : !p.hasPlan ? "Rencana belum tersedia" : "Sesuai rencana"}
-                    </span>
-                  </div>
-                  <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
-                    <div
-                      className="h-full rounded-full bg-primary"
-                      style={{
-                        width: `${Math.max(0, Math.min(100, p.actual))}%`,
-                      }}
-                    />
-                  </div>
-                  <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-                    <div className="text-muted-foreground">
-                      Rencana{" "}
-                      <b className="mt-1 block text-foreground">{p.planned}%</b>
-                    </div>
-                    <div className="text-muted-foreground">
-                      Realisasi{" "}
-                      <b className="mt-1 block text-foreground">{p.actual}%</b>
-                    </div>
-                    <div className="text-muted-foreground">
-                      Selisih{" "}
-                      <b className="mt-1 block text-foreground">
-                        {p.scheduleGap > 0 ? "+" : ""}
-                        {p.scheduleGap} poin
-                      </b>
-                    </div>
-                  </div>
-                </Link>
-              ))
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      <WeeklyOverview />
       <div className="grid gap-5 lg:grid-cols-2">
         {sales && (
           <Card>

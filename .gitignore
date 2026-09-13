@@ -16,3 +16,12 @@ artifacts/
 scripts/*workspace.py
 scripts/align-rules.py
 scripts/secure-panels.py
+.vercel/
+.vercel-sso-auth/
+.env.*.local
+tmp/
+prototypes/assets/
+prototypes/check-syntax.cjs
+
+.vercel
+.env*

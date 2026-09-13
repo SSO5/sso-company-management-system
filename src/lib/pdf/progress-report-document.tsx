@@ -117,6 +117,7 @@ export interface ProgressReportPdfItem {
 
 export interface ProgressReportPdfProps {
   report: {
+    draft?: boolean;
     number: string;
     inspectionDate: Date;
     location: string | null;
@@ -201,7 +202,7 @@ export function ProgressReportPdfDocument({ report, company, logo, signature }: 
   }
 
   const done = report.items.filter((i) => i.isDone).length;
-  const pct = report.overallPercent ?? (report.items.length ? Math.round((done / report.items.length) * 100) : 0);
+  const pct = report.overallPercent;
 
   // Adaptive columns: a column that carries no data anywhere in the report is
   // omitted entirely and its width redistributed — a photo-less checklist
@@ -221,7 +222,8 @@ export function ProgressReportPdfDocument({ report, company, logo, signature }: 
   return (
     <Document title={`Progress Report ${report.number}`} author={company.companyName}>
       <Page size="A4" style={s.page}>
-        <Header company={company} logo={logo} />
+          <Header company={company} logo={logo} />
+          {report.draft && <Text fixed style={{ position: "absolute", top: 59, left: 26, right: 26, fontSize: 7, color: "#9A3412" }}>DRAF KERJA — Belum untuk dikirim. Gunakan salinan versi yang disetujui direktur.</Text>}
 
         <Text style={s.title}>LAPORAN INSPEKSI TEKNIS (INSPECTION REPORT)</Text>
 
@@ -240,20 +242,20 @@ export function ProgressReportPdfDocument({ report, company, logo, signature }: 
         </View>
 
         {/* Management block. Rendered even with no written summary, because the
-            completion figure alone already answers most of the question. */}
+            source statement provides the context; no completion percentage is inferred. */}
         <View style={s.summaryBox}>
           <View style={s.summaryHead}>
             <Text style={s.summaryTitle}>RINGKASAN UNTUK MANAJEMEN</Text>
-            <View style={s.pctWrap}>
-              <Text style={s.pctLabel}>{pct}% selesai</Text>
+            {pct !== null && <View style={s.pctWrap}>
+              <Text style={s.pctLabel}>{pct}% menurut sumber</Text>
               <View style={s.barTrack}>
                 <View style={[s.barFill, { width: `${Math.max(0, Math.min(100, pct))}%` }]} />
               </View>
-            </View>
+            </View>}
           </View>
           <Text style={s.summaryText}>
             {report.summary?.trim() ||
-              `${done} dari ${report.items.length} titik pemeriksaan telah selesai. Rincian per bagian beserta dokumentasi foto tercantum di bawah.`}
+              "Rincian mengikuti keterangan sumber. Persentase keseluruhan tidak disimpulkan dari jumlah item pemeriksaan."}
           </Text>
         </View>
 
@@ -282,7 +284,7 @@ export function ProgressReportPdfDocument({ report, company, logo, signature }: 
                 <View style={[s.td, { width: cw.notes, borderRightWidth: 0 }]}>
                   <Text>{item.notes || "-"}</Text>
                   <Text style={item.isDone ? s.doneTag : s.openTag}>
-                    {item.isDone ? "SELESAI" : "DALAM PROSES"}
+                    {item.isDone ? "TERCATAT SELESAI" : "LIHAT KETERANGAN SUMBER"}
                   </Text>
                 </View>
               </View>
