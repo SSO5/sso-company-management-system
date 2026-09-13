@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Tabs } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TaskPanel } from "@/components/projects/task-panel";
@@ -11,7 +12,10 @@ import { SCurvePanel } from "@/components/projects/s-curve-panel";
 import { ProgressReportDocumentsPanel } from "@/components/projects/progress-report-documents-panel";
 import { formatCurrency } from "@/lib/utils";
 import type { TaskStatus, UserRole } from "@prisma/client";
-import type { SCurvePoint, BillingTimelineStep } from "@/lib/workflows/calculations";
+import type {
+  SCurvePoint,
+  BillingTimelineStep,
+} from "@/lib/workflows/calculations";
 
 interface Props {
   projectId: string;
@@ -21,84 +25,194 @@ interface Props {
   canManage: boolean;
   role: UserRole;
   profitability: {
-    contractValue: number; budget: number; actualCost: number; budgetRemaining: number;
-    totalInvoiced: number; totalPaid: number; outstanding: number; grossProfit: number; grossMargin: number;
+    contractValue: number;
+    budget: number;
+    actualCost: number;
+    budgetRemaining: number;
+    totalInvoiced: number;
+    totalPaid: number;
+    outstanding: number;
+    grossProfit: number;
+    grossMargin: number;
   };
-  tasks: { id: string; title: string; status: TaskStatus; priority: string; dueDate: Date | null; progressPercent: number; assignedTo: { name: string } | null }[];
+  tasks: {
+    id: string;
+    title: string;
+    status: TaskStatus;
+    priority: string;
+    dueDate: Date | null;
+    progressPercent: number;
+    assignedTo: { name: string } | null;
+  }[];
   milestones: {
-    id: string; name: string; status: string; dueDate: Date | null;
-    progressPercent: number; weightPercent: unknown; description: string | null;
-    sourcePurchaseOrderId: string | null; dateBasis: string | null;
+    id: string;
+    name: string;
+    status: string;
+    dueDate: Date | null;
+    progressPercent: number;
+    weightPercent: unknown;
+    description: string | null;
+    sourcePurchaseOrderId: string | null;
+    dateBasis: string | null;
     sourcePurchaseOrder: { number: string } | null;
   }[];
-  sCurve: { points: SCurvePoint[]; totalWeight: number; asOfToday: { planned: number; actual: number; billed: number } };
+  sCurve: {
+    points: SCurvePoint[];
+    totalWeight: number;
+    asOfToday: { planned: number; actual: number; billed: number };
+  };
   expenses: {
-    id: string; number: string; category: string; description: string; date: Date; total: unknown;
-    paymentStatus: string; approvalStatus: string; submittedById: string | null; rejectionReason: string | null;
-    createdBy: { name: string }; vendorPurchaseOrderId: string | null;
+    id: string;
+    number: string;
+    category: string;
+    description: string;
+    date: Date;
+    total: unknown;
+    paymentStatus: string;
+    approvalStatus: string;
+    submittedById: string | null;
+    rejectionReason: string | null;
+    createdBy: { name: string };
+    vendorPurchaseOrderId: string | null;
   }[];
   assignees: { id: string; name: string }[];
-  closing: { checklist: { key: string; label: string; passed: boolean }[]; canClose: boolean };
+  closing: {
+    checklist: { key: string; label: string; passed: boolean }[];
+    canClose: boolean;
+  };
   opportunity: { id: string; number: string } | null;
-  quotation: { id: string; number: string; revision: number; grandTotal: unknown } | null;
+  quotation: {
+    id: string;
+    number: string;
+    revision: number;
+    grandTotal: unknown;
+  } | null;
   purchaseOrders: {
-    id: string; number: string; poDate: Date; poValue: unknown; status: string;
-    paymentTerms: string | null; deliveryTerms: string | null; estimatedDeliveryDate: Date | null;
+    id: string;
+    number: string;
+    poDate: Date;
+    poValue: unknown;
+    status: string;
+    paymentTerms: string | null;
+    deliveryTerms: string | null;
+    estimatedDeliveryDate: Date | null;
   }[];
-  vendorPurchaseOrders: { id: string; number: string; vendorName: string; poDate: Date; grandTotal: unknown; status: string }[];
+  vendorPurchaseOrders: {
+    id: string;
+    number: string;
+    vendorName: string;
+    poDate: Date;
+    grandTotal: unknown;
+    status: string;
+  }[];
   invoices: {
-    id: string; number: string; invoiceDate: Date; dueDate: Date; grandTotal: unknown; dpPercent: unknown;
-    paidAmount: unknown; status: string; payments: { paymentDate: Date; amount: unknown }[];
+    id: string;
+    number: string;
+    invoiceDate: Date;
+    dueDate: Date;
+    grandTotal: unknown;
+    dpPercent: unknown;
+    paidAmount: unknown;
+    status: string;
+    payments: { paymentDate: Date; amount: unknown }[];
   }[];
-  salesOrigin: { items: { key: string; label: string; complete: boolean; folderId: string | null }[]; complete: boolean };
+  salesOrigin: {
+    items: {
+      key: string;
+      label: string;
+      complete: boolean;
+      folderId: string | null;
+    }[];
+    complete: boolean;
+  };
   billingTimeline: BillingTimelineStep[];
   progressReportFolderId: string | null;
   progressReportDocuments: {
-    id: string; originalName: string; displayName: string; fileSize: number;
-    reportDate: Date; dateFromFileName: boolean; uploadedBy: { name: string };
+    id: string;
+    originalName: string;
+    displayName: string;
+    fileSize: number;
+    reportDate: Date;
+    dateFromFileName: boolean;
+    uploadedBy: { name: string };
     progressReport: {
-      id: string; summary: string | null; overallPercent: number | null; aiGenerated: boolean;
-      items: { id: string; sectionName: string | null; partName: string; quantity: string | null; notes: string | null; isDone: boolean }[];
+      id: string;
+      summary: string | null;
+      overallPercent: number | null;
+      aiGenerated: boolean;
+      items: {
+        id: string;
+        sectionName: string | null;
+        partName: string;
+        quantity: string | null;
+        notes: string | null;
+        isDone: boolean;
+      }[];
     } | null;
   }[];
 }
 
 const TABS = [
-  { value: "overview", label: "Overview" },
-  { value: "documents", label: "Documents" },
-  { value: "tasks", label: "Tasks" },
-  { value: "milestones", label: "Milestones" },
-  { value: "scurve", label: "S-Curve" },
-  { value: "progress", label: "Progress Report" },
-  { value: "costs", label: "Costs" },
-  { value: "closing", label: "Closing" },
+  { value: "overview", label: "Ringkasan" },
+  { value: "documents", label: "Dokumen & Transaksi" },
+  { value: "tasks", label: "Tugas" },
+  { value: "milestones", label: "Tahapan" },
+  { value: "scurve", label: "Kurva Progres" },
+  { value: "progress", label: "Laporan Lapangan" },
+  { value: "costs", label: "Biaya" },
+  { value: "closing", label: "Penutupan" },
 ];
 
 export function ProjectDetailTabs(props: Props) {
-  const [active, setActive] = useState("overview");
+  const params = useSearchParams();
+  const requested = params.get("tab") ?? "overview";
+  const [active, setActive] = useState(
+    TABS.some((t) => t.value === requested) ? requested : "overview",
+  );
+  useEffect(() => {
+    setActive(TABS.some((t) => t.value === requested) ? requested : "overview");
+  }, [requested]);
+  function changeTab(value: string) {
+    setActive(value);
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", value);
+    window.history.pushState(null, "", url);
+  }
   const p = props.profitability;
 
   const financeCards = [
-    { label: "Project Value", value: formatCurrency(p.contractValue) },
-    { label: "Total Invoiced", value: formatCurrency(p.totalInvoiced) },
-    { label: "Total Paid", value: formatCurrency(p.totalPaid) },
-    { label: "Outstanding", value: formatCurrency(p.outstanding) },
-    { label: "Budget", value: formatCurrency(p.budget) },
-    { label: "Actual Cost", value: formatCurrency(p.actualCost) },
-    { label: "Estimated Profit", value: formatCurrency(p.grossProfit) },
-    { label: "Gross Margin", value: `${p.grossMargin}%` },
+    { label: "Nilai Kontrak", value: formatCurrency(p.contractValue) },
+    { label: "Invoice Diterbitkan", value: formatCurrency(p.totalInvoiced) },
+    { label: "Kas Diterima", value: formatCurrency(p.totalPaid) },
+    { label: "Sisa Piutang", value: formatCurrency(p.outstanding) },
+    { label: "Anggaran", value: formatCurrency(p.budget) },
+    { label: "Biaya Tercatat", value: formatCurrency(p.actualCost) },
+    { label: "Kontrak − Biaya Tercatat", value: formatCurrency(p.grossProfit) },
+    { label: "Rasio Selisih Sementara", value: `${p.grossMargin}%` },
   ];
 
   return (
     <div className="space-y-4">
-      <Tabs tabs={TABS} active={active} onChange={setActive} />
+      <Tabs tabs={TABS} active={active} onChange={changeTab} />
 
+      <p className="text-xs text-muted-foreground">
+        Progres berasal dari milestone selesai. Checklist laporan merupakan
+        bukti lapangan yang perlu ditinjau sebelum memperbarui milestone.
+        Selisih kontrak dan biaya tercatat belum memperhitungkan biaya sisa
+        proyek.
+      </p>
       {active === "overview" && (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {financeCards.map((c) => (
             <Card key={c.label}>
-              <CardHeader className="pb-1"><CardTitle className="text-[11px] font-medium text-muted-foreground">{c.label}</CardTitle></CardHeader>
-              <CardContent><p className="text-base font-semibold">{c.value}</p></CardContent>
+              <CardHeader className="pb-1">
+                <CardTitle className="text-[11px] font-medium text-muted-foreground">
+                  {c.label}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-base font-semibold">{c.value}</p>
+              </CardContent>
             </Card>
           ))}
         </div>
@@ -118,17 +232,46 @@ export function ProjectDetailTabs(props: Props) {
           billingTimeline={props.billingTimeline}
         />
       )}
-      {active === "tasks" && <TaskPanel projectId={props.projectId} tasks={props.tasks} assignees={props.assignees} />}
-      {active === "milestones" && <MilestonePanel projectId={props.projectId} milestones={props.milestones} />}
-      {active === "scurve" && <SCurvePanel points={props.sCurve.points} totalWeight={props.sCurve.totalWeight} asOfToday={props.sCurve.asOfToday} />}
+      {active === "tasks" && (
+        <TaskPanel
+          role={props.role}
+          projectId={props.projectId}
+          tasks={props.tasks}
+          assignees={props.assignees}
+        />
+      )}
+      {active === "milestones" && (
+        <MilestonePanel
+          role={props.role}
+          projectId={props.projectId}
+          milestones={props.milestones}
+        />
+      )}
+      {active === "scurve" && (
+        <SCurvePanel
+          points={props.sCurve.points}
+          totalWeight={props.sCurve.totalWeight}
+          asOfToday={props.sCurve.asOfToday}
+        />
+      )}
       {active === "progress" && (
         <ProgressReportDocumentsPanel
           projectId={props.projectId}
           folderId={props.progressReportFolderId}
           documents={props.progressReportDocuments}
+          canEdit={["ADMIN", "PROJECT_MANAGER", "IT"].includes(props.role)}
+          canGenerate={["ADMIN", "PROJECT_MANAGER", "SALES"].includes(
+            props.role,
+          )}
         />
       )}
-      {active === "costs" && <ExpensePanel projectId={props.projectId} expenses={props.expenses} role={props.role} />}
+      {active === "costs" && (
+        <ExpensePanel
+          projectId={props.projectId}
+          expenses={props.expenses}
+          role={props.role}
+        />
+      )}
       {active === "closing" && (
         <ClosingPanel
           projectId={props.projectId}

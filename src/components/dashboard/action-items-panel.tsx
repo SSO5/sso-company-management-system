@@ -1,75 +1,70 @@
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
-import type { ActionItem, ActionItemModule, ActionItemSeverity } from "@/server/action-items";
-import { CheckCircle2, AlertCircle, Clock, ShieldCheck } from "lucide-react";
-
-const SEVERITY_META: Record<ActionItemSeverity, { label: string; icon: typeof AlertCircle; className: string }> = {
-  overdue: { label: "Terlambat", icon: AlertCircle, className: "border-destructive/30 bg-destructive/10 text-destructive" },
-  pending_approval: { label: "Menunggu persetujuan Anda", icon: ShieldCheck, className: "border-primary/30 bg-primary/10 text-primary" },
-  due_soon: { label: "Segera jatuh tempo", icon: Clock, className: "border-warning/30 bg-warning/10 text-warning" },
-  attention: { label: "Perlu diperiksa", icon: AlertCircle, className: "border-muted-foreground/30 bg-muted text-muted-foreground" },
+import type { ActionItem } from "@/server/action-items";
+import { ArrowUpRight, CheckCircle2 } from "lucide-react";
+const labels = {
+  overdue: "Terlambat",
+  pending_approval: "Persetujuan",
+  due_soon: "Segera",
+  attention: "Periksa",
 };
-
-// Labels follow the nav, not the database. The sidebar says "Pekerjaan" and
-// "Keuangan", so a badge reading "Procurement" sends someone hunting for a
-// menu that no longer exists under that name.
-const MODULE_LABEL: Record<ActionItemModule, string> = {
-  sales: "Penawaran", finance: "Keuangan", project: "Proyek", procurement: "Vendor",
+const modules = {
+  sales: "Penjualan",
+  finance: "Keuangan",
+  project: "Proyek",
+  procurement: "Vendor",
 };
-
-/**
- * "To-do list per jobdes" (spec, Aug 2026): renders getMyActionItems() —
- * every item here is derived live from Quotation/VendorPO/Expense/Invoice/
- * Milestone/ProgressReport state, scoped to what the signed-in user's role
- * can act on. Nothing is stored separately, so it can never go stale the
- * way a manually-maintained to-do list would.
- */
-export function ActionItemsPanel({ items }: { items: ActionItem[] }) {
-  if (items.length === 0) {
-    return (
-      <Card>
-        <CardHeader><CardTitle>Tugas Saya</CardTitle></CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <CheckCircle2 className="h-4 w-4 text-success" /> Semua beres — tidak ada item yang butuh tindakan Anda saat ini.
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
+export function ActionItemsPanel({
+  items,
+  limit = 50,
+  title = "Tindak lanjut",
+}: {
+  items: ActionItem[];
+  limit?: number;
+  title?: string;
+}) {
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Tugas Saya</CardTitle>
-        <Badge variant="outline">{items.length}</Badge>
+      <CardHeader className="flex flex-row items-center justify-between gap-3">
+        <CardTitle>{title}</CardTitle>
+        <span className="workspace-pill">{items.length} tindakan</span>
       </CardHeader>
-      <CardContent className="space-y-2">
-        {items.map((item) => {
-          const meta = SEVERITY_META[item.severity];
-          const Icon = meta.icon;
-          return (
-            <Link
-              key={item.id}
-              href={item.href}
-              className={`flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm hover:opacity-80 ${meta.className}`}
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <Icon className="h-4 w-4 shrink-0" />
-                <div className="min-w-0">
-                  <p className="truncate font-medium">{item.title}</p>
-                  <p className="truncate text-xs opacity-80">{item.subtitle}</p>
-                </div>
+      <CardContent className="space-y-3">
+        {items.length === 0 && (
+          <div className="flex items-start gap-3 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">
+            <CheckCircle2 size={20} className="shrink-0" />
+            Tidak ada tindakan otomatis yang menunggu pada kewenangan Anda.
+            Penugasan tim tersedia di menu tersendiri.
+          </div>
+        )}
+        {items.slice(0, limit).map((i) => (
+          <Link key={i.id} href={i.href} className="workspace-action">
+            <div
+              className={`h-9 w-1 shrink-0 rounded-full ${i.severity === "overdue" ? "bg-red-500" : i.severity === "pending_approval" ? "bg-blue-500" : "bg-amber-400"}`}
+            />
+            <div className="min-w-0 flex-1">
+              <div className="mb-2 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                <span>{modules[i.module]}</span>
+                <span>· {labels[i.severity]}</span>
+                {i.dueDate && <span>· {formatDate(i.dueDate)}</span>}
               </div>
-              <div className="flex shrink-0 items-center gap-2">
-                {item.dueDate && <span className="text-xs opacity-80">{formatDate(item.dueDate)}</span>}
-                <Badge variant="outline" className="text-[10px]">{MODULE_LABEL[item.module]}</Badge>
-              </div>
-            </Link>
-          );
-        })}
+              <p className="break-words text-sm font-semibold">{i.title}</p>
+              <p className="mt-1 break-words text-xs text-muted-foreground">
+                {i.subtitle}
+              </p>
+            </div>
+            <ArrowUpRight size={17} className="shrink-0 text-primary" />
+          </Link>
+        ))}
+        {items.length > limit && (
+          <Link
+            href="/work"
+            className="block rounded-xl bg-slate-50 p-3 text-center text-sm text-primary"
+          >
+            Lihat semua {items.length} tindakan →
+          </Link>
+        )}
       </CardContent>
     </Card>
   );

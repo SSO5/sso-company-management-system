@@ -12,7 +12,15 @@ import {
   generateProgressReportFromDocument,
   updateProgressReportItemAction,
 } from "@/server/projects/progress-reports";
-import { ChevronDown, ChevronRight, Sparkles, CheckCircle2, Circle, Eye, Download } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Sparkles,
+  CheckCircle2,
+  Circle,
+  Eye,
+  Download,
+} from "lucide-react";
 
 interface ProgressItem {
   id: string;
@@ -58,27 +66,56 @@ export function ProgressReportDocumentsPanel({
   projectId,
   folderId,
   documents,
+  canEdit = false,
+  canGenerate = false,
 }: {
   projectId: string;
   folderId: string | null;
   documents: ProgressDoc[];
+  canEdit?: boolean;
+  canGenerate?: boolean;
 }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [generating, setGenerating] = useState<Record<string, boolean>>({});
   const [togglingItem, setTogglingItem] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const sorted = [...documents].sort(
+    (a, b) => +new Date(b.reportDate) - +new Date(a.reportDate),
+  );
+  const latestDay = sorted[0]
+    ? new Date(sorted[0].reportDate).toISOString().slice(0, 10)
+    : null;
+  const current = sorted.filter(
+    (d) => new Date(d.reportDate).toISOString().slice(0, 10) === latestDay,
+  );
+  const visible = showHistory ? sorted : current;
   const router = useRouter();
   const { toast } = useToast();
 
   async function onGenerate(documentId: string, regenerate: boolean) {
+    if (
+      regenerate &&
+      !window.confirm(
+        "Membuat ulang akan mengganti checklist dan centang pada laporan ini. Dokumen asli tetap tersimpan. Lanjutkan?",
+      )
+    )
+      return;
     setGenerating((prev) => ({ ...prev, [documentId]: true }));
     const res = await generateProgressReportFromDocument(documentId, projectId);
     setGenerating((prev) => ({ ...prev, [documentId]: false }));
     if (res.ok) {
-      toast({ title: regenerate ? "Checklist dibuat ulang" : "Checklist dibuat", variant: "success" });
+      toast({
+        title: regenerate ? "Checklist dibuat ulang" : "Checklist dibuat",
+        variant: "success",
+      });
       setExpanded((prev) => ({ ...prev, [documentId]: true }));
       router.refresh();
     } else {
-      toast({ title: "AI tidak bisa membaca file ini", description: res.error, variant: "destructive" });
+      toast({
+        title: "AI tidak bisa membaca file ini",
+        description: res.error,
+        variant: "destructive",
+      });
     }
   }
 
@@ -89,22 +126,33 @@ export function ProgressReportDocumentsPanel({
     const res = await updateProgressReportItemAction(item.id, projectId, fd);
     setTogglingItem(null);
     if (res.ok) router.refresh();
-    else toast({ title: "Tidak bisa mengubah status", description: res.error, variant: "destructive" });
+    else
+      toast({
+        title: "Tidak bisa mengubah status",
+        description: res.error,
+        variant: "destructive",
+      });
   }
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs text-muted-foreground">
-          Laporan progres lapangan — dokumen asli (PDF/foto) dari setiap kunjungan, diurutkan sesuai tanggal laporan
-          dibuat. Klik &quot;Buat checklist (AI)&quot; pada tiap file untuk mendapatkan daftar cek yang bisa
-          dicentang, diambil langsung dari isi dokumen.
+          Laporan progres lapangan — dokumen asli (PDF/foto) dari setiap
+          kunjungan, diurutkan sesuai tanggal laporan dibuat. Klik &quot;Buat
+          checklist (AI)&quot; pada tiap file untuk mendapatkan daftar cek yang
+          bisa dicentang, diambil langsung dari isi dokumen.
         </p>
-        {folderId && <UploadDialog folderId={folderId} />}
+        {folderId && (canEdit || canGenerate) && (
+          <UploadDialog folderId={folderId} />
+        )}
       </div>
 
       {!folderId && (
-        <EmptyState title="Folder proyek belum tersedia" description="Struktur folder proyek ini belum lengkap — hubungi Admin/IT." />
+        <EmptyState
+          title="Folder proyek belum tersedia"
+          description="Struktur folder proyek ini belum lengkap — hubungi Admin/IT."
+        />
       )}
 
       {folderId && documents.length === 0 && (
@@ -115,63 +163,132 @@ export function ProgressReportDocumentsPanel({
       )}
 
       {folderId && documents.length > 0 && (
-        <div className="space-y-0">
-          {documents.map((d) => {
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-3 rounded-xl bg-slate-50 p-3 text-sm">
+            <span>
+              {showHistory
+                ? `Seluruh riwayat: ${sorted.length} dokumen`
+                : `Tanggal terbaru: ${current.length} dokumen`}
+            </span>
+            <Button
+              variant="outline"
+              onClick={() => setShowHistory(!showHistory)}
+            >
+              {showHistory
+                ? "Fokus laporan terbaru"
+                : `Lihat riwayat (${sorted.length})`}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Checklist AI adalah hasil ekstraksi per file, bukan persetujuan
+            progres proyek. Periksa isi dan versi dokumen sebelum memperbarui
+            tahapan. Dokumen lama tetap tersedia dalam riwayat.
+          </p>
+          {visible.map((d) => {
             const isOpen = expanded[d.id] ?? false;
             const isGenerating = generating[d.id] ?? false;
             const report = d.progressReport;
-            const doneCount = report ? report.items.filter((i) => i.isDone).length : 0;
+            const doneCount = report
+              ? report.items.filter((i) => i.isDone).length
+              : 0;
 
             return (
-              <div key={d.id} className="relative flex gap-3 border-l border-border pb-4 pl-4 last:pb-0">
+              <div
+                key={d.id}
+                className="relative flex gap-3 border-l border-border pb-4 pl-4 last:pb-0"
+              >
                 <div className="absolute -left-[5px] top-1 h-2.5 w-2.5 rounded-full bg-primary" />
-                <div className="flex-1 rounded-md border border-border">
+                <div className="min-w-0 flex-1 rounded-md border border-border">
                   <div
-                    className="flex cursor-pointer items-start justify-between gap-3 p-3"
-                    onClick={() => report && setExpanded((prev) => ({ ...prev, [d.id]: !isOpen }))}
+                    className="flex flex-wrap cursor-pointer items-start justify-between gap-3 p-3"
+                    onClick={() =>
+                      report &&
+                      setExpanded((prev) => ({ ...prev, [d.id]: !isOpen }))
+                    }
                   >
                     <div className="flex items-start gap-2">
                       {report ? (
-                        isOpen ? <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                        isOpen ? (
+                          <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                        ) : (
+                          <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                        )
                       ) : (
                         <span className="mt-0.5 h-4 w-4 shrink-0" />
                       )}
                       <div>
                         <p className="text-xs text-muted-foreground">
                           {formatDate(d.reportDate)}
-                          {!d.dateFromFileName && " · tanggal upload (nama file tidak diawali tanggal)"}
+                          {!d.dateFromFileName &&
+                            " · tanggal upload (nama file tidak diawali tanggal)"}
                         </p>
-                        <p className="text-sm font-medium">{d.displayName}</p>
+                        <p className="break-words text-sm font-medium">
+                          {d.displayName}
+                        </p>
                         <p className="text-xs text-muted-foreground">
-                          Diunggah oleh {d.uploadedBy.name} · {formatBytes(d.fileSize)}
+                          Diunggah oleh {d.uploadedBy.name} ·{" "}
+                          {formatBytes(d.fileSize)}
                         </p>
-                        {report?.summary && <p className="mt-1 text-xs text-muted-foreground">{report.summary}</p>}
+                        {report?.summary && (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {report.summary}
+                          </p>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                    <div
+                      className="flex flex-wrap items-center gap-2"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       {report && (
                         <Badge variant="outline">
                           {doneCount}/{report.items.length} selesai
-                          {report.overallPercent != null && ` · ${report.overallPercent}%`}
+                          {report.overallPercent != null &&
+                            ` · ${report.overallPercent}%`}
                         </Badge>
                       )}
                       {report && (
                         <>
-                          <a href={`/api/progress-reports/${report.id}/pdf?view=1`} target="_blank" rel="noreferrer">
-                            <Button size="sm" variant="ghost" title="Lihat / Cetak PDF">
+                          <a
+                            href={`/api/progress-reports/${report.id}/pdf?view=1`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              title="Lihat / Cetak PDF"
+                            >
                               <Eye className="h-3.5 w-3.5" />
                             </Button>
                           </a>
-                          <a href={`/api/progress-reports/${report.id}/pdf`} target="_blank" rel="noreferrer">
-                            <Button size="sm" variant="ghost" title="Download PDF">
+                          <a
+                            href={`/api/progress-reports/${report.id}/pdf`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              title="Download PDF"
+                            >
                               <Download className="h-3.5 w-3.5" />
                             </Button>
                           </a>
                         </>
                       )}
-                      <Button size="sm" variant={report ? "outline" : "default"} disabled={isGenerating} onClick={() => onGenerate(d.id, Boolean(report))}>
+                      <Button
+                        size="sm"
+                        variant={report ? "outline" : "default"}
+                        disabled={isGenerating || !canGenerate}
+                        onClick={() => onGenerate(d.id, Boolean(report))}
+                      >
                         <Sparkles className="h-3.5 w-3.5" />
-                        {isGenerating ? "Membaca..." : report ? "Buat ulang (AI)" : "Buat checklist (AI)"}
+                        {isGenerating
+                          ? "Membaca..."
+                          : report
+                            ? "Buat ulang (AI)"
+                            : "Buat checklist (AI)"}
                       </Button>
                       <DocumentRowActions id={d.id} folderId={folderId} />
                     </div>
@@ -180,13 +297,15 @@ export function ProgressReportDocumentsPanel({
                   {isOpen && report && (
                     <div className="space-y-2 border-t border-border p-3">
                       {report.items.length === 0 && (
-                        <p className="text-sm text-muted-foreground">AI tidak menemukan rincian item pada dokumen ini.</p>
+                        <p className="text-sm text-muted-foreground">
+                          AI tidak menemukan rincian item pada dokumen ini.
+                        </p>
                       )}
                       {report.items.map((item) => (
                         <button
                           key={item.id}
                           type="button"
-                          disabled={togglingItem === item.id}
+                          disabled={!canEdit || togglingItem === item.id}
                           onClick={() => onToggleItem(item)}
                           className="flex w-full items-start gap-2 rounded-md border border-border p-2 text-left hover:bg-accent"
                         >
@@ -196,12 +315,24 @@ export function ProgressReportDocumentsPanel({
                             <Circle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                           )}
                           <div>
-                            {item.sectionName && <p className="text-[11px] font-medium text-muted-foreground">{item.sectionName}</p>}
+                            {item.sectionName && (
+                              <p className="text-[11px] font-medium text-muted-foreground">
+                                {item.sectionName}
+                              </p>
+                            )}
                             <p className="text-sm">
                               {item.partName}
-                              {item.quantity && <span className="ml-1.5 text-xs font-normal text-muted-foreground">({item.quantity})</span>}
+                              {item.quantity && (
+                                <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                                  ({item.quantity})
+                                </span>
+                              )}
                             </p>
-                            {item.notes && <p className="text-xs text-muted-foreground">{item.notes}</p>}
+                            {item.notes && (
+                              <p className="text-xs text-muted-foreground">
+                                {item.notes}
+                              </p>
+                            )}
                           </div>
                         </button>
                       ))}

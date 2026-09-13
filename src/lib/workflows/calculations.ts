@@ -22,11 +22,15 @@ export function calcLineTotal(item: {
 }): number {
   const gross = item.quantity * item.unitPrice;
   const afterDiscount = gross - gross * ((item.discountPercent ?? 0) / 100);
-  const afterTax = afterDiscount + afterDiscount * ((item.taxPercent ?? 0) / 100);
+  const afterTax =
+    afterDiscount + afterDiscount * ((item.taxPercent ?? 0) / 100);
   return round2(afterTax);
 }
 
-export function calcQuotationTotals(items: QuotationItemInput[], headerDiscount: number) {
+export function calcQuotationTotals(
+  items: QuotationItemInput[],
+  headerDiscount: number,
+) {
   const lineTotals = items.map((i) => calcLineTotal(i));
   const subtotal = round2(lineTotals.reduce((sum, t) => sum + t, 0));
   const discount = round2(headerDiscount ?? 0);
@@ -38,20 +42,30 @@ export function calcQuotationTotals(items: QuotationItemInput[], headerDiscount:
       const gross = i.quantity * i.unitPrice;
       const afterDiscount = gross - gross * ((i.discountPercent ?? 0) / 100);
       return sum + afterDiscount * ((i.taxPercent ?? 0) / 100);
-    }, 0)
+    }, 0),
   );
   const grandTotal = round2(taxableBase);
   return { subtotal, discount, tax: taxPortion, grandTotal, lineTotals };
 }
 
-export function calcInvoiceTotals(items: InvoiceItemInput[], headerDiscount: number) {
+export function calcInvoiceTotals(
+  items: InvoiceItemInput[],
+  headerDiscount: number,
+) {
   const lineTotals = items.map((i) =>
-    calcLineTotal({ quantity: i.quantity, unitPrice: i.unitPrice, taxPercent: i.taxPercent })
+    calcLineTotal({
+      quantity: i.quantity,
+      unitPrice: i.unitPrice,
+      taxPercent: i.taxPercent,
+    }),
   );
   const subtotal = round2(lineTotals.reduce((sum, t) => sum + t, 0));
   const discount = round2(headerDiscount ?? 0);
   const tax = round2(
-    items.reduce((sum, i) => sum + i.quantity * i.unitPrice * ((i.taxPercent ?? 0) / 100), 0)
+    items.reduce(
+      (sum, i) => sum + i.quantity * i.unitPrice * ((i.taxPercent ?? 0) / 100),
+      0,
+    ),
   );
   const grandTotal = round2(subtotal - discount);
   return { subtotal, discount, tax, grandTotal, lineTotals };
@@ -88,7 +102,10 @@ function n(v: Numeric | null | undefined): number {
   return v == null ? 0 : Number(v);
 }
 
-export function invoiceDueAmount(inv: { grandTotal: Numeric; dpPercent?: Numeric | null }): number {
+export function invoiceDueAmount(inv: {
+  grandTotal: Numeric;
+  dpPercent?: Numeric | null;
+}): number {
   const grandTotal = n(inv.grandTotal);
   const dpPercent = n(inv.dpPercent);
   return dpPercent > 0 ? round2(grandTotal * (dpPercent / 100)) : grandTotal;
@@ -110,7 +127,9 @@ export function invoiceOutstanding(inv: {
   paidAmount: Numeric;
   withholdingTax?: Numeric | null;
 }): number {
-  return round2(invoiceDueAmount(inv) - n(inv.paidAmount) - n(inv.withholdingTax));
+  return round2(
+    invoiceDueAmount(inv) - n(inv.paidAmount) - n(inv.withholdingTax),
+  );
 }
 
 /**
@@ -148,14 +167,25 @@ export interface VendorPoLineInput {
 export function calcVendorPoLine(item: VendorPoLineInput): number {
   return round2(item.quantity * item.unitPrice);
 }
-export function calcVendorPoTotals(items: VendorPoLineInput[], discount: number, taxPercent: number) {
+export function calcVendorPoTotals(
+  items: VendorPoLineInput[],
+  discount: number,
+  taxPercent: number,
+) {
   const lineTotals = items.map((i) => calcVendorPoLine(i));
   const subtotal = round2(lineTotals.reduce((sum, t) => sum + t, 0));
   const discountAmt = round2(discount ?? 0);
   const netto = round2(subtotal - discountAmt);
   const tax = round2(netto * ((taxPercent ?? 0) / 100));
   const grandTotal = round2(netto + tax);
-  return { subtotal, discount: discountAmt, netto, tax, grandTotal, lineTotals };
+  return {
+    subtotal,
+    discount: discountAmt,
+    netto,
+    tax,
+    grandTotal,
+    lineTotals,
+  };
 }
 
 /**
@@ -182,12 +212,19 @@ export function calcCostingLine(item: CostingLineInput) {
   if (margin >= 100) {
     throw new Error("Margin percent must be less than 100.");
   }
-  const costUnitAfterDiscount = round2(item.costUnitPrice * (1 - discount / 100));
+  const costUnitAfterDiscount = round2(
+    item.costUnitPrice * (1 - discount / 100),
+  );
   const costTotal = round2(costUnitAfterDiscount * item.quantity);
   const rawSellingUnit = costUnitAfterDiscount / (1 - margin / 100);
   const sellingUnitPrice = Math.ceil(rawSellingUnit / 1000) * 1000; // SOP: round UP to nearest Rp 1,000
   const sellingTotalPrice = round2(sellingUnitPrice * item.quantity);
-  return { costUnitAfterDiscount, costTotal, sellingUnitPrice, sellingTotalPrice };
+  return {
+    costUnitAfterDiscount,
+    costTotal,
+    sellingUnitPrice,
+    sellingTotalPrice,
+  };
 }
 
 export interface CostingProfitabilityOpts {
@@ -205,7 +242,7 @@ export interface CostingProfitabilityOpts {
  */
 export function calcCostingSummary(
   sections: { items: CostingLineInput[] }[],
-  opts: CostingProfitabilityOpts = {}
+  opts: CostingProfitabilityOpts = {},
 ) {
   let totalCost = 0;
   let totalRevenue = 0;
@@ -225,15 +262,19 @@ export function calcCostingSummary(
   totalCost = round2(totalCost);
   totalRevenue = round2(totalRevenue);
   const grossProfit = round2(totalRevenue - totalCost);
-  const grossMarginPercent = totalRevenue > 0 ? round2((grossProfit / totalRevenue) * 100) : 0;
+  const grossMarginPercent =
+    totalRevenue > 0 ? round2((grossProfit / totalRevenue) * 100) : 0;
 
   const operationalCost = round2(opts.operationalCost ?? 0);
   const ppnPercent = opts.ppnPercent ?? 11;
   const pphFinalPercent = opts.pphFinalPercent ?? 2;
   const ppnAmount = round2(totalCost * (ppnPercent / 100));
   const pphFinalAmount = round2(totalCost * (pphFinalPercent / 100));
-  const netProfit = round2(grossProfit - operationalCost - ppnAmount - pphFinalAmount);
-  const netMarginPercent = totalRevenue > 0 ? round2((netProfit / totalRevenue) * 100) : 0;
+  const netProfit = round2(
+    grossProfit - operationalCost - ppnAmount - pphFinalAmount,
+  );
+  const netMarginPercent =
+    totalRevenue > 0 ? round2((netProfit / totalRevenue) * 100) : 0;
 
   return {
     totalCost,
@@ -282,13 +323,31 @@ export interface SCurvePoint {
   billed: number;
 }
 export interface SCurveInput {
-  milestones: { dueDate: Date | null; weightPercent: number; completedAt: Date | null }[];
-  invoices: { invoiceDate: Date; grandTotal: number; dpPercent?: number | null; status: string }[];
+  milestones: {
+    dueDate: Date | null;
+    weightPercent: number;
+    completedAt: Date | null;
+  }[];
+  invoices: {
+    invoiceDate: Date;
+    grandTotal: number;
+    dpPercent?: number | null;
+    status: string;
+  }[];
   contractValue: number;
 }
-const SCURVE_BILLABLE_STATUSES = ["ISSUED", "PARTIALLY_PAID", "PAID", "OVERDUE"];
+const SCURVE_BILLABLE_STATUSES = [
+  "ISSUED",
+  "PARTIALLY_PAID",
+  "PAID",
+  "OVERDUE",
+];
 
-export function computeSCurve({ milestones, invoices, contractValue }: SCurveInput): {
+export function computeSCurve({
+  milestones,
+  invoices,
+  contractValue,
+}: SCurveInput): {
   points: SCurvePoint[];
   totalWeight: number;
   asOfToday: { planned: number; actual: number; billed: number };
@@ -303,7 +362,10 @@ export function computeSCurve({ milestones, invoices, contractValue }: SCurveInp
 
   const actualEvents: Event[] = milestones
     .filter((m) => m.completedAt && Number(m.weightPercent) > 0)
-    .map((m) => ({ date: m.completedAt as Date, weight: Number(m.weightPercent) }))
+    .map((m) => ({
+      date: m.completedAt as Date,
+      weight: Number(m.weightPercent),
+    }))
     .sort(byDateAsc);
 
   // A 20% DP invoice must only move this line 20% of the way, not 100% —
@@ -311,13 +373,26 @@ export function computeSCurve({ milestones, invoices, contractValue }: SCurveInp
   // curve jump to 100% the moment the first DP invoice was issued.
   const billedEvents: Event[] = invoices
     .filter((i) => SCURVE_BILLABLE_STATUSES.includes(i.status))
-    .map((i) => ({ date: i.invoiceDate, weight: contractValue > 0 ? (invoiceDueAmount(i) / contractValue) * 100 : 0 }))
+    .map((i) => ({
+      date: i.invoiceDate,
+      weight:
+        contractValue > 0 ? (invoiceDueAmount(i) / contractValue) * 100 : 0,
+    }))
     .sort(byDateAsc);
 
-  const totalWeight = round2(milestones.reduce((s, m) => s + Number(m.weightPercent), 0));
+  const totalWeight = round2(
+    milestones.reduce((s, m) => s + Number(m.weightPercent), 0),
+  );
 
   function cumulativeAt(events: Event[], cutoff: Date): number {
-    return Math.min(100, round2(events.filter((e) => e.date <= cutoff).reduce((s, e) => s + e.weight, 0)));
+    return Math.min(
+      100,
+      round2(
+        events
+          .filter((e) => e.date <= cutoff)
+          .reduce((s, e) => s + e.weight, 0),
+      ),
+    );
   }
 
   // Chart timeline: every date something actually happened (milestone due,
@@ -325,7 +400,11 @@ export function computeSCurve({ milestones, invoices, contractValue }: SCurveInp
   // in the future, so the chart shows where the plan is heading, not just
   // history.
   const allDateKeys = Array.from(
-    new Set([...plannedEvents, ...actualEvents, ...billedEvents].map((e) => e.date.toISOString().slice(0, 10)))
+    new Set(
+      [...plannedEvents, ...actualEvents, ...billedEvents].map((e) =>
+        e.date.toISOString().slice(0, 10),
+      ),
+    ),
   ).sort();
 
   const points: SCurvePoint[] = allDateKeys.map((d) => ({
@@ -374,7 +453,12 @@ export interface BillingScheduleRow {
   totalInvoiced: number;
   remainingToBill: number;
   nextBillingDate: Date | null;
-  pos: { id: string; number: string; paymentTerms: string | null; estimatedDeliveryDate: Date | null }[];
+  pos: {
+    id: string;
+    number: string;
+    paymentTerms: string | null;
+    estimatedDeliveryDate: Date | null;
+  }[];
 }
 export interface BillingScheduleProjectInput {
   id: string;
@@ -388,15 +472,27 @@ export interface BillingScheduleProjectInput {
     paymentTerms: string | null;
     estimatedDeliveryDate: Date | null;
   }[];
-  invoices: { grandTotal: Numeric; dpPercent?: Numeric | null; status: string }[];
+  invoices: {
+    grandTotal: Numeric;
+    dpPercent?: Numeric | null;
+    status: string;
+  }[];
 }
 
-export function computeBillingSchedule(projects: BillingScheduleProjectInput[]): BillingScheduleRow[] {
+export function computeBillingSchedule(
+  projects: BillingScheduleProjectInput[],
+): BillingScheduleRow[] {
   const rows = projects.map((p) => {
-    const activePOs = p.purchaseOrders.filter((po) => po.status !== "CANCELLED");
-    const totalPoValue = round2(activePOs.reduce((s, po) => s + n(po.poValue), 0));
+    const activePOs = p.purchaseOrders.filter(
+      (po) => po.status !== "CANCELLED",
+    );
+    const totalPoValue = round2(
+      activePOs.reduce((s, po) => s + n(po.poValue), 0),
+    );
     const totalInvoiced = round2(
-      p.invoices.filter((i) => i.status !== "CANCELLED").reduce((s, i) => s + invoiceDueAmount(i), 0)
+      p.invoices
+        .filter((i) => SCURVE_BILLABLE_STATUSES.includes(i.status))
+        .reduce((s, i) => s + invoiceDueAmount(i), 0),
     );
     const remainingToBill = round2(totalPoValue - totalInvoiced);
     const upcomingDates = activePOs
@@ -428,7 +524,8 @@ export function computeBillingSchedule(projects: BillingScheduleProjectInput[]):
   return rows
     .filter((r) => r.remainingToBill > 0)
     .sort((a, b) => {
-      if (a.nextBillingDate && b.nextBillingDate) return a.nextBillingDate.getTime() - b.nextBillingDate.getTime();
+      if (a.nextBillingDate && b.nextBillingDate)
+        return a.nextBillingDate.getTime() - b.nextBillingDate.getTime();
       if (a.nextBillingDate) return -1;
       if (b.nextBillingDate) return 1;
       return b.remainingToBill - a.remainingToBill;
@@ -449,7 +546,11 @@ export function computeBillingSchedule(projects: BillingScheduleProjectInput[]):
  * state that risk flags would just be noise on top of.
  */
 export interface ProjectRiskSignal {
-  type: "MILESTONE_DELAYED" | "SCHEDULE_DEVIATION" | "BUDGET_OVERRUN" | "BUDGET_NEAR_LIMIT";
+  type:
+    | "MILESTONE_DELAYED"
+    | "SCHEDULE_DEVIATION"
+    | "BUDGET_OVERRUN"
+    | "BUDGET_NEAR_LIMIT";
   severity: "warning" | "critical";
   message: string;
 }
@@ -462,11 +563,17 @@ export interface ProjectRiskInput {
 }
 const SCHEDULE_DEVIATION_THRESHOLD_PERCENT = 15;
 
-export function computeProjectRiskSignals(input: ProjectRiskInput): ProjectRiskSignal[] {
-  if (input.status !== "ACTIVE") return [];
+export function computeProjectRiskSignals(
+  input: ProjectRiskInput,
+): ProjectRiskSignal[] {
+  if (!["ACTIVE", "AT_RISK"].includes(input.status)) return [];
   const signals: ProjectRiskSignal[] = [];
 
-  const delayed = input.milestones.filter((m) => m.status === "DELAYED");
+  const delayed = input.milestones.filter(
+    (m) =>
+      m.status !== "COMPLETED" &&
+      (m.status === "DELAYED" || (m.dueDate != null && m.dueDate < new Date())),
+  );
   if (delayed.length > 0) {
     signals.push({
       type: "MILESTONE_DELAYED",
@@ -475,12 +582,14 @@ export function computeProjectRiskSignals(input: ProjectRiskInput): ProjectRiskS
     });
   }
 
-  const gap = round2(input.sCurveAsOfToday.planned - input.sCurveAsOfToday.actual);
+  const gap = round2(
+    input.sCurveAsOfToday.planned - input.sCurveAsOfToday.actual,
+  );
   if (gap > SCHEDULE_DEVIATION_THRESHOLD_PERCENT) {
     signals.push({
       type: "SCHEDULE_DEVIATION",
       severity: "warning",
-      message: `Realisasi tertinggal ${gap}% dari rencana (S-Curve)`,
+      message: `Realisasi tertinggal ${gap} poin persentase dari rencana (S-Curve)`,
     });
   }
 
@@ -524,17 +633,34 @@ export interface BillingTimelineStep {
   detail: string | null;
 }
 export interface BillingTimelineInput {
-  purchaseOrders: { number: string; poDate: Date; poValue: Numeric; paymentTerms: string | null; status: string }[];
+  purchaseOrders: {
+    number: string;
+    poDate: Date;
+    poValue: Numeric;
+    paymentTerms: string | null;
+    status: string;
+  }[];
   invoices: {
-    number: string; invoiceDate: Date; dueDate: Date; grandTotal: Numeric; dpPercent?: Numeric | null;
-    paidAmount: Numeric; status: string; payments: { paymentDate: Date; amount: Numeric }[];
+    number: string;
+    invoiceDate: Date;
+    dueDate: Date;
+    grandTotal: Numeric;
+    dpPercent?: Numeric | null;
+    paidAmount: Numeric;
+    status: string;
+    payments: { paymentDate: Date; amount: Numeric }[];
   }[];
 }
 
-export function computeBillingTimeline({ purchaseOrders, invoices }: BillingTimelineInput): BillingTimelineStep[] {
+export function computeBillingTimeline({
+  purchaseOrders,
+  invoices,
+}: BillingTimelineInput): BillingTimelineStep[] {
   const steps: BillingTimelineStep[] = [];
 
-  const activePOs = purchaseOrders.filter((po) => po.status !== "CANCELLED").sort((a, b) => a.poDate.getTime() - b.poDate.getTime());
+  const activePOs = purchaseOrders
+    .filter((po) => po.status !== "CANCELLED")
+    .sort((a, b) => a.poDate.getTime() - b.poDate.getTime());
   const totalPoValue = activePOs.reduce((s, po) => s + n(po.poValue), 0);
   for (const po of activePOs) {
     steps.push({
@@ -548,7 +674,9 @@ export function computeBillingTimeline({ purchaseOrders, invoices }: BillingTime
     });
   }
 
-  const activeInvoices = invoices.filter((i) => i.status !== "CANCELLED").sort((a, b) => a.invoiceDate.getTime() - b.invoiceDate.getTime());
+  const activeInvoices = invoices
+    .filter((i) => SCURVE_BILLABLE_STATUSES.includes(i.status))
+    .sort((a, b) => a.invoiceDate.getTime() - b.invoiceDate.getTime());
   let cumulativeDue = 0;
   activeInvoices.forEach((inv, idx) => {
     const due = invoiceDueAmount(inv);
@@ -564,14 +692,20 @@ export function computeBillingTimeline({ purchaseOrders, invoices }: BillingTime
     let status: BillingTimelineStep["status"] = "upcoming";
     if (inv.status === "PAID") status = "done";
     else if (inv.status === "OVERDUE") status = "overdue";
-    else if (inv.status === "PARTIALLY_PAID" || inv.status === "ISSUED") status = "in_progress";
+    else if (inv.status === "PARTIALLY_PAID" || inv.status === "ISSUED")
+      status = "in_progress";
 
-    const lastPayment = [...inv.payments].sort((a, b) => b.paymentDate.getTime() - a.paymentDate.getTime())[0];
+    const lastPayment = [...inv.payments].sort(
+      (a, b) => b.paymentDate.getTime() - a.paymentDate.getTime(),
+    )[0];
     steps.push({
       key: `inv-${inv.number}`,
       kind: "BILLING",
       label,
-      date: status === "done" && lastPayment ? lastPayment.paymentDate : inv.dueDate,
+      date:
+        status === "done" && lastPayment
+          ? lastPayment.paymentDate
+          : inv.dueDate,
       amount: due,
       status,
       detail:
@@ -586,7 +720,11 @@ export function computeBillingTimeline({ purchaseOrders, invoices }: BillingTime
   // No invoice fully closes out the PO total yet — surface Pelunasan as an
   // explicit upcoming step instead of just letting the timeline trail off,
   // so "how far from done" is always answerable at a glance.
-  const settled = totalPoValue > 0 && activeInvoices.length > 0 && activeInvoices.every((i) => i.status === "PAID") && cumulativeDue >= totalPoValue - 1;
+  const settled =
+    totalPoValue > 0 &&
+    activeInvoices.length > 0 &&
+    activeInvoices.every((i) => i.status === "PAID") &&
+    cumulativeDue >= totalPoValue - 1;
   if (totalPoValue > 0 && !settled) {
     steps.push({
       key: "pelunasan-pending",
@@ -604,5 +742,9 @@ export function computeBillingTimeline({ purchaseOrders, invoices }: BillingTime
 
 function formatShortDate(d: Date | null): string {
   if (!d) return "-";
-  return new Date(d).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+  return new Date(d).toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }

@@ -5,23 +5,40 @@ import Link from "next/link";
 import { Search, LogOut, Bell, Menu } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { brandingUrl } from "@/lib/utils";
-import { MoodSwitcher } from "@/components/layout/mood-switcher";
 
 export function Topbar({
-  userName, role, avatarUrl, unreadCount = 0, uiMood = "default", onMenuClick,
-}: { userName: string; role: string; avatarUrl: string | null; unreadCount?: number; uiMood?: string; onMenuClick?: () => void }) {
+  userName,
+  role,
+  avatarUrl,
+  unreadCount = 0,
+  uiMood = "default",
+  onMenuClick,
+}: {
+  userName: string;
+  role: string;
+  avatarUrl: string | null;
+  unreadCount?: number;
+  uiMood?: string;
+  onMenuClick?: () => void;
+}) {
   const avatarSrc = brandingUrl(avatarUrl);
-  const initials = userName.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  const initials = userName
+    .split(" ")
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
   const router = useRouter();
   const [query, setQuery] = useState("");
 
   function onSearchSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (query.trim()) router.push(`/search?q=${encodeURIComponent(query.trim())}`);
+    if (query.trim())
+      router.push(`/search?q=${encodeURIComponent(query.trim())}`);
   }
 
   return (
-    <header className="mood-card flex h-14 items-center justify-between gap-2 rounded-none border-b border-border bg-card px-3 sm:px-5">
+    <header className="command-topbar flex items-center justify-between gap-2 rounded-none border-b border-border bg-card px-3 sm:px-5">
       <div className="flex min-w-0 flex-1 items-center gap-2">
         {onMenuClick && (
           <button
@@ -33,17 +50,23 @@ export function Topbar({
             <Menu className="h-5 w-5" />
           </button>
         )}
-        <form onSubmit={onSearchSubmit} className="flex w-full min-w-0 max-w-md items-center gap-2">
+        <form
+          onSubmit={onSearchSubmit}
+          className="flex w-full min-w-0 max-w-md items-center gap-2"
+        >
           <Search className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block" />
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search..."
+            aria-label="Cari pelanggan, proyek, atau nomor dokumen"
+            placeholder="Cari proyek, pelanggan, dokumen…"
             className="h-8 min-w-0 border-0 shadow-none focus-visible:ring-0"
           />
         </form>
         <div className="flex flex-1 items-center justify-center">
-          <MoodSwitcher currentMood={uiMood} />
+          <span className="hidden text-xs text-muted-foreground xl:block">
+            SSO / Command Flow
+          </span>
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2 sm:gap-4">
@@ -51,9 +74,13 @@ export function Topbar({
             Real unread count now, linking to where NotificationsPanel
             actually lives (there's no separate notifications page). */}
         <Link
-          href="/dashboard"
+          href="/notifications"
           className="relative rounded-md p-2 hover:bg-accent"
-          aria-label={unreadCount > 0 ? `Notifications (${unreadCount} belum dibaca)` : "Notifications"}
+          aria-label={
+            unreadCount > 0
+              ? `Notifications (${unreadCount} belum dibaca)`
+              : "Notifications"
+          }
         >
           <Bell className="h-4 w-4" />
           {unreadCount > 0 && (
@@ -64,7 +91,9 @@ export function Topbar({
         </Link>
         <div className="hidden text-right leading-tight sm:block">
           <p className="text-sm font-medium">{userName}</p>
-          <p className="text-[11px] text-muted-foreground">{role.replace("_", " ")}</p>
+          <p className="text-[11px] text-muted-foreground">
+            {role.replace("_", " ")}
+          </p>
         </div>
         <Link href="/settings/profile" title="Profil Saya">
           {avatarSrc ? (
@@ -73,7 +102,11 @@ export function Topbar({
             // unreliable on WebKit/Safari).
             <div className="h-8 w-8 overflow-hidden rounded-full bg-muted">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={avatarSrc} alt={userName} className="h-full w-full object-cover object-top" />
+              <img
+                src={avatarSrc}
+                alt={userName}
+                className="h-full w-full object-cover object-top"
+              />
             </div>
           ) : (
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">
@@ -82,7 +115,11 @@ export function Topbar({
           )}
         </Link>
         <form action="/api/auth/logout" method="post">
-          <button className="rounded-md p-2 hover:bg-accent" aria-label="Log out" title="Log out">
+          <button
+            className="rounded-md p-2 hover:bg-accent"
+            aria-label="Log out"
+            title="Log out"
+          >
             <LogOut className="h-4 w-4" />
           </button>
         </form>

@@ -1,4 +1,5 @@
 "use server";
+import { safeNextPath } from "@/lib/workspace";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth/password";
@@ -13,7 +14,10 @@ import type { LoginFormState } from "./types";
 const MAX_FAILED_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_MINUTES = 15;
 
-export async function loginAction(_prev: LoginFormState, formData: FormData): Promise<LoginFormState> {
+export async function loginAction(
+  _prev: LoginFormState,
+  formData: FormData,
+): Promise<LoginFormState> {
   const parsed = loginSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
@@ -30,12 +34,16 @@ export async function loginAction(_prev: LoginFormState, formData: FormData): Pr
     where: { email: { equals: parsed.data.email, mode: "insensitive" } },
   });
   if (!user || !user.isActive) {
-    return { error: "Invalid email or password." };
+    return { error: "Email atau kata sandi tidak sesuai." };
   }
 
   if (user.lockedUntil && user.lockedUntil > new Date()) {
-    const minutesLeft = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000);
-    return { error: `Terlalu banyak percobaan gagal. Coba lagi dalam ${minutesLeft} menit.` };
+    const minutesLeft = Math.ceil(
+      (user.lockedUntil.getTime() - Date.now()) / 60000,
+    );
+    return {
+      error: `Terlalu banyak percobaan gagal. Coba lagi dalam ${minutesLeft} menit.`,
+    };
   }
 
   const valid = await verifyPassword(parsed.data.password, user.passwordHash);
@@ -45,22 +53,34 @@ export async function loginAction(_prev: LoginFormState, formData: FormData): Pr
     await prisma.user.update({
       where: { id: user.id },
       data: lockingOut
-        ? { failedLoginAttempts: 0, lockedUntil: new Date(Date.now() + LOCKOUT_MINUTES * 60000) }
+        ? {
+            failedLoginAttempts: 0,
+            lockedUntil: new Date(Date.now() + LOCKOUT_MINUTES * 60000),
+          }
         : { failedLoginAttempts: attempts },
     });
     return {
       error: lockingOut
         ? `Terlalu banyak percobaan gagal. Coba lagi dalam ${LOCKOUT_MINUTES} menit.`
-        : "Invalid email or password.",
+        : "Email atau kata sandi tidak sesuai.",
     };
   }
 
-  await createSession({ userId: user.id, email: user.email, name: user.name, role: user.role });
+  await createSession({
+    userId: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+  });
 
   await prisma.$transaction([
     prisma.user.update({
       where: { id: user.id },
-      data: { lastLoginAt: new Date(), failedLoginAttempts: 0, lockedUntil: null },
+      data: {
+        lastLoginAt: new Date(),
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+      },
     }),
     prisma.activityLog.create({
       data: {
@@ -73,5 +93,5 @@ export async function loginAction(_prev: LoginFormState, formData: FormData): Pr
     }),
   ]);
 
-  redirect("/dashboard");
+  redirect(safeNextPath(formData.get("next")));
 }

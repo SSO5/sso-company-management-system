@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { refreshOverdueInvoices, refreshBillingSchedule } from "@/lib/workflows/finance";
+import {
+  refreshOverdueInvoices,
+  refreshBillingSchedule,
+} from "@/lib/workflows/finance";
 import { refreshProjectRiskNotifications } from "@/lib/workflows/project";
 import {
   escalateStaleApprovals,
@@ -26,7 +29,10 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const expected = process.env.CRON_SECRET;
   if (!expected) {
-    return NextResponse.json({ error: "CRON_SECRET is not configured on this deployment." }, { status: 500 });
+    return NextResponse.json(
+      { error: "CRON_SECRET is not configured on this deployment." },
+      { status: 500 },
+    );
   }
   const auth = req.headers.get("authorization");
   if (auth !== `Bearer ${expected}`) {
@@ -52,9 +58,17 @@ export async function GET(req: Request) {
       results[name] = await job();
     } catch (err) {
       console.error(`[cron/daily] ${name} failed:`, err);
-      results[name] = { error: err instanceof Error ? err.message : String(err) };
+      results[name] = {
+        error: err instanceof Error ? err.message : String(err),
+      };
     }
   }
 
-  return NextResponse.json({ ok: true, ranAt: new Date().toISOString(), results });
+  const failed = Object.values(results).some(
+    (r) => r != null && typeof r === "object" && "error" in r,
+  );
+  return NextResponse.json(
+    { ok: !failed, ranAt: new Date().toISOString(), results },
+    { status: failed ? 500 : 200 },
+  );
 }

@@ -37,10 +37,32 @@ export function Dialog({
 }) {
   const panelRef = React.useRef<HTMLDivElement>(null);
   const restoreFocusTo = React.useRef<Element | null>(null);
+  const titleId = React.useId();
+  const closeRef = React.useRef(onOpenChange);
+  closeRef.current = onOpenChange;
 
   React.useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onOpenChange(false);
+      if (e.key === "Escape") closeRef.current(false);
+      if (e.key === "Tab") {
+        const nodes = Array.from(
+          panelRef.current?.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex="0"]',
+          ) ?? [],
+        ).filter((n) => n.getClientRects().length > 0);
+        const first = nodes[0],
+          last = nodes[nodes.length - 1];
+        if (!first) {
+          e.preventDefault();
+          panelRef.current?.focus();
+        } else if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     }
     if (open) {
       restoreFocusTo.current = document.activeElement;
@@ -49,7 +71,7 @@ export function Dialog({
       // Focus the first focusable inside the panel (close button, then any
       // form field) so Tab starts where the eye already is.
       const focusables = panelRef.current?.querySelectorAll<HTMLElement>(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
       );
       (focusables?.[0] ?? panelRef.current)?.focus();
     }
@@ -58,7 +80,7 @@ export function Dialog({
       document.body.style.overflow = "";
       (restoreFocusTo.current as HTMLElement | null)?.focus?.();
     };
-  }, [open, onOpenChange]);
+  }, [open]);
 
   if (!open) return null;
 
@@ -75,21 +97,28 @@ export function Dialog({
         ref={panelRef}
         tabIndex={-1}
         className={cn(
-          "mood-card w-full max-w-lg rounded-lg border border-border bg-card p-5 shadow-lg focus:outline-none",
-          className
+          "workspace-route mood-card w-full min-w-0 max-w-lg rounded-2xl border border-border bg-card p-5 shadow-lg focus:outline-none",
+          className,
         )}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="dialog-title"
+        aria-labelledby={titleId}
       >
         <div className="mb-4 flex items-start justify-between">
           <div>
-            <h2 id="dialog-title" className="text-base font-semibold">{title}</h2>
-            {description && <p className="mt-1 text-xs text-muted-foreground">{description}</p>}
+            <h2 id={titleId} className="text-base font-semibold">
+              {title}
+            </h2>
+            {description && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {description}
+              </p>
+            )}
           </div>
           <button
             onClick={() => onOpenChange(false)}
-            className="rounded-md p-1 text-muted-foreground hover:bg-accent"
+            type="button"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
             aria-label="Tutup"
           >
             <X className="h-4 w-4" />

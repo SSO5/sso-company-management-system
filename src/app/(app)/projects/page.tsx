@@ -1,60 +1,122 @@
 import Link from "next/link";
 import { listProjects } from "@/server/projects/projects";
-import { Badge } from "@/components/ui/badge";
-import { EmptyState } from "@/components/ui/empty-state";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatCurrency, formatDate } from "@/lib/utils";
-
-const STATUS_VARIANT: Record<string, "default" | "secondary" | "success" | "warning" | "destructive" | "outline"> = {
-  PLANNING: "secondary", ACTIVE: "default", ON_HOLD: "warning", AT_RISK: "destructive",
-  COMPLETED: "success", CANCELLED: "destructive", CLOSED: "outline",
+import { ArrowUpRight } from "lucide-react";
+const labels: Record<string, string> = {
+  PLANNING: "Persiapan",
+  ACTIVE: "Aktif",
+  AT_RISK: "Perlu perhatian",
+  ON_HOLD: "Ditunda",
+  COMPLETED: "Selesai",
+  CLOSED: "Ditutup",
+  CANCELLED: "Dibatalkan",
 };
-
-export default async function ProjectsPage() {
-  const projects = await listProjects();
-
+export default async function ProjectsPage({
+  searchParams,
+}: {
+  searchParams: { q?: string; status?: string };
+}) {
+  const all = await listProjects();
+  const q = (searchParams.q ?? "").toLowerCase();
+  const status = searchParams.status ?? "active";
+  const projects = all.filter(
+    (p) =>
+      (status === "all" ||
+        (status === "active"
+          ? ["PLANNING", "ACTIVE", "AT_RISK", "ON_HOLD"].includes(p.status)
+          : p.status === status)) &&
+      `${p.number} ${p.name} ${p.customer.companyName}`
+        .toLowerCase()
+        .includes(q),
+  );
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold">Projects</h1>
-        <p className="text-sm text-muted-foreground">
-          {projects.length} project(s). Projects are created automatically when a quotation is marked Won.
-        </p>
+    <div className="space-y-5">
+      <div className="workspace-heading">
+        <div>
+          <p className="workspace-eyebrow">Pelaksanaan & penyelesaian</p>
+          <h1>Ruang proyek</h1>
+          <p className="workspace-muted mt-2">
+            Buka satu ruang untuk melihat tahapan, laporan lapangan, dokumen,
+            dan biaya.
+          </p>
+        </div>
+        <Link href="/data" className="text-sm text-primary">
+          Data & Dokumen →
+        </Link>
       </div>
-
-      {projects.length === 0 ? (
-        <EmptyState title="No projects yet" description="Mark a quotation Won to auto-generate the first project." />
-      ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Number</TableHead><TableHead>Name</TableHead><TableHead>Customer</TableHead>
-              <TableHead>PM</TableHead><TableHead>Contract Value</TableHead><TableHead>Progress</TableHead><TableHead>Status</TableHead><TableHead>Risk</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {projects.map((p) => (
-              <TableRow key={p.id}>
-                <TableCell className="font-mono text-xs"><Link href={`/projects/${p.id}`} className="hover:underline">{p.number}</Link></TableCell>
-                <TableCell className="max-w-[220px] truncate">{p.name}</TableCell>
-                <TableCell>{p.customer.companyName}</TableCell>
-                <TableCell>{p.projectManager?.name ?? <span className="text-muted-foreground">Unassigned</span>}</TableCell>
-                <TableCell>{formatCurrency(Number(p.contractValue))}</TableCell>
-                <TableCell>{p.progressPercent}%</TableCell>
-                <TableCell><Badge variant={STATUS_VARIANT[p.status]}>{p.status}</Badge></TableCell>
-                <TableCell>
-                  {p.riskSignals.length > 0 ? (
-                    <Badge variant={p.riskSignals.some((s) => s.severity === "critical") ? "destructive" : "warning"} title={p.riskSignals.map((s) => s.message).join(" | ")}>
-                      {p.riskSignals.length} sinyal
-                    </Badge>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">-</span>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+      <form className="flex flex-wrap gap-3">
+        <input
+          name="q"
+          aria-label="Cari proyek"
+          defaultValue={searchParams.q}
+          placeholder="Cari nama, nomor, atau pelanggan…"
+          className="min-w-0 flex-1 rounded-xl border px-4 py-3 text-sm"
+        />
+        <select
+          aria-label="Status proyek"
+          name="status"
+          defaultValue={status}
+          className="rounded-xl border px-3 text-sm"
+        >
+          <option value="active">Proyek berjalan</option>
+          <option value="all">Semua proyek</option>
+          <option value="COMPLETED">Selesai</option>
+          <option value="CLOSED">Ditutup</option>
+        </select>
+        <button className="rounded-xl bg-primary px-5 py-3 text-sm text-white">
+          Tampilkan
+        </button>
+      </form>
+      <p className="text-xs text-muted-foreground">
+        {projects.length} proyek ditampilkan dari {all.length}. Proyek terbentuk
+        ketika penawaran dimenangkan.
+      </p>
+      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+        {projects.map((p) => (
+          <Link
+            href={`/projects/${p.id}`}
+            key={p.id}
+            className="rounded-2xl border p-5 transition-shadow hover:shadow-md"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="workspace-pill">
+                {labels[p.status] ?? p.status}
+              </span>
+              <ArrowUpRight size={18} className="text-primary" />
+            </div>
+            <p className="mt-5 text-xs text-muted-foreground">{p.number}</p>
+            <h2 className="mt-2 break-words text-lg font-semibold">{p.name}</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {p.customer.companyName}
+            </p>
+            <div className="mt-5 border-t pt-4 text-xs">
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Penanggung jawab</span>
+                <b>{p.projectManager?.name ?? "Belum ditentukan"}</b>
+              </div>
+              <div className="mt-3 flex flex-wrap justify-between gap-2">
+                <span className="text-muted-foreground">Nilai kontrak</span>
+                <b>{formatCurrency(Number(p.contractValue))}</b>
+              </div>
+              <p className="mt-3 text-muted-foreground">
+                Diperbarui {formatDate(p.updatedAt)}
+              </p>
+            </div>
+            {p.riskSignals.length > 0 && (
+              <p className="mt-4 rounded-xl bg-amber-50 p-3 text-xs leading-relaxed text-amber-800">
+                {p.riskSignals[0].message}
+                {p.riskSignals.length > 1
+                  ? ` · +${p.riskSignals.length - 1} perhatian lainnya`
+                  : ""}
+              </p>
+            )}
+          </Link>
+        ))}
+      </div>
+      {projects.length === 0 && (
+        <p className="rounded-xl border p-8 text-center text-sm text-muted-foreground">
+          Tidak ada proyek yang sesuai filter.
+        </p>
       )}
     </div>
   );

@@ -7,7 +7,13 @@ import { AppShell } from "@/components/layout/app-shell";
 import { ToastProvider } from "@/components/ui/toast";
 import { AssistantWidget } from "@/components/assistant/assistant-widget";
 
-export default async function AppLayout({ children }: { children: React.ReactNode }) {
+export const dynamic = "force-dynamic";
+
+export default async function AppLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [session, unreadCount, theme] = await Promise.all([
     requireUser(),
     getUnreadNotificationCount(),
@@ -16,7 +22,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Not carried in the session cookie (see session.ts's SessionPayload) —
   // it's mutable via self-service Profil Saya, so it's read fresh on every
   // request instead of going stale until the 12h cookie re-issues.
-  const user = await prisma.user.findUnique({ where: { id: session.userId }, select: { avatarUrl: true, uiMood: true } });
+  const user = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: { avatarUrl: true, uiMood: true },
+  });
   const preset = getThemePreset(theme.themePreset);
 
   return (
@@ -26,7 +35,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           color moves — success/warning/destructive stay put on purpose, see
           lib/theme-presets.ts. */}
       <style>{`:root { --primary: ${preset.primary}; --ring: ${preset.ring}; }`}</style>
-      <AppShell role={session.role} userName={session.name} unreadCount={unreadCount} avatarUrl={user?.avatarUrl ?? null} uiMood={user?.uiMood ?? "default"}>
+      <AppShell
+        role={session.role}
+        userName={session.name}
+        unreadCount={unreadCount}
+        avatarUrl={user?.avatarUrl ?? null}
+        uiMood={user?.uiMood ?? "default"}
+      >
         {children}
       </AppShell>
       <AssistantWidget />

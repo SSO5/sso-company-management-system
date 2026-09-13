@@ -4,10 +4,20 @@ import { useRouter } from "next/navigation";
 import { X, Send, Paperclip, FileText, FileDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
-import { sendAssistantMessage, confirmAssistantAction, cancelAssistantAction } from "@/server/assistant";
+import {
+  sendAssistantMessage,
+  confirmAssistantAction,
+  cancelAssistantAction,
+} from "@/server/assistant";
 
 const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
-const ACCEPTED_ATTACHMENT_TYPES = ["application/pdf", "image/png", "image/jpeg", "image/webp", "image/gif"];
+const ACCEPTED_ATTACHMENT_TYPES = [
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+];
 
 function readFileAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -30,7 +40,7 @@ interface PendingAction {
 }
 
 /** AISSO can embed a "\n[PDF_URL]<path>" suffix on a confirm result to hand
- * back a file the user can open right in the chat — split it off so the
+ * back a file the user can open right in the chat â€” split it off so the
  * URL renders as a real button instead of raw text in the bubble. */
 function splitFileUrl(message: string): { text: string; fileUrl?: string } {
   const match = message.match(/\n\[PDF_URL\](\S+)$/);
@@ -45,17 +55,17 @@ interface ChatMessage {
 }
 
 /**
- * "AISSO" — the floating "chat with the app" assistant, available on every
+ * "AISSO" â€” the floating "chat with the app" assistant, available on every
  * authenticated page (mounted once in the (app) layout). Conversation
  * history lives only
- * in this component's state — nothing is persisted server-side, so a page
+ * in this component's state â€” nothing is persisted server-side, so a page
  * refresh starts a fresh conversation. See src/server/assistant.ts for the
  * tool-use loop and src/lib/ai/assistant-tools.ts for the closed tool
  * vocabulary this can act on.
  */
 export function AssistantWidget() {
   const [open, setOpen] = useState(false);
-  const [greetingDismissed, setGreetingDismissed] = useState(false);
+
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -66,7 +76,10 @@ export function AssistantWidget() {
   const { toast } = useToast();
 
   useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
+    listRef.current?.scrollTo({
+      top: listRef.current.scrollHeight,
+      behavior: "smooth",
+    });
   }, [messages, open]);
 
   function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -74,11 +87,19 @@ export function AssistantWidget() {
     e.target.value = "";
     if (!file) return;
     if (!ACCEPTED_ATTACHMENT_TYPES.includes(file.type)) {
-      toast({ title: "Tipe file tidak didukung", description: "Lampirkan PDF atau foto (JPG/PNG/WEBP).", variant: "destructive" });
+      toast({
+        title: "Tipe file tidak didukung",
+        description: "Lampirkan PDF atau foto (JPG/PNG/WEBP).",
+        variant: "destructive",
+      });
       return;
     }
     if (file.size > MAX_ATTACHMENT_BYTES) {
-      toast({ title: "File terlalu besar", description: "Maksimal 15MB.", variant: "destructive" });
+      toast({
+        title: "File terlalu besar",
+        description: "Maksimal 15MB.",
+        variant: "destructive",
+      });
       return;
     }
     setAttachedFile(file);
@@ -89,17 +110,28 @@ export function AssistantWidget() {
     if ((!text && !attachedFile) || sending) return;
     const history = messages.map((m) => ({ role: m.role, content: m.content }));
     const fileForSend = attachedFile;
-    setMessages((prev) => [...prev, { role: "user", content: text || `📎 ${fileForSend?.name}` }]);
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", content: text || `ðŸ“Ž ${fileForSend?.name}` },
+    ]);
     setInput("");
     setAttachedFile(null);
     setSending(true);
     const attachment = fileForSend
-      ? { dataBase64: await readFileAsBase64(fileForSend), mimeType: fileForSend.type, fileName: fileForSend.name }
+      ? {
+          dataBase64: await readFileAsBase64(fileForSend),
+          mimeType: fileForSend.type,
+          fileName: fileForSend.name,
+        }
       : null;
     const res = await sendAssistantMessage(history, text, attachment);
     setSending(false);
     if (!res.ok) {
-      toast({ title: "AISSO gagal merespons", description: res.error, variant: "destructive" });
+      toast({
+        title: "AISSO gagal merespons",
+        description: res.error,
+        variant: "destructive",
+      });
       return;
     }
     setMessages((prev) => [
@@ -107,31 +139,59 @@ export function AssistantWidget() {
       {
         role: "assistant",
         content: res.data.reply,
-        pendingAction: res.data.pendingAction ? { id: res.data.pendingAction.id, description: res.data.pendingAction.description } : undefined,
+        pendingAction: res.data.pendingAction
+          ? {
+              id: res.data.pendingAction.id,
+              description: res.data.pendingAction.description,
+            }
+          : undefined,
       },
     ]);
   }
 
   async function onConfirm(msgIndex: number, id: string) {
     const res = await confirmAssistantAction(id);
-    const { text: resultText, fileUrl } = res.ok ? splitFileUrl(res.data.message) : { text: res.error, fileUrl: undefined };
+    const { text: resultText, fileUrl } = res.ok
+      ? splitFileUrl(res.data.message)
+      : { text: res.error, fileUrl: undefined };
     setMessages((prev) =>
       prev.map((m, i) =>
-        i === msgIndex && m.pendingAction ? { ...m, pendingAction: { ...m.pendingAction, resolved: "confirmed", resultText, fileUrl } } : m
-      )
+        i === msgIndex && m.pendingAction
+          ? {
+              ...m,
+              pendingAction: {
+                ...m.pendingAction,
+                resolved: "confirmed",
+                resultText,
+                fileUrl,
+              },
+            }
+          : m,
+      ),
     );
     if (res.ok) {
       toast({ title: resultText, variant: "success" });
       router.refresh();
     } else {
-      toast({ title: "Gagal menjalankan aksi", description: res.error, variant: "destructive" });
+      toast({
+        title: "Gagal menjalankan aksi",
+        description: res.error,
+        variant: "destructive",
+      });
     }
   }
 
   async function onCancel(msgIndex: number, id: string) {
     await cancelAssistantAction(id);
     setMessages((prev) =>
-      prev.map((m, i) => (i === msgIndex && m.pendingAction ? { ...m, pendingAction: { ...m.pendingAction, resolved: "cancelled" } } : m))
+      prev.map((m, i) =>
+        i === msgIndex && m.pendingAction
+          ? {
+              ...m,
+              pendingAction: { ...m.pendingAction, resolved: "cancelled" },
+            }
+          : m,
+      ),
     );
   }
 
@@ -147,64 +207,62 @@ export function AssistantWidget() {
         </button>
       ) : (
         <>
-          {!greetingDismissed && (
-            <div className="fixed bottom-40 right-4 z-40 w-56 rounded-2xl border-2 border-[#2454d1]/20 bg-card px-4 py-3 shadow-xl sm:bottom-44 sm:right-6">
-              <button
-                onClick={() => setGreetingDismissed(true)}
-                className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-muted-foreground/80 text-background shadow"
-                aria-label="Tutup sapaan"
-              >
-                <X className="h-3 w-3" />
-              </button>
-              <p className="text-lg font-extrabold leading-tight text-[#2454d1]">Hi Boss! 👋</p>
-              <p className="mt-0.5 text-sm font-semibold text-foreground">AISSO siap bantu!</p>
-              <div className="absolute -bottom-2 right-10 h-4 w-4 rotate-45 border-b-2 border-r-2 border-[#2454d1]/20 bg-card" />
-            </div>
-          )}
           <button
             onClick={() => setOpen(true)}
-            className="fixed bottom-5 right-5 z-40 flex w-24 flex-col items-center transition-transform hover:scale-105 sm:w-28"
+            className="fixed bottom-4 right-4 z-40 flex min-h-11 items-center rounded-xl bg-primary px-4 py-3 text-white shadow-lg"
             aria-label="Tanya AISSO"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/aisso-halfbody-v3.png" alt="AISSO" className="w-full drop-shadow-xl" />
-            <span className="-mt-2 whitespace-nowrap rounded-full bg-[#2454d1] px-4 py-1 text-sm font-extrabold tracking-wide text-white shadow-lg">
-              AISSO
-            </span>
+            <span className="text-sm font-semibold">Asisten AI</span>
           </button>
         </>
       )}
 
       {open && (
-        <div className="mood-card fixed bottom-24 right-5 z-40 flex h-[32rem] w-96 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xl">
+        <div className="mood-card fixed bottom-24 right-5 z-40 flex h-[min(32rem,calc(100dvh-7rem))] w-[min(24rem,calc(100vw-2.5rem))] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xl">
           <div className="flex items-center gap-2 border-b border-border px-4 py-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/aisso-icon-v2.png" alt="" className="h-7 w-7 rounded-full object-cover" />
+            <img
+              src="/aisso-icon-v2.png"
+              alt=""
+              className="h-7 w-7 rounded-full object-cover"
+            />
             <p className="text-sm font-semibold">AISSO</p>
           </div>
 
           <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto p-3">
             {messages.length === 0 && (
               <div className="mt-6 text-center">
-                <p className="text-base font-bold text-primary">Tanya apa aja, aku jawab!</p>
+                <p className="text-base font-bold text-primary">
+                  Apa yang perlu Anda tinjau?
+                </p>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Status quotation/project, daftar yang menunggu approval, atau minta approve/reject (sesuai role
-                  Anda).
+                  Status quotation/project, daftar yang menunggu approval, atau
+                  minta approve/reject (sesuai role Anda).
                 </p>
               </div>
             )}
             {messages.map((m, i) => (
-              <div key={i} className={cn("flex", m.role === "user" ? "justify-end" : "justify-start")}>
+              <div
+                key={i}
+                className={cn(
+                  "flex",
+                  m.role === "user" ? "justify-end" : "justify-start",
+                )}
+              >
                 <div
                   className={cn(
                     "max-w-[85%] whitespace-pre-wrap rounded-lg px-3 py-2 text-sm",
-                    m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
+                    m.role === "user"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-foreground",
                   )}
                 >
                   {m.content}
                   {m.pendingAction && (
                     <div className="mt-2 rounded-md border border-border bg-card p-2 text-xs text-foreground">
-                      <p className="font-medium">{m.pendingAction.description}</p>
+                      <p className="font-medium">
+                        {m.pendingAction.description}
+                      </p>
                       {!m.pendingAction.resolved ? (
                         <div className="mt-2 flex gap-2">
                           <button
@@ -223,15 +281,22 @@ export function AssistantWidget() {
                       ) : (
                         <>
                           <p className="mt-1 text-muted-foreground">
-                            {m.pendingAction.resolved === "confirmed" ? m.pendingAction.resultText ?? "Selesai." : "Dibatalkan."}
+                            {m.pendingAction.resolved === "confirmed"
+                              ? (m.pendingAction.resultText ?? "Selesai.")
+                              : "Dibatalkan."}
                           </p>
-                          {m.pendingAction.resolved === "confirmed" && m.pendingAction.fileUrl && (
-                            <a href={m.pendingAction.fileUrl} target="_blank" rel="noreferrer">
-                              <button className="mt-2 flex items-center gap-1.5 rounded-md bg-primary px-2 py-1 text-xs font-medium text-primary-foreground hover:opacity-90">
-                                <FileDown className="h-3.5 w-3.5" /> Lihat PDF
-                              </button>
-                            </a>
-                          )}
+                          {m.pendingAction.resolved === "confirmed" &&
+                            m.pendingAction.fileUrl && (
+                              <a
+                                href={m.pendingAction.fileUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                <button className="mt-2 flex items-center gap-1.5 rounded-md bg-primary px-2 py-1 text-xs font-medium text-primary-foreground hover:opacity-90">
+                                  <FileDown className="h-3.5 w-3.5" /> Lihat PDF
+                                </button>
+                              </a>
+                            )}
                         </>
                       )}
                     </div>
@@ -239,7 +304,11 @@ export function AssistantWidget() {
                 </div>
               </div>
             ))}
-            {sending && <p className="text-xs text-muted-foreground">AISSO sedang mengetik...</p>}
+            {sending && (
+              <p className="text-xs text-muted-foreground">
+                AISSO sedang mengetik...
+              </p>
+            )}
           </div>
 
           <div className="border-t border-border p-3">
@@ -247,7 +316,11 @@ export function AssistantWidget() {
               <div className="mb-2 flex items-center gap-2 rounded-md border border-border bg-muted px-2 py-1 text-xs">
                 <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 <span className="flex-1 truncate">{attachedFile.name}</span>
-                <button onClick={() => setAttachedFile(null)} aria-label="Hapus lampiran" className="shrink-0 text-muted-foreground hover:text-foreground">
+                <button
+                  onClick={() => setAttachedFile(null)}
+                  aria-label="Hapus lampiran"
+                  className="shrink-0 text-muted-foreground hover:text-foreground"
+                >
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
@@ -272,7 +345,8 @@ export function AssistantWidget() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && onSend()}
-                placeholder="Tanya sesuatu..."
+                aria-label="Pesan untuk asisten"
+                placeholder="Tanya status proyek atau dokumen…"
                 className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
                 disabled={sending}
               />

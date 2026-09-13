@@ -3,8 +3,16 @@ import { prisma } from "@/lib/db";
 import { generateNumber } from "@/lib/numbering";
 import { logActivity } from "@/lib/workflows/audit";
 import { notifyRole, notifyUser } from "@/lib/workflows/notify";
-import { createProjectFolders, mergeOpportunityFoldersIntoProject } from "@/lib/workflows/folders";
-import { calcProfitability, invoiceDueAmount, computeSCurve, computeProjectRiskSignals } from "@/lib/workflows/calculations";
+import {
+  createProjectFolders,
+  mergeOpportunityFoldersIntoProject,
+} from "@/lib/workflows/folders";
+import {
+  calcProfitability,
+  invoiceDueAmount,
+  computeSCurve,
+  computeProjectRiskSignals,
+} from "@/lib/workflows/calculations";
 import type { SessionPayload } from "@/lib/auth/session";
 import { requireProjectCloser } from "@/lib/permissions";
 
@@ -49,7 +57,7 @@ export async function convertQuotationToProject(
   quotation: Quotation,
   customer: Customer,
   actor: SessionPayload,
-  opts?: { projectManagerId?: string }
+  opts?: { projectManagerId?: string },
 ) {
   const pendingNotifications: PendingNotification[] = [];
   const number = await generateNumber(tx, "PROJECT");
@@ -77,7 +85,11 @@ export async function convertQuotationToProject(
   // Sales" folders so the history from prospect to project stays one
   // unbroken thread, with nothing duplicated or re-uploaded.
   if (quotation.opportunityId) {
-    await mergeOpportunityFoldersIntoProject(tx, quotation.opportunityId, project.id);
+    await mergeOpportunityFoldersIntoProject(
+      tx,
+      quotation.opportunityId,
+      project.id,
+    );
   }
 
   await tx.projectTask.createMany({
@@ -142,7 +154,9 @@ export async function convertQuotationToProject(
 
 /** Revenue - Cost = Gross Profit; Gross Profit / Revenue = Gross Margin (section 28). */
 export async function calculateProjectProfitability(projectId: string) {
-  const project = await prisma.project.findUniqueOrThrow({ where: { id: projectId } });
+  const project = await prisma.project.findUniqueOrThrow({
+    where: { id: projectId },
+  });
   const expenseAgg = await prisma.projectExpense.aggregate({
     where: { projectId, deletedAt: null },
     _sum: { total: true },
@@ -151,18 +165,39 @@ export async function calculateProjectProfitability(projectId: string) {
   // amount is grandTotal * dpPercent/100, a per-row calc _sum can't do. See
   // invoiceDueAmount().
   const projectInvoices = await prisma.invoice.findMany({
-    where: { projectId, deletedAt: null, status: { not: "CANCELLED" } },
-    select: { grandTotal: true, dpPercent: true, paidAmount: true, withholdingTax: true },
+    where: {
+      projectId,
+      deletedAt: null,
+      status: { in: ["ISSUED", "PARTIALLY_PAID", "PAID", "OVERDUE"] },
+    },
+    select: {
+      grandTotal: true,
+      dpPercent: true,
+      paidAmount: true,
+      withholdingTax: true,
+    },
   });
 
   const revenue = Number(project.contractValue);
   const actualCost = Number(expenseAgg._sum.total ?? 0);
-  const totalInvoiced = projectInvoices.reduce((s, i) => s + invoiceDueAmount(i), 0);
-  const totalPaid = projectInvoices.reduce((s, i) => s + Number(i.paidAmount), 0);
+  const totalInvoiced = projectInvoices.reduce(
+    (s, i) => s + invoiceDueAmount(i),
+    0,
+  );
+  const totalPaid = projectInvoices.reduce(
+    (s, i) => s + Number(i.paidAmount),
+    0,
+  );
   // Tax legally withheld by the customer settles the invoice like cash —
   // see invoiceOutstanding().
-  const totalWithheld = projectInvoices.reduce((s, i) => s + Number(i.withholdingTax), 0);
-  const { grossProfit, grossMargin } = calcProfitability({ revenue, cost: actualCost });
+  const totalWithheld = projectInvoices.reduce(
+    (s, i) => s + Number(i.withholdingTax),
+    0,
+  );
+  const { grossProfit, grossMargin } = calcProfitability({
+    revenue,
+    cost: actualCost,
+  });
 
   return {
     contractValue: revenue,
@@ -186,7 +221,10 @@ const CLOSING_CHECK_DEFS: { key: string; label: string }[] = [
   { key: "invoicesCreated", label: "All invoices created" },
   { key: "paymentReviewed", label: "Payment status reviewed" },
   { key: "expensesRecorded", label: "Project expenses recorded" },
-  { key: "financialResultCalculated", label: "Project financial result calculated" },
+  {
+    key: "financialResultCalculated",
+    label: "Project financial result calculated",
+  },
   { key: "customerDocsComplete", label: "Customer documents complete" },
 ];
 
@@ -196,15 +234,27 @@ const CLOSING_CHECK_DEFS: { key: string; label: string }[] = [
  * verdict, so the UI can render "Project cannot be closed. Missing: ..."
  */
 export async function validateProjectClosing(projectId: string) {
-  const project = await prisma.project.findUniqueOrThrow({ where: { id: projectId } });
+  const project = await prisma.project.findUniqueOrThrow({
+    where: { id: projectId },
+  });
 
   const [openTasks, bast, finalReport, invoices, expenses] = await Promise.all([
-    prisma.projectTask.count({ where: { projectId, deletedAt: null, status: { not: "COMPLETED" } } }),
-    prisma.document.findFirst({
-      where: { relatedEntityType: "BAST", deletedAt: null, folder: { projectId } },
+    prisma.projectTask.count({
+      where: { projectId, deletedAt: null, status: { not: "COMPLETED" } },
     }),
     prisma.document.findFirst({
-      where: { relatedEntityType: "FINAL_REPORT", deletedAt: null, folder: { projectId } },
+      where: {
+        relatedEntityType: "BAST",
+        deletedAt: null,
+        folder: { projectId },
+      },
+    }),
+    prisma.document.findFirst({
+      where: {
+        relatedEntityType: "FINAL_REPORT",
+        deletedAt: null,
+        folder: { projectId },
+      },
     }),
     prisma.invoice.findMany({ where: { projectId, deletedAt: null } }),
     prisma.projectExpense.count({ where: { projectId, deletedAt: null } }),
@@ -212,7 +262,10 @@ export async function validateProjectClosing(projectId: string) {
 
   const totalInvoiced = invoices.reduce((s, i) => s + invoiceDueAmount(i), 0);
   // Cash paid + tax legally withheld — see invoiceOutstanding().
-  const totalSettled = invoices.reduce((s, i) => s + Number(i.paidAmount) + Number(i.withholdingTax), 0);
+  const totalSettled = invoices.reduce(
+    (s, i) => s + Number(i.paidAmount) + Number(i.withholdingTax),
+    0,
+  );
 
   const results: Record<string, boolean> = {
     tasksCompleted: openTasks === 0,
@@ -226,11 +279,16 @@ export async function validateProjectClosing(projectId: string) {
     customerDocsComplete: Boolean(bast) && Boolean(finalReport),
   };
 
-  const missing = CLOSING_CHECK_DEFS.filter((c) => !results[c.key]).map((c) => c.label);
+  const missing = CLOSING_CHECK_DEFS.filter((c) => !results[c.key]).map(
+    (c) => c.label,
+  );
   void project;
 
   return {
-    checklist: CLOSING_CHECK_DEFS.map((c) => ({ ...c, passed: results[c.key] })),
+    checklist: CLOSING_CHECK_DEFS.map((c) => ({
+      ...c,
+      passed: results[c.key],
+    })),
     canClose: missing.length === 0,
     missing,
   };
@@ -243,13 +301,15 @@ export async function validateProjectClosing(projectId: string) {
  * a stale client can't force a close.
  */
 export async function closeProject(projectId: string, actor: SessionPayload) {
-  const project = await prisma.project.findUniqueOrThrow({ where: { id: projectId } });
+  const project = await prisma.project.findUniqueOrThrow({
+    where: { id: projectId },
+  });
   requireProjectCloser(actor.role, project.projectManagerId === actor.userId);
 
   const validation = await validateProjectClosing(projectId);
   if (!validation.canClose) {
     throw new Error(
-      `Project cannot be closed. Missing: ${validation.missing.join(", ")}`
+      `Project cannot be closed. Missing: ${validation.missing.join(", ")}`,
     );
   }
 
@@ -262,7 +322,8 @@ export async function closeProject(projectId: string, actor: SessionPayload) {
         completedAt: project.completedAt ?? now,
         closedAt: now,
         closedById: actor.userId,
-        closingChecklist: validation.checklist as unknown as Prisma.InputJsonValue,
+        closingChecklist:
+          validation.checklist as unknown as Prisma.InputJsonValue,
       },
     });
 
@@ -289,11 +350,18 @@ export async function closeProject(projectId: string, actor: SessionPayload) {
   });
 }
 
-export async function markProjectCompleted(projectId: string, actor: SessionPayload) {
+export async function markProjectCompleted(
+  projectId: string,
+  actor: SessionPayload,
+) {
   return prisma.$transaction(async (tx) => {
     const updated = await tx.project.update({
       where: { id: projectId },
-      data: { status: "COMPLETED", completedAt: new Date(), progressPercent: 100 },
+      data: {
+        status: "COMPLETED",
+        completedAt: new Date(),
+        progressPercent: 100,
+      },
     });
     await logActivity(tx, {
       userId: actor.userId,
@@ -317,14 +385,23 @@ export async function markProjectCompleted(projectId: string, actor: SessionPayl
 export async function refreshDelayedMilestones() {
   const now = new Date();
   const candidates = await prisma.projectMilestone.findMany({
-    where: { status: { in: ["PENDING", "IN_PROGRESS"] }, dueDate: { lt: now }, project: { deletedAt: null } },
-    include: { project: { select: { id: true, number: true, projectManagerId: true } } },
+    where: {
+      status: { in: ["PENDING", "IN_PROGRESS"] },
+      dueDate: { lt: now },
+      project: { deletedAt: null },
+    },
+    include: {
+      project: { select: { id: true, number: true, projectManagerId: true } },
+    },
   });
   if (candidates.length === 0) return 0;
 
   await prisma.$transaction(async (tx) => {
     for (const m of candidates) {
-      await tx.projectMilestone.update({ where: { id: m.id }, data: { status: "DELAYED" } });
+      await tx.projectMilestone.update({
+        where: { id: m.id },
+        data: { status: "DELAYED" },
+      });
       await logActivity(tx, {
         action: "STATUS_CHANGE",
         entityType: "PROJECT_MILESTONE",
@@ -365,9 +442,28 @@ export async function refreshProjectRiskNotifications() {
       number: true,
       projectManagerId: true,
       budget: true,
-      milestones: { select: { name: true, status: true, dueDate: true, weightPercent: true, completedAt: true } },
-      invoices: { where: { deletedAt: null }, select: { invoiceDate: true, grandTotal: true, dpPercent: true, status: true } },
-      expenses: { where: { deletedAt: null, approvalStatus: "APPROVED" }, select: { total: true } },
+      milestones: {
+        select: {
+          name: true,
+          status: true,
+          dueDate: true,
+          weightPercent: true,
+          completedAt: true,
+        },
+      },
+      invoices: {
+        where: { deletedAt: null },
+        select: {
+          invoiceDate: true,
+          grandTotal: true,
+          dpPercent: true,
+          status: true,
+        },
+      },
+      expenses: {
+        where: { deletedAt: null, approvalStatus: "APPROVED" },
+        select: { total: true },
+      },
       contractValue: true,
     },
   });
@@ -377,13 +473,26 @@ export async function refreshProjectRiskNotifications() {
 
   for (const p of projects) {
     const sCurve = computeSCurve({
-      milestones: p.milestones.map((m) => ({ dueDate: m.dueDate, weightPercent: Number(m.weightPercent), completedAt: m.completedAt })),
-      invoices: p.invoices.map((i) => ({ invoiceDate: i.invoiceDate, grandTotal: Number(i.grandTotal), dpPercent: i.dpPercent ? Number(i.dpPercent) : null, status: i.status })),
+      milestones: p.milestones.map((m) => ({
+        dueDate: m.dueDate,
+        weightPercent: Number(m.weightPercent),
+        completedAt: m.completedAt,
+      })),
+      invoices: p.invoices.map((i) => ({
+        invoiceDate: i.invoiceDate,
+        grandTotal: Number(i.grandTotal),
+        dpPercent: i.dpPercent ? Number(i.dpPercent) : null,
+        status: i.status,
+      })),
       contractValue: Number(p.contractValue),
     });
     const signals = computeProjectRiskSignals({
       status: "ACTIVE",
-      milestones: p.milestones.map((m) => ({ name: m.name, status: m.status, dueDate: m.dueDate })),
+      milestones: p.milestones.map((m) => ({
+        name: m.name,
+        status: m.status,
+        dueDate: m.dueDate,
+      })),
       budget: Number(p.budget),
       approvedExpenseTotal: p.expenses.reduce((s, e) => s + Number(e.total), 0),
       sCurveAsOfToday: sCurve.asOfToday,
@@ -391,7 +500,11 @@ export async function refreshProjectRiskNotifications() {
     if (signals.length === 0) continue;
 
     const alreadyNotified = await prisma.notification.findFirst({
-      where: { type: "PROJECT_AT_RISK", message: { contains: p.number }, createdAt: { gt: threeDaysAgo } },
+      where: {
+        type: "PROJECT_AT_RISK",
+        message: { contains: p.number },
+        createdAt: { gt: threeDaysAgo },
+      },
     });
     if (alreadyNotified) continue;
 
@@ -400,9 +513,20 @@ export async function refreshProjectRiskNotifications() {
     const link = `/projects/${p.id}`;
 
     await prisma.$transaction(async (tx) => {
-      await notifyRole(tx, "ADMIN", { type: "PROJECT_AT_RISK", title, message, link });
+      await notifyRole(tx, "ADMIN", {
+        type: "PROJECT_AT_RISK",
+        title,
+        message,
+        link,
+      });
       if (p.projectManagerId) {
-        await notifyUser(tx, { userId: p.projectManagerId, type: "PROJECT_AT_RISK", title, message, link });
+        await notifyUser(tx, {
+          userId: p.projectManagerId,
+          type: "PROJECT_AT_RISK",
+          title,
+          message,
+          link,
+        });
       }
     });
     notifiedCount++;

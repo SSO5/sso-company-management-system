@@ -4,15 +4,25 @@ import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/current-user";
 import { requirePermission } from "@/lib/permissions";
 import { logActivity } from "@/lib/workflows/audit";
-import { calculateProjectProfitability, validateProjectClosing, closeProject, markProjectCompleted, refreshDelayedMilestones, refreshProjectRiskNotifications } from "@/lib/workflows/project";
-import { computeSCurve, computeProjectRiskSignals, computeBillingTimeline } from "@/lib/workflows/calculations";
+import {
+  calculateProjectProfitability,
+  validateProjectClosing,
+  closeProject,
+  markProjectCompleted,
+  refreshDelayedMilestones,
+  refreshProjectRiskNotifications,
+} from "@/lib/workflows/project";
+import {
+  computeSCurve,
+  computeProjectRiskSignals,
+  computeBillingTimeline,
+} from "@/lib/workflows/calculations";
 import { projectUpdateSchema } from "@/lib/validation/project";
 import { runAction, type ActionResult } from "@/lib/action-helpers";
 
 export async function listProjects() {
   const actor = await requireUserOrThrow();
   requirePermission(actor.role, "project", "view");
-  await refreshProjectRiskNotifications();
 
   const projects = await prisma.project.findMany({
     where: { deletedAt: null },
@@ -20,17 +30,45 @@ export async function listProjects() {
       customer: { select: { companyName: true } },
       projectManager: { select: { name: true } },
       _count: { select: { tasks: true, invoices: true } },
-      milestones: { select: { name: true, status: true, dueDate: true, weightPercent: true, completedAt: true } },
-      invoices: { where: { deletedAt: null }, select: { invoiceDate: true, grandTotal: true, dpPercent: true, status: true } },
-      expenses: { where: { deletedAt: null, approvalStatus: "APPROVED" }, select: { total: true } },
+      milestones: {
+        select: {
+          name: true,
+          status: true,
+          dueDate: true,
+          weightPercent: true,
+          completedAt: true,
+        },
+      },
+      invoices: {
+        where: { deletedAt: null },
+        select: {
+          invoiceDate: true,
+          grandTotal: true,
+          dpPercent: true,
+          status: true,
+        },
+      },
+      expenses: {
+        where: { deletedAt: null, approvalStatus: "APPROVED" },
+        select: { total: true },
+      },
     },
     orderBy: { createdAt: "desc" },
   });
 
   return projects.map((p) => {
     const sCurve = computeSCurve({
-      milestones: p.milestones.map((m) => ({ dueDate: m.dueDate, weightPercent: Number(m.weightPercent), completedAt: m.completedAt })),
-      invoices: p.invoices.map((i) => ({ invoiceDate: i.invoiceDate, grandTotal: Number(i.grandTotal), dpPercent: i.dpPercent ? Number(i.dpPercent) : null, status: i.status })),
+      milestones: p.milestones.map((m) => ({
+        dueDate: m.dueDate,
+        weightPercent: Number(m.weightPercent),
+        completedAt: m.completedAt,
+      })),
+      invoices: p.invoices.map((i) => ({
+        invoiceDate: i.invoiceDate,
+        grandTotal: Number(i.grandTotal),
+        dpPercent: i.dpPercent ? Number(i.dpPercent) : null,
+        status: i.status,
+      })),
       contractValue: Number(p.contractValue),
     });
     const riskSignals = computeProjectRiskSignals({
@@ -47,17 +85,23 @@ export async function listProjects() {
 export async function getProjectDetail(id: string) {
   const actor = await requireUserOrThrow();
   requirePermission(actor.role, "project", "view");
-  await refreshDelayedMilestones();
+
   const [project, profitability, closing] = await Promise.all([
     prisma.project.findUniqueOrThrow({
       where: { id },
       include: {
         customer: true,
         opportunity: { select: { id: true, number: true } },
-        quotation: { select: { id: true, number: true, revision: true, grandTotal: true } },
+        quotation: {
+          select: { id: true, number: true, revision: true, grandTotal: true },
+        },
         projectManager: { select: { id: true, name: true } },
         salesPic: { select: { id: true, name: true } },
-        tasks: { where: { deletedAt: null }, orderBy: { createdAt: "asc" }, include: { assignedTo: { select: { name: true } } } },
+        tasks: {
+          where: { deletedAt: null },
+          orderBy: { createdAt: "asc" },
+          include: { assignedTo: { select: { name: true } } },
+        },
         milestones: {
           orderBy: { sortOrder: "asc" },
           // Needed so the Milestones tab can show "tanggal ini mengikuti PO
@@ -66,8 +110,16 @@ export async function getProjectDetail(id: string) {
           // in updatePurchaseOrder().
           include: { sourcePurchaseOrder: { select: { number: true } } },
         },
-        expenses: { where: { deletedAt: null }, orderBy: { date: "desc" }, include: { createdBy: { select: { name: true } } } },
-        invoices: { where: { deletedAt: null }, orderBy: { createdAt: "desc" }, include: { payments: true } },
+        expenses: {
+          where: { deletedAt: null },
+          orderBy: { date: "desc" },
+          include: { createdBy: { select: { name: true } } },
+        },
+        invoices: {
+          where: { deletedAt: null },
+          orderBy: { createdAt: "desc" },
+          include: { payments: true },
+        },
         folders: { where: { parentId: null }, take: 1 },
         // The whole point of a Project as the shared hub: the customer's own
         // PurchaseOrder (Sales side) and every VendorPurchaseOrder (SSO ->
@@ -78,19 +130,35 @@ export async function getProjectDetail(id: string) {
           where: { deletedAt: null },
           orderBy: { poDate: "desc" },
           select: {
-            id: true, number: true, poDate: true, poValue: true, status: true,
-            paymentTerms: true, deliveryTerms: true, estimatedDeliveryDate: true,
+            id: true,
+            number: true,
+            poDate: true,
+            poValue: true,
+            status: true,
+            paymentTerms: true,
+            deliveryTerms: true,
+            estimatedDeliveryDate: true,
           },
         },
         vendorPurchaseOrders: {
           where: { deletedAt: null },
           orderBy: { createdAt: "desc" },
-          select: { id: true, number: true, vendorName: true, poDate: true, grandTotal: true, status: true },
+          select: {
+            id: true,
+            number: true,
+            vendorName: true,
+            poDate: true,
+            grandTotal: true,
+            status: true,
+          },
         },
         progressReports: {
           where: { deletedAt: null },
           orderBy: { inspectionDate: "desc" },
-          include: { preparedBy: { select: { name: true } }, items: { orderBy: { sortOrder: "asc" } } },
+          include: {
+            preparedBy: { select: { name: true } },
+            items: { orderBy: { sortOrder: "asc" } },
+          },
         },
       },
     }),
@@ -102,7 +170,10 @@ export async function getProjectDetail(id: string) {
   // technical notes, correspondence) isn't moved into the Project — it's
   // linked, so nothing from the Sales stage gets lost when a deal converts.
   const opportunityFolder = project.opportunityId
-    ? await prisma.folder.findFirst({ where: { opportunityId: project.opportunityId, parentId: null }, select: { id: true, name: true } })
+    ? await prisma.folder.findFirst({
+        where: { opportunityId: project.opportunityId, parentId: null },
+        select: { id: true, name: true },
+      })
     : null;
 
   // Where an AI-assisted PO upload lands (see PoExtractUploadDialog) —
@@ -116,16 +187,31 @@ export async function getProjectDetail(id: string) {
   const salesOrigin = await getSalesOriginCompleteness(id);
 
   const sCurve = computeSCurve({
-    milestones: project.milestones.map((m) => ({ dueDate: m.dueDate, weightPercent: Number(m.weightPercent), completedAt: m.completedAt })),
-    invoices: project.invoices.map((i) => ({ invoiceDate: i.invoiceDate, grandTotal: Number(i.grandTotal), dpPercent: i.dpPercent ? Number(i.dpPercent) : null, status: i.status })),
+    milestones: project.milestones.map((m) => ({
+      dueDate: m.dueDate,
+      weightPercent: Number(m.weightPercent),
+      completedAt: m.completedAt,
+    })),
+    invoices: project.invoices.map((i) => ({
+      invoiceDate: i.invoiceDate,
+      grandTotal: Number(i.grandTotal),
+      dpPercent: i.dpPercent ? Number(i.dpPercent) : null,
+      status: i.status,
+    })),
     contractValue: Number(project.contractValue),
   });
 
   const riskSignals = computeProjectRiskSignals({
     status: project.status,
-    milestones: project.milestones.map((m) => ({ name: m.name, status: m.status, dueDate: m.dueDate })),
+    milestones: project.milestones.map((m) => ({
+      name: m.name,
+      status: m.status,
+      dueDate: m.dueDate,
+    })),
     budget: Number(project.budget),
-    approvedExpenseTotal: project.expenses.filter((e) => e.approvalStatus === "APPROVED").reduce((s, e) => s + Number(e.total), 0),
+    approvedExpenseTotal: project.expenses
+      .filter((e) => e.approvalStatus === "APPROVED")
+      .reduce((s, e) => s + Number(e.total), 0),
     sCurveAsOfToday: sCurve.asOfToday,
   });
 
@@ -135,8 +221,15 @@ export async function getProjectDetail(id: string) {
   });
 
   return {
-    project, profitability, closing, opportunityFolder, purchaseOrderFolderId: purchaseOrderFolder?.id ?? null,
-    sCurve, riskSignals, salesOrigin, billingTimeline,
+    project,
+    profitability,
+    closing,
+    opportunityFolder,
+    purchaseOrderFolderId: purchaseOrderFolder?.id ?? null,
+    sCurve,
+    riskSignals,
+    salesOrigin,
+    billingTimeline,
   };
 }
 
@@ -157,12 +250,19 @@ async function getSalesOriginCompleteness(projectId: string) {
     where: { projectId, routeKey: "SALES_SECTION" },
     select: {
       children: {
-        select: { id: true, routeKey: true, _count: { select: { documents: { where: { deletedAt: null } } } } },
+        select: {
+          id: true,
+          routeKey: true,
+          _count: { select: { documents: { where: { deletedAt: null } } } },
+        },
       },
     },
   });
-  const byRoute = new Map((salesSection?.children ?? []).map((f) => [f.routeKey, f]));
-  const hasDocs = (routeKey: string) => (byRoute.get(routeKey)?._count.documents ?? 0) > 0;
+  const byRoute = new Map(
+    (salesSection?.children ?? []).map((f) => [f.routeKey, f]),
+  );
+  const hasDocs = (routeKey: string) =>
+    (byRoute.get(routeKey)?._count.documents ?? 0) > 0;
   const folderId = (routeKey: string) => byRoute.get(routeKey)?.id ?? null;
 
   const dataInputId = folderId("SALES/DATA_INPUT");
@@ -192,7 +292,10 @@ async function getSalesOriginCompleteness(projectId: string) {
   return { items, complete: items.every((i) => i.complete) };
 }
 
-export async function updateProject(id: string, input: unknown): Promise<ActionResult<{ id: string }>> {
+export async function updateProject(
+  id: string,
+  input: unknown,
+): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
     const actor = await requireUserOrThrow();
     requirePermission(actor.role, "project", "update");
@@ -206,18 +309,27 @@ export async function updateProject(id: string, input: unknown): Promise<ActionR
     // AT_RISK/CANCELLED.
     if (data.status === "COMPLETED" || data.status === "CLOSED") {
       throw new Error(
-        `Status ${data.status} hanya bisa diset lewat tombol "${data.status === "COMPLETED" ? "Mark Completed" : "Close Project"}" di tab Closing, bukan lewat sini.`
+        `Status ${data.status} hanya bisa diset lewat tombol "${data.status === "COMPLETED" ? "Mark Completed" : "Close Project"}" di tab Closing, bukan lewat sini.`,
       );
     }
 
     await prisma.$transaction(async (tx) => {
       const before = await tx.project.findUniqueOrThrow({ where: { id } });
-      if (data.status && data.status !== before.status && (before.status === "COMPLETED" || before.status === "CLOSED")) {
-        throw new Error(`${before.number} sudah ${before.status} — stage tidak bisa diubah lagi lewat sini.`);
+      if (
+        data.status &&
+        data.status !== before.status &&
+        (before.status === "COMPLETED" || before.status === "CLOSED")
+      ) {
+        throw new Error(
+          `${before.number} sudah ${before.status} — stage tidak bisa diubah lagi lewat sini.`,
+        );
       }
       await tx.project.update({ where: { id }, data });
       await logActivity(tx, {
-        userId: actor.userId, action: "UPDATE", entityType: "PROJECT", entityId: id,
+        userId: actor.userId,
+        action: "UPDATE",
+        entityType: "PROJECT",
+        entityId: id,
         description: `Updated ${before.number}`,
         metadata: { changes: data },
       });
@@ -229,7 +341,9 @@ export async function updateProject(id: string, input: unknown): Promise<ActionR
   });
 }
 
-export async function markCompletedAction(id: string): Promise<ActionResult<{ id: string }>> {
+export async function markCompletedAction(
+  id: string,
+): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
     const actor = await requireUserOrThrow();
     requirePermission(actor.role, "project", "update");
@@ -239,7 +353,9 @@ export async function markCompletedAction(id: string): Promise<ActionResult<{ id
   });
 }
 
-export async function closeProjectAction(id: string): Promise<ActionResult<{ id: string }>> {
+export async function closeProjectAction(
+  id: string,
+): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
     const actor = await requireUserOrThrow();
     await closeProject(id, actor);

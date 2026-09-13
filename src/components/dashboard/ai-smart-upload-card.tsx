@@ -7,9 +7,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
-import { classifyUploadWithAI, confirmSmartUpload } from "@/server/documents/smart-upload";
+import {
+  classifyUploadWithAI,
+  confirmSmartUpload,
+} from "@/server/documents/smart-upload";
 import { DOCUMENT_FOLDER_OPTIONS } from "@/lib/document-folder-options";
-import type { DocumentClassification, CandidateProject } from "@/lib/ai/classify-document";
+import type {
+  DocumentClassification,
+  CandidateProject,
+} from "@/lib/ai/classify-document";
 import { Sparkles, TriangleAlert } from "lucide-react";
 
 type Step = "upload" | "confirm";
@@ -27,7 +33,9 @@ export function AiSmartUploadCard() {
   const [step, setStep] = useState<Step>("upload");
   const [pending, setPending] = useState(false);
   const [file, setFile] = useState<File | null>(null);
-  const [extracted, setExtracted] = useState<DocumentClassification | null>(null);
+  const [extracted, setExtracted] = useState<DocumentClassification | null>(
+    null,
+  );
   const [extractionError, setExtractionError] = useState<string | null>(null);
   const [projects, setProjects] = useState<CandidateProject[]>([]);
   const router = useRouter();
@@ -49,12 +57,23 @@ export function AiSmartUploadCard() {
       toast({ title: "Pilih file terlebih dahulu", variant: "destructive" });
       return;
     }
+    if (picked.size > 4 * 1024 * 1024) {
+      toast({
+        title: "Batas unggah AI 4 MB. Kompres file terlebih dahulu.",
+        variant: "destructive",
+      });
+      return;
+    }
     setFile(picked);
     setPending(true);
     const res = await classifyUploadWithAI(fd);
     setPending(false);
     if (!res.ok) {
-      toast({ title: "Gagal membaca file", description: res.error, variant: "destructive" });
+      toast({
+        title: "Gagal membaca file",
+        description: res.error,
+        variant: "destructive",
+      });
       return;
     }
     setExtracted(res.data.extracted);
@@ -75,15 +94,26 @@ export function AiSmartUploadCard() {
     uploadFd.append("file", file);
 
     setPending(true);
-    const res = await confirmSmartUpload({ projectNumber, routeKey, fileName }, uploadFd);
+    const res = await confirmSmartUpload(
+      { projectNumber, routeKey, fileName },
+      uploadFd,
+    );
     setPending(false);
     if (res.ok) {
-      toast({ title: "Dokumen tersimpan", description: res.data.folderPath, variant: "success" });
+      toast({
+        title: "Dokumen tersimpan",
+        description: res.data.folderPath,
+        variant: "success",
+      });
       setOpen(false);
       reset();
       router.refresh();
     } else {
-      toast({ title: "Tidak bisa menyimpan", description: res.error, variant: "destructive" });
+      toast({
+        title: "Tidak bisa menyimpan",
+        description: res.error,
+        variant: "destructive",
+      });
     }
   }
 
@@ -95,10 +125,12 @@ export function AiSmartUploadCard() {
         className="flex min-h-48 w-full flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-[#2454d1]/30 bg-gradient-to-br from-[#2454d1]/10 via-card to-[#ee5a93]/10 p-6 text-center transition-colors hover:border-[#2454d1]/50 hover:from-[#2454d1]/[0.15] hover:to-[#ee5a93]/[0.15] sm:min-h-56"
       >
         <Sparkles className="h-10 w-10 text-[#2454d1]" />
-        <p className="text-xl font-bold text-[#2454d1] sm:text-2xl">Upload aja, aku yang simpenin!</p>
+        <p className="text-xl font-bold text-[#2454d1] sm:text-2xl">
+          Upload aja, aku yang simpenin!
+        </p>
         <p className="max-w-sm text-sm text-muted-foreground">
-          Kirim file apapun — biar AI yang bacain, tentuin project &amp; foldernya, lalu rapiin namanya. Anda tetap
-          cek sebelum disimpan.
+          Kirim file apapun — biar AI yang bacain, tentuin project &amp;
+          foldernya, lalu rapiin namanya. Anda tetap cek sebelum disimpan.
         </p>
       </button>
 
@@ -108,11 +140,13 @@ export function AiSmartUploadCard() {
           setOpen(o);
           if (!o) reset();
         }}
-        title={step === "upload" ? "Upload Dokumen" : "Konfirmasi Tujuan Dokumen"}
+        title={
+          step === "upload" ? "Upload Dokumen" : "Konfirmasi Tujuan Dokumen"
+        }
         description={
           step === "upload"
-            ? "PDF atau foto dokumen — AI akan membaca dan menyarankan project, folder, dan nama file. Tipe lain (Word/Excel) tetap bisa diupload, tapi Anda pilih tujuannya manual."
-            : `Dari file "${file?.name}". Periksa/lengkapi sebelum disimpan sebagai dokumen resmi.`
+            ? "Maksimal 4 MB. PDF atau foto dokumen — AI akan membaca dan menyarankan project, folder, dan nama file. Tipe lain (Word/Excel) tetap bisa diupload, tapi Anda pilih tujuannya manual."
+            : `Dari file "${file?.name}". Periksa/lengkapi sebelum disimpan. Unggah file tidak mengesahkan transaksi.`
         }
       >
         {step === "upload" && (
@@ -128,11 +162,16 @@ export function AiSmartUploadCard() {
               />
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+              >
                 Batal
               </Button>
               <Button type="submit" disabled={pending}>
-                <Sparkles className="h-3.5 w-3.5" /> {pending ? "Membaca dengan AI..." : "Analisa & Lanjut"}
+                <Sparkles className="h-3.5 w-3.5" />{" "}
+                {pending ? "Membaca dengan AI..." : "Analisa & Lanjut"}
               </Button>
             </div>
           </form>
@@ -150,21 +189,32 @@ export function AiSmartUploadCard() {
               <div className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 p-2.5 text-xs text-warning-foreground">
                 <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <span>
-                  AI kurang yakin dengan klasifikasi ini{extracted.notes ? ` — ${extracted.notes}` : ""}. Periksa ulang
-                  project &amp; foldernya.
+                  AI kurang yakin dengan klasifikasi ini
+                  {extracted.notes ? ` — ${extracted.notes}` : ""}. Periksa
+                  ulang project &amp; foldernya.
                 </span>
               </div>
             )}
             {extracted?.documentType && (
               <p className="text-xs text-muted-foreground">
-                AI mendeteksi jenis dokumen: <span className="font-medium text-foreground">{extracted.documentType}</span>
+                AI mendeteksi jenis dokumen:{" "}
+                <span className="font-medium text-foreground">
+                  {extracted.documentType}
+                </span>
               </p>
             )}
 
             <div className="space-y-1">
               <Label htmlFor="su-project">Project</Label>
-              <Select id="su-project" name="projectNumber" required defaultValue={extracted?.projectNumber ?? ""}>
-                <option value="" disabled>Pilih project</option>
+              <Select
+                id="su-project"
+                name="projectNumber"
+                required
+                defaultValue={extracted?.projectNumber ?? ""}
+              >
+                <option value="" disabled>
+                  Pilih project
+                </option>
                 {projects.map((p) => (
                   <option key={p.number} value={p.number}>
                     {p.number} — {p.customerName}
@@ -176,10 +226,19 @@ export function AiSmartUploadCard() {
 
             <div className="space-y-1">
               <Label htmlFor="su-folder">Folder Tujuan</Label>
-              <Select id="su-folder" name="routeKey" required defaultValue={extracted?.routeKey ?? ""}>
-                <option value="" disabled>Pilih folder</option>
+              <Select
+                id="su-folder"
+                name="routeKey"
+                required
+                defaultValue={extracted?.routeKey ?? ""}
+              >
+                <option value="" disabled>
+                  Pilih folder
+                </option>
                 {DOCUMENT_FOLDER_OPTIONS.map((f) => (
-                  <option key={f.routeKey} value={f.routeKey}>{f.label}</option>
+                  <option key={f.routeKey} value={f.routeKey}>
+                    {f.label}
+                  </option>
                 ))}
               </Select>
             </div>
@@ -190,16 +249,25 @@ export function AiSmartUploadCard() {
                 id="su-filename"
                 name="fileName"
                 required
-                defaultValue={extracted?.suggestedFileName ?? file?.name.replace(/\.[^.]+$/, "") ?? ""}
+                defaultValue={
+                  extracted?.suggestedFileName ??
+                  file?.name.replace(/\.[^.]+$/, "") ??
+                  ""
+                }
               />
               <p className="text-[11px] text-muted-foreground">
-                Ekstensi asli (.{file?.name.split(".").pop()}) ditambahkan otomatis. Standar penamaan: TANGGAL - Jenis
-                Dokumen - Deskripsi Singkat.
+                Ekstensi asli (.{file?.name.split(".").pop()}) ditambahkan
+                otomatis. Standar penamaan: TANGGAL - Jenis Dokumen - Deskripsi
+                Singkat.
               </p>
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => setStep("upload")}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setStep("upload")}
+              >
                 Kembali
               </Button>
               <Button type="submit" disabled={pending}>

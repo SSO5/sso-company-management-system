@@ -32,31 +32,61 @@ export async function getOpportunityDetail(id: string) {
     where: { id },
     include: {
       customer: { select: { id: true, companyName: true, number: true } },
-      contact: { select: { id: true, name: true, position: true, email: true, phone: true } },
+      contact: {
+        select: {
+          id: true,
+          name: true,
+          position: true,
+          email: true,
+          phone: true,
+        },
+      },
       salesPic: { select: { name: true } },
       quotations: {
         where: { deletedAt: null },
         orderBy: { createdAt: "desc" },
         select: {
-          id: true, number: true, revision: true, status: true, grandTotal: true,
-          revisionHistory: { orderBy: { revision: "desc" }, select: { id: true, revision: true, snapshot: true, createdAt: true } },
+          id: true,
+          number: true,
+          revision: true,
+          status: true,
+          grandTotal: true,
+          revisionHistory: {
+            orderBy: { revision: "desc" },
+            select: {
+              id: true,
+              revision: true,
+              snapshot: true,
+              createdAt: true,
+            },
+          },
         },
       },
       // deletedAt filter matters here: a Project archived by
       // archiveWonArtifacts (lib/workflows/corrections.ts, after correcting
       // a wrongly-Won deal) must stop showing the "Won — Project created"
       // banner below once it's no longer the live outcome of this deal.
-      projects: { where: { deletedAt: null }, select: { id: true, number: true } },
+      projects: {
+        where: { deletedAt: null },
+        select: { id: true, number: true },
+      },
     },
   });
-  const rootFolder = await prisma.folder.findFirst({ where: { opportunityId: id, parentId: null } });
+  const rootFolder = await prisma.folder.findFirst({
+    where: { opportunityId: id, parentId: null },
+  });
   const folders = rootFolder
-    ? await prisma.folder.findMany({ where: { parentId: rootFolder.id }, orderBy: { name: "asc" } })
+    ? await prisma.folder.findMany({
+        where: { parentId: rootFolder.id },
+        orderBy: { name: "asc" },
+      })
     : [];
   return { opportunity, folders };
 }
 
-export async function createOpportunity(input: unknown): Promise<ActionResult<{ id: string }>> {
+export async function createOpportunity(
+  input: unknown,
+): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
     const actor = await requireUserOrThrow();
     requirePermission(actor.role, "sales", "create");
@@ -97,14 +127,23 @@ export async function createOpportunity(input: unknown): Promise<ActionResult<{ 
  * touch the Customer/Contact — those stay. ADMIN-only (see permissions.ts —
  * "delete" on the "sales" module is the one action SALES doesn't have).
  */
-export async function deleteOpportunity(id: string, actor: SessionPayload) {
+async function deleteOpportunity(id: string, actor: SessionPayload) {
   return prisma.$transaction(async (tx) => {
     const existing = await tx.opportunity.findUniqueOrThrow({ where: { id } });
 
     const [quotations, costingSheets, projects] = await Promise.all([
-      tx.quotation.findMany({ where: { opportunityId: id }, select: { id: true } }),
-      tx.costingSheet.findMany({ where: { opportunityId: id }, select: { id: true } }),
-      tx.project.findMany({ where: { opportunityId: id }, select: { id: true } }),
+      tx.quotation.findMany({
+        where: { opportunityId: id },
+        select: { id: true },
+      }),
+      tx.costingSheet.findMany({
+        where: { opportunityId: id },
+        select: { id: true },
+      }),
+      tx.project.findMany({
+        where: { opportunityId: id },
+        select: { id: true },
+      }),
     ]);
     const quotationIds = quotations.map((q) => q.id);
     const costingIds = costingSheets.map((c) => c.id);
@@ -116,20 +155,57 @@ export async function deleteOpportunity(id: string, actor: SessionPayload) {
     });
     const folderIds = folders.map((f) => f.id);
     const invoices = await tx.invoice.findMany({
-      where: { OR: [{ projectId: { in: projectIds } }, { quotationId: { in: quotationIds } }] },
+      where: {
+        OR: [
+          { projectId: { in: projectIds } },
+          { quotationId: { in: quotationIds } },
+        ],
+      },
       select: { id: true },
     });
     const invoiceIds = invoices.map((i) => i.id);
 
-    await tx.payment.deleteMany({ where: { OR: [{ invoiceId: { in: invoiceIds } }, { projectId: { in: projectIds } }] } });
-    await tx.invoice.deleteMany({ where: { OR: [{ projectId: { in: projectIds } }, { quotationId: { in: quotationIds } }] } }); // cascades InvoiceItem
-    await tx.contract.deleteMany({ where: { OR: [{ projectId: { in: projectIds } }, { quotationId: { in: quotationIds } }] } });
-    await tx.purchaseOrder.deleteMany({ where: { OR: [{ projectId: { in: projectIds } }, { quotationId: { in: quotationIds } }] } });
+    await tx.payment.deleteMany({
+      where: {
+        OR: [
+          { invoiceId: { in: invoiceIds } },
+          { projectId: { in: projectIds } },
+        ],
+      },
+    });
+    await tx.invoice.deleteMany({
+      where: {
+        OR: [
+          { projectId: { in: projectIds } },
+          { quotationId: { in: quotationIds } },
+        ],
+      },
+    }); // cascades InvoiceItem
+    await tx.contract.deleteMany({
+      where: {
+        OR: [
+          { projectId: { in: projectIds } },
+          { quotationId: { in: quotationIds } },
+        ],
+      },
+    });
+    await tx.purchaseOrder.deleteMany({
+      where: {
+        OR: [
+          { projectId: { in: projectIds } },
+          { quotationId: { in: quotationIds } },
+        ],
+      },
+    });
     await tx.document.deleteMany({
       where: {
         OR: [
           { folderId: { in: folderIds } },
-          { relatedEntityId: { in: [id, ...quotationIds, ...costingIds, ...projectIds] } },
+          {
+            relatedEntityId: {
+              in: [id, ...quotationIds, ...costingIds, ...projectIds],
+            },
+          },
         ],
       },
     });
@@ -137,7 +213,11 @@ export async function deleteOpportunity(id: string, actor: SessionPayload) {
     await tx.project.deleteMany({ where: { opportunityId: id } }); // cascades tasks/milestones/expenses/folders
     await tx.quotation.deleteMany({ where: { opportunityId: id } }); // cascades QuotationItem
     await tx.folder.deleteMany({ where: { opportunityId: id } });
-    await tx.activityLog.deleteMany({ where: { entityId: { in: [id, ...quotationIds, ...costingIds, ...projectIds] } } });
+    await tx.activityLog.deleteMany({
+      where: {
+        entityId: { in: [id, ...quotationIds, ...costingIds, ...projectIds] },
+      },
+    });
     await tx.opportunity.delete({ where: { id } });
 
     await logActivity(tx, {
@@ -152,7 +232,9 @@ export async function deleteOpportunity(id: string, actor: SessionPayload) {
   });
 }
 
-export async function deleteOpportunityAction(id: string): Promise<ActionResult<{ number: string }>> {
+export async function deleteOpportunityAction(
+  id: string,
+): Promise<ActionResult<{ number: string }>> {
   return runAction(async () => {
     const actor = await requireUserOrThrow();
     requirePermission(actor.role, "sales", "delete");
@@ -176,7 +258,7 @@ export async function deleteOpportunityAction(id: string): Promise<ActionResult<
  */
 export async function updateOpportunityStage(
   id: string,
-  status: OpportunityStatus
+  status: OpportunityStatus,
 ): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
     const actor = await requireUserOrThrow();
@@ -184,14 +266,16 @@ export async function updateOpportunityStage(
 
     if (status === "WON" || status === "LOST") {
       throw new Error(
-        'Won/Lost can\'t be set from the stage picker. Use "Mark Won" (creates the Project automatically) or "Mark Lost" (with a reason) on the deal\'s quotation instead.'
+        'Won/Lost can\'t be set from the stage picker. Use "Mark Won" (creates the Project automatically) or "Mark Lost" (with a reason) on the deal\'s quotation instead.',
       );
     }
 
     await prisma.$transaction(async (tx) => {
       const before = await tx.opportunity.findUniqueOrThrow({ where: { id } });
       if (before.status === "WON" || before.status === "LOST") {
-        throw new Error(`This deal is already ${before.status === "WON" ? "Won" : "Lost"} and its stage can no longer be changed manually.`);
+        throw new Error(
+          `This deal is already ${before.status === "WON" ? "Won" : "Lost"} and its stage can no longer be changed manually.`,
+        );
       }
       await tx.opportunity.update({ where: { id }, data: { status } });
       await logActivity(tx, {

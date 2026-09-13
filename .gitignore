@@ -9,3 +9,10 @@ private-storage/*
 next-env.d.ts
 cloudflared.exe
 .claude/settings.local.json
+
+.npm-cache/
+artifacts/
+.env.local
+scripts/*workspace.py
+scripts/align-rules.py
+scripts/secure-panels.py

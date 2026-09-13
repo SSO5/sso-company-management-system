@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/db";
-import { getStorageDriver, assertFileAllowed, sanitizeFileName } from "@/lib/storage";
+import {
+  getStorageDriver,
+  assertFileAllowed,
+  sanitizeFileName,
+} from "@/lib/storage";
 import { resolveDestinationFolder } from "@/lib/workflows/folders";
 import { logActivity } from "@/lib/workflows/audit";
 import type { SessionPayload } from "@/lib/auth/session";
@@ -16,8 +20,15 @@ export interface UploadDocumentParams {
 }
 
 /** Upload + auto-route (spec sections 23-26, 40). */
-export async function uploadDocument(params: UploadDocumentParams, actor: SessionPayload) {
-  assertFileAllowed(params.originalName, params.mimeType, params.buffer.byteLength);
+export async function uploadDocument(
+  params: UploadDocumentParams,
+  actor: SessionPayload,
+) {
+  assertFileAllowed(
+    params.originalName,
+    params.mimeType,
+    params.buffer.byteLength,
+  );
 
   const driver = getStorageDriver();
   const stored = await driver.save(params.buffer, {
@@ -54,7 +65,13 @@ export async function uploadDocument(params: UploadDocumentParams, actor: Sessio
       entityType: params.relatedEntityType || "DOCUMENT",
       entityId: params.relatedEntityId || doc.id,
       description: `Uploaded "${params.originalName}"`,
-      metadata: { documentId: doc.id, folderId },
+      metadata: {
+        documentId: doc.id,
+        folderId,
+        originalName: params.originalName,
+        method: "upload",
+        description: params.description ?? null,
+      },
     });
 
     return doc;
@@ -62,7 +79,10 @@ export async function uploadDocument(params: UploadDocumentParams, actor: Sessio
 }
 
 /** Soft delete -> Trash (spec section 41). */
-export async function moveDocumentToTrash(documentId: string, actor: SessionPayload) {
+export async function moveDocumentToTrash(
+  documentId: string,
+  actor: SessionPayload,
+) {
   return prisma.$transaction(async (tx) => {
     const doc = await tx.document.update({
       where: { id: documentId },
@@ -79,7 +99,10 @@ export async function moveDocumentToTrash(documentId: string, actor: SessionPayl
   });
 }
 
-export async function restoreDocumentFromTrash(documentId: string, actor: SessionPayload) {
+export async function restoreDocumentFromTrash(
+  documentId: string,
+  actor: SessionPayload,
+) {
   return prisma.$transaction(async (tx) => {
     const doc = await tx.document.update({
       where: { id: documentId },
@@ -96,10 +119,17 @@ export async function restoreDocumentFromTrash(documentId: string, actor: Sessio
   });
 }
 
-export async function permanentlyDeleteDocument(documentId: string, actor: SessionPayload) {
-  const doc = await prisma.document.findUniqueOrThrow({ where: { id: documentId } });
+export async function permanentlyDeleteDocument(
+  documentId: string,
+  actor: SessionPayload,
+) {
+  const doc = await prisma.document.findUniqueOrThrow({
+    where: { id: documentId },
+  });
   if (!doc.deletedAt) {
-    throw new Error("Only documents already in Trash can be permanently deleted.");
+    throw new Error(
+      "Only documents already in Trash can be permanently deleted.",
+    );
   }
   const driver = getStorageDriver();
   await driver.delete(doc.storagePath);

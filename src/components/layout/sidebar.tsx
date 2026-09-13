@@ -4,15 +4,35 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, Briefcase, Wallet, FolderKanban, FileText,
-  BarChart3, Settings, History, Hash, ChevronDown, X, ShoppingCart, type LucideIcon,
+  LayoutDashboard,
+  Briefcase,
+  Wallet,
+  FolderKanban,
+  FileText,
+  BarChart3,
+  Settings,
+  History,
+  Hash,
+  ChevronDown,
+  X,
+  ShoppingCart,
+  type LucideIcon,
 } from "lucide-react";
 import { NAV } from "@/lib/nav";
 import { cn, brandingUrl } from "@/lib/utils";
 import type { UserRole } from "@prisma/client";
 
 const ICONS: Record<string, LucideIcon> = {
-  LayoutDashboard, Briefcase, Wallet, FolderKanban, FileText, BarChart3, Settings, History, Hash, ShoppingCart,
+  LayoutDashboard,
+  Briefcase,
+  Wallet,
+  FolderKanban,
+  FileText,
+  BarChart3,
+  Settings,
+  History,
+  Hash,
+  ShoppingCart,
 };
 
 // Width of the icon-only rail in "suasana" mode — the flyout panel below is
@@ -39,19 +59,39 @@ function stripQuery(href: string): string {
  * that was reachable in the default look becomes unreachable here.
  */
 export function Sidebar({
-  role, userName, avatarUrl, uiMood = "default", open, onClose,
-}: { role: UserRole; userName: string; avatarUrl: string | null; uiMood?: string; open: boolean; onClose: () => void }) {
+  role,
+  userName,
+  avatarUrl,
+  uiMood = "default",
+  open,
+  onClose,
+}: {
+  role: UserRole;
+  userName: string;
+  avatarUrl: string | null;
+  uiMood?: string;
+  open: boolean;
+  onClose: () => void;
+}) {
   const pathname = usePathname();
   const avatarSrc = brandingUrl(avatarUrl);
-  const initials = userName.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
-  const compact = uiMood !== "default";
+  const initials = userName
+    .split(" ")
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+  const compact = false;
   // Filter at BOTH levels. Group-level filtering alone is not enough now that
   // nav.ts scopes individual items by role — without the item pass, a SALES
   // user would still see all five report links even though four of them are
   // not theirs to read. A group left with no visible items is dropped whole,
   // so an empty accordion can never appear.
   const visibleGroups = NAV.filter((g) => !g.roles || g.roles.includes(role))
-    .map((g) => ({ ...g, items: g.items.filter((i) => !i.roles || i.roles.includes(role)) }))
+    .map((g) => ({
+      ...g,
+      items: g.items.filter((i) => !i.roles || i.roles.includes(role)),
+    }))
     .filter((g) => g.items.length > 0);
 
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
@@ -105,7 +145,9 @@ export function Sidebar({
     });
   }
 
-  const openGroupData = compact ? visibleGroups.find((g) => g.label === openGroup) : undefined;
+  const openGroupData = compact
+    ? visibleGroups.find((g) => g.label === openGroup)
+    : undefined;
 
   return (
     <>
@@ -123,10 +165,10 @@ export function Sidebar({
           // "mood-card" (see components/ui/card.tsx) — Settings > Profil
           // Saya's "suasana" picker overrides its background/text color in
           // globals.css's SUASANA block; on the default mood it does nothing.
-          "sidebar-scroll mood-sidebar fixed inset-y-0 left-0 z-50 flex h-screen flex-col overflow-y-auto bg-primary text-primary-foreground transition-transform duration-200 ease-in-out",
+          "command-sidebar sidebar-scroll fixed inset-y-0 left-0 z-50 flex h-dvh md:h-full shrink-0 flex-col overflow-y-auto bg-primary text-primary-foreground transition-transform duration-200 ease-in-out",
           compact ? "w-20 items-center" : "w-64",
           "md:static md:translate-x-0",
-          open ? "translate-x-0" : "-translate-x-full"
+          open ? "translate-x-0" : "-translate-x-full",
         )}
         data-ui-mood={uiMood}
       >
@@ -160,7 +202,7 @@ export function Sidebar({
                       title={group.label}
                       className={cn(
                         "flex h-11 w-11 items-center justify-center rounded-xl transition-colors",
-                        active ? "bg-white/20" : "opacity-80 hover:bg-white/10"
+                        active ? "bg-white/20" : "opacity-80 hover:bg-white/10",
                       )}
                     >
                       {Icon && <Icon className="h-5 w-5" />}
@@ -172,11 +214,17 @@ export function Sidebar({
                     key={group.label}
                     type="button"
                     title={group.label}
-                    onClick={() => setOpenGroup((prev) => (prev === group.label ? null : group.label))}
+                    onClick={() =>
+                      setOpenGroup((prev) =>
+                        prev === group.label ? null : group.label,
+                      )
+                    }
                     aria-expanded={openGroup === group.label}
                     className={cn(
                       "flex h-11 w-11 items-center justify-center rounded-xl transition-colors",
-                      active || openGroup === group.label ? "bg-white/20" : "opacity-80 hover:bg-white/10"
+                      active || openGroup === group.label
+                        ? "bg-white/20"
+                        : "opacity-80 hover:bg-white/10",
                     )}
                   >
                     {Icon && <Icon className="h-5 w-5" />}
@@ -193,7 +241,11 @@ export function Sidebar({
               {avatarSrc ? (
                 <div className="h-10 w-10 overflow-hidden rounded-full bg-white/10 ring-2 ring-white/15">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={avatarSrc} alt={userName} className="h-full w-full object-cover object-top" />
+                  <img
+                    src={avatarSrc}
+                    alt={userName}
+                    className="h-full w-full object-cover object-top"
+                  />
                 </div>
               ) : (
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-warning text-xs font-bold text-primary ring-2 ring-white/15">
@@ -233,7 +285,11 @@ export function Sidebar({
                 // unreliable on WebKit/Safari).
                 <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-white/10">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={avatarSrc} alt={userName} className="h-full w-full object-cover object-top" />
+                  <img
+                    src={avatarSrc}
+                    alt={userName}
+                    className="h-full w-full object-cover object-top"
+                  />
                 </div>
               ) : (
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-warning text-xs font-bold text-primary">
@@ -242,7 +298,9 @@ export function Sidebar({
               )}
               <div className="min-w-0">
                 <p className="truncate text-[13px] font-semibold">{userName}</p>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-white/55">{role.replace("_", " ")}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-white/55">
+                  {role.replace("_", " ")}
+                </p>
               </div>
             </Link>
             <div className="mx-5 mb-3 h-px bg-white/10" />
@@ -259,14 +317,15 @@ export function Sidebar({
                 if (group.items.length === 1) {
                   const only = group.items[0];
                   const href = stripQuery(only.href);
-                  const active = pathname === href || pathname.startsWith(`${href}/`);
+                  const active =
+                    pathname === href || pathname.startsWith(`${href}/`);
                   return (
                     <Link
                       key={group.label}
                       href={only.href}
                       className={cn(
                         "flex items-center gap-2 rounded-md px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide transition-colors",
-                        active ? "bg-white/15" : "opacity-80 hover:bg-white/5"
+                        active ? "bg-white/15" : "opacity-80 hover:bg-white/5",
                       )}
                     >
                       {Icon && <Icon className="h-3.5 w-3.5" />}
@@ -287,7 +346,12 @@ export function Sidebar({
                         {Icon && <Icon className="h-3.5 w-3.5" />}
                         {group.label}
                       </span>
-                      <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 transition-transform duration-150", isExpanded && "rotate-180")} />
+                      <ChevronDown
+                        className={cn(
+                          "h-3.5 w-3.5 shrink-0 transition-transform duration-150",
+                          isExpanded && "rotate-180",
+                        )}
+                      />
                     </button>
                     {isExpanded && (
                       <div className="mt-0.5 space-y-0.5 pb-2">
@@ -298,9 +362,12 @@ export function Sidebar({
                             <Link
                               key={item.href}
                               href={item.href}
+                              aria-current={active ? "page" : undefined}
                               className={cn(
                                 "block rounded-md px-3 py-1.5 text-sm transition-colors",
-                                active ? "bg-white/15 font-medium" : "text-primary-foreground/80 hover:bg-white/10"
+                                active
+                                  ? "bg-white/15 font-medium"
+                                  : "text-primary-foreground/80 hover:bg-white/10",
                               )}
                             >
                               {item.label}
@@ -341,7 +408,9 @@ export function Sidebar({
                   href={item.href}
                   className={cn(
                     "block rounded-md px-3 py-1.5 text-sm transition-colors",
-                    active ? "bg-white/15 font-medium" : "text-primary-foreground/80 hover:bg-white/10"
+                    active
+                      ? "bg-white/15 font-medium"
+                      : "text-primary-foreground/80 hover:bg-white/10",
                   )}
                 >
                   {item.label}

@@ -10,8 +10,28 @@ import { ProjectStatusSelect } from "@/components/projects/project-status-select
 import Link from "next/link";
 import { FolderOpen, TriangleAlert } from "lucide-react";
 
-export default async function ProjectDetailPage({ params }: { params: { id: string } }) {
-  const [{ project, profitability, closing, opportunityFolder, purchaseOrderFolderId, sCurve, riskSignals, salesOrigin, billingTimeline }, actor, assignees, checklist, progressReportDocs] = await Promise.all([
+export default async function ProjectDetailPage({
+  params,
+}: {
+  params: { id: string };
+}) {
+  const [
+    {
+      project,
+      profitability,
+      closing,
+      opportunityFolder,
+      purchaseOrderFolderId,
+      sCurve,
+      riskSignals,
+      salesOrigin,
+      billingTimeline,
+    },
+    actor,
+    assignees,
+    checklist,
+    progressReportDocs,
+  ] = await Promise.all([
     getProjectDetail(params.id),
     requireUser(),
     listUsersForPicker(),
@@ -22,20 +42,44 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
   const canManage =
     actor.role === "ADMIN" ||
     actor.role === "IT" ||
-    (actor.role === "PROJECT_MANAGER" && project.projectManagerId === actor.userId);
+    (actor.role === "PROJECT_MANAGER" &&
+      project.projectManagerId === actor.userId);
 
   return (
     <div className="space-y-4">
       <div>
-        <p className="font-mono text-xs text-muted-foreground">{project.number}</p>
+        <Link
+          href="/projects"
+          className="mb-3 inline-block py-2 text-sm text-primary"
+        >
+          ← Semua proyek
+        </Link>
+        <p className="font-mono text-xs text-muted-foreground">
+          {project.number}
+        </p>
         <h1 className="text-xl font-semibold">{project.name}</h1>
-        <div className="mt-1 flex items-center gap-2">
-          <ProjectStatusSelect projectId={project.id} status={project.status} canManage={canManage} />
-          <span className="text-xs text-muted-foreground">{project.customer.companyName}</span>
-          <span className="text-xs text-muted-foreground">· PM: {project.projectManager?.name ?? "Unassigned"}</span>
-          <JobNumberField projectId={project.id} jobNumber={project.jobNumber} canManage={canManage} />
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <ProjectStatusSelect
+            projectId={project.id}
+            status={project.status}
+            canManage={canManage}
+          />
+          <span className="text-xs text-muted-foreground">
+            {project.customer.companyName}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            · PM: {project.projectManager?.name ?? "Unassigned"}
+          </span>
+          <JobNumberField
+            projectId={project.id}
+            jobNumber={project.jobNumber}
+            canManage={canManage}
+          />
           {opportunityFolder && (
-            <Link href={`/documents/${opportunityFolder.id}`} className="flex items-center gap-1 text-xs text-primary hover:underline">
+            <Link
+              href={`/documents/${opportunityFolder.id}`}
+              className="flex items-center gap-1 text-xs text-primary hover:underline"
+            >
               <FolderOpen className="h-3.5 w-3.5" /> Dokumen Sales (pra-Won)
             </Link>
           )}
@@ -55,12 +99,26 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
             <TriangleAlert className="h-4 w-4" /> Project ini butuh perhatian
           </p>
           <ul className="ml-5 list-disc space-y-0.5 text-xs text-muted-foreground">
-            {riskSignals.map((s, i) => <li key={i}>{s.message}</li>)}
+            {riskSignals.map((s, i) => (
+              <li key={i}>{s.message}</li>
+            ))}
           </ul>
         </div>
       )}
 
-      {checklist && <DocumentChecklistPanel jobs={[checklist]} canUpload={actor.role !== "VIEWER"} />}
+      {checklist && (
+        <details className="rounded-xl border p-4">
+          <summary className="cursor-pointer text-sm font-medium">
+            Kelengkapan dokumen proyek
+          </summary>
+          <div className="mt-4">
+            <DocumentChecklistPanel
+              jobs={[checklist]}
+              canUpload={actor.role !== "VIEWER"}
+            />
+          </div>
+        </details>
+      )}
 
       <ProjectDetailTabs
         projectId={project.id}

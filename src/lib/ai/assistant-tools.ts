@@ -2,31 +2,87 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/db";
 import { requirePermission, ForbiddenError } from "@/lib/permissions";
 import { approveQuotation, rejectQuotation } from "@/lib/workflows/quotation";
-import { approveInvoice, rejectInvoice, createInvoice } from "@/lib/workflows/finance";
-import { approveVendorPO, rejectVendorPO, createVendorPurchaseOrder } from "@/lib/workflows/vendor-po";
+import {
+  approveInvoice,
+  rejectInvoice,
+  createInvoice,
+} from "@/lib/workflows/finance";
+import {
+  approveVendorPO,
+  rejectVendorPO,
+  createVendorPurchaseOrder,
+} from "@/lib/workflows/vendor-po";
 import { approveExpense, rejectExpense } from "@/lib/workflows/expense";
-import { createCostingSheet, convertCostingToQuotation } from "@/lib/workflows/costing";
+import {
+  createCostingSheet,
+  convertCostingToQuotation,
+} from "@/lib/workflows/costing";
 import { searchCustomerCandidates } from "@/lib/workflows/telegram-costing-draft";
-import { calcCostingSummary, computeBillingSchedule, calcInvoiceTotals, calcVendorPoTotals } from "@/lib/workflows/calculations";
-import { simulateQuotationRevision, commitQuotationRevision } from "@/lib/workflows/telegram-automation";
-import { createProgressReport, addProgressReportItem } from "@/lib/workflows/progress-report";
+import {
+  calcCostingSummary,
+  computeBillingSchedule,
+  calcInvoiceTotals,
+  calcVendorPoTotals,
+} from "@/lib/workflows/calculations";
+import {
+  simulateQuotationRevision,
+  commitQuotationRevision,
+} from "@/lib/workflows/telegram-automation";
+import {
+  createProgressReport,
+  addProgressReportItem,
+} from "@/lib/workflows/progress-report";
 import { moveDocumentToTrash, uploadDocument } from "@/lib/workflows/documents";
-import { renameDocumentFile, relocateDocument } from "@/lib/workflows/corrections";
-import { generateProgressReportForActor } from "@/server/projects/progress-reports";
-import { createOpportunity, updateOpportunityStage } from "@/server/sales/opportunities";
+import {
+  renameDocumentFile,
+  relocateDocument,
+} from "@/lib/workflows/corrections";
+import { generateProgressReportForActor } from "@/lib/workflows/generate-progress-report";
+import {
+  createOpportunity,
+  updateOpportunityStage,
+} from "@/server/sales/opportunities";
 import { createCustomer } from "@/server/sales/customers";
 import { createContact } from "@/server/sales/contacts";
-import { createPurchaseOrder, createContract } from "@/server/sales/purchase-orders";
-import { createTask, updateTaskStatus, createMilestone, updateMilestoneStatus, createExpense, submitExpenseAction } from "@/server/projects/tasks";
-import { updateProject, markCompletedAction, closeProjectAction } from "@/server/projects/projects";
+import {
+  createPurchaseOrder,
+  createContract,
+} from "@/server/sales/purchase-orders";
+import {
+  createTask,
+  updateTaskStatus,
+  createMilestone,
+  updateMilestoneStatus,
+  createExpense,
+  submitExpenseAction,
+} from "@/server/projects/tasks";
+import {
+  updateProject,
+  markCompletedAction,
+  closeProjectAction,
+} from "@/server/projects/projects";
 import { recordPaymentAction } from "@/server/finance/payments";
-import { getSalesReport, getFinanceReport, getProjectReport, getProfitabilityReport, getExecutiveReport } from "@/server/reports/reports";
+import {
+  getSalesReport,
+  getFinanceReport,
+  getProjectReport,
+  getProfitabilityReport,
+  getExecutiveReport,
+} from "@/server/reports/reports";
 import { globalSearch } from "@/server/search";
 import { isExtractableMimeType } from "@/lib/ai/client";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { RevisionAction } from "@/lib/ai/parse-revision-command";
-import type { OpportunityStatus, PurchaseOrderStatus, ContractStatus, TaskStatus } from "@prisma/client";
-import type { CostingSheetInput, CostingLineItemInput } from "@/lib/validation/costing";
+import type {
+  OpportunityStatus,
+  PurchaseOrderStatus,
+  ContractStatus,
+  TaskStatus,
+} from "@prisma/client";
+import type {
+  CostingSheetInput,
+  CostingLineItemInput,
+} from "@/lib/validation/costing";
 import type { InvoiceInput } from "@/lib/validation/finance";
 import type { VendorPurchaseOrderInput } from "@/lib/validation/sales";
 import type { SessionPayload } from "@/lib/auth/session";
@@ -109,10 +165,16 @@ export interface AssistantAttachmentInput {
 export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
   {
     name: "get_quotation_status",
-    description: "Cek status, customer, nilai, dan siapa yang submit satu quotation berdasarkan nomornya.",
+    description:
+      "Cek status, customer, nilai, dan siapa yang submit satu quotation berdasarkan nomornya.",
     input_schema: {
       type: "object",
-      properties: { quotationNumber: { type: "string", description: "Nomor quotation, boleh sebagian (mis. '003')." } },
+      properties: {
+        quotationNumber: {
+          type: "string",
+          description: "Nomor quotation, boleh sebagian (mis. '003').",
+        },
+      },
       required: ["quotationNumber"],
     },
   },
@@ -124,37 +186,61 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: "get_project_status",
-    description: "Cek progress, deadline, PM, dan status satu project berdasarkan nomornya.",
+    description:
+      "Cek progress, deadline, PM, dan status satu project berdasarkan nomornya.",
     input_schema: {
       type: "object",
-      properties: { projectNumber: { type: "string", description: "Nomor project, boleh sebagian." } },
+      properties: {
+        projectNumber: {
+          type: "string",
+          description: "Nomor project, boleh sebagian.",
+        },
+      },
       required: ["projectNumber"],
     },
   },
   {
     name: "get_invoice_status",
-    description: "Cek status, customer, nilai, dan due date satu invoice berdasarkan nomornya.",
+    description:
+      "Cek status, customer, nilai, dan due date satu invoice berdasarkan nomornya.",
     input_schema: {
       type: "object",
-      properties: { invoiceNumber: { type: "string", description: "Nomor invoice, boleh sebagian." } },
+      properties: {
+        invoiceNumber: {
+          type: "string",
+          description: "Nomor invoice, boleh sebagian.",
+        },
+      },
       required: ["invoiceNumber"],
     },
   },
   {
     name: "get_vendor_po_status",
-    description: "Cek status, vendor, dan nilai satu Vendor Purchase Order berdasarkan nomornya.",
+    description:
+      "Cek status, vendor, dan nilai satu Vendor Purchase Order berdasarkan nomornya.",
     input_schema: {
       type: "object",
-      properties: { poNumber: { type: "string", description: "Nomor Vendor PO, boleh sebagian." } },
+      properties: {
+        poNumber: {
+          type: "string",
+          description: "Nomor Vendor PO, boleh sebagian.",
+        },
+      },
       required: ["poNumber"],
     },
   },
   {
     name: "get_expense_status",
-    description: "Cek status, kategori, dan nilai satu project expense berdasarkan nomornya.",
+    description:
+      "Cek status, kategori, dan nilai satu project expense berdasarkan nomornya.",
     input_schema: {
       type: "object",
-      properties: { expenseNumber: { type: "string", description: "Nomor expense, boleh sebagian." } },
+      properties: {
+        expenseNumber: {
+          type: "string",
+          description: "Nomor expense, boleh sebagian.",
+        },
+      },
       required: ["expenseNumber"],
     },
   },
@@ -171,9 +257,27 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        status: { type: "string", enum: ["PLANNING", "ACTIVE", "ON_HOLD", "AT_RISK", "COMPLETED", "CANCELLED", "CLOSED"], description: "Filter status project (opsional)." },
-        customerName: { type: "string", description: "Filter nama customer, boleh sebagian (opsional)." },
-        limit: { type: "number", description: "Maksimal hasil (opsional, default 15, maks 30)." },
+        status: {
+          type: "string",
+          enum: [
+            "PLANNING",
+            "ACTIVE",
+            "ON_HOLD",
+            "AT_RISK",
+            "COMPLETED",
+            "CANCELLED",
+            "CLOSED",
+          ],
+          description: "Filter status project (opsional).",
+        },
+        customerName: {
+          type: "string",
+          description: "Filter nama customer, boleh sebagian (opsional).",
+        },
+        limit: {
+          type: "number",
+          description: "Maksimal hasil (opsional, default 15, maks 30).",
+        },
       },
     },
   },
@@ -184,10 +288,33 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        status: { type: "string", enum: ["DRAFT", "SUBMITTED", "APPROVED", "REJECTED", "ISSUED", "PARTIALLY_PAID", "PAID", "OVERDUE", "CANCELLED"], description: "Filter status invoice (opsional)." },
-        customerName: { type: "string", description: "Filter nama customer, boleh sebagian (opsional)." },
-        projectNumber: { type: "string", description: "Filter nomor project, boleh sebagian (opsional)." },
-        limit: { type: "number", description: "Maksimal hasil (opsional, default 15, maks 30)." },
+        status: {
+          type: "string",
+          enum: [
+            "DRAFT",
+            "SUBMITTED",
+            "APPROVED",
+            "REJECTED",
+            "ISSUED",
+            "PARTIALLY_PAID",
+            "PAID",
+            "OVERDUE",
+            "CANCELLED",
+          ],
+          description: "Filter status invoice (opsional).",
+        },
+        customerName: {
+          type: "string",
+          description: "Filter nama customer, boleh sebagian (opsional).",
+        },
+        projectNumber: {
+          type: "string",
+          description: "Filter nomor project, boleh sebagian (opsional).",
+        },
+        limit: {
+          type: "number",
+          description: "Maksimal hasil (opsional, default 15, maks 30).",
+        },
       },
     },
   },
@@ -198,65 +325,146 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        status: { type: "string", enum: ["DRAFT", "SUBMITTED", "UNDER_REVIEW", "APPROVED", "REJECTED", "SENT", "WON", "LOST", "EXPIRED", "CANCELLED"], description: "Filter status quotation (opsional)." },
-        customerName: { type: "string", description: "Filter nama customer, boleh sebagian (opsional)." },
-        limit: { type: "number", description: "Maksimal hasil (opsional, default 15, maks 30)." },
+        status: {
+          type: "string",
+          enum: [
+            "DRAFT",
+            "SUBMITTED",
+            "UNDER_REVIEW",
+            "APPROVED",
+            "REJECTED",
+            "SENT",
+            "WON",
+            "LOST",
+            "EXPIRED",
+            "CANCELLED",
+          ],
+          description: "Filter status quotation (opsional).",
+        },
+        customerName: {
+          type: "string",
+          description: "Filter nama customer, boleh sebagian (opsional).",
+        },
+        limit: {
+          type: "number",
+          description: "Maksimal hasil (opsional, default 15, maks 30).",
+        },
       },
     },
   },
   {
     name: "list_vendor_pos",
-    description: "Cari/daftar banyak Vendor Purchase Order sekaligus dengan filter opsional.",
+    description:
+      "Cari/daftar banyak Vendor Purchase Order sekaligus dengan filter opsional.",
     input_schema: {
       type: "object",
       properties: {
-        status: { type: "string", enum: ["DRAFT", "SUBMITTED", "APPROVED", "REJECTED", "SENT", "CONFIRMED", "CANCELLED"], description: "Filter status Vendor PO (opsional)." },
-        vendorName: { type: "string", description: "Filter nama vendor, boleh sebagian (opsional)." },
-        limit: { type: "number", description: "Maksimal hasil (opsional, default 15, maks 30)." },
+        status: {
+          type: "string",
+          enum: [
+            "DRAFT",
+            "SUBMITTED",
+            "APPROVED",
+            "REJECTED",
+            "SENT",
+            "CONFIRMED",
+            "CANCELLED",
+          ],
+          description: "Filter status Vendor PO (opsional).",
+        },
+        vendorName: {
+          type: "string",
+          description: "Filter nama vendor, boleh sebagian (opsional).",
+        },
+        limit: {
+          type: "number",
+          description: "Maksimal hasil (opsional, default 15, maks 30).",
+        },
       },
     },
   },
   {
     name: "list_expenses",
-    description: "Cari/daftar banyak project expense sekaligus dengan filter opsional.",
+    description:
+      "Cari/daftar banyak project expense sekaligus dengan filter opsional.",
     input_schema: {
       type: "object",
       properties: {
-        approvalStatus: { type: "string", enum: ["DRAFT", "SUBMITTED", "APPROVED", "REJECTED"], description: "Filter status approval (opsional)." },
-        category: { type: "string", enum: ["LABOR", "MATERIALS", "TRANSPORTATION", "ACCOMMODATION", "VENDOR", "EQUIPMENT", "MARKETING", "OTHER"], description: "Filter kategori (opsional)." },
-        projectNumber: { type: "string", description: "Filter nomor project, boleh sebagian (opsional)." },
-        limit: { type: "number", description: "Maksimal hasil (opsional, default 15, maks 30)." },
+        approvalStatus: {
+          type: "string",
+          enum: ["DRAFT", "SUBMITTED", "APPROVED", "REJECTED"],
+          description: "Filter status approval (opsional).",
+        },
+        category: {
+          type: "string",
+          enum: [
+            "LABOR",
+            "MATERIALS",
+            "TRANSPORTATION",
+            "ACCOMMODATION",
+            "VENDOR",
+            "EQUIPMENT",
+            "MARKETING",
+            "OTHER",
+          ],
+          description: "Filter kategori (opsional).",
+        },
+        projectNumber: {
+          type: "string",
+          description: "Filter nomor project, boleh sebagian (opsional).",
+        },
+        limit: {
+          type: "number",
+          description: "Maksimal hasil (opsional, default 15, maks 30).",
+        },
       },
     },
   },
   {
     name: "search_customers",
-    description: "Cari customer berdasarkan nama (boleh sebagian) — untuk pertanyaan seperti 'kita punya customer apa aja namanya mengandung X'.",
+    description:
+      "Cari customer berdasarkan nama (boleh sebagian) — untuk pertanyaan seperti 'kita punya customer apa aja namanya mengandung X'.",
     input_schema: {
       type: "object",
       properties: {
-        query: { type: "string", description: "Nama customer, boleh sebagian." },
-        limit: { type: "number", description: "Maksimal hasil (opsional, default 15, maks 30)." },
+        query: {
+          type: "string",
+          description: "Nama customer, boleh sebagian.",
+        },
+        limit: {
+          type: "number",
+          description: "Maksimal hasil (opsional, default 15, maks 30).",
+        },
       },
       required: ["query"],
     },
   },
   {
     name: "approve_quotation",
-    description: "Approve satu quotation yang sedang menunggu approval. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    description:
+      "Approve satu quotation yang sedang menunggu approval. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
     input_schema: {
       type: "object",
-      properties: { quotationNumber: { type: "string", description: "Nomor quotation yang mau di-approve." } },
+      properties: {
+        quotationNumber: {
+          type: "string",
+          description: "Nomor quotation yang mau di-approve.",
+        },
+      },
       required: ["quotationNumber"],
     },
   },
   {
     name: "reject_quotation",
-    description: "Reject satu quotation yang sedang menunggu approval, dengan alasan. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    description:
+      "Reject satu quotation yang sedang menunggu approval, dengan alasan. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
     input_schema: {
       type: "object",
       properties: {
-        quotationNumber: { type: "string", description: "Nomor quotation yang mau di-reject." },
+        quotationNumber: {
+          type: "string",
+          description: "Nomor quotation yang mau di-reject.",
+        },
         reason: { type: "string", description: "Alasan penolakan." },
       },
       required: ["quotationNumber", "reason"],
@@ -264,20 +472,30 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: "approve_invoice",
-    description: "Approve satu invoice yang sedang menunggu approval. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    description:
+      "Approve satu invoice yang sedang menunggu approval. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
     input_schema: {
       type: "object",
-      properties: { invoiceNumber: { type: "string", description: "Nomor invoice yang mau di-approve." } },
+      properties: {
+        invoiceNumber: {
+          type: "string",
+          description: "Nomor invoice yang mau di-approve.",
+        },
+      },
       required: ["invoiceNumber"],
     },
   },
   {
     name: "reject_invoice",
-    description: "Reject satu invoice yang sedang menunggu approval, dengan alasan. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    description:
+      "Reject satu invoice yang sedang menunggu approval, dengan alasan. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
     input_schema: {
       type: "object",
       properties: {
-        invoiceNumber: { type: "string", description: "Nomor invoice yang mau di-reject." },
+        invoiceNumber: {
+          type: "string",
+          description: "Nomor invoice yang mau di-reject.",
+        },
         reason: { type: "string", description: "Alasan penolakan." },
       },
       required: ["invoiceNumber", "reason"],
@@ -285,20 +503,30 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: "approve_vendor_po",
-    description: "Approve satu Vendor PO yang sedang menunggu approval. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    description:
+      "Approve satu Vendor PO yang sedang menunggu approval. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
     input_schema: {
       type: "object",
-      properties: { poNumber: { type: "string", description: "Nomor Vendor PO yang mau di-approve." } },
+      properties: {
+        poNumber: {
+          type: "string",
+          description: "Nomor Vendor PO yang mau di-approve.",
+        },
+      },
       required: ["poNumber"],
     },
   },
   {
     name: "reject_vendor_po",
-    description: "Reject satu Vendor PO yang sedang menunggu approval, dengan alasan. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    description:
+      "Reject satu Vendor PO yang sedang menunggu approval, dengan alasan. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
     input_schema: {
       type: "object",
       properties: {
-        poNumber: { type: "string", description: "Nomor Vendor PO yang mau di-reject." },
+        poNumber: {
+          type: "string",
+          description: "Nomor Vendor PO yang mau di-reject.",
+        },
         reason: { type: "string", description: "Alasan penolakan." },
       },
       required: ["poNumber", "reason"],
@@ -306,20 +534,30 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: "approve_expense",
-    description: "Approve satu project expense yang sedang menunggu approval. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    description:
+      "Approve satu project expense yang sedang menunggu approval. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
     input_schema: {
       type: "object",
-      properties: { expenseNumber: { type: "string", description: "Nomor expense yang mau di-approve." } },
+      properties: {
+        expenseNumber: {
+          type: "string",
+          description: "Nomor expense yang mau di-approve.",
+        },
+      },
       required: ["expenseNumber"],
     },
   },
   {
     name: "reject_expense",
-    description: "Reject satu project expense yang sedang menunggu approval, dengan alasan. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    description:
+      "Reject satu project expense yang sedang menunggu approval, dengan alasan. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
     input_schema: {
       type: "object",
       properties: {
-        expenseNumber: { type: "string", description: "Nomor expense yang mau di-reject." },
+        expenseNumber: {
+          type: "string",
+          description: "Nomor expense yang mau di-reject.",
+        },
         reason: { type: "string", description: "Alasan penolakan." },
       },
       required: ["expenseNumber", "reason"],
@@ -332,10 +570,24 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        customerName: { type: "string", description: "Nama customer (boleh sebagian/mirip), akan dicocokkan ke data customer yang ada." },
-        projectTitle: { type: "string", description: "Judul/nama project untuk costing ini." },
-        jobNo: { type: "string", description: "Nomor job internal (opsional)." },
-        operationalCost: { type: "number", description: "Biaya operasional tambahan di luar item (opsional, default 0)." },
+        customerName: {
+          type: "string",
+          description:
+            "Nama customer (boleh sebagian/mirip), akan dicocokkan ke data customer yang ada.",
+        },
+        projectTitle: {
+          type: "string",
+          description: "Judul/nama project untuk costing ini.",
+        },
+        jobNo: {
+          type: "string",
+          description: "Nomor job internal (opsional).",
+        },
+        operationalCost: {
+          type: "number",
+          description:
+            "Biaya operasional tambahan di luar item (opsional, default 0).",
+        },
         items: {
           type: "array",
           minItems: 1,
@@ -344,12 +596,31 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
             properties: {
               name: { type: "string", description: "Nama item/pekerjaan." },
               quantity: { type: "number", description: "Kuantitas." },
-              unit: { type: "string", description: "Satuan, mis. pcs/lot/unit." },
-              costUnitPrice: { type: "number", description: "Harga modal per unit (Rupiah)." },
-              supplierDiscountPercent: { type: "number", description: "Diskon dari supplier dalam persen (opsional, default 0)." },
-              marginPercent: { type: "number", description: "Margin keuntungan dalam persen." },
+              unit: {
+                type: "string",
+                description: "Satuan, mis. pcs/lot/unit.",
+              },
+              costUnitPrice: {
+                type: "number",
+                description: "Harga modal per unit (Rupiah).",
+              },
+              supplierDiscountPercent: {
+                type: "number",
+                description:
+                  "Diskon dari supplier dalam persen (opsional, default 0).",
+              },
+              marginPercent: {
+                type: "number",
+                description: "Margin keuntungan dalam persen.",
+              },
             },
-            required: ["name", "quantity", "unit", "costUnitPrice", "marginPercent"],
+            required: [
+              "name",
+              "quantity",
+              "unit",
+              "costUnitPrice",
+              "marginPercent",
+            ],
           },
         },
       },
@@ -363,9 +634,20 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        costingNumber: { type: "string", description: "Nomor costing sheet, boleh sebagian." },
-        contactName: { type: "string", description: "Nama PIC/kontak di sisi customer untuk quotation ini (opsional, dicocokkan ke data kontak customer)." },
-        validUntilDays: { type: "number", description: "Opsional, quotation berlaku berapa hari dari sekarang (default 30)." },
+        costingNumber: {
+          type: "string",
+          description: "Nomor costing sheet, boleh sebagian.",
+        },
+        contactName: {
+          type: "string",
+          description:
+            "Nama PIC/kontak di sisi customer untuk quotation ini (opsional, dicocokkan ke data kontak customer).",
+        },
+        validUntilDays: {
+          type: "number",
+          description:
+            "Opsional, quotation berlaku berapa hari dari sekarang (default 30).",
+        },
       },
       required: ["costingNumber"],
     },
@@ -377,12 +659,35 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        quotationNumber: { type: "string", description: "Nomor quotation yang mau direvisi." },
-        adjustmentType: { type: "string", enum: ["percent_adjustment", "operational_cost_delta", "item_quantity"] },
-        percent: { type: "number", description: "Wajib diisi kalau adjustmentType = percent_adjustment." },
-        amount: { type: "number", description: "Wajib diisi kalau adjustmentType = operational_cost_delta." },
-        itemName: { type: "string", description: "Wajib diisi kalau adjustmentType = item_quantity." },
-        quantity: { type: "number", description: "Wajib diisi kalau adjustmentType = item_quantity." },
+        quotationNumber: {
+          type: "string",
+          description: "Nomor quotation yang mau direvisi.",
+        },
+        adjustmentType: {
+          type: "string",
+          enum: [
+            "percent_adjustment",
+            "operational_cost_delta",
+            "item_quantity",
+          ],
+        },
+        percent: {
+          type: "number",
+          description: "Wajib diisi kalau adjustmentType = percent_adjustment.",
+        },
+        amount: {
+          type: "number",
+          description:
+            "Wajib diisi kalau adjustmentType = operational_cost_delta.",
+        },
+        itemName: {
+          type: "string",
+          description: "Wajib diisi kalau adjustmentType = item_quantity.",
+        },
+        quantity: {
+          type: "number",
+          description: "Wajib diisi kalau adjustmentType = item_quantity.",
+        },
       },
       required: ["quotationNumber", "adjustmentType"],
     },
@@ -394,14 +699,44 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        projectNumber: { type: "string", description: "Nomor project yang mau ditagih, boleh sebagian." },
-        amount: { type: "number", description: "Jumlah tagihan dalam Rupiah (net, sebelum PPN), disebutkan eksplisit oleh user." },
-        dpPercent: { type: "number", description: "Opsional, hanya untuk label 'DP X%' di deskripsi invoice — tidak memengaruhi amount." },
-        dueInDays: { type: "number", description: "Opsional, jatuh tempo berapa hari dari sekarang (default 30)." },
-        taxPercent: { type: "number", description: "Opsional, persentase PPN yang DITAMBAHKAN ke amount (default 11, sesuai standar). Isi 0 kalau invoice ini tidak kena PPN." },
-        customerPO: { type: "string", description: "Opsional, nomor PO customer yang jadi rujukan invoice ini." },
-        poDate: { type: "string", description: "Opsional, tanggal PO customer tsb, format YYYY-MM-DD." },
-        contactName: { type: "string", description: "Opsional, nama PIC di sisi customer untuk invoice ini (dicocokkan ke data kontak customer). Kalau kosong dan invoice ini tertaut quotation, ikut PIC quotation-nya." },
+        projectNumber: {
+          type: "string",
+          description: "Nomor project yang mau ditagih, boleh sebagian.",
+        },
+        amount: {
+          type: "number",
+          description:
+            "Jumlah tagihan dalam Rupiah (net, sebelum PPN), disebutkan eksplisit oleh user.",
+        },
+        dpPercent: {
+          type: "number",
+          description:
+            "Opsional, hanya untuk label 'DP X%' di deskripsi invoice — tidak memengaruhi amount.",
+        },
+        dueInDays: {
+          type: "number",
+          description:
+            "Opsional, jatuh tempo berapa hari dari sekarang (default 30).",
+        },
+        taxPercent: {
+          type: "number",
+          description:
+            "Opsional, persentase PPN yang DITAMBAHKAN ke amount (default 11, sesuai standar). Isi 0 kalau invoice ini tidak kena PPN.",
+        },
+        customerPO: {
+          type: "string",
+          description:
+            "Opsional, nomor PO customer yang jadi rujukan invoice ini.",
+        },
+        poDate: {
+          type: "string",
+          description: "Opsional, tanggal PO customer tsb, format YYYY-MM-DD.",
+        },
+        contactName: {
+          type: "string",
+          description:
+            "Opsional, nama PIC di sisi customer untuk invoice ini (dicocokkan ke data kontak customer). Kalau kosong dan invoice ini tertaut quotation, ikut PIC quotation-nya.",
+        },
       },
       required: ["projectNumber", "amount"],
     },
@@ -414,34 +749,88 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
       type: "object",
       properties: {
         vendorName: { type: "string", description: "Nama vendor/supplier." },
-        vendorAddress: { type: "string", description: "Opsional, alamat lengkap vendor — WAJIB diisi kalau user menyebutkannya (muncul di kotak 'Kepada Yth' PDF)." },
+        vendorAddress: {
+          type: "string",
+          description:
+            "Opsional, alamat lengkap vendor — WAJIB diisi kalau user menyebutkannya (muncul di kotak 'Kepada Yth' PDF).",
+        },
         vendorEmail: { type: "string", description: "Opsional, email vendor." },
-        vendorAttn: { type: "string", description: "Opsional, nama orang yang dituju di vendor (Attn)." },
-        deliveryName: { type: "string", description: "Opsional, nama penerima/paket dikirim ke (drop-ship, mis. site customer)." },
-        deliveryAddress: { type: "string", description: "Opsional, alamat pengiriman barang." },
-        deliveryAttn: { type: "string", description: "Opsional, penanggung jawab penerimaan di alamat pengiriman." },
-        quotationRef: { type: "string", description: "Opsional, nomor penawaran/quotation dari vendor itu sendiri." },
-        projectRef: { type: "string", description: "Opsional, referensi job/project internal yang dicantumkan di PO." },
-        poDate: { type: "string", description: "Opsional, tanggal PO format YYYY-MM-DD (default hari ini)." },
-        projectNumber: { type: "string", description: "Nomor project yang jadi tujuan belanja ini (opsional)." },
+        vendorAttn: {
+          type: "string",
+          description: "Opsional, nama orang yang dituju di vendor (Attn).",
+        },
+        deliveryName: {
+          type: "string",
+          description:
+            "Opsional, nama penerima/paket dikirim ke (drop-ship, mis. site customer).",
+        },
+        deliveryAddress: {
+          type: "string",
+          description: "Opsional, alamat pengiriman barang.",
+        },
+        deliveryAttn: {
+          type: "string",
+          description:
+            "Opsional, penanggung jawab penerimaan di alamat pengiriman.",
+        },
+        quotationRef: {
+          type: "string",
+          description:
+            "Opsional, nomor penawaran/quotation dari vendor itu sendiri.",
+        },
+        projectRef: {
+          type: "string",
+          description:
+            "Opsional, referensi job/project internal yang dicantumkan di PO.",
+        },
+        poDate: {
+          type: "string",
+          description:
+            "Opsional, tanggal PO format YYYY-MM-DD (default hari ini).",
+        },
+        projectNumber: {
+          type: "string",
+          description: "Nomor project yang jadi tujuan belanja ini (opsional).",
+        },
         items: {
           type: "array",
           minItems: 1,
           items: {
             type: "object",
             properties: {
-              description: { type: "string", description: "Deskripsi item/jasa yang dibeli." },
+              description: {
+                type: "string",
+                description: "Deskripsi item/jasa yang dibeli.",
+              },
               quantity: { type: "number", description: "Kuantitas." },
-              unit: { type: "string", description: "Satuan, mis. pcs/lot/unit." },
-              unitPrice: { type: "number", description: "Harga per unit (Rupiah)." },
+              unit: {
+                type: "string",
+                description: "Satuan, mis. pcs/lot/unit.",
+              },
+              unitPrice: {
+                type: "number",
+                description: "Harga per unit (Rupiah).",
+              },
             },
             required: ["description", "quantity", "unitPrice"],
           },
         },
-        taxPercent: { type: "number", description: "Opsional, persentase PPN (default 11)." },
-        discount: { type: "number", description: "Opsional, diskon dalam Rupiah (default 0)." },
-        paymentTerms: { type: "string", description: "Opsional, syarat pembayaran ke vendor." },
-        deliveryTerms: { type: "string", description: "Opsional, syarat pengiriman." },
+        taxPercent: {
+          type: "number",
+          description: "Opsional, persentase PPN (default 11).",
+        },
+        discount: {
+          type: "number",
+          description: "Opsional, diskon dalam Rupiah (default 0).",
+        },
+        paymentTerms: {
+          type: "string",
+          description: "Opsional, syarat pembayaran ke vendor.",
+        },
+        deliveryTerms: {
+          type: "string",
+          description: "Opsional, syarat pengiriman.",
+        },
         notes: { type: "string", description: "Opsional, catatan tambahan." },
       },
       required: ["vendorName", "items"],
@@ -454,20 +843,49 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        projectNumber: { type: "string", description: "Nomor project, boleh sebagian." },
-        inspectionDate: { type: "string", description: "Opsional, tanggal inspeksi/kunjungan, format YYYY-MM-DD (default hari ini)." },
-        location: { type: "string", description: "Opsional, lokasi/site kunjungan." },
+        projectNumber: {
+          type: "string",
+          description: "Nomor project, boleh sebagian.",
+        },
+        inspectionDate: {
+          type: "string",
+          description:
+            "Opsional, tanggal inspeksi/kunjungan, format YYYY-MM-DD (default hari ini).",
+        },
+        location: {
+          type: "string",
+          description: "Opsional, lokasi/site kunjungan.",
+        },
         items: {
           type: "array",
           minItems: 1,
           items: {
             type: "object",
             properties: {
-              partName: { type: "string", description: "Nama part/checkpoint yang diperiksa/dikerjakan." },
-              sectionName: { type: "string", description: "Opsional, nama kelompok/unit/bagian untuk mengelompokkan baris (mis. 'Unit A', 'Pekerjaan Mekanikal') — baris berurutan dengan sectionName sama tergabung jadi satu grup berjudul di PDF. Kosongkan kalau laporan datar tanpa pengelompokan." },
-              quantity: { type: "string", description: "Opsional, jumlah termasuk satuannya, mis. '2 pc'." },
-              notes: { type: "string", description: "Opsional, catatan untuk checkpoint ini — BEBAS, boleh panjang, boleh mencakup beberapa kolom dari tabel asal user (status, keterangan teknis, hasil ukur, dll). Gabungkan kolom tabel asal yang tidak punya field khusus ke sini dengan rapi." },
-              isDone: { type: "boolean", description: "Opsional, apakah checkpoint ini sudah selesai (default false)." },
+              partName: {
+                type: "string",
+                description: "Nama part/checkpoint yang diperiksa/dikerjakan.",
+              },
+              sectionName: {
+                type: "string",
+                description:
+                  "Opsional, nama kelompok/unit/bagian untuk mengelompokkan baris (mis. 'Unit A', 'Pekerjaan Mekanikal') — baris berurutan dengan sectionName sama tergabung jadi satu grup berjudul di PDF. Kosongkan kalau laporan datar tanpa pengelompokan.",
+              },
+              quantity: {
+                type: "string",
+                description:
+                  "Opsional, jumlah termasuk satuannya, mis. '2 pc'.",
+              },
+              notes: {
+                type: "string",
+                description:
+                  "Opsional, catatan untuk checkpoint ini — BEBAS, boleh panjang, boleh mencakup beberapa kolom dari tabel asal user (status, keterangan teknis, hasil ukur, dll). Gabungkan kolom tabel asal yang tidak punya field khusus ke sini dengan rapi.",
+              },
+              isDone: {
+                type: "boolean",
+                description:
+                  "Opsional, apakah checkpoint ini sudah selesai (default false).",
+              },
             },
             required: ["partName"],
           },
@@ -483,7 +901,10 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        projectNumber: { type: "string", description: "Nomor project tujuan, boleh sebagian." },
+        projectNumber: {
+          type: "string",
+          description: "Nomor project tujuan, boleh sebagian.",
+        },
       },
       required: ["projectNumber"],
     },
@@ -495,8 +916,15 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        projectNumber: { type: "string", description: "Nomor project, boleh sebagian." },
-        reportNumber: { type: "string", description: "Opsional, nomor progress report spesifik (boleh sebagian). Kalau kosong, ambil laporan terbaru project ini." },
+        projectNumber: {
+          type: "string",
+          description: "Nomor project, boleh sebagian.",
+        },
+        reportNumber: {
+          type: "string",
+          description:
+            "Opsional, nomor progress report spesifik (boleh sebagian). Kalau kosong, ambil laporan terbaru project ini.",
+        },
       },
       required: ["projectNumber"],
     },
@@ -508,10 +936,23 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        projectNumber: { type: "string", description: "Filter nomor project, boleh sebagian (opsional)." },
-        nameQuery: { type: "string", description: "Filter nama file, boleh sebagian (opsional)." },
-        folderQuery: { type: "string", description: "Filter nama/path folder, boleh sebagian, mis. 'quotation', 'invoice', 'bast' (opsional)." },
-        limit: { type: "number", description: "Maksimal hasil (opsional, default 15, maks 30)." },
+        projectNumber: {
+          type: "string",
+          description: "Filter nomor project, boleh sebagian (opsional).",
+        },
+        nameQuery: {
+          type: "string",
+          description: "Filter nama file, boleh sebagian (opsional).",
+        },
+        folderQuery: {
+          type: "string",
+          description:
+            "Filter nama/path folder, boleh sebagian, mis. 'quotation', 'invoice', 'bast' (opsional).",
+        },
+        limit: {
+          type: "number",
+          description: "Maksimal hasil (opsional, default 15, maks 30).",
+        },
       },
     },
   },
@@ -522,10 +963,21 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        projectNumber: { type: "string", description: "Nomor project tempat dokumen berada, boleh sebagian (opsional, mempersempit pencarian)." },
-        nameQuery: { type: "string", description: "Nama file saat ini (atau sebagian), untuk mencari dokumennya." },
+        projectNumber: {
+          type: "string",
+          description:
+            "Nomor project tempat dokumen berada, boleh sebagian (opsional, mempersempit pencarian).",
+        },
+        nameQuery: {
+          type: "string",
+          description:
+            "Nama file saat ini (atau sebagian), untuk mencari dokumennya.",
+        },
         newName: { type: "string", description: "Nama file baru yang proper." },
-        reason: { type: "string", description: "Alasan penggantian nama (wajib, akan tercatat di log)." },
+        reason: {
+          type: "string",
+          description: "Alasan penggantian nama (wajib, akan tercatat di log).",
+        },
       },
       required: ["nameQuery", "newName", "reason"],
     },
@@ -537,12 +989,32 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        projectNumber: { type: "string", description: "Nomor project tempat dokumen & folder tujuan berada, boleh sebagian." },
-        nameQuery: { type: "string", description: "Nama file saat ini (atau sebagian), untuk mencari dokumennya." },
-        destinationFolderQuery: { type: "string", description: "Nama/path folder tujuan, boleh sebagian, mis. 'quotation', 'invoice'." },
-        reason: { type: "string", description: "Alasan pemindahan (wajib, akan tercatat di log)." },
+        projectNumber: {
+          type: "string",
+          description:
+            "Nomor project tempat dokumen & folder tujuan berada, boleh sebagian.",
+        },
+        nameQuery: {
+          type: "string",
+          description:
+            "Nama file saat ini (atau sebagian), untuk mencari dokumennya.",
+        },
+        destinationFolderQuery: {
+          type: "string",
+          description:
+            "Nama/path folder tujuan, boleh sebagian, mis. 'quotation', 'invoice'.",
+        },
+        reason: {
+          type: "string",
+          description: "Alasan pemindahan (wajib, akan tercatat di log).",
+        },
       },
-      required: ["projectNumber", "nameQuery", "destinationFolderQuery", "reason"],
+      required: [
+        "projectNumber",
+        "nameQuery",
+        "destinationFolderQuery",
+        "reason",
+      ],
     },
   },
   {
@@ -552,8 +1024,15 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        projectNumber: { type: "string", description: "Nomor project tempat dokumen berada, boleh sebagian (opsional, mempersempit pencarian)." },
-        nameQuery: { type: "string", description: "Nama file (atau sebagian), untuk mencari dokumennya." },
+        projectNumber: {
+          type: "string",
+          description:
+            "Nomor project tempat dokumen berada, boleh sebagian (opsional, mempersempit pencarian).",
+        },
+        nameQuery: {
+          type: "string",
+          description: "Nama file (atau sebagian), untuk mencari dokumennya.",
+        },
       },
       required: ["nameQuery"],
     },
@@ -565,9 +1044,19 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        status: { type: "string", enum: ["NEW", "QUALIFIED", "PROPOSAL", "NEGOTIATION", "WON", "LOST"], description: "Filter stage (opsional)." },
-        customerName: { type: "string", description: "Filter nama customer, boleh sebagian (opsional)." },
-        limit: { type: "number", description: "Maksimal hasil (opsional, default 15, maks 30)." },
+        status: {
+          type: "string",
+          enum: ["NEW", "QUALIFIED", "PROPOSAL", "NEGOTIATION", "WON", "LOST"],
+          description: "Filter stage (opsional).",
+        },
+        customerName: {
+          type: "string",
+          description: "Filter nama customer, boleh sebagian (opsional).",
+        },
+        limit: {
+          type: "number",
+          description: "Maksimal hasil (opsional, default 15, maks 30).",
+        },
       },
     },
   },
@@ -577,16 +1066,27 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
       "Cek detail satu opportunity (peluang) berdasarkan nomornya — stage, nilai estimasi, probability, customer, kontak, PIC sales, dan quotation yang sudah dibuat darinya.",
     input_schema: {
       type: "object",
-      properties: { opportunityNumber: { type: "string", description: "Nomor opportunity, boleh sebagian." } },
+      properties: {
+        opportunityNumber: {
+          type: "string",
+          description: "Nomor opportunity, boleh sebagian.",
+        },
+      },
       required: ["opportunityNumber"],
     },
   },
   {
     name: "list_contacts",
-    description: "Daftar kontak/PIC di sisi customer, dengan filter nama customer opsional.",
+    description:
+      "Daftar kontak/PIC di sisi customer, dengan filter nama customer opsional.",
     input_schema: {
       type: "object",
-      properties: { customerName: { type: "string", description: "Filter nama customer, boleh sebagian (opsional)." } },
+      properties: {
+        customerName: {
+          type: "string",
+          description: "Filter nama customer, boleh sebagian (opsional).",
+        },
+      },
     },
   },
   {
@@ -595,7 +1095,12 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
       "Lihat profil lengkap satu customer (360) — info perusahaan, semua kontak, opportunity, quotation, PO customer, kontrak, project, invoice & payment terkait. Pakai ini untuk 'histori/profil customer X'.",
     input_schema: {
       type: "object",
-      properties: { customerName: { type: "string", description: "Nama customer, boleh sebagian." } },
+      properties: {
+        customerName: {
+          type: "string",
+          description: "Nama customer, boleh sebagian.",
+        },
+      },
       required: ["customerName"],
     },
   },
@@ -606,10 +1111,23 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        status: { type: "string", enum: ["PENDING", "RECEIVED", "VERIFIED", "CANCELLED"], description: "Filter status PO (opsional)." },
-        customerName: { type: "string", description: "Filter nama customer, boleh sebagian (opsional)." },
-        projectNumber: { type: "string", description: "Filter nomor project, boleh sebagian (opsional)." },
-        limit: { type: "number", description: "Maksimal hasil (opsional, default 15, maks 30)." },
+        status: {
+          type: "string",
+          enum: ["PENDING", "RECEIVED", "VERIFIED", "CANCELLED"],
+          description: "Filter status PO (opsional).",
+        },
+        customerName: {
+          type: "string",
+          description: "Filter nama customer, boleh sebagian (opsional).",
+        },
+        projectNumber: {
+          type: "string",
+          description: "Filter nomor project, boleh sebagian (opsional).",
+        },
+        limit: {
+          type: "number",
+          description: "Maksimal hasil (opsional, default 15, maks 30).",
+        },
       },
     },
   },
@@ -619,9 +1137,19 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        status: { type: "string", enum: ["DRAFT", "ACTIVE", "EXPIRED", "TERMINATED", "COMPLETED"], description: "Filter status kontrak (opsional)." },
-        customerName: { type: "string", description: "Filter nama customer, boleh sebagian (opsional)." },
-        limit: { type: "number", description: "Maksimal hasil (opsional, default 15, maks 30)." },
+        status: {
+          type: "string",
+          enum: ["DRAFT", "ACTIVE", "EXPIRED", "TERMINATED", "COMPLETED"],
+          description: "Filter status kontrak (opsional).",
+        },
+        customerName: {
+          type: "string",
+          description: "Filter nama customer, boleh sebagian (opsional).",
+        },
+        limit: {
+          type: "number",
+          description: "Maksimal hasil (opsional, default 15, maks 30).",
+        },
       },
     },
   },
@@ -632,14 +1160,36 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        customerName: { type: "string", description: "Nama customer, boleh sebagian." },
+        customerName: {
+          type: "string",
+          description: "Nama customer, boleh sebagian.",
+        },
         name: { type: "string", description: "Nama/judul opportunity." },
-        estimatedValue: { type: "number", description: "Estimasi nilai deal dalam Rupiah." },
-        probability: { type: "number", description: "Opsional, probabilitas menang 0-100 (default 10)." },
-        expectedClosingDate: { type: "string", description: "Opsional, estimasi tanggal closing, format YYYY-MM-DD." },
-        description: { type: "string", description: "Opsional, deskripsi peluang." },
-        source: { type: "string", description: "Opsional, sumber lead (mis. referral, website)." },
-        contactName: { type: "string", description: "Opsional, nama kontak/PIC di sisi customer untuk opportunity ini." },
+        estimatedValue: {
+          type: "number",
+          description: "Estimasi nilai deal dalam Rupiah.",
+        },
+        probability: {
+          type: "number",
+          description: "Opsional, probabilitas menang 0-100 (default 10).",
+        },
+        expectedClosingDate: {
+          type: "string",
+          description: "Opsional, estimasi tanggal closing, format YYYY-MM-DD.",
+        },
+        description: {
+          type: "string",
+          description: "Opsional, deskripsi peluang.",
+        },
+        source: {
+          type: "string",
+          description: "Opsional, sumber lead (mis. referral, website).",
+        },
+        contactName: {
+          type: "string",
+          description:
+            "Opsional, nama kontak/PIC di sisi customer untuk opportunity ini.",
+        },
       },
       required: ["customerName", "name", "estimatedValue"],
     },
@@ -651,21 +1201,36 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        opportunityNumber: { type: "string", description: "Nomor opportunity, boleh sebagian." },
-        status: { type: "string", enum: ["NEW", "QUALIFIED", "PROPOSAL", "NEGOTIATION"], description: "Stage baru." },
+        opportunityNumber: {
+          type: "string",
+          description: "Nomor opportunity, boleh sebagian.",
+        },
+        status: {
+          type: "string",
+          enum: ["NEW", "QUALIFIED", "PROPOSAL", "NEGOTIATION"],
+          description: "Stage baru.",
+        },
       },
       required: ["opportunityNumber", "status"],
     },
   },
   {
     name: "create_customer",
-    description: "Daftarkan customer/prospek baru ke sistem — persis alur 'Tambah Customer' di app. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    description:
+      "Daftarkan customer/prospek baru ke sistem — persis alur 'Tambah Customer' di app. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
     input_schema: {
       type: "object",
       properties: {
         companyName: { type: "string", description: "Nama perusahaan." },
-        customerType: { type: "string", enum: ["PROSPECT", "CUSTOMER", "PARTNER", "OTHER"], description: "Opsional (default PROSPECT)." },
-        industry: { type: "string", description: "Opsional, industri/bidang usaha." },
+        customerType: {
+          type: "string",
+          enum: ["PROSPECT", "CUSTOMER", "PARTNER", "OTHER"],
+          description: "Opsional (default PROSPECT).",
+        },
+        industry: {
+          type: "string",
+          description: "Opsional, industri/bidang usaha.",
+        },
         address: { type: "string", description: "Opsional, alamat." },
         city: { type: "string", description: "Opsional, kota." },
         province: { type: "string", description: "Opsional, provinsi." },
@@ -680,18 +1245,25 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: "create_contact",
-    description: "Tambah kontak/PIC baru untuk satu customer — persis alur 'Tambah Kontak' di app. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    description:
+      "Tambah kontak/PIC baru untuk satu customer — persis alur 'Tambah Kontak' di app. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
     input_schema: {
       type: "object",
       properties: {
-        customerName: { type: "string", description: "Nama customer, boleh sebagian." },
+        customerName: {
+          type: "string",
+          description: "Nama customer, boleh sebagian.",
+        },
         name: { type: "string", description: "Nama kontak." },
         position: { type: "string", description: "Opsional, jabatan." },
         department: { type: "string", description: "Opsional, departemen." },
         email: { type: "string", description: "Opsional, email." },
         phone: { type: "string", description: "Opsional, telepon." },
         whatsapp: { type: "string", description: "Opsional, nomor WhatsApp." },
-        isPrimary: { type: "boolean", description: "Opsional, jadikan kontak utama (default false)." },
+        isPrimary: {
+          type: "boolean",
+          description: "Opsional, jadikan kontak utama (default false).",
+        },
         notes: { type: "string", description: "Opsional, catatan." },
       },
       required: ["customerName", "name"],
@@ -704,15 +1276,43 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        customerName: { type: "string", description: "Nama customer, boleh sebagian." },
-        number: { type: "string", description: "Nomor PO asli dari customer, persis seperti tertulis di dokumennya." },
+        customerName: {
+          type: "string",
+          description: "Nama customer, boleh sebagian.",
+        },
+        number: {
+          type: "string",
+          description:
+            "Nomor PO asli dari customer, persis seperti tertulis di dokumennya.",
+        },
         poValue: { type: "number", description: "Nilai PO dalam Rupiah." },
-        poDate: { type: "string", description: "Opsional, tanggal PO, format YYYY-MM-DD (default hari ini)." },
-        projectNumber: { type: "string", description: "Opsional, nomor project terkait, boleh sebagian." },
-        startDate: { type: "string", description: "Opsional, tanggal mulai, format YYYY-MM-DD." },
-        endDate: { type: "string", description: "Opsional, tanggal selesai, format YYYY-MM-DD." },
-        paymentTerms: { type: "string", description: "Opsional, syarat pembayaran persis seperti di dokumen PO." },
-        deliveryTerms: { type: "string", description: "Opsional, syarat pengiriman persis seperti di dokumen PO." },
+        poDate: {
+          type: "string",
+          description:
+            "Opsional, tanggal PO, format YYYY-MM-DD (default hari ini).",
+        },
+        projectNumber: {
+          type: "string",
+          description: "Opsional, nomor project terkait, boleh sebagian.",
+        },
+        startDate: {
+          type: "string",
+          description: "Opsional, tanggal mulai, format YYYY-MM-DD.",
+        },
+        endDate: {
+          type: "string",
+          description: "Opsional, tanggal selesai, format YYYY-MM-DD.",
+        },
+        paymentTerms: {
+          type: "string",
+          description:
+            "Opsional, syarat pembayaran persis seperti di dokumen PO.",
+        },
+        deliveryTerms: {
+          type: "string",
+          description:
+            "Opsional, syarat pengiriman persis seperti di dokumen PO.",
+        },
       },
       required: ["customerName", "number", "poValue"],
     },
@@ -724,11 +1324,26 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        customerName: { type: "string", description: "Nama customer, boleh sebagian." },
-        contractValue: { type: "number", description: "Nilai kontrak dalam Rupiah." },
-        startDate: { type: "string", description: "Tanggal mulai kontrak, format YYYY-MM-DD." },
-        endDate: { type: "string", description: "Tanggal berakhir kontrak, format YYYY-MM-DD." },
-        projectNumber: { type: "string", description: "Opsional, nomor project terkait, boleh sebagian." },
+        customerName: {
+          type: "string",
+          description: "Nama customer, boleh sebagian.",
+        },
+        contractValue: {
+          type: "number",
+          description: "Nilai kontrak dalam Rupiah.",
+        },
+        startDate: {
+          type: "string",
+          description: "Tanggal mulai kontrak, format YYYY-MM-DD.",
+        },
+        endDate: {
+          type: "string",
+          description: "Tanggal berakhir kontrak, format YYYY-MM-DD.",
+        },
+        projectNumber: {
+          type: "string",
+          description: "Opsional, nomor project terkait, boleh sebagian.",
+        },
         notes: { type: "string", description: "Opsional, catatan." },
       },
       required: ["customerName", "contractValue", "startDate", "endDate"],
@@ -736,64 +1351,114 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: "list_project_tasks",
-    description: "Daftar task/pekerjaan dalam satu project, dengan filter status opsional.",
+    description:
+      "Daftar task/pekerjaan dalam satu project, dengan filter status opsional.",
     input_schema: {
       type: "object",
       properties: {
-        projectNumber: { type: "string", description: "Nomor project, boleh sebagian." },
-        status: { type: "string", enum: ["TODO", "IN_PROGRESS", "BLOCKED", "COMPLETED"], description: "Filter status (opsional)." },
+        projectNumber: {
+          type: "string",
+          description: "Nomor project, boleh sebagian.",
+        },
+        status: {
+          type: "string",
+          enum: ["TODO", "IN_PROGRESS", "BLOCKED", "COMPLETED"],
+          description: "Filter status (opsional).",
+        },
       },
       required: ["projectNumber"],
     },
   },
   {
     name: "list_project_milestones",
-    description: "Daftar milestone satu project, termasuk mana yang butuh bukti pengiriman (surat jalan/BAST) sebelum bisa ditandai selesai.",
+    description:
+      "Daftar milestone satu project, termasuk mana yang butuh bukti pengiriman (surat jalan/BAST) sebelum bisa ditandai selesai.",
     input_schema: {
       type: "object",
-      properties: { projectNumber: { type: "string", description: "Nomor project, boleh sebagian." } },
+      properties: {
+        projectNumber: {
+          type: "string",
+          description: "Nomor project, boleh sebagian.",
+        },
+      },
       required: ["projectNumber"],
     },
   },
   {
     name: "create_project_task",
-    description: "Tambah task/pekerjaan baru ke satu project — persis alur 'Tambah Task' di app. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    description:
+      "Tambah task/pekerjaan baru ke satu project — persis alur 'Tambah Task' di app. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
     input_schema: {
       type: "object",
       properties: {
-        projectNumber: { type: "string", description: "Nomor project, boleh sebagian." },
+        projectNumber: {
+          type: "string",
+          description: "Nomor project, boleh sebagian.",
+        },
         title: { type: "string", description: "Judul task." },
         description: { type: "string", description: "Opsional, deskripsi." },
-        assignedToName: { type: "string", description: "Opsional, nama user yang ditugaskan." },
-        dueDate: { type: "string", description: "Opsional, deadline, format YYYY-MM-DD." },
-        priority: { type: "string", enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL"], description: "Opsional (default MEDIUM)." },
+        assignedToName: {
+          type: "string",
+          description: "Opsional, nama user yang ditugaskan.",
+        },
+        dueDate: {
+          type: "string",
+          description: "Opsional, deadline, format YYYY-MM-DD.",
+        },
+        priority: {
+          type: "string",
+          enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL"],
+          description: "Opsional (default MEDIUM).",
+        },
       },
       required: ["projectNumber", "title"],
     },
   },
   {
     name: "update_task_status",
-    description: "Ubah status satu task dalam project. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    description:
+      "Ubah status satu task dalam project. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
     input_schema: {
       type: "object",
       properties: {
-        projectNumber: { type: "string", description: "Nomor project, boleh sebagian." },
-        taskTitle: { type: "string", description: "Judul task, boleh sebagian." },
-        status: { type: "string", enum: ["TODO", "IN_PROGRESS", "BLOCKED", "COMPLETED"], description: "Status baru." },
+        projectNumber: {
+          type: "string",
+          description: "Nomor project, boleh sebagian.",
+        },
+        taskTitle: {
+          type: "string",
+          description: "Judul task, boleh sebagian.",
+        },
+        status: {
+          type: "string",
+          enum: ["TODO", "IN_PROGRESS", "BLOCKED", "COMPLETED"],
+          description: "Status baru.",
+        },
       },
       required: ["projectNumber", "taskTitle", "status"],
     },
   },
   {
     name: "create_project_milestone",
-    description: "Tambah milestone baru secara manual ke satu project — persis alur 'Tambah Milestone' di app (beda dari milestone otomatis dari PO customer). TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    description:
+      "Tambah milestone baru secara manual ke satu project — persis alur 'Tambah Milestone' di app (beda dari milestone otomatis dari PO customer). TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
     input_schema: {
       type: "object",
       properties: {
-        projectNumber: { type: "string", description: "Nomor project, boleh sebagian." },
+        projectNumber: {
+          type: "string",
+          description: "Nomor project, boleh sebagian.",
+        },
         name: { type: "string", description: "Nama milestone." },
-        dueDate: { type: "string", description: "Opsional, target tanggal, format YYYY-MM-DD." },
-        weightPercent: { type: "number", description: "Opsional, kontribusi milestone ini ke total scope project untuk Kurva S, 0-100 (default 0)." },
+        dueDate: {
+          type: "string",
+          description: "Opsional, target tanggal, format YYYY-MM-DD.",
+        },
+        weightPercent: {
+          type: "number",
+          description:
+            "Opsional, kontribusi milestone ini ke total scope project untuk Kurva S, 0-100 (default 0).",
+        },
         description: { type: "string", description: "Opsional, deskripsi." },
       },
       required: ["projectNumber", "name"],
@@ -806,40 +1471,82 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        projectNumber: { type: "string", description: "Nomor project, boleh sebagian." },
-        milestoneName: { type: "string", description: "Nama milestone, boleh sebagian." },
-        status: { type: "string", enum: ["PENDING", "IN_PROGRESS", "COMPLETED", "DELAYED"], description: "Status baru." },
+        projectNumber: {
+          type: "string",
+          description: "Nomor project, boleh sebagian.",
+        },
+        milestoneName: {
+          type: "string",
+          description: "Nama milestone, boleh sebagian.",
+        },
+        status: {
+          type: "string",
+          enum: ["PENDING", "IN_PROGRESS", "COMPLETED", "DELAYED"],
+          description: "Status baru.",
+        },
       },
       required: ["projectNumber", "milestoneName", "status"],
     },
   },
   {
     name: "create_project_expense",
-    description: "Catat pengeluaran/biaya project baru (status DRAFT) — persis alur 'Tambah Expense' di app. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    description:
+      "Catat pengeluaran/biaya project baru (status DRAFT) — persis alur 'Tambah Expense' di app. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
     input_schema: {
       type: "object",
       properties: {
-        projectNumber: { type: "string", description: "Nomor project, boleh sebagian." },
+        projectNumber: {
+          type: "string",
+          description: "Nomor project, boleh sebagian.",
+        },
         category: {
           type: "string",
-          enum: ["LABOR", "MATERIALS", "TRANSPORTATION", "ACCOMMODATION", "VENDOR", "EQUIPMENT", "MARKETING", "OTHER"],
+          enum: [
+            "LABOR",
+            "MATERIALS",
+            "TRANSPORTATION",
+            "ACCOMMODATION",
+            "VENDOR",
+            "EQUIPMENT",
+            "MARKETING",
+            "OTHER",
+          ],
           description: "Kategori biaya.",
         },
         description: { type: "string", description: "Deskripsi biaya." },
-        amount: { type: "number", description: "Jumlah biaya dalam Rupiah (sebelum pajak)." },
-        tax: { type: "number", description: "Opsional, pajak dalam Rupiah (default 0)." },
-        vendor: { type: "string", description: "Opsional, nama vendor/supplier terkait." },
-        date: { type: "string", description: "Opsional, tanggal biaya, format YYYY-MM-DD (default hari ini)." },
+        amount: {
+          type: "number",
+          description: "Jumlah biaya dalam Rupiah (sebelum pajak).",
+        },
+        tax: {
+          type: "number",
+          description: "Opsional, pajak dalam Rupiah (default 0).",
+        },
+        vendor: {
+          type: "string",
+          description: "Opsional, nama vendor/supplier terkait.",
+        },
+        date: {
+          type: "string",
+          description:
+            "Opsional, tanggal biaya, format YYYY-MM-DD (default hari ini).",
+        },
       },
       required: ["projectNumber", "category", "description", "amount"],
     },
   },
   {
     name: "submit_expense",
-    description: "Submit satu project expense (masih DRAFT) untuk approval. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    description:
+      "Submit satu project expense (masih DRAFT) untuk approval. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
     input_schema: {
       type: "object",
-      properties: { expenseNumber: { type: "string", description: "Nomor expense, boleh sebagian." } },
+      properties: {
+        expenseNumber: {
+          type: "string",
+          description: "Nomor expense, boleh sebagian.",
+        },
+      },
       required: ["expenseNumber"],
     },
   },
@@ -850,8 +1557,14 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        projectNumber: { type: "string", description: "Nomor project, boleh sebagian." },
-        progressPercent: { type: "number", description: "Progress baru, 0-100." },
+        projectNumber: {
+          type: "string",
+          description: "Nomor project, boleh sebagian.",
+        },
+        progressPercent: {
+          type: "number",
+          description: "Progress baru, 0-100.",
+        },
       },
       required: ["projectNumber", "progressPercent"],
     },
@@ -862,28 +1575,49 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
       "Tandai satu project sebagai Completed — progress otomatis jadi 100%. Ini langkah SEBELUM Close Project (yang baru mengecek closing checklist secara ketat) — pakai ini kalau pekerjaan lapangan sudah selesai tapi administrasi/dokumen closing belum lengkap. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
     input_schema: {
       type: "object",
-      properties: { projectNumber: { type: "string", description: "Nomor project, boleh sebagian." } },
+      properties: {
+        projectNumber: {
+          type: "string",
+          description: "Nomor project, boleh sebagian.",
+        },
+      },
       required: ["projectNumber"],
     },
   },
   {
     name: "close_project",
-    description: "Tutup (Close) satu project yang sudah Completed — langkah final, sistem validasi closing checklist ulang. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
+    description:
+      "Tutup (Close) satu project yang sudah Completed — langkah final, sistem validasi closing checklist ulang. TIDAK langsung dieksekusi — akan menunggu konfirmasi user di chat.",
     input_schema: {
       type: "object",
-      properties: { projectNumber: { type: "string", description: "Nomor project, boleh sebagian." } },
+      properties: {
+        projectNumber: {
+          type: "string",
+          description: "Nomor project, boleh sebagian.",
+        },
+      },
       required: ["projectNumber"],
     },
   },
   {
     name: "list_payments",
-    description: "Cari/daftar pembayaran (payment) yang sudah tercatat, dengan filter opsional.",
+    description:
+      "Cari/daftar pembayaran (payment) yang sudah tercatat, dengan filter opsional.",
     input_schema: {
       type: "object",
       properties: {
-        invoiceNumber: { type: "string", description: "Filter nomor invoice, boleh sebagian (opsional)." },
-        customerName: { type: "string", description: "Filter nama customer, boleh sebagian (opsional)." },
-        limit: { type: "number", description: "Maksimal hasil (opsional, default 15, maks 30)." },
+        invoiceNumber: {
+          type: "string",
+          description: "Filter nomor invoice, boleh sebagian (opsional).",
+        },
+        customerName: {
+          type: "string",
+          description: "Filter nama customer, boleh sebagian (opsional).",
+        },
+        limit: {
+          type: "number",
+          description: "Maksimal hasil (opsional, default 15, maks 30).",
+        },
       },
     },
   },
@@ -894,13 +1628,38 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        invoiceNumber: { type: "string", description: "Nomor invoice yang dibayar, boleh sebagian." },
-        amount: { type: "number", description: "Jumlah yang diterima (cash masuk), dalam Rupiah — TIDAK termasuk PPh yang dipotong customer." },
-        paymentDate: { type: "string", description: "Opsional, tanggal pembayaran, format YYYY-MM-DD (default hari ini)." },
-        method: { type: "string", enum: ["BANK_TRANSFER", "CASH", "CHECK", "CREDIT_CARD", "OTHER"], description: "Opsional (default BANK_TRANSFER)." },
-        referenceNumber: { type: "string", description: "Opsional, nomor referensi transfer/kwitansi." },
-        bankAccount: { type: "string", description: "Opsional, rekening bank tujuan/asal." },
-        withholdingTax: { type: "number", description: "Opsional, PPh 23 (atau sejenis) yang dipotong customer, dalam Rupiah (default 0)." },
+        invoiceNumber: {
+          type: "string",
+          description: "Nomor invoice yang dibayar, boleh sebagian.",
+        },
+        amount: {
+          type: "number",
+          description:
+            "Jumlah yang diterima (cash masuk), dalam Rupiah — TIDAK termasuk PPh yang dipotong customer.",
+        },
+        paymentDate: {
+          type: "string",
+          description:
+            "Opsional, tanggal pembayaran, format YYYY-MM-DD (default hari ini).",
+        },
+        method: {
+          type: "string",
+          enum: ["BANK_TRANSFER", "CASH", "CHECK", "CREDIT_CARD", "OTHER"],
+          description: "Opsional (default BANK_TRANSFER).",
+        },
+        referenceNumber: {
+          type: "string",
+          description: "Opsional, nomor referensi transfer/kwitansi.",
+        },
+        bankAccount: {
+          type: "string",
+          description: "Opsional, rekening bank tujuan/asal.",
+        },
+        withholdingTax: {
+          type: "number",
+          description:
+            "Opsional, PPh 23 (atau sejenis) yang dipotong customer, dalam Rupiah (default 0).",
+        },
         notes: { type: "string", description: "Opsional, catatan." },
       },
       required: ["invoiceNumber", "amount"],
@@ -908,38 +1667,54 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: "get_sales_report",
-    description: "Ringkasan laporan Sales — total opportunity, total nilai quotation, nilai Won/Lost, win rate, revenue per sales PIC, top customer by revenue. Sama dengan halaman Reports > Sales di app.",
+    description:
+      "Ringkasan laporan Sales — total opportunity, total nilai quotation, nilai Won/Lost, win rate, revenue per sales PIC, top customer by revenue. Sama dengan halaman Reports > Sales di app.",
     input_schema: { type: "object", properties: {} },
   },
   {
     name: "get_finance_report",
-    description: "Ringkasan laporan Finance — revenue tertagih, sudah dibayar, PPh dipotong, outstanding, overdue, total expense, gross profit. Sama dengan halaman Reports > Finance di app.",
+    description:
+      "Ringkasan laporan Finance — revenue tertagih, sudah dibayar, PPh dipotong, outstanding, overdue, total expense, gross profit. Sama dengan halaman Reports > Finance di app.",
     input_schema: { type: "object", properties: {} },
   },
   {
     name: "get_project_report",
-    description: "Ringkasan laporan Project — jumlah project per status, rata-rata progress, rata-rata deviasi jadwal, daftar project yang punya sinyal risiko. Sama dengan halaman Reports > Project di app.",
+    description:
+      "Ringkasan laporan Project — jumlah project per status, rata-rata progress, rata-rata deviasi jadwal, daftar project yang punya sinyal risiko. Sama dengan halaman Reports > Project di app.",
     input_schema: { type: "object", properties: {} },
   },
   {
     name: "get_profitability_report",
-    description: "Ranking profitabilitas project (revenue, cost, gross margin), diurutkan dari gross profit tertinggi. Sama dengan halaman Reports > Profitability di app.",
+    description:
+      "Ranking profitabilitas project (revenue, cost, gross margin), diurutkan dari gross profit tertinggi. Sama dengan halaman Reports > Profitability di app.",
     input_schema: {
       type: "object",
-      properties: { limit: { type: "number", description: "Maksimal hasil (opsional, default 10, maks 30)." } },
+      properties: {
+        limit: {
+          type: "number",
+          description: "Maksimal hasil (opsional, default 10, maks 30).",
+        },
+      },
     },
   },
   {
     name: "get_executive_report",
-    description: "Ringkasan eksekutif gabungan Sales + Finance + Project dalam satu jawaban — pakai ini untuk pertanyaan umum seperti 'bagaimana kondisi perusahaan sekarang' atau 'summary bisnis bulan ini'.",
+    description:
+      "Ringkasan eksekutif gabungan Sales + Finance + Project dalam satu jawaban — pakai ini untuk pertanyaan umum seperti 'bagaimana kondisi perusahaan sekarang' atau 'summary bisnis bulan ini'.",
     input_schema: { type: "object", properties: {} },
   },
   {
     name: "global_search",
-    description: "Cari di SEMUA modul sekaligus (customer, quotation, project, invoice, opportunity) berdasarkan satu kata kunci — pakai ini kalau user tidak menyebutkan modul spesifik, mis. 'cari X' tanpa konteks lain.",
+    description:
+      "Cari di SEMUA modul sekaligus (customer, quotation, project, invoice, opportunity) berdasarkan satu kata kunci — pakai ini kalau user tidak menyebutkan modul spesifik, mis. 'cari X' tanpa konteks lain.",
     input_schema: {
       type: "object",
-      properties: { query: { type: "string", description: "Kata kunci pencarian, minimal 2 karakter." } },
+      properties: {
+        query: {
+          type: "string",
+          description: "Kata kunci pencarian, minimal 2 karakter.",
+        },
+      },
       required: ["query"],
     },
   },
@@ -947,14 +1722,25 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
 
 export interface ToolExecutionResult {
   resultText: string;
-  pendingAction?: { toolName: string; args: Record<string, unknown>; description: string };
+  pendingAction?: {
+    toolName: string;
+    args: Record<string, unknown>;
+    description: string;
+  };
 }
 
 async function findQuotationByNumber(numberFragment: string) {
   return prisma.quotation.findFirst({
-    where: { deletedAt: null, number: { contains: numberFragment, mode: "insensitive" } },
+    where: {
+      deletedAt: null,
+      number: { contains: numberFragment, mode: "insensitive" },
+    },
     select: {
-      id: true, number: true, revision: true, status: true, grandTotal: true,
+      id: true,
+      number: true,
+      revision: true,
+      status: true,
+      grandTotal: true,
       customer: { select: { companyName: true } },
       submittedBy: { select: { name: true } },
     },
@@ -964,9 +1750,16 @@ async function findQuotationByNumber(numberFragment: string) {
 
 async function findInvoiceByNumber(numberFragment: string) {
   return prisma.invoice.findFirst({
-    where: { deletedAt: null, number: { contains: numberFragment, mode: "insensitive" } },
+    where: {
+      deletedAt: null,
+      number: { contains: numberFragment, mode: "insensitive" },
+    },
     select: {
-      id: true, number: true, status: true, grandTotal: true, dueDate: true,
+      id: true,
+      number: true,
+      status: true,
+      grandTotal: true,
+      dueDate: true,
       customer: { select: { companyName: true } },
       submittedBy: { select: { name: true } },
     },
@@ -976,19 +1769,31 @@ async function findInvoiceByNumber(numberFragment: string) {
 
 async function findVendorPOByNumber(numberFragment: string) {
   return prisma.vendorPurchaseOrder.findFirst({
-    where: { deletedAt: null, number: { contains: numberFragment, mode: "insensitive" } },
+    where: {
+      deletedAt: null,
+      number: { contains: numberFragment, mode: "insensitive" },
+    },
     select: {
-      id: true, number: true, status: true, grandTotal: true, vendorName: true,
+      id: true,
+      number: true,
+      status: true,
+      grandTotal: true,
+      vendorName: true,
       submittedBy: { select: { name: true } },
     },
     orderBy: { createdAt: "desc" },
   });
 }
 
-async function resolveProjectId(projectNumberRaw: string | undefined): Promise<{ id: string; number: string } | null | undefined> {
+async function resolveProjectId(
+  projectNumberRaw: string | undefined,
+): Promise<{ id: string; number: string } | null | undefined> {
   if (!projectNumberRaw) return undefined;
   const project = await prisma.project.findFirst({
-    where: { deletedAt: null, number: { contains: projectNumberRaw, mode: "insensitive" } },
+    where: {
+      deletedAt: null,
+      number: { contains: projectNumberRaw, mode: "insensitive" },
+    },
     select: { id: true, number: true },
   });
   return project ?? null;
@@ -997,19 +1802,37 @@ async function resolveProjectId(projectNumberRaw: string | undefined): Promise<{
 /** Finds a document by (fuzzy) name, optionally scoped to one project's folders. Returns the doc, a disambiguation note, or a not-found note. */
 async function findDocumentByQuery(
   nameQuery: string,
-  projectId: string | null | undefined
-): Promise<{ doc: { id: string; originalName: string; folderId: string | null; folder: { path: string } | null } } | { note: string }> {
+  projectId: string | null | undefined,
+): Promise<
+  | {
+      doc: {
+        id: string;
+        originalName: string;
+        folderId: string | null;
+        folder: { path: string } | null;
+      };
+    }
+  | { note: string }
+> {
   const candidates = await prisma.document.findMany({
     where: {
       deletedAt: null,
       originalName: { contains: nameQuery, mode: "insensitive" },
       ...(projectId ? { folder: { projectId } } : {}),
     },
-    select: { id: true, originalName: true, folderId: true, folder: { select: { path: true } } },
+    select: {
+      id: true,
+      originalName: true,
+      folderId: true,
+      folder: { select: { path: true } },
+    },
     orderBy: { uploadedAt: "desc" },
     take: 6,
   });
-  if (candidates.length === 0) return { note: `Dokumen dengan nama mengandung "${nameQuery}" tidak ditemukan.` };
+  if (candidates.length === 0)
+    return {
+      note: `Dokumen dengan nama mengandung "${nameQuery}" tidak ditemukan.`,
+    };
   if (candidates.length > 1) {
     return {
       note: `Ada ${candidates.length} dokumen mirip "${nameQuery}": ${candidates.map((d) => d.originalName).join(", ")}. Sebutkan nama yang lebih spesifik.`,
@@ -1020,7 +1843,10 @@ async function findDocumentByQuery(
 
 async function findCostingByNumber(numberFragment: string) {
   return prisma.costingSheet.findFirst({
-    where: { deletedAt: null, number: { contains: numberFragment, mode: "insensitive" } },
+    where: {
+      deletedAt: null,
+      number: { contains: numberFragment, mode: "insensitive" },
+    },
     include: {
       customer: { select: { companyName: true } },
       quotation: { select: { number: true } },
@@ -1030,89 +1856,151 @@ async function findCostingByNumber(numberFragment: string) {
   });
 }
 
-async function resolveCustomerByName(name: string): Promise<{ customer: { id: string; companyName: string } } | { note: string }> {
+async function resolveCustomerByName(
+  name: string,
+): Promise<
+  { customer: { id: string; companyName: string } } | { note: string }
+> {
   const candidates = await searchCustomerCandidates(name);
-  if (candidates.length === 0) return { note: `Customer "${name}" tidak ditemukan.` };
+  if (candidates.length === 0)
+    return { note: `Customer "${name}" tidak ditemukan.` };
   if (candidates.length > 1) {
-    return { note: `Ada ${candidates.length} customer mirip "${name}": ${candidates.map((c) => c.companyName).join(", ")}. Sebutkan salah satu nama persis.` };
+    return {
+      note: `Ada ${candidates.length} customer mirip "${name}": ${candidates.map((c) => c.companyName).join(", ")}. Sebutkan salah satu nama persis.`,
+    };
   }
   return { customer: candidates[0] };
 }
 
-async function resolveContactByName(customerId: string, contactName: string): Promise<{ contactId: string; name: string } | { note: string }> {
+async function resolveContactByName(
+  customerId: string,
+  contactName: string,
+): Promise<{ contactId: string; name: string } | { note: string }> {
   const contacts = await prisma.contact.findMany({
     where: { customerId, name: { contains: contactName, mode: "insensitive" } },
     select: { id: true, name: true },
     take: 5,
   });
-  if (contacts.length === 0) return { note: `Kontak "${contactName}" tidak ditemukan di customer ini.` };
+  if (contacts.length === 0)
+    return { note: `Kontak "${contactName}" tidak ditemukan di customer ini.` };
   if (contacts.length > 1) {
-    return { note: `Ada ${contacts.length} kontak mirip "${contactName}": ${contacts.map((c) => c.name).join(", ")}. Sebutkan salah satu nama persis.` };
+    return {
+      note: `Ada ${contacts.length} kontak mirip "${contactName}": ${contacts.map((c) => c.name).join(", ")}. Sebutkan salah satu nama persis.`,
+    };
   }
   return { contactId: contacts[0].id, name: contacts[0].name };
 }
 
 async function findOpportunityByNumber(numberFragment: string) {
   return prisma.opportunity.findFirst({
-    where: { deletedAt: null, number: { contains: numberFragment, mode: "insensitive" } },
+    where: {
+      deletedAt: null,
+      number: { contains: numberFragment, mode: "insensitive" },
+    },
     select: {
-      id: true, number: true, name: true, status: true, estimatedValue: true, probability: true, expectedClosingDate: true,
+      id: true,
+      number: true,
+      name: true,
+      status: true,
+      estimatedValue: true,
+      probability: true,
+      expectedClosingDate: true,
       customer: { select: { companyName: true } },
       contact: { select: { name: true } },
       salesPic: { select: { name: true } },
-      quotations: { where: { deletedAt: null }, select: { number: true, revision: true, status: true, grandTotal: true } },
+      quotations: {
+        where: { deletedAt: null },
+        select: {
+          number: true,
+          revision: true,
+          status: true,
+          grandTotal: true,
+        },
+      },
     },
     orderBy: { createdAt: "desc" },
   });
 }
 
-async function resolveUserByName(name: string): Promise<{ userId: string; name: string } | { note: string }> {
+async function resolveUserByName(
+  name: string,
+): Promise<{ userId: string; name: string } | { note: string }> {
   const candidates = await prisma.user.findMany({
     where: { isActive: true, name: { contains: name, mode: "insensitive" } },
     select: { id: true, name: true },
     take: 5,
   });
-  if (candidates.length === 0) return { note: `User "${name}" tidak ditemukan.` };
+  if (candidates.length === 0)
+    return { note: `User "${name}" tidak ditemukan.` };
   if (candidates.length > 1) {
-    return { note: `Ada ${candidates.length} user mirip "${name}": ${candidates.map((u) => u.name).join(", ")}. Sebutkan salah satu nama persis.` };
+    return {
+      note: `Ada ${candidates.length} user mirip "${name}": ${candidates.map((u) => u.name).join(", ")}. Sebutkan salah satu nama persis.`,
+    };
   }
   return { userId: candidates[0].id, name: candidates[0].name };
 }
 
-async function findTaskByTitle(projectId: string, titleQuery: string): Promise<{ id: string; title: string } | { note: string }> {
+async function findTaskByTitle(
+  projectId: string,
+  titleQuery: string,
+): Promise<{ id: string; title: string } | { note: string }> {
   const candidates = await prisma.projectTask.findMany({
-    where: { projectId, deletedAt: null, title: { contains: titleQuery, mode: "insensitive" } },
+    where: {
+      projectId,
+      deletedAt: null,
+      title: { contains: titleQuery, mode: "insensitive" },
+    },
     select: { id: true, title: true },
     take: 6,
   });
-  if (candidates.length === 0) return { note: `Task dengan judul mengandung "${titleQuery}" tidak ditemukan di project ini.` };
+  if (candidates.length === 0)
+    return {
+      note: `Task dengan judul mengandung "${titleQuery}" tidak ditemukan di project ini.`,
+    };
   if (candidates.length > 1) {
-    return { note: `Ada ${candidates.length} task mirip "${titleQuery}": ${candidates.map((t) => t.title).join(", ")}. Sebutkan judul yang lebih spesifik.` };
+    return {
+      note: `Ada ${candidates.length} task mirip "${titleQuery}": ${candidates.map((t) => t.title).join(", ")}. Sebutkan judul yang lebih spesifik.`,
+    };
   }
   return candidates[0];
 }
 
 async function findMilestoneByName(
   projectId: string,
-  nameQuery: string
-): Promise<{ id: string; name: string; status: string; dateBasis: string | null } | { note: string }> {
+  nameQuery: string,
+): Promise<
+  | { id: string; name: string; status: string; dateBasis: string | null }
+  | { note: string }
+> {
   const candidates = await prisma.projectMilestone.findMany({
     where: { projectId, name: { contains: nameQuery, mode: "insensitive" } },
     select: { id: true, name: true, status: true, dateBasis: true },
     take: 6,
   });
-  if (candidates.length === 0) return { note: `Milestone dengan nama mengandung "${nameQuery}" tidak ditemukan di project ini.` };
+  if (candidates.length === 0)
+    return {
+      note: `Milestone dengan nama mengandung "${nameQuery}" tidak ditemukan di project ini.`,
+    };
   if (candidates.length > 1) {
-    return { note: `Ada ${candidates.length} milestone mirip "${nameQuery}": ${candidates.map((m) => m.name).join(", ")}. Sebutkan nama yang lebih spesifik.` };
+    return {
+      note: `Ada ${candidates.length} milestone mirip "${nameQuery}": ${candidates.map((m) => m.name).join(", ")}. Sebutkan nama yang lebih spesifik.`,
+    };
   }
   return candidates[0];
 }
 
 async function findExpenseByNumber(numberFragment: string) {
   return prisma.projectExpense.findFirst({
-    where: { deletedAt: null, number: { contains: numberFragment, mode: "insensitive" } },
+    where: {
+      deletedAt: null,
+      number: { contains: numberFragment, mode: "insensitive" },
+    },
     select: {
-      id: true, number: true, approvalStatus: true, category: true, total: true,
+      id: true,
+      number: true,
+      approvalStatus: true,
+      category: true,
+      total: true,
       project: { select: { name: true } },
       submittedBy: { select: { name: true } },
     },
@@ -1124,13 +2012,18 @@ export async function executeAssistantTool(
   toolName: string,
   input: Record<string, unknown>,
   actor: SessionPayload,
-  attachment?: AssistantAttachmentInput | null
+  attachment?: AssistantAttachmentInput | null,
 ): Promise<ToolExecutionResult> {
   switch (toolName) {
     case "get_quotation_status": {
       requirePermission(actor.role, "sales", "view");
-      const q = await findQuotationByNumber(String(input.quotationNumber ?? ""));
-      if (!q) return { resultText: `Quotation "${input.quotationNumber}" tidak ditemukan.` };
+      const q = await findQuotationByNumber(
+        String(input.quotationNumber ?? ""),
+      );
+      if (!q)
+        return {
+          resultText: `Quotation "${input.quotationNumber}" tidak ditemukan.`,
+        };
       return {
         resultText:
           `${q.number}${q.revision > 0 ? `.R${q.revision}` : ""} — ${q.customer.companyName}\n` +
@@ -1143,14 +2036,26 @@ export async function executeAssistantTool(
       requirePermission(actor.role, "sales", "view");
       const [quotations, invoices, vendorPOs, expenses] = await Promise.all([
         prisma.quotation.findMany({
-          where: { deletedAt: null, status: { in: ["SUBMITTED", "UNDER_REVIEW"] } },
-          select: { number: true, revision: true, grandTotal: true, customer: { select: { companyName: true } } },
+          where: {
+            deletedAt: null,
+            status: { in: ["SUBMITTED", "UNDER_REVIEW"] },
+          },
+          select: {
+            number: true,
+            revision: true,
+            grandTotal: true,
+            customer: { select: { companyName: true } },
+          },
           orderBy: { submittedAt: "asc" },
           take: 20,
         }),
         prisma.invoice.findMany({
           where: { deletedAt: null, status: "SUBMITTED" },
-          select: { number: true, grandTotal: true, customer: { select: { companyName: true } } },
+          select: {
+            number: true,
+            grandTotal: true,
+            customer: { select: { companyName: true } },
+          },
           orderBy: { submittedAt: "asc" },
           take: 20,
         }),
@@ -1162,14 +2067,27 @@ export async function executeAssistantTool(
         }),
         prisma.projectExpense.findMany({
           where: { deletedAt: null, approvalStatus: "SUBMITTED" },
-          select: { number: true, total: true, project: { select: { name: true } } },
+          select: {
+            number: true,
+            total: true,
+            project: { select: { name: true } },
+          },
           orderBy: { submittedAt: "asc" },
           take: 20,
         }),
       ]);
 
-      if (quotations.length + invoices.length + vendorPOs.length + expenses.length === 0) {
-        return { resultText: "Tidak ada dokumen apapun yang menunggu approval saat ini." };
+      if (
+        quotations.length +
+          invoices.length +
+          vendorPOs.length +
+          expenses.length ===
+        0
+      ) {
+        return {
+          resultText:
+            "Tidak ada dokumen apapun yang menunggu approval saat ini.",
+        };
       }
 
       const sections: string[] = [];
@@ -1177,24 +2095,44 @@ export async function executeAssistantTool(
         sections.push(
           `Quotation:\n` +
             quotations
-              .map((q) => `- ${q.number}${q.revision > 0 ? `.R${q.revision}` : ""} — ${q.customer.companyName} — ${formatCurrency(Number(q.grandTotal))}`)
-              .join("\n")
+              .map(
+                (q) =>
+                  `- ${q.number}${q.revision > 0 ? `.R${q.revision}` : ""} — ${q.customer.companyName} — ${formatCurrency(Number(q.grandTotal))}`,
+              )
+              .join("\n"),
         );
       }
       if (invoices.length > 0) {
         sections.push(
-          `Invoice:\n` + invoices.map((i) => `- ${i.number} — ${i.customer.companyName} — ${formatCurrency(Number(i.grandTotal))}`).join("\n")
+          `Invoice:\n` +
+            invoices
+              .map(
+                (i) =>
+                  `- ${i.number} — ${i.customer.companyName} — ${formatCurrency(Number(i.grandTotal))}`,
+              )
+              .join("\n"),
         );
       }
       if (vendorPOs.length > 0) {
         sections.push(
-          `Vendor PO:\n` + vendorPOs.map((p) => `- ${p.number} — ${p.vendorName} — ${formatCurrency(Number(p.grandTotal))}`).join("\n")
+          `Vendor PO:\n` +
+            vendorPOs
+              .map(
+                (p) =>
+                  `- ${p.number} — ${p.vendorName} — ${formatCurrency(Number(p.grandTotal))}`,
+              )
+              .join("\n"),
         );
       }
       if (expenses.length > 0) {
         sections.push(
           `Project Expense:\n` +
-            expenses.map((e) => `- ${e.number} — ${e.project.name} — ${formatCurrency(Number(e.total))}`).join("\n")
+            expenses
+              .map(
+                (e) =>
+                  `- ${e.number} — ${e.project.name} — ${formatCurrency(Number(e.total))}`,
+              )
+              .join("\n"),
         );
       }
       return { resultText: sections.join("\n\n") };
@@ -1203,15 +2141,28 @@ export async function executeAssistantTool(
     case "get_project_status": {
       requirePermission(actor.role, "project", "view");
       const p = await prisma.project.findFirst({
-        where: { deletedAt: null, number: { contains: String(input.projectNumber ?? ""), mode: "insensitive" } },
+        where: {
+          deletedAt: null,
+          number: {
+            contains: String(input.projectNumber ?? ""),
+            mode: "insensitive",
+          },
+        },
         select: {
-          number: true, name: true, status: true, progressPercent: true, endDate: true,
+          number: true,
+          name: true,
+          status: true,
+          progressPercent: true,
+          endDate: true,
           customer: { select: { companyName: true } },
           projectManager: { select: { name: true } },
         },
         orderBy: { createdAt: "desc" },
       });
-      if (!p) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+      if (!p)
+        return {
+          resultText: `Project "${input.projectNumber}" tidak ditemukan.`,
+        };
       return {
         resultText:
           `${p.number} — ${p.name} (${p.customer.companyName})\n` +
@@ -1223,7 +2174,10 @@ export async function executeAssistantTool(
     case "get_invoice_status": {
       requirePermission(actor.role, "finance", "view");
       const inv = await findInvoiceByNumber(String(input.invoiceNumber ?? ""));
-      if (!inv) return { resultText: `Invoice "${input.invoiceNumber}" tidak ditemukan.` };
+      if (!inv)
+        return {
+          resultText: `Invoice "${input.invoiceNumber}" tidak ditemukan.`,
+        };
       return {
         resultText:
           `${inv.number} — ${inv.customer.companyName}\n` +
@@ -1235,7 +2189,8 @@ export async function executeAssistantTool(
     case "get_vendor_po_status": {
       requirePermission(actor.role, "sales", "view");
       const po = await findVendorPOByNumber(String(input.poNumber ?? ""));
-      if (!po) return { resultText: `Vendor PO "${input.poNumber}" tidak ditemukan.` };
+      if (!po)
+        return { resultText: `Vendor PO "${input.poNumber}" tidak ditemukan.` };
       return {
         resultText:
           `${po.number} — ${po.vendorName}\n` +
@@ -1247,7 +2202,10 @@ export async function executeAssistantTool(
     case "get_expense_status": {
       requirePermission(actor.role, "project", "view");
       const exp = await findExpenseByNumber(String(input.expenseNumber ?? ""));
-      if (!exp) return { resultText: `Expense "${input.expenseNumber}" tidak ditemukan.` };
+      if (!exp)
+        return {
+          resultText: `Expense "${input.expenseNumber}" tidak ditemukan.`,
+        };
       return {
         resultText:
           `${exp.number} — ${exp.project.name} (${exp.category})\n` +
@@ -1261,24 +2219,41 @@ export async function executeAssistantTool(
       const projects = await prisma.project.findMany({
         where: { deletedAt: null },
         select: {
-          id: true, number: true,
+          id: true,
+          number: true,
           customer: { select: { companyName: true } },
           purchaseOrders: {
             where: { deletedAt: null },
-            select: { id: true, number: true, poValue: true, status: true, paymentTerms: true, estimatedDeliveryDate: true },
+            select: {
+              id: true,
+              number: true,
+              poValue: true,
+              status: true,
+              paymentTerms: true,
+              estimatedDeliveryDate: true,
+            },
           },
-          invoices: { where: { deletedAt: null }, select: { grandTotal: true, dpPercent: true, status: true } },
+          invoices: {
+            where: { deletedAt: null },
+            select: { grandTotal: true, dpPercent: true, status: true },
+          },
         },
       });
       const rows = computeBillingSchedule(projects);
-      if (rows.length === 0) return { resultText: "Tidak ada project dengan sisa tagihan saat ini — semua sudah full di-invoice." };
+      if (rows.length === 0)
+        return {
+          resultText:
+            "Tidak ada project dengan sisa tagihan saat ini — semua sudah full di-invoice.",
+        };
       return {
         resultText: rows
           .slice(0, 30)
           .map(
             (r) =>
               `- ${r.projectNumber} — ${r.customerName}: sisa ${formatCurrency(r.remainingToBill)} (PO ${formatCurrency(r.totalPoValue)}, sudah invoice ${formatCurrency(r.totalInvoiced)})` +
-              (r.nextBillingDate ? ` — target ${formatDate(r.nextBillingDate)}` : "")
+              (r.nextBillingDate
+                ? ` — target ${formatDate(r.nextBillingDate)}`
+                : ""),
           )
           .join("\n"),
       };
@@ -1290,14 +2265,37 @@ export async function executeAssistantTool(
         where: {
           deletedAt: null,
           ...(input.status ? { status: String(input.status) as never } : {}),
-          ...(input.customerName ? { customer: { companyName: { contains: String(input.customerName), mode: "insensitive" } } } : {}),
+          ...(input.customerName
+            ? {
+                customer: {
+                  companyName: {
+                    contains: String(input.customerName),
+                    mode: "insensitive",
+                  },
+                },
+              }
+            : {}),
         },
-        select: { number: true, name: true, status: true, progressPercent: true, customer: { select: { companyName: true } } },
+        select: {
+          number: true,
+          name: true,
+          status: true,
+          progressPercent: true,
+          customer: { select: { companyName: true } },
+        },
         orderBy: { createdAt: "desc" },
         take: clampLimit(input.limit),
       });
-      if (rows.length === 0) return { resultText: "Tidak ada project yang cocok." };
-      return { resultText: rows.map((p) => `- ${p.number} — ${p.name} (${p.customer.companyName}) — ${p.status}, progress ${p.progressPercent}%`).join("\n") };
+      if (rows.length === 0)
+        return { resultText: "Tidak ada project yang cocok." };
+      return {
+        resultText: rows
+          .map(
+            (p) =>
+              `- ${p.number} — ${p.name} (${p.customer.companyName}) — ${p.status}, progress ${p.progressPercent}%`,
+          )
+          .join("\n"),
+      };
     }
 
     case "list_invoices": {
@@ -1306,17 +2304,45 @@ export async function executeAssistantTool(
         where: {
           deletedAt: null,
           ...(input.status ? { status: String(input.status) as never } : {}),
-          ...(input.customerName ? { customer: { companyName: { contains: String(input.customerName), mode: "insensitive" } } } : {}),
-          ...(input.projectNumber ? { project: { number: { contains: String(input.projectNumber), mode: "insensitive" } } } : {}),
+          ...(input.customerName
+            ? {
+                customer: {
+                  companyName: {
+                    contains: String(input.customerName),
+                    mode: "insensitive",
+                  },
+                },
+              }
+            : {}),
+          ...(input.projectNumber
+            ? {
+                project: {
+                  number: {
+                    contains: String(input.projectNumber),
+                    mode: "insensitive",
+                  },
+                },
+              }
+            : {}),
         },
-        select: { number: true, status: true, grandTotal: true, dueDate: true, customer: { select: { companyName: true } } },
+        select: {
+          number: true,
+          status: true,
+          grandTotal: true,
+          dueDate: true,
+          customer: { select: { companyName: true } },
+        },
         orderBy: { createdAt: "desc" },
         take: clampLimit(input.limit),
       });
-      if (rows.length === 0) return { resultText: "Tidak ada invoice yang cocok." };
+      if (rows.length === 0)
+        return { resultText: "Tidak ada invoice yang cocok." };
       return {
         resultText: rows
-          .map((i) => `- ${i.number} — ${i.customer.companyName} — ${i.status} — ${formatCurrency(Number(i.grandTotal))} — jatuh tempo ${formatDate(i.dueDate)}`)
+          .map(
+            (i) =>
+              `- ${i.number} — ${i.customer.companyName} — ${i.status} — ${formatCurrency(Number(i.grandTotal))} — jatuh tempo ${formatDate(i.dueDate)}`,
+          )
           .join("\n"),
       };
     }
@@ -1327,16 +2353,35 @@ export async function executeAssistantTool(
         where: {
           deletedAt: null,
           ...(input.status ? { status: String(input.status) as never } : {}),
-          ...(input.customerName ? { customer: { companyName: { contains: String(input.customerName), mode: "insensitive" } } } : {}),
+          ...(input.customerName
+            ? {
+                customer: {
+                  companyName: {
+                    contains: String(input.customerName),
+                    mode: "insensitive",
+                  },
+                },
+              }
+            : {}),
         },
-        select: { number: true, revision: true, status: true, grandTotal: true, customer: { select: { companyName: true } } },
+        select: {
+          number: true,
+          revision: true,
+          status: true,
+          grandTotal: true,
+          customer: { select: { companyName: true } },
+        },
         orderBy: { createdAt: "desc" },
         take: clampLimit(input.limit),
       });
-      if (rows.length === 0) return { resultText: "Tidak ada quotation yang cocok." };
+      if (rows.length === 0)
+        return { resultText: "Tidak ada quotation yang cocok." };
       return {
         resultText: rows
-          .map((q) => `- ${q.number}${q.revision > 0 ? `.R${q.revision}` : ""} — ${q.customer.companyName} — ${q.status} — ${formatCurrency(Number(q.grandTotal))}`)
+          .map(
+            (q) =>
+              `- ${q.number}${q.revision > 0 ? `.R${q.revision}` : ""} — ${q.customer.companyName} — ${q.status} — ${formatCurrency(Number(q.grandTotal))}`,
+          )
           .join("\n"),
       };
     }
@@ -1347,14 +2392,34 @@ export async function executeAssistantTool(
         where: {
           deletedAt: null,
           ...(input.status ? { status: String(input.status) as never } : {}),
-          ...(input.vendorName ? { vendorName: { contains: String(input.vendorName), mode: "insensitive" } } : {}),
+          ...(input.vendorName
+            ? {
+                vendorName: {
+                  contains: String(input.vendorName),
+                  mode: "insensitive",
+                },
+              }
+            : {}),
         },
-        select: { number: true, status: true, grandTotal: true, vendorName: true },
+        select: {
+          number: true,
+          status: true,
+          grandTotal: true,
+          vendorName: true,
+        },
         orderBy: { createdAt: "desc" },
         take: clampLimit(input.limit),
       });
-      if (rows.length === 0) return { resultText: "Tidak ada Vendor PO yang cocok." };
-      return { resultText: rows.map((p) => `- ${p.number} — ${p.vendorName} — ${p.status} — ${formatCurrency(Number(p.grandTotal))}`).join("\n") };
+      if (rows.length === 0)
+        return { resultText: "Tidak ada Vendor PO yang cocok." };
+      return {
+        resultText: rows
+          .map(
+            (p) =>
+              `- ${p.number} — ${p.vendorName} — ${p.status} — ${formatCurrency(Number(p.grandTotal))}`,
+          )
+          .join("\n"),
+      };
     }
 
     case "list_expenses": {
@@ -1362,18 +2427,41 @@ export async function executeAssistantTool(
       const rows = await prisma.projectExpense.findMany({
         where: {
           deletedAt: null,
-          ...(input.approvalStatus ? { approvalStatus: String(input.approvalStatus) as never } : {}),
-          ...(input.category ? { category: String(input.category) as never } : {}),
-          ...(input.projectNumber ? { project: { number: { contains: String(input.projectNumber), mode: "insensitive" } } } : {}),
+          ...(input.approvalStatus
+            ? { approvalStatus: String(input.approvalStatus) as never }
+            : {}),
+          ...(input.category
+            ? { category: String(input.category) as never }
+            : {}),
+          ...(input.projectNumber
+            ? {
+                project: {
+                  number: {
+                    contains: String(input.projectNumber),
+                    mode: "insensitive",
+                  },
+                },
+              }
+            : {}),
         },
-        select: { number: true, approvalStatus: true, category: true, total: true, project: { select: { name: true } } },
+        select: {
+          number: true,
+          approvalStatus: true,
+          category: true,
+          total: true,
+          project: { select: { name: true } },
+        },
         orderBy: { createdAt: "desc" },
         take: clampLimit(input.limit),
       });
-      if (rows.length === 0) return { resultText: "Tidak ada expense yang cocok." };
+      if (rows.length === 0)
+        return { resultText: "Tidak ada expense yang cocok." };
       return {
         resultText: rows
-          .map((e) => `- ${e.number} — ${e.project.name} (${e.category}) — ${e.approvalStatus} — ${formatCurrency(Number(e.total))}`)
+          .map(
+            (e) =>
+              `- ${e.number} — ${e.project.name} (${e.category}) — ${e.approvalStatus} — ${formatCurrency(Number(e.total))}`,
+          )
           .join("\n"),
       };
     }
@@ -1381,23 +2469,42 @@ export async function executeAssistantTool(
     case "search_customers": {
       requirePermission(actor.role, "sales", "view");
       const rows = await prisma.customer.findMany({
-        where: { deletedAt: null, companyName: { contains: String(input.query ?? ""), mode: "insensitive" } },
+        where: {
+          deletedAt: null,
+          companyName: {
+            contains: String(input.query ?? ""),
+            mode: "insensitive",
+          },
+        },
         select: { companyName: true, city: true },
         orderBy: { companyName: "asc" },
         take: clampLimit(input.limit),
       });
-      if (rows.length === 0) return { resultText: "Tidak ada customer yang cocok." };
-      return { resultText: rows.map((c) => `- ${c.companyName}${c.city ? ` (${c.city})` : ""}`).join("\n") };
+      if (rows.length === 0)
+        return { resultText: "Tidak ada customer yang cocok." };
+      return {
+        resultText: rows
+          .map((c) => `- ${c.companyName}${c.city ? ` (${c.city})` : ""}`)
+          .join("\n"),
+      };
     }
 
     case "approve_quotation": {
-      const q = await findQuotationByNumber(String(input.quotationNumber ?? ""));
-      if (!q) return { resultText: `Quotation "${input.quotationNumber}" tidak ditemukan.` };
+      const q = await findQuotationByNumber(
+        String(input.quotationNumber ?? ""),
+      );
+      if (!q)
+        return {
+          resultText: `Quotation "${input.quotationNumber}" tidak ditemukan.`,
+        };
       if (!["SUBMITTED", "UNDER_REVIEW"].includes(q.status)) {
-        return { resultText: `${q.number} berstatus ${q.status}, tidak sedang menunggu approval.` };
+        return {
+          resultText: `${q.number} berstatus ${q.status}, tidak sedang menunggu approval.`,
+        };
       }
       return {
-        resultText: "Menunggu konfirmasi user sebelum approve benar-benar dijalankan.",
+        resultText:
+          "Menunggu konfirmasi user sebelum approve benar-benar dijalankan.",
         pendingAction: {
           toolName: "approve_quotation",
           args: { quotationId: q.id },
@@ -1407,15 +2514,24 @@ export async function executeAssistantTool(
     }
 
     case "reject_quotation": {
-      const q = await findQuotationByNumber(String(input.quotationNumber ?? ""));
-      if (!q) return { resultText: `Quotation "${input.quotationNumber}" tidak ditemukan.` };
+      const q = await findQuotationByNumber(
+        String(input.quotationNumber ?? ""),
+      );
+      if (!q)
+        return {
+          resultText: `Quotation "${input.quotationNumber}" tidak ditemukan.`,
+        };
       if (!["SUBMITTED", "UNDER_REVIEW"].includes(q.status)) {
-        return { resultText: `${q.number} berstatus ${q.status}, tidak sedang menunggu approval.` };
+        return {
+          resultText: `${q.number} berstatus ${q.status}, tidak sedang menunggu approval.`,
+        };
       }
       const reason = String(input.reason ?? "").trim();
-      if (!reason) return { resultText: "Sebutkan alasan penolakan terlebih dahulu." };
+      if (!reason)
+        return { resultText: "Sebutkan alasan penolakan terlebih dahulu." };
       return {
-        resultText: "Menunggu konfirmasi user sebelum reject benar-benar dijalankan.",
+        resultText:
+          "Menunggu konfirmasi user sebelum reject benar-benar dijalankan.",
         pendingAction: {
           toolName: "reject_quotation",
           args: { quotationId: q.id, reason },
@@ -1426,12 +2542,18 @@ export async function executeAssistantTool(
 
     case "approve_invoice": {
       const inv = await findInvoiceByNumber(String(input.invoiceNumber ?? ""));
-      if (!inv) return { resultText: `Invoice "${input.invoiceNumber}" tidak ditemukan.` };
+      if (!inv)
+        return {
+          resultText: `Invoice "${input.invoiceNumber}" tidak ditemukan.`,
+        };
       if (inv.status !== "SUBMITTED") {
-        return { resultText: `${inv.number} berstatus ${inv.status}, tidak sedang menunggu approval.` };
+        return {
+          resultText: `${inv.number} berstatus ${inv.status}, tidak sedang menunggu approval.`,
+        };
       }
       return {
-        resultText: "Menunggu konfirmasi user sebelum approve benar-benar dijalankan.",
+        resultText:
+          "Menunggu konfirmasi user sebelum approve benar-benar dijalankan.",
         pendingAction: {
           toolName: "approve_invoice",
           args: { invoiceId: inv.id },
@@ -1442,14 +2564,21 @@ export async function executeAssistantTool(
 
     case "reject_invoice": {
       const inv = await findInvoiceByNumber(String(input.invoiceNumber ?? ""));
-      if (!inv) return { resultText: `Invoice "${input.invoiceNumber}" tidak ditemukan.` };
+      if (!inv)
+        return {
+          resultText: `Invoice "${input.invoiceNumber}" tidak ditemukan.`,
+        };
       if (inv.status !== "SUBMITTED") {
-        return { resultText: `${inv.number} berstatus ${inv.status}, tidak sedang menunggu approval.` };
+        return {
+          resultText: `${inv.number} berstatus ${inv.status}, tidak sedang menunggu approval.`,
+        };
       }
       const reason = String(input.reason ?? "").trim();
-      if (!reason) return { resultText: "Sebutkan alasan penolakan terlebih dahulu." };
+      if (!reason)
+        return { resultText: "Sebutkan alasan penolakan terlebih dahulu." };
       return {
-        resultText: "Menunggu konfirmasi user sebelum reject benar-benar dijalankan.",
+        resultText:
+          "Menunggu konfirmasi user sebelum reject benar-benar dijalankan.",
         pendingAction: {
           toolName: "reject_invoice",
           args: { invoiceId: inv.id, reason },
@@ -1460,12 +2589,16 @@ export async function executeAssistantTool(
 
     case "approve_vendor_po": {
       const po = await findVendorPOByNumber(String(input.poNumber ?? ""));
-      if (!po) return { resultText: `Vendor PO "${input.poNumber}" tidak ditemukan.` };
+      if (!po)
+        return { resultText: `Vendor PO "${input.poNumber}" tidak ditemukan.` };
       if (po.status !== "SUBMITTED") {
-        return { resultText: `${po.number} berstatus ${po.status}, tidak sedang menunggu approval.` };
+        return {
+          resultText: `${po.number} berstatus ${po.status}, tidak sedang menunggu approval.`,
+        };
       }
       return {
-        resultText: "Menunggu konfirmasi user sebelum approve benar-benar dijalankan.",
+        resultText:
+          "Menunggu konfirmasi user sebelum approve benar-benar dijalankan.",
         pendingAction: {
           toolName: "approve_vendor_po",
           args: { poId: po.id },
@@ -1476,14 +2609,19 @@ export async function executeAssistantTool(
 
     case "reject_vendor_po": {
       const po = await findVendorPOByNumber(String(input.poNumber ?? ""));
-      if (!po) return { resultText: `Vendor PO "${input.poNumber}" tidak ditemukan.` };
+      if (!po)
+        return { resultText: `Vendor PO "${input.poNumber}" tidak ditemukan.` };
       if (po.status !== "SUBMITTED") {
-        return { resultText: `${po.number} berstatus ${po.status}, tidak sedang menunggu approval.` };
+        return {
+          resultText: `${po.number} berstatus ${po.status}, tidak sedang menunggu approval.`,
+        };
       }
       const reason = String(input.reason ?? "").trim();
-      if (!reason) return { resultText: "Sebutkan alasan penolakan terlebih dahulu." };
+      if (!reason)
+        return { resultText: "Sebutkan alasan penolakan terlebih dahulu." };
       return {
-        resultText: "Menunggu konfirmasi user sebelum reject benar-benar dijalankan.",
+        resultText:
+          "Menunggu konfirmasi user sebelum reject benar-benar dijalankan.",
         pendingAction: {
           toolName: "reject_vendor_po",
           args: { poId: po.id, reason },
@@ -1494,12 +2632,18 @@ export async function executeAssistantTool(
 
     case "approve_expense": {
       const exp = await findExpenseByNumber(String(input.expenseNumber ?? ""));
-      if (!exp) return { resultText: `Expense "${input.expenseNumber}" tidak ditemukan.` };
+      if (!exp)
+        return {
+          resultText: `Expense "${input.expenseNumber}" tidak ditemukan.`,
+        };
       if (exp.approvalStatus !== "SUBMITTED") {
-        return { resultText: `${exp.number} berstatus ${exp.approvalStatus}, tidak sedang menunggu approval.` };
+        return {
+          resultText: `${exp.number} berstatus ${exp.approvalStatus}, tidak sedang menunggu approval.`,
+        };
       }
       return {
-        resultText: "Menunggu konfirmasi user sebelum approve benar-benar dijalankan.",
+        resultText:
+          "Menunggu konfirmasi user sebelum approve benar-benar dijalankan.",
         pendingAction: {
           toolName: "approve_expense",
           args: { expenseId: exp.id },
@@ -1510,14 +2654,21 @@ export async function executeAssistantTool(
 
     case "reject_expense": {
       const exp = await findExpenseByNumber(String(input.expenseNumber ?? ""));
-      if (!exp) return { resultText: `Expense "${input.expenseNumber}" tidak ditemukan.` };
+      if (!exp)
+        return {
+          resultText: `Expense "${input.expenseNumber}" tidak ditemukan.`,
+        };
       if (exp.approvalStatus !== "SUBMITTED") {
-        return { resultText: `${exp.number} berstatus ${exp.approvalStatus}, tidak sedang menunggu approval.` };
+        return {
+          resultText: `${exp.number} berstatus ${exp.approvalStatus}, tidak sedang menunggu approval.`,
+        };
       }
       const reason = String(input.reason ?? "").trim();
-      if (!reason) return { resultText: "Sebutkan alasan penolakan terlebih dahulu." };
+      if (!reason)
+        return { resultText: "Sebutkan alasan penolakan terlebih dahulu." };
       return {
-        resultText: "Menunggu konfirmasi user sebelum reject benar-benar dijalankan.",
+        resultText:
+          "Menunggu konfirmasi user sebelum reject benar-benar dijalankan.",
         pendingAction: {
           toolName: "reject_expense",
           args: { expenseId: exp.id, reason },
@@ -1529,8 +2680,14 @@ export async function executeAssistantTool(
     case "create_costing_sheet": {
       requirePermission(actor.role, "sales", "create");
 
-      const rawItems = Array.isArray(input.items) ? (input.items as Record<string, unknown>[]) : [];
-      if (rawItems.length === 0) return { resultText: "Sebutkan minimal 1 item (nama, qty, unit, harga modal, margin%)." };
+      const rawItems = Array.isArray(input.items)
+        ? (input.items as Record<string, unknown>[])
+        : [];
+      if (rawItems.length === 0)
+        return {
+          resultText:
+            "Sebutkan minimal 1 item (nama, qty, unit, harga modal, margin%).",
+        };
 
       const items: CostingLineItemInput[] = [];
       for (const raw of rawItems) {
@@ -1539,8 +2696,16 @@ export async function executeAssistantTool(
         const unit = String(raw.unit ?? "").trim();
         const costUnitPrice = Number(raw.costUnitPrice);
         const marginPercent = Number(raw.marginPercent);
-        if (!name || !unit || !Number.isFinite(quantity) || !Number.isFinite(costUnitPrice) || !Number.isFinite(marginPercent)) {
-          return { resultText: `Item "${name || "(tanpa nama)"}" belum lengkap — sebutkan nama, qty, unit, harga modal, dan margin% secara eksplisit.` };
+        if (
+          !name ||
+          !unit ||
+          !Number.isFinite(quantity) ||
+          !Number.isFinite(costUnitPrice) ||
+          !Number.isFinite(marginPercent)
+        ) {
+          return {
+            resultText: `Item "${name || "(tanpa nama)"}" belum lengkap — sebutkan nama, qty, unit, harga modal, dan margin% secara eksplisit.`,
+          };
         }
         items.push({
           name,
@@ -1548,30 +2713,47 @@ export async function executeAssistantTool(
           unit,
           currency: "IDR",
           costUnitPrice,
-          supplierDiscountPercent: Number.isFinite(Number(raw.supplierDiscountPercent)) ? Number(raw.supplierDiscountPercent) : 0,
+          supplierDiscountPercent: Number.isFinite(
+            Number(raw.supplierDiscountPercent),
+          )
+            ? Number(raw.supplierDiscountPercent)
+            : 0,
           marginPercent,
         });
       }
 
       const customerName = String(input.customerName ?? "");
       const candidates = await searchCustomerCandidates(customerName);
-      if (candidates.length === 0) return { resultText: `Customer "${customerName}" tidak ditemukan.` };
+      if (candidates.length === 0)
+        return { resultText: `Customer "${customerName}" tidak ditemukan.` };
       if (candidates.length > 1) {
-        return { resultText: `Ada ${candidates.length} customer mirip "${customerName}": ${candidates.map((c) => c.companyName).join(", ")}. Sebutkan salah satu nama persis.` };
+        return {
+          resultText: `Ada ${candidates.length} customer mirip "${customerName}": ${candidates.map((c) => c.companyName).join(", ")}. Sebutkan salah satu nama persis.`,
+        };
       }
       const customer = candidates[0];
 
       const projectTitle = String(input.projectTitle ?? "").trim();
-      if (!projectTitle) return { resultText: "Sebutkan judul project untuk costing ini." };
+      if (!projectTitle)
+        return { resultText: "Sebutkan judul project untuk costing ini." };
       const jobNo = input.jobNo ? String(input.jobNo) : null;
-      const operationalCost = Number.isFinite(Number(input.operationalCost)) ? Number(input.operationalCost) : 0;
+      const operationalCost = Number.isFinite(Number(input.operationalCost))
+        ? Number(input.operationalCost)
+        : 0;
 
       const summary = calcCostingSummary([{ items }], { operationalCost });
       return {
-        resultText: "Menunggu konfirmasi user sebelum costing sheet benar-benar dibuat.",
+        resultText:
+          "Menunggu konfirmasi user sebelum costing sheet benar-benar dibuat.",
         pendingAction: {
           toolName: "create_costing_sheet",
-          args: { customerId: customer.id, projectTitle, jobNo, operationalCost, items },
+          args: {
+            customerId: customer.id,
+            projectTitle,
+            jobNo,
+            operationalCost,
+            items,
+          },
           description:
             `Buat costing baru — ${customer.companyName} / ${projectTitle} (${items.length} item)\n` +
             `Total jual: ${formatCurrency(summary.totalRevenue)} — Margin: ${summary.grossMarginPercent}%`,
@@ -1581,42 +2763,69 @@ export async function executeAssistantTool(
 
     case "convert_costing_to_quotation": {
       requirePermission(actor.role, "sales", "create");
-      const sheet = await findCostingByNumber(String(input.costingNumber ?? ""));
-      if (!sheet) return { resultText: `Costing sheet "${input.costingNumber}" tidak ditemukan.` };
+      const sheet = await findCostingByNumber(
+        String(input.costingNumber ?? ""),
+      );
+      if (!sheet)
+        return {
+          resultText: `Costing sheet "${input.costingNumber}" tidak ditemukan.`,
+        };
       if (sheet.status === "CONVERTED") {
-        return { resultText: `${sheet.number} sudah dikonversi menjadi quotation ${sheet.quotation?.number ?? "-"}.` };
+        return {
+          resultText: `${sheet.number} sudah dikonversi menjadi quotation ${sheet.quotation?.number ?? "-"}.`,
+        };
       }
       const summary = calcCostingSummary(
         sheet.sections.map((s) => ({
           items: s.items.map((i) => ({
-            quantity: Number(i.quantity), costUnitPrice: Number(i.costUnitPrice),
-            supplierDiscountPercent: Number(i.supplierDiscountPercent), marginPercent: Number(i.marginPercent),
+            quantity: Number(i.quantity),
+            costUnitPrice: Number(i.costUnitPrice),
+            supplierDiscountPercent: Number(i.supplierDiscountPercent),
+            marginPercent: Number(i.marginPercent),
           })),
-        }))
+        })),
       );
 
       let contactId: string | null = null;
       if (input.contactName) {
         const contacts = await prisma.contact.findMany({
-          where: { customerId: sheet.customerId, name: { contains: String(input.contactName), mode: "insensitive" } },
+          where: {
+            customerId: sheet.customerId,
+            name: { contains: String(input.contactName), mode: "insensitive" },
+          },
           select: { id: true, name: true },
           take: 5,
         });
-        if (contacts.length === 0) return { resultText: `Kontak "${input.contactName}" tidak ditemukan di customer ini.` };
+        if (contacts.length === 0)
+          return {
+            resultText: `Kontak "${input.contactName}" tidak ditemukan di customer ini.`,
+          };
         if (contacts.length > 1) {
-          return { resultText: `Ada ${contacts.length} kontak mirip "${input.contactName}": ${contacts.map((c) => c.name).join(", ")}. Sebutkan salah satu nama persis.` };
+          return {
+            resultText: `Ada ${contacts.length} kontak mirip "${input.contactName}": ${contacts.map((c) => c.name).join(", ")}. Sebutkan salah satu nama persis.`,
+          };
         }
         contactId = contacts[0].id;
       }
 
-      const validUntilDays = Number.isFinite(Number(input.validUntilDays)) ? Number(input.validUntilDays) : 30;
-      const validUntil = new Date(Date.now() + validUntilDays * 24 * 60 * 60 * 1000);
+      const validUntilDays = Number.isFinite(Number(input.validUntilDays))
+        ? Number(input.validUntilDays)
+        : 30;
+      const validUntil = new Date(
+        Date.now() + validUntilDays * 24 * 60 * 60 * 1000,
+      );
 
       return {
-        resultText: "Menunggu konfirmasi user sebelum quotation benar-benar dibuat.",
+        resultText:
+          "Menunggu konfirmasi user sebelum quotation benar-benar dibuat.",
         pendingAction: {
           toolName: "convert_costing_to_quotation",
-          args: { costingId: sheet.id, salesPicId: actor.userId, contactId, validUntil: validUntil.toISOString() },
+          args: {
+            costingId: sheet.id,
+            salesPicId: actor.userId,
+            contactId,
+            validUntil: validUntil.toISOString(),
+          },
           description:
             `Buat quotation dari costing ${sheet.number} — ${sheet.customer.companyName} (${formatCurrency(summary.totalRevenue)})\n` +
             `Berlaku sampai: ${formatDate(validUntil)}` +
@@ -1633,25 +2842,38 @@ export async function executeAssistantTool(
       let action: RevisionAction;
       if (adjustmentType === "percent_adjustment") {
         const percent = Number(input.percent);
-        if (!Number.isFinite(percent)) return { resultText: "Sebutkan berapa persen kenaikan/penurunan harganya." };
+        if (!Number.isFinite(percent))
+          return {
+            resultText: "Sebutkan berapa persen kenaikan/penurunan harganya.",
+          };
         action = { type: "percent_adjustment", percent };
       } else if (adjustmentType === "operational_cost_delta") {
         const amount = Number(input.amount);
-        if (!Number.isFinite(amount)) return { resultText: "Sebutkan berapa Rupiah perubahan biaya operasionalnya." };
+        if (!Number.isFinite(amount))
+          return {
+            resultText:
+              "Sebutkan berapa Rupiah perubahan biaya operasionalnya.",
+          };
         action = { type: "operational_cost_delta", amount };
       } else if (adjustmentType === "item_quantity") {
         const itemName = String(input.itemName ?? "").trim();
         const quantity = Number(input.quantity);
-        if (!itemName || !Number.isFinite(quantity)) return { resultText: "Sebutkan nama item dan quantity baru-nya." };
+        if (!itemName || !Number.isFinite(quantity))
+          return { resultText: "Sebutkan nama item dan quantity baru-nya." };
         action = { type: "item_quantity", itemName, quantity };
       } else {
-        return { resultText: "Jenis revisi tidak didukung — hanya bisa naik/turun harga %, ubah biaya operasional, atau ubah qty satu item." };
+        return {
+          resultText:
+            "Jenis revisi tidak didukung — hanya bisa naik/turun harga %, ubah biaya operasional, atau ubah qty satu item.",
+        };
       }
 
       const sim = await simulateQuotationRevision(quotationNumber, action);
-      if (!sim.ok) return { resultText: sim.error ?? "Gagal mensimulasikan revisi." };
+      if (!sim.ok)
+        return { resultText: sim.error ?? "Gagal mensimulasikan revisi." };
       return {
-        resultText: "Menunggu konfirmasi user sebelum revisi benar-benar dijalankan.",
+        resultText:
+          "Menunggu konfirmasi user sebelum revisi benar-benar dijalankan.",
         pendingAction: {
           toolName: "revise_quotation",
           args: { costingId: sim.costingId, action },
@@ -1665,49 +2887,89 @@ export async function executeAssistantTool(
       const projectNumberRaw = String(input.projectNumber ?? "");
       const amount = Number(input.amount);
       if (!Number.isFinite(amount) || amount <= 0) {
-        return { resultText: 'Sebutkan jumlah tagihan dalam Rupiah secara eksplisit (bukan persen), mis. "sebesar Rp150.000.000".' };
+        return {
+          resultText:
+            'Sebutkan jumlah tagihan dalam Rupiah secara eksplisit (bukan persen), mis. "sebesar Rp150.000.000".',
+        };
       }
 
       const project = await prisma.project.findFirst({
-        where: { deletedAt: null, number: { contains: projectNumberRaw, mode: "insensitive" } },
-        select: { id: true, number: true, name: true, customerId: true, quotationId: true, jobNumber: true },
+        where: {
+          deletedAt: null,
+          number: { contains: projectNumberRaw, mode: "insensitive" },
+        },
+        select: {
+          id: true,
+          number: true,
+          name: true,
+          customerId: true,
+          quotationId: true,
+          jobNumber: true,
+        },
       });
-      if (!project) return { resultText: `Project "${projectNumberRaw}" tidak ditemukan.` };
+      if (!project)
+        return { resultText: `Project "${projectNumberRaw}" tidak ditemukan.` };
 
       const existingInvoiceCount = await prisma.invoice.count({
-        where: { projectId: project.id, status: { not: "CANCELLED" }, deletedAt: null },
+        where: {
+          projectId: project.id,
+          status: { not: "CANCELLED" },
+          deletedAt: null,
+        },
       });
       const isFirstInvoice = existingInvoiceCount === 0;
       const quotationId = isFirstInvoice ? project.quotationId : null;
       const quotation = quotationId
         ? await prisma.quotation.findUnique({
             where: { id: quotationId },
-            select: { number: true, description: true, contactId: true, salesPicId: true },
+            select: {
+              number: true,
+              description: true,
+              contactId: true,
+              salesPicId: true,
+            },
           })
         : null;
 
-      const dpPercent = input.dpPercent != null ? Number(input.dpPercent) : null;
-      const dueInDays = Number.isFinite(Number(input.dueInDays)) ? Number(input.dueInDays) : 30;
+      const dpPercent =
+        input.dpPercent != null ? Number(input.dpPercent) : null;
+      const dueInDays = Number.isFinite(Number(input.dueInDays))
+        ? Number(input.dueInDays)
+        : 30;
       const dueDate = new Date(Date.now() + dueInDays * 24 * 60 * 60 * 1000);
-      const taxPercent = Number.isFinite(Number(input.taxPercent)) ? Number(input.taxPercent) : 11;
+      const taxPercent = Number.isFinite(Number(input.taxPercent))
+        ? Number(input.taxPercent)
+        : 11;
 
       let contactId: string | null = quotation?.contactId ?? null;
       if (input.contactName) {
         const contacts = await prisma.contact.findMany({
-          where: { customerId: project.customerId, name: { contains: String(input.contactName), mode: "insensitive" } },
+          where: {
+            customerId: project.customerId,
+            name: { contains: String(input.contactName), mode: "insensitive" },
+          },
           select: { id: true, name: true },
           take: 5,
         });
-        if (contacts.length === 0) return { resultText: `PIC "${input.contactName}" tidak ditemukan di customer ini.` };
+        if (contacts.length === 0)
+          return {
+            resultText: `PIC "${input.contactName}" tidak ditemukan di customer ini.`,
+          };
         if (contacts.length > 1) {
-          return { resultText: `Ada ${contacts.length} kontak mirip "${input.contactName}": ${contacts.map((c) => c.name).join(", ")}. Sebutkan salah satu nama persis.` };
+          return {
+            resultText: `Ada ${contacts.length} kontak mirip "${input.contactName}": ${contacts.map((c) => c.name).join(", ")}. Sebutkan salah satu nama persis.`,
+          };
         }
         contactId = contacts[0].id;
       }
 
       const customerPO = input.customerPO ? String(input.customerPO) : null;
       const poDate = parseOptionalDate(input.poDate);
-      if (poDate === "invalid") return { resultText: "Format tanggal PO tidak valid — gunakan format YYYY-MM-DD." };
+      if (poDate === "invalid")
+        return {
+          resultText:
+            "Format tanggal PO tidak valid — gunakan format YYYY-MM-DD.",
+        };
 
       const scopeLabel = quotation?.description || project.name;
       const description = quotationId
@@ -1715,19 +2977,38 @@ export async function executeAssistantTool(
         : `Termin Pembayaran - ${scopeLabel}`;
 
       const totals = calcInvoiceTotals(
-        [{ description, quantity: 1, unit: "lot", unitPrice: amount, taxPercent, isNote: false }],
-        0
+        [
+          {
+            description,
+            quantity: 1,
+            unit: "lot",
+            unitPrice: amount,
+            taxPercent,
+            isNote: false,
+          },
+        ],
+        0,
       );
 
       return {
-        resultText: "Menunggu konfirmasi user sebelum invoice benar-benar dibuat.",
+        resultText:
+          "Menunggu konfirmasi user sebelum invoice benar-benar dibuat.",
         pendingAction: {
           toolName: "create_invoice",
           args: {
-            projectId: project.id, customerId: project.customerId, quotationId,
-            contactId, jobNo: project.jobNumber, salesPicId: quotation?.salesPicId ?? null,
-            dueDate: dueDate.toISOString(), customerPO, poDate: poDate ? poDate.toISOString() : null,
-            dpPercent, taxPercent, description, amount,
+            projectId: project.id,
+            customerId: project.customerId,
+            quotationId,
+            contactId,
+            jobNo: project.jobNumber,
+            salesPicId: quotation?.salesPicId ?? null,
+            dueDate: dueDate.toISOString(),
+            customerPO,
+            poDate: poDate ? poDate.toISOString() : null,
+            dpPercent,
+            taxPercent,
+            description,
+            amount,
           },
           description:
             `Invoice — ${project.number} (${scopeLabel})\n` +
@@ -1735,8 +3016,12 @@ export async function executeAssistantTool(
             `Dasar: ${formatCurrency(amount)}${taxPercent > 0 ? ` + PPN ${taxPercent}% (${formatCurrency(totals.tax)})` : ""}\n` +
             `Total tagihan: ${formatCurrency(totals.grandTotal)}\n` +
             `Jatuh tempo: ${formatDate(dueDate)}` +
-            (customerPO ? `\nCustomer PO: ${customerPO}${poDate ? ` (${formatDate(poDate)})` : ""}` : "") +
-            (contactId ? `\nPIC: ${input.contactName ? String(input.contactName) : "(dari quotation)"}` : ""),
+            (customerPO
+              ? `\nCustomer PO: ${customerPO}${poDate ? ` (${formatDate(poDate)})` : ""}`
+              : "") +
+            (contactId
+              ? `\nPIC: ${input.contactName ? String(input.contactName) : "(dari quotation)"}`
+              : ""),
         },
       };
     }
@@ -1746,56 +3031,112 @@ export async function executeAssistantTool(
       const vendorName = String(input.vendorName ?? "").trim();
       if (!vendorName) return { resultText: "Sebutkan nama vendor/supplier." };
 
-      const rawItems = Array.isArray(input.items) ? (input.items as Record<string, unknown>[]) : [];
-      if (rawItems.length === 0) return { resultText: "Sebutkan minimal 1 item (deskripsi, qty, harga)." };
-      const items: { description: string; quantity: number; unit: string; unitPrice: number }[] = [];
+      const rawItems = Array.isArray(input.items)
+        ? (input.items as Record<string, unknown>[])
+        : [];
+      if (rawItems.length === 0)
+        return {
+          resultText: "Sebutkan minimal 1 item (deskripsi, qty, harga).",
+        };
+      const items: {
+        description: string;
+        quantity: number;
+        unit: string;
+        unitPrice: number;
+      }[] = [];
       for (const raw of rawItems) {
         const description = String(raw.description ?? "").trim();
         const quantity = Number(raw.quantity);
         const unitPrice = Number(raw.unitPrice);
-        if (!description || !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(unitPrice)) {
-          return { resultText: `Item "${description || "(tanpa deskripsi)"}" belum lengkap — sebutkan deskripsi, qty, dan harga per unit.` };
+        if (
+          !description ||
+          !Number.isFinite(quantity) ||
+          quantity <= 0 ||
+          !Number.isFinite(unitPrice)
+        ) {
+          return {
+            resultText: `Item "${description || "(tanpa deskripsi)"}" belum lengkap — sebutkan deskripsi, qty, dan harga per unit.`,
+          };
         }
-        items.push({ description, quantity, unit: String(raw.unit ?? "lot"), unitPrice });
+        items.push({
+          description,
+          quantity,
+          unit: String(raw.unit ?? "lot"),
+          unitPrice,
+        });
       }
 
       let projectId: string | null = null;
       if (input.projectNumber) {
         const project = await prisma.project.findFirst({
-          where: { deletedAt: null, number: { contains: String(input.projectNumber), mode: "insensitive" } },
+          where: {
+            deletedAt: null,
+            number: {
+              contains: String(input.projectNumber),
+              mode: "insensitive",
+            },
+          },
           select: { id: true, number: true },
         });
-        if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+        if (!project)
+          return {
+            resultText: `Project "${input.projectNumber}" tidak ditemukan.`,
+          };
         projectId = project.id;
       }
 
-      const taxPercent = Number.isFinite(Number(input.taxPercent)) ? Number(input.taxPercent) : 11;
-      const discount = Number.isFinite(Number(input.discount)) ? Number(input.discount) : 0;
+      const taxPercent = Number.isFinite(Number(input.taxPercent))
+        ? Number(input.taxPercent)
+        : 11;
+      const discount = Number.isFinite(Number(input.discount))
+        ? Number(input.discount)
+        : 0;
       const totals = calcVendorPoTotals(items, discount, taxPercent);
 
       return {
-        resultText: "Menunggu konfirmasi user sebelum Vendor PO benar-benar dibuat.",
+        resultText:
+          "Menunggu konfirmasi user sebelum Vendor PO benar-benar dibuat.",
         pendingAction: {
           toolName: "create_vendor_po",
           args: {
-            vendorName, items, taxPercent, discount, projectId,
-            vendorAddress: input.vendorAddress ? String(input.vendorAddress) : null,
+            vendorName,
+            items,
+            taxPercent,
+            discount,
+            projectId,
+            vendorAddress: input.vendorAddress
+              ? String(input.vendorAddress)
+              : null,
             vendorEmail: input.vendorEmail ? String(input.vendorEmail) : null,
             vendorAttn: input.vendorAttn ? String(input.vendorAttn) : null,
-            deliveryName: input.deliveryName ? String(input.deliveryName) : null,
-            deliveryAddress: input.deliveryAddress ? String(input.deliveryAddress) : null,
-            deliveryAttn: input.deliveryAttn ? String(input.deliveryAttn) : null,
-            quotationRef: input.quotationRef ? String(input.quotationRef) : null,
+            deliveryName: input.deliveryName
+              ? String(input.deliveryName)
+              : null,
+            deliveryAddress: input.deliveryAddress
+              ? String(input.deliveryAddress)
+              : null,
+            deliveryAttn: input.deliveryAttn
+              ? String(input.deliveryAttn)
+              : null,
+            quotationRef: input.quotationRef
+              ? String(input.quotationRef)
+              : null,
             projectRef: input.projectRef ? String(input.projectRef) : null,
             poDate: input.poDate ? String(input.poDate) : null,
-            paymentTerms: input.paymentTerms ? String(input.paymentTerms) : null,
-            deliveryTerms: input.deliveryTerms ? String(input.deliveryTerms) : null,
+            paymentTerms: input.paymentTerms
+              ? String(input.paymentTerms)
+              : null,
+            deliveryTerms: input.deliveryTerms
+              ? String(input.deliveryTerms)
+              : null,
             notes: input.notes ? String(input.notes) : null,
           },
           description:
             `Buat Vendor PO — ${vendorName} (${items.length} item)\n` +
             `Total: ${formatCurrency(totals.grandTotal)} (termasuk PPN ${taxPercent}%)` +
-            (input.vendorAddress ? `\nAlamat vendor: ${String(input.vendorAddress)}` : ""),
+            (input.vendorAddress
+              ? `\nAlamat vendor: ${String(input.vendorAddress)}`
+              : ""),
         },
       };
     }
@@ -1803,17 +3144,39 @@ export async function executeAssistantTool(
     case "create_progress_report": {
       requirePermission(actor.role, "project", "create");
       const project = await prisma.project.findFirst({
-        where: { deletedAt: null, number: { contains: String(input.projectNumber ?? ""), mode: "insensitive" } },
+        where: {
+          deletedAt: null,
+          number: {
+            contains: String(input.projectNumber ?? ""),
+            mode: "insensitive",
+          },
+        },
         select: { id: true, number: true, name: true },
       });
-      if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+      if (!project)
+        return {
+          resultText: `Project "${input.projectNumber}" tidak ditemukan.`,
+        };
 
-      const rawItems = Array.isArray(input.items) ? (input.items as Record<string, unknown>[]) : [];
-      if (rawItems.length === 0) return { resultText: "Sebutkan minimal 1 checkpoint (nama part/pekerjaan)." };
-      const items: { partName: string; quantity: string | null; notes: string | null; isDone: boolean }[] = [];
+      const rawItems = Array.isArray(input.items)
+        ? (input.items as Record<string, unknown>[])
+        : [];
+      if (rawItems.length === 0)
+        return {
+          resultText: "Sebutkan minimal 1 checkpoint (nama part/pekerjaan).",
+        };
+      const items: {
+        partName: string;
+        quantity: string | null;
+        notes: string | null;
+        isDone: boolean;
+      }[] = [];
       for (const raw of rawItems) {
         const partName = String(raw.partName ?? "").trim();
-        if (!partName) return { resultText: "Setiap checkpoint harus punya nama part/pekerjaan." };
+        if (!partName)
+          return {
+            resultText: "Setiap checkpoint harus punya nama part/pekerjaan.",
+          };
         items.push({
           partName,
           quantity: raw.quantity ? String(raw.quantity) : null,
@@ -1823,10 +3186,15 @@ export async function executeAssistantTool(
       }
 
       const inspectionDate = parseOptionalDate(input.inspectionDate);
-      if (inspectionDate === "invalid") return { resultText: "Format tanggal inspeksi tidak valid — gunakan format YYYY-MM-DD." };
+      if (inspectionDate === "invalid")
+        return {
+          resultText:
+            "Format tanggal inspeksi tidak valid — gunakan format YYYY-MM-DD.",
+        };
 
       return {
-        resultText: "Menunggu konfirmasi user sebelum progress report benar-benar dibuat.",
+        resultText:
+          "Menunggu konfirmasi user sebelum progress report benar-benar dibuat.",
         pendingAction: {
           toolName: "create_progress_report",
           args: {
@@ -1846,19 +3214,34 @@ export async function executeAssistantTool(
     case "create_progress_report_from_document": {
       requirePermission(actor.role, "project", "create");
       if (!attachment) {
-        return { resultText: "Lampirkan dulu file PDF/foto laporannya di chat ini, baru minta buatkan progress report." };
+        return {
+          resultText:
+            "Lampirkan dulu file PDF/foto laporannya di chat ini, baru minta buatkan progress report.",
+        };
       }
       if (!isExtractableMimeType(attachment.mimeType)) {
-        return { resultText: `Tipe file "${attachment.mimeType}" tidak didukung — lampirkan PDF atau foto (JPG/PNG/WEBP).` };
+        return {
+          resultText: `Tipe file "${attachment.mimeType}" tidak didukung — lampirkan PDF atau foto (JPG/PNG/WEBP).`,
+        };
       }
       const project = await prisma.project.findFirst({
-        where: { deletedAt: null, number: { contains: String(input.projectNumber ?? ""), mode: "insensitive" } },
+        where: {
+          deletedAt: null,
+          number: {
+            contains: String(input.projectNumber ?? ""),
+            mode: "insensitive",
+          },
+        },
         select: { id: true, number: true, name: true },
       });
-      if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+      if (!project)
+        return {
+          resultText: `Project "${input.projectNumber}" tidak ditemukan.`,
+        };
 
       return {
-        resultText: "Menunggu konfirmasi user sebelum progress report benar-benar dibuat.",
+        resultText:
+          "Menunggu konfirmasi user sebelum progress report benar-benar dibuat.",
         pendingAction: {
           toolName: "create_progress_report_from_document",
           args: {
@@ -1876,15 +3259,31 @@ export async function executeAssistantTool(
     case "get_progress_report": {
       requirePermission(actor.role, "project", "view");
       const project = await prisma.project.findFirst({
-        where: { deletedAt: null, number: { contains: String(input.projectNumber ?? ""), mode: "insensitive" } },
+        where: {
+          deletedAt: null,
+          number: {
+            contains: String(input.projectNumber ?? ""),
+            mode: "insensitive",
+          },
+        },
         select: { id: true, number: true, name: true },
       });
-      if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+      if (!project)
+        return {
+          resultText: `Project "${input.projectNumber}" tidak ditemukan.`,
+        };
 
       const report = await prisma.progressReport.findFirst({
         where: {
           projectId: project.id,
-          ...(input.reportNumber ? { number: { contains: String(input.reportNumber), mode: "insensitive" } } : {}),
+          ...(input.reportNumber
+            ? {
+                number: {
+                  contains: String(input.reportNumber),
+                  mode: "insensitive",
+                },
+              }
+            : {}),
         },
         include: { items: { orderBy: { sortOrder: "asc" } } },
         orderBy: { inspectionDate: "desc" },
@@ -1897,7 +3296,9 @@ export async function executeAssistantTool(
         };
       }
       if (report.items.length === 0) {
-        return { resultText: `${report.number} (${project.number}, ${formatDate(report.inspectionDate)}) belum punya checkpoint sama sekali.` };
+        return {
+          resultText: `${report.number} (${project.number}, ${formatDate(report.inspectionDate)}) belum punya checkpoint sama sekali.`,
+        };
       }
       const doneCount = report.items.filter((i) => i.isDone).length;
       return {
@@ -1905,50 +3306,94 @@ export async function executeAssistantTool(
           `${report.number} — ${project.number} (${project.name}), inspeksi ${formatDate(report.inspectionDate)}${report.location ? ` di ${report.location}` : ""}\n` +
           `Selesai: ${doneCount}/${report.items.length}\n` +
           report.items
-            .map((i) => `- [${i.isDone ? "x" : " "}] ${i.partName}${i.quantity ? ` (${i.quantity})` : ""}${i.notes ? ` — ${i.notes}` : ""}`)
+            .map(
+              (i) =>
+                `- [${i.isDone ? "x" : " "}] ${i.partName}${i.quantity ? ` (${i.quantity})` : ""}${i.notes ? ` — ${i.notes}` : ""}`,
+            )
             .join("\n"),
       };
     }
 
     case "list_documents": {
       requirePermission(actor.role, "documents", "view");
-      const project = await resolveProjectId(input.projectNumber ? String(input.projectNumber) : undefined);
-      if (project === null) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+      const project = await resolveProjectId(
+        input.projectNumber ? String(input.projectNumber) : undefined,
+      );
+      if (project === null)
+        return {
+          resultText: `Project "${input.projectNumber}" tidak ditemukan.`,
+        };
 
       const rows = await prisma.document.findMany({
         where: {
           deletedAt: null,
-          ...(input.nameQuery ? { originalName: { contains: String(input.nameQuery), mode: "insensitive" } } : {}),
+          ...(input.nameQuery
+            ? {
+                originalName: {
+                  contains: String(input.nameQuery),
+                  mode: "insensitive",
+                },
+              }
+            : {}),
           folder: {
             ...(project ? { projectId: project.id } : {}),
-            ...(input.folderQuery ? { path: { contains: String(input.folderQuery), mode: "insensitive" } } : {}),
+            ...(input.folderQuery
+              ? {
+                  path: {
+                    contains: String(input.folderQuery),
+                    mode: "insensitive",
+                  },
+                }
+              : {}),
           },
         },
-        select: { originalName: true, mimeType: true, uploadedAt: true, folder: { select: { path: true } } },
+        select: {
+          originalName: true,
+          mimeType: true,
+          uploadedAt: true,
+          folder: { select: { path: true } },
+        },
         orderBy: { uploadedAt: "desc" },
         take: clampLimit(input.limit),
       });
-      if (rows.length === 0) return { resultText: "Tidak ada dokumen yang cocok." };
+      if (rows.length === 0)
+        return { resultText: "Tidak ada dokumen yang cocok." };
       return {
         resultText: rows
-          .map((d) => `- ${d.originalName} — ${d.folder?.path ?? "(tanpa folder)"} — diupload ${formatDate(d.uploadedAt)}`)
+          .map(
+            (d) =>
+              `- ${d.originalName} — ${d.folder?.path ?? "(tanpa folder)"} — diupload ${formatDate(d.uploadedAt)}`,
+          )
           .join("\n"),
       };
     }
 
     case "rename_document": {
       requirePermission(actor.role, "documents", "update");
-      const project = await resolveProjectId(input.projectNumber ? String(input.projectNumber) : undefined);
-      if (project === null) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
-      const found = await findDocumentByQuery(String(input.nameQuery ?? ""), project?.id);
+      const project = await resolveProjectId(
+        input.projectNumber ? String(input.projectNumber) : undefined,
+      );
+      if (project === null)
+        return {
+          resultText: `Project "${input.projectNumber}" tidak ditemukan.`,
+        };
+      const found = await findDocumentByQuery(
+        String(input.nameQuery ?? ""),
+        project?.id,
+      );
       if ("note" in found) return { resultText: found.note };
       const newName = String(input.newName ?? "").trim();
       if (!newName) return { resultText: "Sebutkan nama file baru." };
       const reason = String(input.reason ?? "").trim();
-      if (!reason) return { resultText: "Sebutkan alasan penggantian nama — ini wajib dan akan tercatat di log." };
+      if (!reason)
+        return {
+          resultText:
+            "Sebutkan alasan penggantian nama — ini wajib dan akan tercatat di log.",
+        };
 
       return {
-        resultText: "Menunggu konfirmasi user sebelum nama file benar-benar diubah.",
+        resultText:
+          "Menunggu konfirmasi user sebelum nama file benar-benar diubah.",
         pendingAction: {
           toolName: "rename_document",
           args: { documentId: found.doc.id, newName, reason },
@@ -1960,27 +3405,53 @@ export async function executeAssistantTool(
     case "move_document": {
       requirePermission(actor.role, "documents", "update");
       const project = await resolveProjectId(String(input.projectNumber ?? ""));
-      if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
-      const found = await findDocumentByQuery(String(input.nameQuery ?? ""), project.id);
+      if (!project)
+        return {
+          resultText: `Project "${input.projectNumber}" tidak ditemukan.`,
+        };
+      const found = await findDocumentByQuery(
+        String(input.nameQuery ?? ""),
+        project.id,
+      );
       if ("note" in found) return { resultText: found.note };
       const reason = String(input.reason ?? "").trim();
-      if (!reason) return { resultText: "Sebutkan alasan pemindahan — ini wajib dan akan tercatat di log." };
+      if (!reason)
+        return {
+          resultText:
+            "Sebutkan alasan pemindahan — ini wajib dan akan tercatat di log.",
+        };
 
       const destFolders = await prisma.folder.findMany({
-        where: { projectId: project.id, path: { contains: String(input.destinationFolderQuery ?? ""), mode: "insensitive" } },
+        where: {
+          projectId: project.id,
+          path: {
+            contains: String(input.destinationFolderQuery ?? ""),
+            mode: "insensitive",
+          },
+        },
         select: { id: true, path: true },
         take: 6,
       });
-      if (destFolders.length === 0) return { resultText: `Folder tujuan mengandung "${input.destinationFolderQuery}" tidak ditemukan di project ${project.number}.` };
+      if (destFolders.length === 0)
+        return {
+          resultText: `Folder tujuan mengandung "${input.destinationFolderQuery}" tidak ditemukan di project ${project.number}.`,
+        };
       if (destFolders.length > 1) {
-        return { resultText: `Ada ${destFolders.length} folder mirip: ${destFolders.map((f) => f.path).join(", ")}. Sebutkan yang lebih spesifik.` };
+        return {
+          resultText: `Ada ${destFolders.length} folder mirip: ${destFolders.map((f) => f.path).join(", ")}. Sebutkan yang lebih spesifik.`,
+        };
       }
 
       return {
-        resultText: "Menunggu konfirmasi user sebelum file benar-benar dipindah.",
+        resultText:
+          "Menunggu konfirmasi user sebelum file benar-benar dipindah.",
         pendingAction: {
           toolName: "move_document",
-          args: { documentId: found.doc.id, newFolderId: destFolders[0].id, reason },
+          args: {
+            documentId: found.doc.id,
+            newFolderId: destFolders[0].id,
+            reason,
+          },
           description: `Pindahkan "${found.doc.originalName}" dari "${found.doc.folder?.path ?? "-"}" ke "${destFolders[0].path}". Alasan: ${reason}`,
         },
       };
@@ -1988,13 +3459,22 @@ export async function executeAssistantTool(
 
     case "trash_document": {
       requirePermission(actor.role, "documents", "delete");
-      const project = await resolveProjectId(input.projectNumber ? String(input.projectNumber) : undefined);
-      if (project === null) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
-      const found = await findDocumentByQuery(String(input.nameQuery ?? ""), project?.id);
+      const project = await resolveProjectId(
+        input.projectNumber ? String(input.projectNumber) : undefined,
+      );
+      if (project === null)
+        return {
+          resultText: `Project "${input.projectNumber}" tidak ditemukan.`,
+        };
+      const found = await findDocumentByQuery(
+        String(input.nameQuery ?? ""),
+        project?.id,
+      );
       if ("note" in found) return { resultText: found.note };
 
       return {
-        resultText: "Menunggu konfirmasi user sebelum file benar-benar dipindah ke Trash.",
+        resultText:
+          "Menunggu konfirmasi user sebelum file benar-benar dipindah ke Trash.",
         pendingAction: {
           toolName: "trash_document",
           args: { documentId: found.doc.id },
@@ -2008,25 +3488,52 @@ export async function executeAssistantTool(
       const rows = await prisma.opportunity.findMany({
         where: {
           deletedAt: null,
-          ...(input.status ? { status: input.status as OpportunityStatus } : {}),
-          ...(input.customerName ? { customer: { companyName: { contains: String(input.customerName), mode: "insensitive" } } } : {}),
+          ...(input.status
+            ? { status: input.status as OpportunityStatus }
+            : {}),
+          ...(input.customerName
+            ? {
+                customer: {
+                  companyName: {
+                    contains: String(input.customerName),
+                    mode: "insensitive",
+                  },
+                },
+              }
+            : {}),
         },
-        select: { number: true, name: true, status: true, estimatedValue: true, probability: true, customer: { select: { companyName: true } } },
+        select: {
+          number: true,
+          name: true,
+          status: true,
+          estimatedValue: true,
+          probability: true,
+          customer: { select: { companyName: true } },
+        },
         orderBy: { createdAt: "desc" },
         take: clampLimit(input.limit),
       });
-      if (rows.length === 0) return { resultText: "Tidak ada opportunity yang cocok." };
+      if (rows.length === 0)
+        return { resultText: "Tidak ada opportunity yang cocok." };
       return {
         resultText: rows
-          .map((o) => `- ${o.number} — ${o.name} — ${o.customer.companyName} — ${o.status} (${o.probability}%) — ${formatCurrency(Number(o.estimatedValue))}`)
+          .map(
+            (o) =>
+              `- ${o.number} — ${o.name} — ${o.customer.companyName} — ${o.status} (${o.probability}%) — ${formatCurrency(Number(o.estimatedValue))}`,
+          )
           .join("\n"),
       };
     }
 
     case "get_opportunity_status": {
       requirePermission(actor.role, "sales", "view");
-      const opp = await findOpportunityByNumber(String(input.opportunityNumber ?? ""));
-      if (!opp) return { resultText: `Opportunity "${input.opportunityNumber}" tidak ditemukan.` };
+      const opp = await findOpportunityByNumber(
+        String(input.opportunityNumber ?? ""),
+      );
+      if (!opp)
+        return {
+          resultText: `Opportunity "${input.opportunityNumber}" tidak ditemukan.`,
+        };
       return {
         resultText:
           `${opp.number} — ${opp.name}\n` +
@@ -2044,38 +3551,83 @@ export async function executeAssistantTool(
     case "list_contacts": {
       requirePermission(actor.role, "sales", "view");
       const rows = await prisma.contact.findMany({
-        where: input.customerName ? { customer: { companyName: { contains: String(input.customerName), mode: "insensitive" } } } : undefined,
-        select: { name: true, position: true, phone: true, email: true, isPrimary: true, customer: { select: { companyName: true } } },
+        where: input.customerName
+          ? {
+              customer: {
+                companyName: {
+                  contains: String(input.customerName),
+                  mode: "insensitive",
+                },
+              },
+            }
+          : undefined,
+        select: {
+          name: true,
+          position: true,
+          phone: true,
+          email: true,
+          isPrimary: true,
+          customer: { select: { companyName: true } },
+        },
         orderBy: { createdAt: "desc" },
         take: 30,
       });
-      if (rows.length === 0) return { resultText: "Tidak ada kontak yang cocok." };
+      if (rows.length === 0)
+        return { resultText: "Tidak ada kontak yang cocok." };
       return {
         resultText: rows
-          .map((c) => `- ${c.name}${c.isPrimary ? " (utama)" : ""} — ${c.customer.companyName}${c.position ? ` — ${c.position}` : ""}${c.phone ? ` — ${c.phone}` : ""}`)
+          .map(
+            (c) =>
+              `- ${c.name}${c.isPrimary ? " (utama)" : ""} — ${c.customer.companyName}${c.position ? ` — ${c.position}` : ""}${c.phone ? ` — ${c.phone}` : ""}`,
+          )
           .join("\n"),
       };
     }
 
     case "get_customer_detail": {
       requirePermission(actor.role, "sales", "view");
-      const resolved = await resolveCustomerByName(String(input.customerName ?? ""));
+      const resolved = await resolveCustomerByName(
+        String(input.customerName ?? ""),
+      );
       if ("note" in resolved) return { resultText: resolved.note };
       const c = await prisma.customer.findUniqueOrThrow({
         where: { id: resolved.customer.id },
         include: {
-          contacts: { select: { name: true, position: true, phone: true, isPrimary: true } },
-          opportunities: { where: { deletedAt: null }, select: { number: true, name: true, status: true } },
-          purchaseOrders: { where: { deletedAt: null }, select: { number: true, poValue: true, status: true } },
-          contracts: { where: { deletedAt: null }, select: { number: true, status: true, contractValue: true } },
-          projects: { where: { deletedAt: null }, select: { number: true, name: true, status: true } },
+          contacts: {
+            select: {
+              name: true,
+              position: true,
+              phone: true,
+              isPrimary: true,
+            },
+          },
+          opportunities: {
+            where: { deletedAt: null },
+            select: { number: true, name: true, status: true },
+          },
+          purchaseOrders: {
+            where: { deletedAt: null },
+            select: { number: true, poValue: true, status: true },
+          },
+          contracts: {
+            where: { deletedAt: null },
+            select: { number: true, status: true, contractValue: true },
+          },
+          projects: {
+            where: { deletedAt: null },
+            select: { number: true, name: true, status: true },
+          },
         },
       });
       const lines = [
         `${c.companyName} (${c.number}) — ${c.customerType}, status ${c.status}`,
         c.industry ? `Industri: ${c.industry}` : null,
-        c.phone || c.email ? `Kontak perusahaan: ${[c.phone, c.email].filter(Boolean).join(" / ")}` : null,
-        c.contacts.length > 0 ? `PIC: ${c.contacts.map((p) => `${p.name}${p.isPrimary ? " (utama)" : ""}${p.position ? ` (${p.position})` : ""}`).join(", ")}` : "PIC: -",
+        c.phone || c.email
+          ? `Kontak perusahaan: ${[c.phone, c.email].filter(Boolean).join(" / ")}`
+          : null,
+        c.contacts.length > 0
+          ? `PIC: ${c.contacts.map((p) => `${p.name}${p.isPrimary ? " (utama)" : ""}${p.position ? ` (${p.position})` : ""}`).join(", ")}`
+          : "PIC: -",
         `Opportunity (${c.opportunities.length}): ${c.opportunities.map((o) => `${o.number} [${o.status}]`).join(", ") || "-"}`,
         `PO Customer (${c.purchaseOrders.length}): ${c.purchaseOrders.map((p) => `${p.number} [${p.status}] ${formatCurrency(Number(p.poValue))}`).join(", ") || "-"}`,
         `Kontrak (${c.contracts.length}): ${c.contracts.map((k) => `${k.number} [${k.status}]`).join(", ") || "-"}`,
@@ -2086,23 +3638,49 @@ export async function executeAssistantTool(
 
     case "list_customer_pos": {
       requirePermission(actor.role, "sales", "view");
-      const project = await resolveProjectId(input.projectNumber ? String(input.projectNumber) : undefined);
-      if (project === null) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+      const project = await resolveProjectId(
+        input.projectNumber ? String(input.projectNumber) : undefined,
+      );
+      if (project === null)
+        return {
+          resultText: `Project "${input.projectNumber}" tidak ditemukan.`,
+        };
       const rows = await prisma.purchaseOrder.findMany({
         where: {
           deletedAt: null,
-          ...(input.status ? { status: input.status as PurchaseOrderStatus } : {}),
+          ...(input.status
+            ? { status: input.status as PurchaseOrderStatus }
+            : {}),
           ...(project ? { projectId: project.id } : {}),
-          ...(input.customerName ? { customer: { companyName: { contains: String(input.customerName), mode: "insensitive" } } } : {}),
+          ...(input.customerName
+            ? {
+                customer: {
+                  companyName: {
+                    contains: String(input.customerName),
+                    mode: "insensitive",
+                  },
+                },
+              }
+            : {}),
         },
-        select: { number: true, poValue: true, status: true, poDate: true, customer: { select: { companyName: true } } },
+        select: {
+          number: true,
+          poValue: true,
+          status: true,
+          poDate: true,
+          customer: { select: { companyName: true } },
+        },
         orderBy: { createdAt: "desc" },
         take: clampLimit(input.limit),
       });
-      if (rows.length === 0) return { resultText: "Tidak ada PO customer yang cocok." };
+      if (rows.length === 0)
+        return { resultText: "Tidak ada PO customer yang cocok." };
       return {
         resultText: rows
-          .map((p) => `- ${p.number} — ${p.customer.companyName} — ${p.status} — ${formatCurrency(Number(p.poValue))} — ${formatDate(p.poDate)}`)
+          .map(
+            (p) =>
+              `- ${p.number} — ${p.customer.companyName} — ${p.status} — ${formatCurrency(Number(p.poValue))} — ${formatDate(p.poDate)}`,
+          )
           .join("\n"),
       };
     }
@@ -2113,51 +3691,90 @@ export async function executeAssistantTool(
         where: {
           deletedAt: null,
           ...(input.status ? { status: input.status as ContractStatus } : {}),
-          ...(input.customerName ? { customer: { companyName: { contains: String(input.customerName), mode: "insensitive" } } } : {}),
+          ...(input.customerName
+            ? {
+                customer: {
+                  companyName: {
+                    contains: String(input.customerName),
+                    mode: "insensitive",
+                  },
+                },
+              }
+            : {}),
         },
-        select: { number: true, contractValue: true, status: true, endDate: true, customer: { select: { companyName: true } } },
+        select: {
+          number: true,
+          contractValue: true,
+          status: true,
+          endDate: true,
+          customer: { select: { companyName: true } },
+        },
         orderBy: { createdAt: "desc" },
         take: clampLimit(input.limit),
       });
-      if (rows.length === 0) return { resultText: "Tidak ada kontrak yang cocok." };
+      if (rows.length === 0)
+        return { resultText: "Tidak ada kontrak yang cocok." };
       return {
         resultText: rows
-          .map((k) => `- ${k.number} — ${k.customer.companyName} — ${k.status} — ${formatCurrency(Number(k.contractValue))} — berakhir ${formatDate(k.endDate)}`)
+          .map(
+            (k) =>
+              `- ${k.number} — ${k.customer.companyName} — ${k.status} — ${formatCurrency(Number(k.contractValue))} — berakhir ${formatDate(k.endDate)}`,
+          )
           .join("\n"),
       };
     }
 
     case "create_opportunity": {
       requirePermission(actor.role, "sales", "create");
-      const resolved = await resolveCustomerByName(String(input.customerName ?? ""));
+      const resolved = await resolveCustomerByName(
+        String(input.customerName ?? ""),
+      );
       if ("note" in resolved) return { resultText: resolved.note };
       const name = String(input.name ?? "").trim();
       if (!name) return { resultText: "Sebutkan nama/judul opportunity." };
       const estimatedValue = Number(input.estimatedValue);
-      if (!Number.isFinite(estimatedValue) || estimatedValue < 0) return { resultText: "Sebutkan estimasi nilai deal (Rupiah) yang valid." };
+      if (!Number.isFinite(estimatedValue) || estimatedValue < 0)
+        return {
+          resultText: "Sebutkan estimasi nilai deal (Rupiah) yang valid.",
+        };
       const expectedClosingDate = parseOptionalDate(input.expectedClosingDate);
-      if (expectedClosingDate === "invalid") return { resultText: "Format tanggal closing tidak valid — gunakan format YYYY-MM-DD." };
+      if (expectedClosingDate === "invalid")
+        return {
+          resultText:
+            "Format tanggal closing tidak valid — gunakan format YYYY-MM-DD.",
+        };
 
       let contactId: string | null = null;
       let contactNote = "";
       if (input.contactName) {
-        const c = await resolveContactByName(resolved.customer.id, String(input.contactName));
+        const c = await resolveContactByName(
+          resolved.customer.id,
+          String(input.contactName),
+        );
         if ("note" in c) return { resultText: c.note };
         contactId = c.contactId;
         contactNote = ` — PIC: ${c.name}`;
       }
 
-      const probability = Number.isFinite(Number(input.probability)) ? Number(input.probability) : 10;
+      const probability = Number.isFinite(Number(input.probability))
+        ? Number(input.probability)
+        : 10;
 
       return {
-        resultText: "Menunggu konfirmasi user sebelum opportunity benar-benar dibuat.",
+        resultText:
+          "Menunggu konfirmasi user sebelum opportunity benar-benar dibuat.",
         pendingAction: {
           toolName: "create_opportunity",
           args: {
-            customerId: resolved.customer.id, contactId, name,
+            customerId: resolved.customer.id,
+            contactId,
+            name,
             description: input.description ? String(input.description) : null,
-            estimatedValue, probability,
-            expectedClosingDate: expectedClosingDate ? expectedClosingDate.toISOString() : null,
+            estimatedValue,
+            probability,
+            expectedClosingDate: expectedClosingDate
+              ? expectedClosingDate.toISOString()
+              : null,
             salesPicId: actor.userId,
             source: input.source ? String(input.source) : null,
           },
@@ -2168,18 +3785,29 @@ export async function executeAssistantTool(
 
     case "update_opportunity_stage": {
       requirePermission(actor.role, "sales", "update");
-      const opp = await findOpportunityByNumber(String(input.opportunityNumber ?? ""));
-      if (!opp) return { resultText: `Opportunity "${input.opportunityNumber}" tidak ditemukan.` };
+      const opp = await findOpportunityByNumber(
+        String(input.opportunityNumber ?? ""),
+      );
+      if (!opp)
+        return {
+          resultText: `Opportunity "${input.opportunityNumber}" tidak ditemukan.`,
+        };
       const status = String(input.status ?? "");
       if (!["NEW", "QUALIFIED", "PROPOSAL", "NEGOTIATION"].includes(status)) {
-        return { resultText: "Stage WON/LOST tidak bisa diubah lewat chat — gunakan 'Mark Won'/'Mark Lost' pada quotation-nya di app." };
+        return {
+          resultText:
+            "Stage WON/LOST tidak bisa diubah lewat chat — gunakan 'Mark Won'/'Mark Lost' pada quotation-nya di app.",
+        };
       }
       if (opp.status === "WON" || opp.status === "LOST") {
-        return { resultText: `${opp.number} sudah ${opp.status} dan stage-nya tidak bisa diubah manual lagi.` };
+        return {
+          resultText: `${opp.number} sudah ${opp.status} dan stage-nya tidak bisa diubah manual lagi.`,
+        };
       }
 
       return {
-        resultText: "Menunggu konfirmasi user sebelum stage opportunity benar-benar diubah.",
+        resultText:
+          "Menunggu konfirmasi user sebelum stage opportunity benar-benar diubah.",
         pendingAction: {
           toolName: "update_opportunity_stage",
           args: { opportunityId: opp.id, status },
@@ -2191,15 +3819,19 @@ export async function executeAssistantTool(
     case "create_customer": {
       requirePermission(actor.role, "sales", "create");
       const companyName = String(input.companyName ?? "").trim();
-      if (!companyName) return { resultText: "Sebutkan nama perusahaan customer." };
+      if (!companyName)
+        return { resultText: "Sebutkan nama perusahaan customer." };
 
       return {
-        resultText: "Menunggu konfirmasi user sebelum customer benar-benar dibuat.",
+        resultText:
+          "Menunggu konfirmasi user sebelum customer benar-benar dibuat.",
         pendingAction: {
           toolName: "create_customer",
           args: {
             companyName,
-            customerType: input.customerType ? String(input.customerType) : "PROSPECT",
+            customerType: input.customerType
+              ? String(input.customerType)
+              : "PROSPECT",
             industry: input.industry ? String(input.industry) : null,
             address: input.address ? String(input.address) : null,
             city: input.city ? String(input.city) : null,
@@ -2217,17 +3849,21 @@ export async function executeAssistantTool(
 
     case "create_contact": {
       requirePermission(actor.role, "sales", "create");
-      const resolved = await resolveCustomerByName(String(input.customerName ?? ""));
+      const resolved = await resolveCustomerByName(
+        String(input.customerName ?? ""),
+      );
       if ("note" in resolved) return { resultText: resolved.note };
       const name = String(input.name ?? "").trim();
       if (!name) return { resultText: "Sebutkan nama kontak." };
 
       return {
-        resultText: "Menunggu konfirmasi user sebelum kontak benar-benar dibuat.",
+        resultText:
+          "Menunggu konfirmasi user sebelum kontak benar-benar dibuat.",
         pendingAction: {
           toolName: "create_contact",
           args: {
-            customerId: resolved.customer.id, name,
+            customerId: resolved.customer.id,
+            name,
             position: input.position ? String(input.position) : null,
             department: input.department ? String(input.department) : null,
             email: input.email ? String(input.email) : null,
@@ -2243,46 +3879,84 @@ export async function executeAssistantTool(
 
     case "create_customer_po": {
       requirePermission(actor.role, "sales", "create");
-      const resolved = await resolveCustomerByName(String(input.customerName ?? ""));
+      const resolved = await resolveCustomerByName(
+        String(input.customerName ?? ""),
+      );
       if ("note" in resolved) return { resultText: resolved.note };
       const number = String(input.number ?? "").trim();
-      if (!number) return { resultText: "Sebutkan nomor PO asli dari customer." };
+      if (!number)
+        return { resultText: "Sebutkan nomor PO asli dari customer." };
       const poValue = Number(input.poValue);
-      if (!Number.isFinite(poValue) || poValue <= 0) return { resultText: "Sebutkan nilai PO (Rupiah) yang valid." };
+      if (!Number.isFinite(poValue) || poValue <= 0)
+        return { resultText: "Sebutkan nilai PO (Rupiah) yang valid." };
 
       let projectId: string | null = null;
       let projectNumber: string | null = null;
       if (input.projectNumber) {
         const project = await prisma.project.findFirst({
-          where: { deletedAt: null, number: { contains: String(input.projectNumber), mode: "insensitive" } },
+          where: {
+            deletedAt: null,
+            number: {
+              contains: String(input.projectNumber),
+              mode: "insensitive",
+            },
+          },
           select: { id: true, number: true },
         });
-        if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+        if (!project)
+          return {
+            resultText: `Project "${input.projectNumber}" tidak ditemukan.`,
+          };
         projectId = project.id;
         projectNumber = project.number;
       }
 
       const poDate = parseOptionalDate(input.poDate);
-      if (poDate === "invalid") return { resultText: "Format tanggal PO tidak valid — gunakan format YYYY-MM-DD." };
+      if (poDate === "invalid")
+        return {
+          resultText:
+            "Format tanggal PO tidak valid — gunakan format YYYY-MM-DD.",
+        };
       const startDate = parseOptionalDate(input.startDate);
-      if (startDate === "invalid") return { resultText: "Format tanggal mulai tidak valid — gunakan format YYYY-MM-DD." };
+      if (startDate === "invalid")
+        return {
+          resultText:
+            "Format tanggal mulai tidak valid — gunakan format YYYY-MM-DD.",
+        };
       const endDate = parseOptionalDate(input.endDate);
-      if (endDate === "invalid") return { resultText: "Format tanggal selesai tidak valid — gunakan format YYYY-MM-DD." };
+      if (endDate === "invalid")
+        return {
+          resultText:
+            "Format tanggal selesai tidak valid — gunakan format YYYY-MM-DD.",
+        };
 
-      const dup = await prisma.purchaseOrder.findFirst({ where: { customerId: resolved.customer.id, number, deletedAt: null } });
-      if (dup) return { resultText: `PO "${number}" untuk customer ${resolved.customer.companyName} sudah tercatat.` };
+      const dup = await prisma.purchaseOrder.findFirst({
+        where: { customerId: resolved.customer.id, number, deletedAt: null },
+      });
+      if (dup)
+        return {
+          resultText: `PO "${number}" untuk customer ${resolved.customer.companyName} sudah tercatat.`,
+        };
 
       return {
-        resultText: "Menunggu konfirmasi user sebelum PO customer benar-benar dicatat.",
+        resultText:
+          "Menunggu konfirmasi user sebelum PO customer benar-benar dicatat.",
         pendingAction: {
           toolName: "create_customer_po",
           args: {
-            customerId: resolved.customer.id, projectId, number, poValue,
+            customerId: resolved.customer.id,
+            projectId,
+            number,
+            poValue,
             poDate: (poDate ?? new Date()).toISOString(),
             startDate: startDate ? startDate.toISOString() : null,
             endDate: endDate ? endDate.toISOString() : null,
-            paymentTerms: input.paymentTerms ? String(input.paymentTerms) : null,
-            deliveryTerms: input.deliveryTerms ? String(input.deliveryTerms) : null,
+            paymentTerms: input.paymentTerms
+              ? String(input.paymentTerms)
+              : null,
+            deliveryTerms: input.deliveryTerms
+              ? String(input.deliveryTerms)
+              : null,
           },
           description:
             `Catat PO customer — ${number} dari ${resolved.customer.companyName} — ${formatCurrency(poValue)}` +
@@ -2293,34 +3967,58 @@ export async function executeAssistantTool(
 
     case "create_contract": {
       requirePermission(actor.role, "sales", "create");
-      const resolved = await resolveCustomerByName(String(input.customerName ?? ""));
+      const resolved = await resolveCustomerByName(
+        String(input.customerName ?? ""),
+      );
       if ("note" in resolved) return { resultText: resolved.note };
       const contractValue = Number(input.contractValue);
-      if (!Number.isFinite(contractValue) || contractValue <= 0) return { resultText: "Sebutkan nilai kontrak (Rupiah) yang valid." };
+      if (!Number.isFinite(contractValue) || contractValue <= 0)
+        return { resultText: "Sebutkan nilai kontrak (Rupiah) yang valid." };
       const startDate = parseOptionalDate(input.startDate);
       const endDate = parseOptionalDate(input.endDate);
-      if (startDate === "invalid" || !startDate) return { resultText: "Sebutkan tanggal mulai kontrak yang valid, format YYYY-MM-DD." };
-      if (endDate === "invalid" || !endDate) return { resultText: "Sebutkan tanggal berakhir kontrak yang valid, format YYYY-MM-DD." };
+      if (startDate === "invalid" || !startDate)
+        return {
+          resultText:
+            "Sebutkan tanggal mulai kontrak yang valid, format YYYY-MM-DD.",
+        };
+      if (endDate === "invalid" || !endDate)
+        return {
+          resultText:
+            "Sebutkan tanggal berakhir kontrak yang valid, format YYYY-MM-DD.",
+        };
 
       let projectId: string | null = null;
       let projectNumber: string | null = null;
       if (input.projectNumber) {
         const project = await prisma.project.findFirst({
-          where: { deletedAt: null, number: { contains: String(input.projectNumber), mode: "insensitive" } },
+          where: {
+            deletedAt: null,
+            number: {
+              contains: String(input.projectNumber),
+              mode: "insensitive",
+            },
+          },
           select: { id: true, number: true },
         });
-        if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+        if (!project)
+          return {
+            resultText: `Project "${input.projectNumber}" tidak ditemukan.`,
+          };
         projectId = project.id;
         projectNumber = project.number;
       }
 
       return {
-        resultText: "Menunggu konfirmasi user sebelum kontrak benar-benar dibuat.",
+        resultText:
+          "Menunggu konfirmasi user sebelum kontrak benar-benar dibuat.",
         pendingAction: {
           toolName: "create_contract",
           args: {
-            customerId: resolved.customer.id, projectId,
-            contractValue, startDate: startDate.toISOString(), endDate: endDate.toISOString(),
+            customerId: resolved.customer.id,
+            projectId,
+            contractValue,
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString(),
             notes: input.notes ? String(input.notes) : null,
           },
           description:
@@ -2334,17 +4032,36 @@ export async function executeAssistantTool(
     case "list_project_tasks": {
       requirePermission(actor.role, "project", "view");
       const project = await resolveProjectId(String(input.projectNumber ?? ""));
-      if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+      if (!project)
+        return {
+          resultText: `Project "${input.projectNumber}" tidak ditemukan.`,
+        };
       const rows = await prisma.projectTask.findMany({
-        where: { projectId: project.id, deletedAt: null, ...(input.status ? { status: input.status as TaskStatus } : {}) },
-        select: { title: true, status: true, priority: true, dueDate: true, assignedTo: { select: { name: true } } },
+        where: {
+          projectId: project.id,
+          deletedAt: null,
+          ...(input.status ? { status: input.status as TaskStatus } : {}),
+        },
+        select: {
+          title: true,
+          status: true,
+          priority: true,
+          dueDate: true,
+          assignedTo: { select: { name: true } },
+        },
         orderBy: { createdAt: "desc" },
         take: 30,
       });
-      if (rows.length === 0) return { resultText: `Tidak ada task yang cocok di project ${project.number}.` };
+      if (rows.length === 0)
+        return {
+          resultText: `Tidak ada task yang cocok di project ${project.number}.`,
+        };
       return {
         resultText: rows
-          .map((t) => `- ${t.title} — ${t.status} (${t.priority})${t.assignedTo ? ` — ${t.assignedTo.name}` : ""}${t.dueDate ? ` — due ${formatDate(t.dueDate)}` : ""}`)
+          .map(
+            (t) =>
+              `- ${t.title} — ${t.status} (${t.priority})${t.assignedTo ? ` — ${t.assignedTo.name}` : ""}${t.dueDate ? ` — due ${formatDate(t.dueDate)}` : ""}`,
+          )
           .join("\n"),
       };
     }
@@ -2352,19 +4069,27 @@ export async function executeAssistantTool(
     case "list_project_milestones": {
       requirePermission(actor.role, "project", "view");
       const project = await resolveProjectId(String(input.projectNumber ?? ""));
-      if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+      if (!project)
+        return {
+          resultText: `Project "${input.projectNumber}" tidak ditemukan.`,
+        };
       const rows = await prisma.projectMilestone.findMany({
         where: { projectId: project.id },
         select: { name: true, status: true, dueDate: true, dateBasis: true },
         orderBy: { sortOrder: "asc" },
       });
-      if (rows.length === 0) return { resultText: `Belum ada milestone di project ${project.number}.` };
+      if (rows.length === 0)
+        return {
+          resultText: `Belum ada milestone di project ${project.number}.`,
+        };
       return {
         resultText: rows
           .map(
             (m) =>
               `- ${m.name} — ${m.status}${m.dueDate ? ` — target ${formatDate(m.dueDate)}` : ""}` +
-              (m.dateBasis === "ESTIMATED_DELIVERY" ? " (butuh bukti pengiriman untuk selesai)" : "")
+              (m.dateBasis === "ESTIMATED_DELIVERY"
+                ? " (butuh bukti pengiriman untuk selesai)"
+                : ""),
           )
           .join("\n"),
       };
@@ -2373,11 +4098,18 @@ export async function executeAssistantTool(
     case "create_project_task": {
       requirePermission(actor.role, "project", "create");
       const project = await resolveProjectId(String(input.projectNumber ?? ""));
-      if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+      if (!project)
+        return {
+          resultText: `Project "${input.projectNumber}" tidak ditemukan.`,
+        };
       const title = String(input.title ?? "").trim();
       if (!title) return { resultText: "Sebutkan judul task." };
       const dueDate = parseOptionalDate(input.dueDate);
-      if (dueDate === "invalid") return { resultText: "Format deadline tidak valid — gunakan format YYYY-MM-DD." };
+      if (dueDate === "invalid")
+        return {
+          resultText:
+            "Format deadline tidak valid — gunakan format YYYY-MM-DD.",
+        };
 
       let assignedToId: string | null = null;
       let assignedToNote = "";
@@ -2388,16 +4120,23 @@ export async function executeAssistantTool(
         assignedToNote = ` — ditugaskan ke ${u.name}`;
       }
 
-      const priority = ["LOW", "MEDIUM", "HIGH", "CRITICAL"].includes(String(input.priority)) ? String(input.priority) : "MEDIUM";
+      const priority = ["LOW", "MEDIUM", "HIGH", "CRITICAL"].includes(
+        String(input.priority),
+      )
+        ? String(input.priority)
+        : "MEDIUM";
 
       return {
         resultText: "Menunggu konfirmasi user sebelum task benar-benar dibuat.",
         pendingAction: {
           toolName: "create_project_task",
           args: {
-            projectId: project.id, title,
+            projectId: project.id,
+            title,
             description: input.description ? String(input.description) : null,
-            assignedToId, dueDate: dueDate ? dueDate.toISOString() : null, priority,
+            assignedToId,
+            dueDate: dueDate ? dueDate.toISOString() : null,
+            priority,
           },
           description: `Tambah task — ${project.number} / "${title}" (${priority})${assignedToNote}`,
         },
@@ -2407,14 +4146,22 @@ export async function executeAssistantTool(
     case "update_task_status": {
       requirePermission(actor.role, "project", "update");
       const project = await resolveProjectId(String(input.projectNumber ?? ""));
-      if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
-      const found = await findTaskByTitle(project.id, String(input.taskTitle ?? ""));
+      if (!project)
+        return {
+          resultText: `Project "${input.projectNumber}" tidak ditemukan.`,
+        };
+      const found = await findTaskByTitle(
+        project.id,
+        String(input.taskTitle ?? ""),
+      );
       if ("note" in found) return { resultText: found.note };
       const status = String(input.status ?? "");
-      if (!["TODO", "IN_PROGRESS", "BLOCKED", "COMPLETED"].includes(status)) return { resultText: "Status tidak valid." };
+      if (!["TODO", "IN_PROGRESS", "BLOCKED", "COMPLETED"].includes(status))
+        return { resultText: "Status tidak valid." };
 
       return {
-        resultText: "Menunggu konfirmasi user sebelum status task benar-benar diubah.",
+        resultText:
+          "Menunggu konfirmasi user sebelum status task benar-benar diubah.",
         pendingAction: {
           toolName: "update_task_status",
           args: { taskId: found.id, projectId: project.id, status },
@@ -2426,21 +4173,33 @@ export async function executeAssistantTool(
     case "create_project_milestone": {
       requirePermission(actor.role, "project", "create");
       const project = await resolveProjectId(String(input.projectNumber ?? ""));
-      if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+      if (!project)
+        return {
+          resultText: `Project "${input.projectNumber}" tidak ditemukan.`,
+        };
       const name = String(input.name ?? "").trim();
       if (!name) return { resultText: "Sebutkan nama milestone." };
       const dueDate = parseOptionalDate(input.dueDate);
-      if (dueDate === "invalid") return { resultText: "Format target tanggal tidak valid — gunakan format YYYY-MM-DD." };
-      const weightPercent = Number.isFinite(Number(input.weightPercent)) ? Number(input.weightPercent) : 0;
+      if (dueDate === "invalid")
+        return {
+          resultText:
+            "Format target tanggal tidak valid — gunakan format YYYY-MM-DD.",
+        };
+      const weightPercent = Number.isFinite(Number(input.weightPercent))
+        ? Number(input.weightPercent)
+        : 0;
 
       return {
-        resultText: "Menunggu konfirmasi user sebelum milestone benar-benar dibuat.",
+        resultText:
+          "Menunggu konfirmasi user sebelum milestone benar-benar dibuat.",
         pendingAction: {
           toolName: "create_project_milestone",
           args: {
-            projectId: project.id, name,
+            projectId: project.id,
+            name,
             dueDate: dueDate ? dueDate.toISOString() : null,
-            weightPercent, description: input.description ? String(input.description) : null,
+            weightPercent,
+            description: input.description ? String(input.description) : null,
           },
           description: `Tambah milestone — ${project.number} / "${name}"${dueDate ? ` — target ${formatDate(dueDate)}` : ""} (bobot ${weightPercent}%)`,
         },
@@ -2450,11 +4209,18 @@ export async function executeAssistantTool(
     case "update_milestone_status": {
       requirePermission(actor.role, "project", "update");
       const project = await resolveProjectId(String(input.projectNumber ?? ""));
-      if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
-      const found = await findMilestoneByName(project.id, String(input.milestoneName ?? ""));
+      if (!project)
+        return {
+          resultText: `Project "${input.projectNumber}" tidak ditemukan.`,
+        };
+      const found = await findMilestoneByName(
+        project.id,
+        String(input.milestoneName ?? ""),
+      );
       if ("note" in found) return { resultText: found.note };
       const status = String(input.status ?? "");
-      if (!["PENDING", "IN_PROGRESS", "COMPLETED", "DELAYED"].includes(status)) return { resultText: "Status tidak valid." };
+      if (!["PENDING", "IN_PROGRESS", "COMPLETED", "DELAYED"].includes(status))
+        return { resultText: "Status tidak valid." };
       if (status === "COMPLETED" && found.dateBasis === "ESTIMATED_DELIVERY") {
         return {
           resultText: `Milestone "${found.name}" adalah milestone pengiriman — tidak bisa ditandai Completed lewat chat. Upload bukti pengiriman (surat jalan/BAST) lewat tombol "Tandai Selesai" di app.`,
@@ -2462,7 +4228,8 @@ export async function executeAssistantTool(
       }
 
       return {
-        resultText: "Menunggu konfirmasi user sebelum status milestone benar-benar diubah.",
+        resultText:
+          "Menunggu konfirmasi user sebelum status milestone benar-benar diubah.",
         pendingAction: {
           toolName: "update_milestone_status",
           args: { milestoneId: found.id, projectId: project.id, status },
@@ -2474,25 +4241,48 @@ export async function executeAssistantTool(
     case "create_project_expense": {
       requirePermission(actor.role, "project", "create");
       const project = await resolveProjectId(String(input.projectNumber ?? ""));
-      if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+      if (!project)
+        return {
+          resultText: `Project "${input.projectNumber}" tidak ditemukan.`,
+        };
       const description = String(input.description ?? "").trim();
       if (!description) return { resultText: "Sebutkan deskripsi biaya." };
       const amount = Number(input.amount);
-      if (!Number.isFinite(amount) || amount <= 0) return { resultText: "Sebutkan jumlah biaya (Rupiah) yang valid." };
+      if (!Number.isFinite(amount) || amount <= 0)
+        return { resultText: "Sebutkan jumlah biaya (Rupiah) yang valid." };
       const category = String(input.category ?? "");
-      if (!["LABOR", "MATERIALS", "TRANSPORTATION", "ACCOMMODATION", "VENDOR", "EQUIPMENT", "MARKETING", "OTHER"].includes(category)) {
+      if (
+        ![
+          "LABOR",
+          "MATERIALS",
+          "TRANSPORTATION",
+          "ACCOMMODATION",
+          "VENDOR",
+          "EQUIPMENT",
+          "MARKETING",
+          "OTHER",
+        ].includes(category)
+      ) {
         return { resultText: "Sebutkan kategori biaya yang valid." };
       }
       const date = parseOptionalDate(input.date);
-      if (date === "invalid") return { resultText: "Format tanggal tidak valid — gunakan format YYYY-MM-DD." };
+      if (date === "invalid")
+        return {
+          resultText: "Format tanggal tidak valid — gunakan format YYYY-MM-DD.",
+        };
       const tax = Number.isFinite(Number(input.tax)) ? Number(input.tax) : 0;
 
       return {
-        resultText: "Menunggu konfirmasi user sebelum expense benar-benar dicatat.",
+        resultText:
+          "Menunggu konfirmasi user sebelum expense benar-benar dicatat.",
         pendingAction: {
           toolName: "create_project_expense",
           args: {
-            projectId: project.id, category, description, amount, tax,
+            projectId: project.id,
+            category,
+            description,
+            amount,
+            tax,
             vendor: input.vendor ? String(input.vendor) : null,
             date: (date ?? new Date()).toISOString(),
           },
@@ -2504,15 +4294,34 @@ export async function executeAssistantTool(
     case "submit_expense": {
       requirePermission(actor.role, "project", "update");
       const expense = await prisma.projectExpense.findFirst({
-        where: { deletedAt: null, number: { contains: String(input.expenseNumber ?? ""), mode: "insensitive" } },
-        select: { id: true, number: true, approvalStatus: true, projectId: true, project: { select: { number: true } } },
+        where: {
+          deletedAt: null,
+          number: {
+            contains: String(input.expenseNumber ?? ""),
+            mode: "insensitive",
+          },
+        },
+        select: {
+          id: true,
+          number: true,
+          approvalStatus: true,
+          projectId: true,
+          project: { select: { number: true } },
+        },
         orderBy: { createdAt: "desc" },
       });
-      if (!expense) return { resultText: `Expense "${input.expenseNumber}" tidak ditemukan.` };
-      if (expense.approvalStatus !== "DRAFT") return { resultText: `${expense.number} sudah ${expense.approvalStatus} — hanya expense DRAFT yang bisa disubmit.` };
+      if (!expense)
+        return {
+          resultText: `Expense "${input.expenseNumber}" tidak ditemukan.`,
+        };
+      if (expense.approvalStatus !== "DRAFT")
+        return {
+          resultText: `${expense.number} sudah ${expense.approvalStatus} — hanya expense DRAFT yang bisa disubmit.`,
+        };
 
       return {
-        resultText: "Menunggu konfirmasi user sebelum expense benar-benar disubmit.",
+        resultText:
+          "Menunggu konfirmasi user sebelum expense benar-benar disubmit.",
         pendingAction: {
           toolName: "submit_expense",
           args: { expenseId: expense.id, projectId: expense.projectId },
@@ -2524,14 +4333,22 @@ export async function executeAssistantTool(
     case "update_project_progress": {
       requirePermission(actor.role, "project", "update");
       const project = await resolveProjectId(String(input.projectNumber ?? ""));
-      if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+      if (!project)
+        return {
+          resultText: `Project "${input.projectNumber}" tidak ditemukan.`,
+        };
       const progressPercent = Number(input.progressPercent);
-      if (!Number.isFinite(progressPercent) || progressPercent < 0 || progressPercent > 100) {
+      if (
+        !Number.isFinite(progressPercent) ||
+        progressPercent < 0 ||
+        progressPercent > 100
+      ) {
         return { resultText: "Sebutkan progress 0-100." };
       }
 
       return {
-        resultText: "Menunggu konfirmasi user sebelum progress project benar-benar diubah.",
+        resultText:
+          "Menunggu konfirmasi user sebelum progress project benar-benar diubah.",
         pendingAction: {
           toolName: "update_project_progress",
           args: { projectId: project.id, progressPercent },
@@ -2543,10 +4360,14 @@ export async function executeAssistantTool(
     case "mark_project_completed": {
       requirePermission(actor.role, "project", "update");
       const project = await resolveProjectId(String(input.projectNumber ?? ""));
-      if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+      if (!project)
+        return {
+          resultText: `Project "${input.projectNumber}" tidak ditemukan.`,
+        };
 
       return {
-        resultText: "Menunggu konfirmasi user sebelum project benar-benar ditandai Completed.",
+        resultText:
+          "Menunggu konfirmasi user sebelum project benar-benar ditandai Completed.",
         pendingAction: {
           toolName: "mark_project_completed",
           args: { projectId: project.id },
@@ -2558,10 +4379,14 @@ export async function executeAssistantTool(
     case "close_project": {
       requirePermission(actor.role, "project", "update");
       const project = await resolveProjectId(String(input.projectNumber ?? ""));
-      if (!project) return { resultText: `Project "${input.projectNumber}" tidak ditemukan.` };
+      if (!project)
+        return {
+          resultText: `Project "${input.projectNumber}" tidak ditemukan.`,
+        };
 
       return {
-        resultText: "Menunggu konfirmasi user sebelum project benar-benar di-Close.",
+        resultText:
+          "Menunggu konfirmasi user sebelum project benar-benar di-Close.",
         pendingAction: {
           toolName: "close_project",
           args: { projectId: project.id },
@@ -2575,17 +4400,45 @@ export async function executeAssistantTool(
       const rows = await prisma.payment.findMany({
         where: {
           deletedAt: null,
-          ...(input.invoiceNumber ? { invoice: { number: { contains: String(input.invoiceNumber), mode: "insensitive" } } } : {}),
-          ...(input.customerName ? { customer: { companyName: { contains: String(input.customerName), mode: "insensitive" } } } : {}),
+          ...(input.invoiceNumber
+            ? {
+                invoice: {
+                  number: {
+                    contains: String(input.invoiceNumber),
+                    mode: "insensitive",
+                  },
+                },
+              }
+            : {}),
+          ...(input.customerName
+            ? {
+                customer: {
+                  companyName: {
+                    contains: String(input.customerName),
+                    mode: "insensitive",
+                  },
+                },
+              }
+            : {}),
         },
-        select: { amount: true, paymentDate: true, method: true, invoice: { select: { number: true } }, customer: { select: { companyName: true } } },
+        select: {
+          amount: true,
+          paymentDate: true,
+          method: true,
+          invoice: { select: { number: true } },
+          customer: { select: { companyName: true } },
+        },
         orderBy: { paymentDate: "desc" },
         take: clampLimit(input.limit),
       });
-      if (rows.length === 0) return { resultText: "Tidak ada payment yang cocok." };
+      if (rows.length === 0)
+        return { resultText: "Tidak ada payment yang cocok." };
       return {
         resultText: rows
-          .map((p) => `- ${p.invoice.number} — ${p.customer.companyName} — ${formatCurrency(Number(p.amount))} (${p.method}) — ${formatDate(p.paymentDate)}`)
+          .map(
+            (p) =>
+              `- ${p.invoice.number} — ${p.customer.companyName} — ${formatCurrency(Number(p.amount))} (${p.method}) — ${formatDate(p.paymentDate)}`,
+          )
           .join("\n"),
       };
     }
@@ -2593,33 +4446,65 @@ export async function executeAssistantTool(
     case "create_payment": {
       requirePermission(actor.role, "finance", "create");
       if (!attachment) {
-        return { resultText: "Lampirkan dulu file bukti transfer/kwitansi (foto/PDF) di chat ini, baru minta catat payment-nya." };
+        return {
+          resultText:
+            "Lampirkan dulu file bukti transfer/kwitansi (foto/PDF) di chat ini, baru minta catat payment-nya.",
+        };
       }
       const inv = await findInvoiceByNumber(String(input.invoiceNumber ?? ""));
-      if (!inv) return { resultText: `Invoice "${input.invoiceNumber}" tidak ditemukan.` };
+      if (!inv)
+        return {
+          resultText: `Invoice "${input.invoiceNumber}" tidak ditemukan.`,
+        };
       const amount = Number(input.amount);
-      if (!Number.isFinite(amount) || amount <= 0) return { resultText: "Sebutkan jumlah pembayaran (Rupiah) yang valid." };
+      if (!Number.isFinite(amount) || amount <= 0)
+        return {
+          resultText: "Sebutkan jumlah pembayaran (Rupiah) yang valid.",
+        };
       const paymentDate = parseOptionalDate(input.paymentDate);
-      if (paymentDate === "invalid") return { resultText: "Format tanggal pembayaran tidak valid — gunakan format YYYY-MM-DD." };
-      const method = ["BANK_TRANSFER", "CASH", "CHECK", "CREDIT_CARD", "OTHER"].includes(String(input.method)) ? String(input.method) : "BANK_TRANSFER";
-      const withholdingTax = Number.isFinite(Number(input.withholdingTax)) ? Number(input.withholdingTax) : 0;
+      if (paymentDate === "invalid")
+        return {
+          resultText:
+            "Format tanggal pembayaran tidak valid — gunakan format YYYY-MM-DD.",
+        };
+      const method = [
+        "BANK_TRANSFER",
+        "CASH",
+        "CHECK",
+        "CREDIT_CARD",
+        "OTHER",
+      ].includes(String(input.method))
+        ? String(input.method)
+        : "BANK_TRANSFER";
+      const withholdingTax = Number.isFinite(Number(input.withholdingTax))
+        ? Number(input.withholdingTax)
+        : 0;
 
       return {
-        resultText: "Menunggu konfirmasi user sebelum payment benar-benar dicatat.",
+        resultText:
+          "Menunggu konfirmasi user sebelum payment benar-benar dicatat.",
         pendingAction: {
           toolName: "create_payment",
           args: {
             invoiceId: inv.id,
             paymentDate: (paymentDate ?? new Date()).toISOString(),
-            amount, method, withholdingTax,
-            referenceNumber: input.referenceNumber ? String(input.referenceNumber) : null,
+            amount,
+            method,
+            withholdingTax,
+            referenceNumber: input.referenceNumber
+              ? String(input.referenceNumber)
+              : null,
             bankAccount: input.bankAccount ? String(input.bankAccount) : null,
             notes: input.notes ? String(input.notes) : null,
-            fileName: attachment.fileName, mimeType: attachment.mimeType, dataBase64: attachment.dataBase64,
+            fileName: attachment.fileName,
+            mimeType: attachment.mimeType,
+            dataBase64: attachment.dataBase64,
           },
           description:
             `Catat payment — invoice ${inv.number} (${inv.customer.companyName}) — ${formatCurrency(amount)} (${method})` +
-            (withholdingTax > 0 ? ` + PPh dipotong ${formatCurrency(withholdingTax)}` : "") +
+            (withholdingTax > 0
+              ? ` + PPh dipotong ${formatCurrency(withholdingTax)}`
+              : "") +
             `\nBukti: "${attachment.fileName}"`,
         },
       };
@@ -2634,7 +4519,10 @@ export async function executeAssistantTool(
           `Total nilai quotation: ${formatCurrency(r.totalQuotationValue)}\n` +
           `Won: ${formatCurrency(r.wonValue)} — Lost: ${formatCurrency(r.lostValue)} — Win rate: ${r.winRate}%` +
           (r.revenueByCustomer.length > 0
-            ? `\nTop customer (revenue Won): ${r.revenueByCustomer.slice(0, 5).map((c) => `${c.name} (${formatCurrency(c.value)})`).join(", ")}`
+            ? `\nTop customer (revenue Won): ${r.revenueByCustomer
+                .slice(0, 5)
+                .map((c) => `${c.name} (${formatCurrency(c.value)})`)
+                .join(", ")}`
             : "") +
           (r.revenueBySalesPic.length > 0
             ? `\nRevenue per sales: ${r.revenueBySalesPic.map((s) => `${s.name} (${formatCurrency(s.value)})`).join(", ")}`
@@ -2662,7 +4550,13 @@ export async function executeAssistantTool(
           `Total project: ${r.total} — Active: ${r.active} — Completed: ${r.completed} — At Risk: ${r.atRisk} — Delayed: ${r.delayed}\n` +
           `Rata-rata progress: ${r.avgProgress}% — Rata-rata deviasi jadwal: ${r.avgScheduleDeviation}%\n` +
           (r.riskyProjects.length > 0
-            ? `Project berisiko: ${r.riskyProjects.slice(0, 8).map((p) => `${p.number} (${p.customerName}, ${p.signals.length} sinyal)`).join(", ")}`
+            ? `Project berisiko: ${r.riskyProjects
+                .slice(0, 8)
+                .map(
+                  (p) =>
+                    `${p.number} (${p.customerName}, ${p.signals.length} sinyal)`,
+                )
+                .join(", ")}`
             : "Tidak ada project dengan sinyal risiko saat ini."),
       };
     }
@@ -2670,11 +4564,17 @@ export async function executeAssistantTool(
     case "get_profitability_report": {
       requirePermission(actor.role, "reports", "view");
       const rows = await getProfitabilityReport();
-      if (rows.length === 0) return { resultText: "Belum ada project untuk dihitung profitabilitasnya." };
+      if (rows.length === 0)
+        return {
+          resultText: "Belum ada project untuk dihitung profitabilitasnya.",
+        };
       return {
         resultText: rows
           .slice(0, clampLimit(input.limit, 10, 30))
-          .map((r) => `- ${r.number} (${r.customer}) — Revenue: ${formatCurrency(r.revenue)} — Cost: ${formatCurrency(r.cost)} — Margin: ${r.grossMargin}%`)
+          .map(
+            (r) =>
+              `- ${r.number} (${r.customer}) — Revenue: ${formatCurrency(r.revenue)} — Cost: ${formatCurrency(r.cost)} — Margin: ${r.grossMargin}%`,
+          )
           .join("\n"),
       };
     }
@@ -2694,8 +4594,11 @@ export async function executeAssistantTool(
     case "global_search": {
       const q = String(input.query ?? "");
       const results = await globalSearch(q);
-      if (results.length === 0) return { resultText: `Tidak ada hasil untuk "${q}".` };
-      return { resultText: results.map((r) => `- [${r.type}] ${r.label}`).join("\n") };
+      if (results.length === 0)
+        return { resultText: `Tidak ada hasil untuk "${q}".` };
+      return {
+        resultText: results.map((r) => `- [${r.type}] ${r.label}`).join("\n"),
+      };
     }
 
     default:
@@ -2707,7 +4610,7 @@ export async function executeAssistantTool(
 export async function runConfirmedAssistantAction(
   toolName: string,
   args: Record<string, unknown>,
-  actor: SessionPayload
+  actor: SessionPayload,
 ): Promise<string> {
   switch (toolName) {
     case "approve_quotation": {
@@ -2715,7 +4618,11 @@ export async function runConfirmedAssistantAction(
       return `${q.number} berhasil di-approve.`;
     }
     case "reject_quotation": {
-      const q = await rejectQuotation(String(args.quotationId), String(args.reason), actor);
+      const q = await rejectQuotation(
+        String(args.quotationId),
+        String(args.reason),
+        actor,
+      );
       return `${q.number} berhasil di-reject.`;
     }
     case "approve_invoice": {
@@ -2723,7 +4630,11 @@ export async function runConfirmedAssistantAction(
       return `${inv.number} berhasil di-approve.`;
     }
     case "reject_invoice": {
-      const inv = await rejectInvoice(String(args.invoiceId), String(args.reason), actor);
+      const inv = await rejectInvoice(
+        String(args.invoiceId),
+        String(args.reason),
+        actor,
+      );
       return `${inv.number} berhasil di-reject.`;
     }
     case "approve_vendor_po": {
@@ -2731,7 +4642,11 @@ export async function runConfirmedAssistantAction(
       return `${po.number} berhasil di-approve.`;
     }
     case "reject_vendor_po": {
-      const po = await rejectVendorPO(String(args.poId), String(args.reason), actor);
+      const po = await rejectVendorPO(
+        String(args.poId),
+        String(args.reason),
+        actor,
+      );
       return `${po.number} berhasil di-reject.`;
     }
     case "approve_expense": {
@@ -2739,7 +4654,11 @@ export async function runConfirmedAssistantAction(
       return `${exp.number} berhasil di-approve.`;
     }
     case "reject_expense": {
-      const exp = await rejectExpense(String(args.expenseId), String(args.reason), actor);
+      const exp = await rejectExpense(
+        String(args.expenseId),
+        String(args.reason),
+        actor,
+      );
       return `${exp.number} berhasil di-reject.`;
     }
     case "create_costing_sheet": {
@@ -2763,14 +4682,20 @@ export async function runConfirmedAssistantAction(
         {
           salesPicId: String(args.salesPicId),
           contactId: args.contactId ? String(args.contactId) : undefined,
-          validUntil: args.validUntil ? new Date(String(args.validUntil)) : undefined,
+          validUntil: args.validUntil
+            ? new Date(String(args.validUntil))
+            : undefined,
         },
-        actor
+        actor,
       );
       return `Quotation ${quotation.number} berhasil dibuat.`;
     }
     case "revise_quotation": {
-      const result = await commitQuotationRevision(String(args.costingId), args.action as RevisionAction, actor);
+      const result = await commitQuotationRevision(
+        String(args.costingId),
+        args.action as RevisionAction,
+        actor,
+      );
       return `Quotation ${result.quotationNumber} berhasil direvisi.`;
     }
     case "create_invoice": {
@@ -2804,17 +4729,27 @@ export async function runConfirmedAssistantAction(
       return `${invoice.number} berhasil dibuat sebagai DRAFT (Total: ${formatCurrency(Number(invoice.grandTotal))}).`;
     }
     case "create_vendor_po": {
-      const items = args.items as { description: string; quantity: number; unit: string; unitPrice: number }[];
+      const items = args.items as {
+        description: string;
+        quantity: number;
+        unit: string;
+        unitPrice: number;
+      }[];
       const parsedPoDate = args.poDate ? new Date(String(args.poDate)) : null;
       const poInput: VendorPurchaseOrderInput = {
         vendorName: String(args.vendorName),
-        poDate: parsedPoDate && !isNaN(parsedPoDate.getTime()) ? parsedPoDate : new Date(),
+        poDate:
+          parsedPoDate && !isNaN(parsedPoDate.getTime())
+            ? parsedPoDate
+            : new Date(),
         projectId: args.projectId ? String(args.projectId) : null,
         vendorAddress: args.vendorAddress ? String(args.vendorAddress) : null,
         vendorEmail: args.vendorEmail ? String(args.vendorEmail) : null,
         vendorAttn: args.vendorAttn ? String(args.vendorAttn) : null,
         deliveryName: args.deliveryName ? String(args.deliveryName) : null,
-        deliveryAddress: args.deliveryAddress ? String(args.deliveryAddress) : null,
+        deliveryAddress: args.deliveryAddress
+          ? String(args.deliveryAddress)
+          : null,
         deliveryAttn: args.deliveryAttn ? String(args.deliveryAttn) : null,
         quotationRef: args.quotationRef ? String(args.quotationRef) : null,
         projectRef: args.projectRef ? String(args.projectRef) : null,
@@ -2829,7 +4764,13 @@ export async function runConfirmedAssistantAction(
       return `${po.number} berhasil dibuat sebagai DRAFT (Total: ${formatCurrency(Number(po.grandTotal))}).`;
     }
     case "create_progress_report": {
-      const items = args.items as { partName: string; sectionName?: string | null; quantity: string | null; notes: string | null; isDone: boolean }[];
+      const items = args.items as {
+        partName: string;
+        sectionName?: string | null;
+        quantity: string | null;
+        notes: string | null;
+        isDone: boolean;
+      }[];
       const report = await createProgressReport(
         {
           projectId: String(args.projectId),
@@ -2837,13 +4778,15 @@ export async function runConfirmedAssistantAction(
           location: args.location ? String(args.location) : null,
           preparedById: actor.userId,
         },
-        actor.userId
+        actor.userId,
       );
       for (let i = 0; i < items.length; i++) {
         await addProgressReportItem(
           {
             progressReportId: report.id,
-            sectionName: items[i].sectionName ? String(items[i].sectionName) : null,
+            sectionName: items[i].sectionName
+              ? String(items[i].sectionName)
+              : null,
             partName: items[i].partName,
             quantity: items[i].quantity,
             notes: items[i].notes,
@@ -2851,7 +4794,7 @@ export async function runConfirmedAssistantAction(
             sortOrder: i,
           },
           {},
-          actor.userId
+          actor.userId,
         );
       }
       return `${report.number} berhasil dibuat dengan ${items.length} checkpoint.`;
@@ -2859,7 +4802,9 @@ export async function runConfirmedAssistantAction(
     case "create_progress_report_from_document": {
       const projectId = String(args.projectId);
       const buffer = Buffer.from(String(args.dataBase64), "base64");
-      const folder = await prisma.folder.findFirst({ where: { projectId, routeKey: "PROJECT/PROGRESS_REPORT" } });
+      const folder = await prisma.folder.findFirst({
+        where: { projectId, routeKey: "PROJECT/PROGRESS_REPORT" },
+      });
       const doc = await uploadDocument(
         {
           buffer,
@@ -2869,26 +4814,45 @@ export async function runConfirmedAssistantAction(
           projectId,
           relatedEntityType: "PROGRESS_REPORT",
         },
-        actor
+        actor,
       );
-      const result = await generateProgressReportForActor(doc.id, projectId, actor);
+      const result = await generateProgressReportForActor(
+        doc.id,
+        projectId,
+        actor,
+      );
       const report = await prisma.progressReport.findUniqueOrThrow({
         where: { id: result.progressReportId },
         include: { items: true },
       });
-      const photoCount = report.items.filter((i) => i.photoBeforeKey || i.photoAfterKey).length;
-      const photoNote = photoCount > 0 ? `, ${photoCount} di antaranya sudah dilengkapi foto asli dari dokumen` : "";
+      const photoCount = report.items.filter(
+        (i) => i.photoBeforeKey || i.photoAfterKey,
+      ).length;
+      const photoNote =
+        photoCount > 0
+          ? `, ${photoCount} di antaranya sudah dilengkapi foto asli dari dokumen`
+          : "";
       return (
         `${report.number} berhasil dibuat dari file "${args.fileName}" — ${report.items.length} checkpoint${photoNote}. File sumber tersimpan di folder Progress Report project ${args.projectNumber}.\n` +
         `[PDF_URL]/api/progress-reports/${report.id}/pdf?view=1`
       );
     }
     case "rename_document": {
-      await renameDocumentFile(String(args.documentId), String(args.newName), String(args.reason), actor);
+      await renameDocumentFile(
+        String(args.documentId),
+        String(args.newName),
+        String(args.reason),
+        actor,
+      );
       return `Nama file berhasil diubah menjadi "${args.newName}".`;
     }
     case "move_document": {
-      await relocateDocument(String(args.documentId), String(args.newFolderId), String(args.reason), actor);
+      await relocateDocument(
+        String(args.documentId),
+        String(args.newFolderId),
+        String(args.reason),
+        actor,
+      );
       return "File berhasil dipindahkan.";
     }
     case "trash_document": {
@@ -2903,24 +4867,37 @@ export async function runConfirmedAssistantAction(
         description: args.description ? String(args.description) : null,
         estimatedValue: Number(args.estimatedValue),
         probability: Number(args.probability),
-        expectedClosingDate: args.expectedClosingDate ? String(args.expectedClosingDate) : null,
+        expectedClosingDate: args.expectedClosingDate
+          ? String(args.expectedClosingDate)
+          : null,
         salesPicId: String(args.salesPicId),
         source: args.source ? String(args.source) : null,
       });
       if (!result.ok) throw new Error(result.error);
-      const opp = await prisma.opportunity.findUniqueOrThrow({ where: { id: result.data.id }, select: { number: true } });
+      const opp = await prisma.opportunity.findUniqueOrThrow({
+        where: { id: result.data.id },
+        select: { number: true },
+      });
       return `Opportunity ${opp.number} berhasil dibuat.`;
     }
     case "update_opportunity_stage": {
-      const result = await updateOpportunityStage(String(args.opportunityId), args.status as never);
+      const result = await updateOpportunityStage(
+        String(args.opportunityId),
+        args.status as never,
+      );
       if (!result.ok) throw new Error(result.error);
-      const opp = await prisma.opportunity.findUniqueOrThrow({ where: { id: String(args.opportunityId) }, select: { number: true } });
+      const opp = await prisma.opportunity.findUniqueOrThrow({
+        where: { id: String(args.opportunityId) },
+        select: { number: true },
+      });
       return `Stage ${opp.number} berhasil diubah menjadi ${args.status}.`;
     }
     case "create_customer": {
       const result = await createCustomer({
         companyName: String(args.companyName),
-        customerType: args.customerType ? String(args.customerType) : "PROSPECT",
+        customerType: args.customerType
+          ? String(args.customerType)
+          : "PROSPECT",
         industry: args.industry ? String(args.industry) : null,
         address: args.address ? String(args.address) : null,
         city: args.city ? String(args.city) : null,
@@ -2933,7 +4910,10 @@ export async function runConfirmedAssistantAction(
         status: "ACTIVE",
       });
       if (!result.ok) throw new Error(result.error);
-      const customer = await prisma.customer.findUniqueOrThrow({ where: { id: result.data.id }, select: { number: true } });
+      const customer = await prisma.customer.findUniqueOrThrow({
+        where: { id: result.data.id },
+        select: { number: true },
+      });
       return `Customer ${customer.number} (${args.companyName}) berhasil dibuat.`;
     }
     case "create_contact": {
@@ -2978,7 +4958,10 @@ export async function runConfirmedAssistantAction(
         status: "DRAFT",
       });
       if (!result.ok) throw new Error(result.error);
-      const contract = await prisma.contract.findUniqueOrThrow({ where: { id: result.data.id }, select: { number: true } });
+      const contract = await prisma.contract.findUniqueOrThrow({
+        where: { id: result.data.id },
+        select: { number: true },
+      });
       return `Kontrak ${contract.number} berhasil dibuat sebagai DRAFT.`;
     }
     case "create_project_task": {
@@ -2996,7 +4979,11 @@ export async function runConfirmedAssistantAction(
       return `Task "${args.title}" berhasil dibuat.`;
     }
     case "update_task_status": {
-      const result = await updateTaskStatus(String(args.taskId), String(args.projectId), args.status as TaskStatus);
+      const result = await updateTaskStatus(
+        String(args.taskId),
+        String(args.projectId),
+        args.status as TaskStatus,
+      );
       if (!result.ok) throw new Error(result.error);
       return `Status task berhasil diubah menjadi ${args.status}.`;
     }
@@ -3015,7 +5002,11 @@ export async function runConfirmedAssistantAction(
       return `Milestone "${args.name}" berhasil dibuat.`;
     }
     case "update_milestone_status": {
-      const result = await updateMilestoneStatus(String(args.milestoneId), String(args.projectId), args.status as "PENDING" | "IN_PROGRESS" | "COMPLETED" | "DELAYED");
+      const result = await updateMilestoneStatus(
+        String(args.milestoneId),
+        String(args.projectId),
+        args.status as "PENDING" | "IN_PROGRESS" | "COMPLETED" | "DELAYED",
+      );
       if (!result.ok) throw new Error(result.error);
       return `Status milestone berhasil diubah menjadi ${args.status}.`;
     }
@@ -3031,16 +5022,24 @@ export async function runConfirmedAssistantAction(
         paymentStatus: "UNPAID",
       });
       if (!result.ok) throw new Error(result.error);
-      const expense = await prisma.projectExpense.findUniqueOrThrow({ where: { id: result.data.id }, select: { number: true } });
+      const expense = await prisma.projectExpense.findUniqueOrThrow({
+        where: { id: result.data.id },
+        select: { number: true },
+      });
       return `Expense ${expense.number} berhasil dicatat sebagai DRAFT.`;
     }
     case "submit_expense": {
-      const result = await submitExpenseAction(String(args.expenseId), String(args.projectId));
+      const result = await submitExpenseAction(
+        String(args.expenseId),
+        String(args.projectId),
+      );
       if (!result.ok) throw new Error(result.error);
       return "Expense berhasil disubmit untuk approval.";
     }
     case "update_project_progress": {
-      const result = await updateProject(String(args.projectId), { progressPercent: Number(args.progressPercent) });
+      const result = await updateProject(String(args.projectId), {
+        progressPercent: Number(args.progressPercent),
+      });
       if (!result.ok) throw new Error(result.error);
       return `Progress berhasil diubah menjadi ${args.progressPercent}%.`;
     }
@@ -3061,15 +5060,23 @@ export async function runConfirmedAssistantAction(
       fd.set("amount", String(args.amount));
       fd.set("method", String(args.method));
       fd.set("withholdingTax", String(args.withholdingTax));
-      if (args.referenceNumber) fd.set("referenceNumber", String(args.referenceNumber));
+      if (args.referenceNumber)
+        fd.set("referenceNumber", String(args.referenceNumber));
       if (args.bankAccount) fd.set("bankAccount", String(args.bankAccount));
       if (args.notes) fd.set("notes", String(args.notes));
       const buffer = Buffer.from(String(args.dataBase64), "base64");
-      fd.set("file", new Blob([buffer], { type: String(args.mimeType) }), String(args.fileName));
+      fd.set(
+        "file",
+        new Blob([buffer], { type: String(args.mimeType) }),
+        String(args.fileName),
+      );
 
       const result = await recordPaymentAction(fd);
       if (!result.ok) throw new Error(result.error);
-      const invoice = await prisma.invoice.findUniqueOrThrow({ where: { id: String(args.invoiceId) }, select: { number: true } });
+      const invoice = await prisma.invoice.findUniqueOrThrow({
+        where: { id: String(args.invoiceId) },
+        select: { number: true },
+      });
       return `Payment untuk invoice ${invoice.number} berhasil dicatat.`;
     }
     default:

@@ -2,8 +2,10 @@
 import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/current-user";
 import { requirePermission } from "@/lib/permissions";
-import { computeBillingSchedule, type BillingScheduleRow } from "@/lib/workflows/calculations";
-import { refreshBillingSchedule } from "@/lib/workflows/finance";
+import {
+  computeBillingSchedule,
+  type BillingScheduleRow,
+} from "@/lib/workflows/calculations";
 
 /**
  * Company-wide "what's left to bill, and roughly when" — one query, reused
@@ -15,7 +17,6 @@ import { refreshBillingSchedule } from "@/lib/workflows/finance";
 export async function getBillingSchedule(): Promise<BillingScheduleRow[]> {
   const actor = await requireUserOrThrow();
   requirePermission(actor.role, "finance", "view");
-  await refreshBillingSchedule();
 
   const projects = await prisma.project.findMany({
     where: { deletedAt: null },
@@ -25,9 +26,19 @@ export async function getBillingSchedule(): Promise<BillingScheduleRow[]> {
       customer: { select: { companyName: true } },
       purchaseOrders: {
         where: { deletedAt: null },
-        select: { id: true, number: true, poValue: true, status: true, paymentTerms: true, estimatedDeliveryDate: true },
+        select: {
+          id: true,
+          number: true,
+          poValue: true,
+          status: true,
+          paymentTerms: true,
+          estimatedDeliveryDate: true,
+        },
       },
-      invoices: { where: { deletedAt: null }, select: { grandTotal: true, dpPercent: true, status: true } },
+      invoices: {
+        where: { deletedAt: null },
+        select: { grandTotal: true, dpPercent: true, status: true },
+      },
     },
   });
 

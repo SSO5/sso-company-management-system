@@ -1,27 +1,31 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
+import { prisma } from "@/lib/db";
 import { getSession, type SessionPayload } from "./session";
-
-/**
- * Use in Server Components / layouts that must be behind login.
- * Middleware already blocks unauthenticated requests to (app)/*, but this
- * is the server-side belt-and-suspenders check — never trust the client.
- */
+// Request-local memoization only. Disabled accounts and changed roles take effect immediately.
+const currentUser = cache(async (): Promise<SessionPayload | null> => {
+  const session = await getSession();
+  if (!session) return null;
+  const user = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: { id: true, email: true, name: true, role: true, isActive: true },
+  });
+  if (!user?.isActive) return null;
+  return {
+    ...session,
+    userId: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+  };
+});
 export async function requireUser(): Promise<SessionPayload> {
-  const session = await getSession();
-  if (!session) {
-    redirect("/login");
-  }
-  return session;
+  const user = await currentUser();
+  if (!user) redirect("/login");
+  return user;
 }
-
-/**
- * Use inside Server Actions / Route Handlers, where redirecting isn't
- * appropriate — throw instead so the caller can surface a clean error.
- */
 export async function requireUserOrThrow(): Promise<SessionPayload> {
-  const session = await getSession();
-  if (!session) {
-    throw new Error("UNAUTHENTICATED");
-  }
-  return session;
+  const user = await currentUser();
+  if (!user) throw new Error("UNAUTHENTICATED");
+  return user;
 }

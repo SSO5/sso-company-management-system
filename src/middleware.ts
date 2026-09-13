@@ -16,6 +16,13 @@ import { jwtVerify } from "jose";
 // resolving a real User from the message's chat ID, so "public" here means
 // "reachable without a browser session," not "unauthenticated."
 const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/telegram/webhook"];
+const PUBLIC_ASSETS = new Set([
+  "/icon-192.png",
+  "/icon-512.png",
+  "/apple-touch-icon.png",
+  "/logo-wordmark.png",
+  "/manifest.webmanifest",
+]);
 const COOKIE_NAME = process.env.SESSION_COOKIE_NAME || "sso_cms_session";
 
 function getSecretKey() {
@@ -26,14 +33,20 @@ function getSecretKey() {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p)) || pathname.startsWith("/_next")) {
+  if (
+    PUBLIC_ASSETS.has(pathname) ||
+    PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`)) ||
+    pathname.startsWith("/_next") ||
+    pathname === "/api/cron/daily" ||
+    pathname === "/api/cron/directives"
+  ) {
     return NextResponse.next();
   }
 
   const token = req.cookies.get(COOKIE_NAME)?.value;
   if (!token) {
     const loginUrl = new URL("/login", req.url);
-    loginUrl.searchParams.set("next", pathname);
+    loginUrl.searchParams.set("next", pathname + req.nextUrl.search);
     return NextResponse.redirect(loginUrl);
   }
 

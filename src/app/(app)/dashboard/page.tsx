@@ -1,269 +1,269 @@
 import Link from "next/link";
-import { prisma } from "@/lib/db";
 import { getDashboardData } from "@/server/dashboard";
 import { getMyActionItems } from "@/server/action-items";
-import { getJobChecklists } from "@/server/document-checklist";
-import { getMyNotifications } from "@/server/notifications";
-import { getThemeSettings } from "@/server/settings/theme";
 import { requireUser } from "@/lib/auth/current-user";
-import { ProfileHub } from "@/components/dashboard/profile-hub";
 import { ActionItemsPanel } from "@/components/dashboard/action-items-panel";
-import { DocumentChecklistPanel } from "@/components/dashboard/document-checklist-panel";
-import { NotificationsPanel } from "@/components/dashboard/notifications-panel";
-import { BillingScheduleCard } from "@/components/finance/billing-schedule-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn, formatCurrency, formatDate } from "@/lib/utils";
-import { AlertTriangle, TrendingUp, TrendingDown, Minus, ShieldCheck, Clock, AlertCircle } from "lucide-react";
-
-const PIPELINE_STAGE_LABEL: Record<string, string> = {
-  NEW: "Baru", QUALIFIED: "Qualified", PROPOSAL: "Proposal", NEGOTIATION: "Negosiasi",
-};
+import { formatCurrency } from "@/lib/utils";
+import { ROLE_LABELS } from "@/lib/workspace";
+import { ArrowUpRight, FolderKanban, Database, ListChecks } from "lucide-react";
 
 export default async function DashboardPage() {
-  const [
-    { kpis, alerts, billingSchedule, projectProgress, salesPipeline },
-    myActionItems, jobChecklists, notifications, actor, theme,
-  ] = await Promise.all([
+  const [actor, data, items] = await Promise.all([
+    requireUser(),
     getDashboardData(),
     getMyActionItems(),
-    getJobChecklists(),
-    getMyNotifications(),
-    requireUser(),
-    getThemeSettings(),
   ]);
-
-  const [profile, myActiveProjectCount] = await Promise.all([
-    prisma.user.findUniqueOrThrow({
-      where: { id: actor.userId },
-      select: { avatarUrl: true, title: true, whatsappNumber: true, createdAt: true, uiMood: true },
-    }),
-    prisma.project.count({ where: { deletedAt: null, status: "ACTIVE", projectManagerId: actor.userId } }),
-  ]);
-
-  // VIEWER is an oversight role: seeing what is outstanding is precisely its
-  // purpose, but it may not upload. Showing an upload button it cannot use
-  // would be a dead end, so the panel renders read-only for that role.
-  const canUpload = actor.role !== "VIEWER";
-
-  // A PM's own active-project count is more useful to a PM than the
-  // company-wide figure; everyone else (Admin, Sales, Finance) sees the
-  // company-wide "Active Projects" kpi instead, since they don't "handle"
-  // a personal subset of projects the same way.
-  const isPM = actor.role === "PROJECT_MANAGER";
-  const ringkasan = {
-    pendingApproval: myActionItems.filter((i) => i.severity === "pending_approval").length,
-    dueSoon: myActionItems.filter((i) => i.severity === "due_soon").length,
-    overdue: myActionItems.filter((i) => i.severity === "overdue").length,
-  };
-
-  const kpiCards = [
-    { label: "Total Revenue", value: formatCurrency(kpis.totalRevenue) },
-    { label: "Outstanding Receivables", value: formatCurrency(kpis.outstandingReceivables) },
-    { label: "Active Projects", value: String(kpis.activeProjects) },
-    { label: "Projects At Risk", value: String(kpis.atRiskProjects) },
-    { label: "Completed Projects", value: String(kpis.completedProjects) },
-    { label: "Gross Profit", value: formatCurrency(kpis.grossProfit) },
-  ];
-
-  const alertItems = [
-    alerts.overdueInvoices.length > 0 && {
-      text: `${alerts.overdueInvoices.length} invoice(s) overdue`,
-      href: "/finance/receivables",
+  const { kpis, projectProgress, salesPipeline } = data;
+  const finance = ["ADMIN", "FINANCE", "VIEWER"].includes(actor.role),
+    sales = ["ADMIN", "SALES", "VIEWER"].includes(actor.role);
+  const stats = [
+    {
+      label: "Tindakan terlambat",
+      value: items.filter((i) => i.severity === "overdue").length,
+      detail: "Prioritas penyelesaian",
+      href: "/work?filter=overdue",
     },
-    alerts.projectsAtRiskCount > 0 && {
-      text: `${alerts.projectsAtRiskCount} project(s) at risk`,
+    {
+      label: "Persetujuan menunggu",
+      value: items.filter((i) => i.severity === "pending_approval").length,
+      detail: "Sesuai kewenangan Anda",
+      href: "/work?filter=pending_approval",
+    },
+    {
+      label: "Proyek aktif",
+      value: kpis.activeProjects,
+      detail: "Aktif dan perlu perhatian",
       href: "/projects",
     },
-    alerts.quotationsAwaitingApproval.length > 0 && {
-      text: `${alerts.quotationsAwaitingApproval.length} quotation(s) waiting approval`,
-      href: "/sales/quotations",
+    {
+      label: "Proyek perlu perhatian",
+      value: kpis.atRiskProjects,
+      detail: "Risiko jadwal, biaya, atau status",
+      href: "/projects",
     },
-    alerts.expiringContracts.length > 0 && {
-      text: `${alerts.expiringContracts.length} contract(s) expiring within 30 days`,
-      href: "/sales/contracts",
+  ];
+  const rooms = [
+    {
+      href: "/work",
+      title: "Tindak lanjut",
+      desc: "Persetujuan dan pekerjaan jatuh tempo",
+      Icon: ListChecks,
     },
-    alerts.billingDueSoon.length > 0 && {
-      text: `${alerts.billingDueSoon.length} project punya tahap penagihan jatuh tempo minggu ini`,
-      href: "/finance/receivables",
+    {
+      href: "/projects",
+      title: "Ruang proyek",
+      desc: "Tahapan, biaya, laporan, dan dokumen",
+      Icon: FolderKanban,
     },
-  ].filter(Boolean) as { text: string; href: string }[];
-
+    {
+      href: "/data",
+      title: "Data & Dokumen",
+      desc: "Dokumen asli dan catatan aplikasi",
+      Icon: Database,
+    },
+  ];
   return (
-    <div className="space-y-4">
-      <ProfileHub
-        name={actor.name}
-        role={actor.role}
-        title={profile.title}
-        email={actor.email}
-        whatsappNumber={profile.whatsappNumber}
-        avatarUrl={profile.avatarUrl}
-        createdAt={profile.createdAt}
-        taskCount={myActionItems.length}
-        projectCount={isPM ? myActiveProjectCount : kpis.activeProjects}
-        projectCountLabel={isPM ? "Project Aktif Saya" : "Project Aktif (Perusahaan)"}
-        unreadNotifications={notifications.unreadCount}
-        backgroundUrl={theme.dashboardBackgroundUrl}
-        canUpload={canUpload}
-        uiMood={profile.uiMood}
-      />
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_360px]">
-        <div className="min-w-0 space-y-4">
-
-          {/* Ringkasan — same severities ActionItemsPanel below lists one by
-              one, rolled up into three counts so "how much is waiting" reads
-              in one glance before the detail. */}
-          <div className="grid grid-cols-3 gap-3">
-            <Card className="border-primary/15 bg-primary/5">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between text-primary"><span className="text-xs font-semibold">Menunggu Approval</span><ShieldCheck className="h-3.5 w-3.5 opacity-60" /></div>
-                <p data-tabular className="mt-2 text-2xl font-bold text-primary">{ringkasan.pendingApproval}</p>
-              </CardContent>
-            </Card>
-            <Card className="border-warning/25 bg-warning/[0.08]">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between text-warning"><span className="text-xs font-semibold">Segera Jatuh Tempo</span><Clock className="h-3.5 w-3.5 opacity-60" /></div>
-                <p data-tabular className="mt-2 text-2xl font-bold text-warning">{ringkasan.dueSoon}</p>
-              </CardContent>
-            </Card>
-            <Card className="border-destructive/20 bg-destructive/5">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between text-destructive"><span className="text-xs font-semibold">Terlambat</span><AlertCircle className="h-3.5 w-3.5 opacity-60" /></div>
-                <p data-tabular className="mt-2 text-2xl font-bold text-destructive">{ringkasan.overdue}</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Pipeline Prospek & Keuangan Perusahaan */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle>Pipeline Prospek</CardTitle>
-                <Link href="/sales/opportunities" className="text-xs text-primary hover:underline">Semua Prospek &rarr;</Link>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-4 gap-2">
-                  {salesPipeline.stages.map((s) => (
-                    <div key={s.status} className="text-center">
-                      <div className="flex h-9 items-center justify-center rounded-md bg-primary/10 text-sm font-bold text-primary">{s.count}</div>
-                      <p className="mt-1.5 text-[9px] uppercase tracking-wide text-muted-foreground">{PIPELINE_STAGE_LABEL[s.status]}</p>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-3 flex items-center justify-between border-t border-border pt-3 text-sm">
-                  <div><p className="text-[10.5px] text-muted-foreground">Nilai Pipeline</p><p data-tabular className="font-semibold">{formatCurrency(salesPipeline.totalValue)}</p></div>
-                  {salesPipeline.winRate != null && (
-                    <div className="text-right"><p className="text-[10.5px] text-muted-foreground">Win Rate</p><p data-tabular className="font-semibold text-success">{salesPipeline.winRate}%</p></div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle>Keuangan Perusahaan</CardTitle>
-                <Link href="/reports/finance" className="text-xs text-primary hover:underline">Laporan &rarr;</Link>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex justify-between text-sm"><span className="text-muted-foreground">Total Revenue</span><span data-tabular className="font-semibold">{formatCurrency(kpis.totalRevenue)}</span></div>
-                <div className="flex justify-between text-sm"><span className="text-muted-foreground">Piutang Belum Tertagih</span><span data-tabular className="font-semibold text-warning">{formatCurrency(kpis.outstandingReceivables)}</span></div>
-                <div className="flex justify-between text-sm"><span className="text-muted-foreground">Gross Profit</span><span data-tabular className="font-semibold text-success">{formatCurrency(kpis.grossProfit)}</span></div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <ActionItemsPanel items={myActionItems} />
-
-          <DocumentChecklistPanel jobs={jobChecklists} canUpload={canUpload} />
-
-          <div>
-            <h2 className="text-sm font-semibold text-muted-foreground">Ringkasan Perusahaan</h2>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-            {kpiCards.map((k) => (
-              <Card key={k.label} className="transition-shadow hover:shadow-[0_2px_4px_0_rgb(16_24_40/0.06),0_4px_10px_-2px_rgb(16_24_40/0.08)]">
-                <CardContent className="p-4">
-                  <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{k.label}</p>
-                  <p data-tabular className="mt-1.5 text-lg font-semibold tracking-tight">{k.value}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          {projectProgress.length > 0 && (
-            <Card>
-              <CardHeader><CardTitle>Progres Project Aktif</CardTitle></CardHeader>
-              <CardContent className="space-y-2">
-                {projectProgress.map((p) => {
-                  const GapIcon = p.scheduleGap > 1 ? TrendingUp : p.scheduleGap < -1 ? TrendingDown : Minus;
-                  const gapColor = p.scheduleGap > 1 ? "text-success" : p.scheduleGap < -1 ? "text-destructive" : "text-muted-foreground";
-                  return (
-                    <Link
-                      key={p.projectId}
-                      href={`/projects/${p.projectId}`}
-                      className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-sm hover:bg-accent"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate font-medium">{p.customerName}</p>
-                        <p className="truncate text-xs text-muted-foreground">{p.projectNumber}</p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-4 text-xs">
-                        <span className="text-muted-foreground">Rencana <span data-tabular className="font-medium text-foreground">{p.planned}%</span></span>
-                        <span className="text-muted-foreground">Realisasi <span data-tabular className="font-medium text-foreground">{p.actual}%</span></span>
-                        <span className="text-muted-foreground">Ditagih <span data-tabular className="font-medium text-foreground">{p.billed}%</span></span>
-                        <span className={cn("flex items-center gap-1 font-medium", gapColor)}>
-                          <GapIcon className="h-3.5 w-3.5" />
-                          {p.scheduleGap > 0 ? "+" : ""}{p.scheduleGap}%
-                        </span>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </CardContent>
-            </Card>
-          )}
-
-          <BillingScheduleCard rows={billingSchedule} compact title="Jadwal Penagihan Berikutnya" />
-
-          {alertItems.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Alerts</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {alertItems.map((a) => (
-                  <Link
-                    key={a.text}
-                    href={a.href}
-                    className="flex items-center gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm hover:bg-warning/20"
-                  >
-                    <AlertTriangle className="h-4 w-4 text-warning" />
-                    {a.text}
-                  </Link>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
-          {alerts.overdueInvoices.length > 0 && (
-            <Card>
-              <CardHeader><CardTitle>Overdue Invoices</CardTitle></CardHeader>
-              <CardContent className="space-y-1">
-                {alerts.overdueInvoices.map((inv) => (
-                  <Link key={inv.id} href={`/finance/invoices/${inv.id}`} className="flex justify-between text-sm hover:underline">
-                    <span>{inv.number} — {inv.customer.companyName}</span>
-                    <span className="text-muted-foreground">Due {formatDate(inv.dueDate)}</span>
-                  </Link>
-                ))}
-              </CardContent>
-            </Card>
-          )}
+    <div className="space-y-6">
+      <div className="workspace-heading">
+        <div>
+          <p className="workspace-eyebrow">
+            {ROLE_LABELS[actor.role]} ·{" "}
+            {new Intl.DateTimeFormat("id-ID", {
+              dateStyle: "full",
+              timeZone: "Asia/Jakarta",
+            }).format(new Date())}
+          </p>
+          <h1>Selamat bekerja, {actor.name.split(" ")[0]}.</h1>
+          <p className="workspace-muted mt-2">
+            {actor.role === "VIEWER"
+              ? "Pantau penyimpangan dan keputusan yang memerlukan perhatian."
+              : "Mulai dari yang paling penting. Lanjutkan pekerjaan di ruang yang tepat."}
+          </p>
         </div>
-
-        <aside className="min-w-0 lg:sticky lg:top-4 lg:h-fit">
-          <NotificationsPanel items={notifications.items} unreadCount={notifications.unreadCount} />
-        </aside>
+        <Link
+          href="/data"
+          className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-medium text-white"
+        >
+          <Database size={16} /> Data & Dokumen <ArrowUpRight size={16} />
+        </Link>
+      </div>
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        {stats.map((s) => (
+          <Link
+            key={s.label}
+            href={s.href}
+            className="workspace-stat hover:bg-slate-50"
+          >
+            <span className="text-sm text-slate-600">{s.label}</span>
+            <strong>{s.value}</strong>
+            <small>{s.detail}</small>
+          </Link>
+        ))}
+      </div>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(280px,1fr)]">
+        <ActionItemsPanel
+          items={items}
+          limit={6}
+          title={actor.role === "ADMIN" ? "Prioritas tim" : "Prioritas Anda"}
+        />
+        <Card>
+          <CardHeader>
+            <CardTitle>Ruang kerja</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {rooms.map(({ href, title, desc, Icon }) => (
+              <Link key={href} href={href} className="workspace-action">
+                <Icon size={20} className="shrink-0 text-primary" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">{title}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    {desc}
+                  </p>
+                </div>
+                <ArrowUpRight size={16} className="ml-auto shrink-0" />
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+      <Card>
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
+          <CardTitle>Kondisi proyek</CardTitle>
+          <Link href="/projects" className="text-sm text-primary">
+            Buka semua proyek →
+          </Link>
+        </CardHeader>
+        <CardContent>
+          <p className="mb-4 text-xs text-muted-foreground">
+            Realisasi mengikuti bobot milestone selesai, bukan persentase
+            checklist laporan. Selisih dalam poin persentase.
+          </p>
+          <div className="grid gap-3 lg:grid-cols-2">
+            {projectProgress.length === 0 ? (
+              <p className="workspace-muted">Belum ada proyek aktif.</p>
+            ) : (
+              projectProgress.map((p) => (
+                <Link
+                  key={p.projectId}
+                  href={`/projects/${p.projectId}?tab=milestones`}
+                  className="rounded-2xl border p-4 hover:bg-slate-50"
+                >
+                  <div className="flex flex-wrap justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="break-words text-sm font-semibold">
+                        {p.customerName}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {p.projectNumber}
+                      </p>
+                    </div>
+                    <span
+                      className={`workspace-pill ${p.atRisk ? "!bg-amber-50 !text-amber-800" : "!bg-emerald-50 !text-emerald-800"}`}
+                    >
+                      {p.atRisk ? "Perlu perhatian" : "Sesuai rencana"}
+                    </span>
+                  </div>
+                  <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className="h-full rounded-full bg-primary"
+                      style={{
+                        width: `${Math.max(0, Math.min(100, p.actual))}%`,
+                      }}
+                    />
+                  </div>
+                  <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                    <div className="text-muted-foreground">
+                      Rencana{" "}
+                      <b className="mt-1 block text-foreground">{p.planned}%</b>
+                    </div>
+                    <div className="text-muted-foreground">
+                      Realisasi{" "}
+                      <b className="mt-1 block text-foreground">{p.actual}%</b>
+                    </div>
+                    <div className="text-muted-foreground">
+                      Selisih{" "}
+                      <b className="mt-1 block text-foreground">
+                        {p.scheduleGap > 0 ? "+" : ""}
+                        {p.scheduleGap} poin
+                      </b>
+                    </div>
+                  </div>
+                </Link>
+              ))
+            )}
+          </div>
+        </CardContent>
+      </Card>
+      <div className="grid gap-5 lg:grid-cols-2">
+        {sales && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Prospek menuju pesanan</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {salesPipeline.stages.map((s) => (
+                  <Link
+                    href="/sales/opportunities"
+                    key={s.status}
+                    className="rounded-xl bg-slate-50 p-3"
+                  >
+                    <p className="text-xs text-muted-foreground">
+                      {
+                        {
+                          NEW: "Baru",
+                          QUALIFIED: "Terkualifikasi",
+                          PROPOSAL: "Penawaran",
+                          NEGOTIATION: "Negosiasi",
+                        }[s.status]
+                      }
+                    </p>
+                    <p className="mt-2 text-xl font-semibold">{s.count}</p>
+                  </Link>
+                ))}
+              </div>
+              <p className="mt-4 text-sm text-muted-foreground">
+                Estimasi nilai prospek:{" "}
+                <b className="text-foreground">
+                  {formatCurrency(salesPipeline.totalValue)}
+                </b>
+              </p>
+            </CardContent>
+          </Card>
+        )}
+        {finance && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Penagihan perusahaan</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex flex-wrap justify-between gap-2 text-sm">
+                <span className="text-muted-foreground">
+                  Invoice diterbitkan
+                </span>
+                <b>{formatCurrency(kpis.totalRevenue)}</b>
+              </div>
+              <div className="flex flex-wrap justify-between gap-2 text-sm">
+                <span className="text-muted-foreground">
+                  Piutang belum diselesaikan
+                </span>
+                <b>{formatCurrency(kpis.outstandingReceivables)}</b>
+              </div>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Akumulasi seluruh periode. Draf dan pengajuan belum dihitung
+                sebagai penagihan. Nilai invoice bukan pengakuan pendapatan
+                akuntansi.
+              </p>
+              <Link
+                href="/finance/receivables"
+                className="inline-block py-2 text-sm text-primary"
+              >
+                Tinjau piutang dan jadwal penagihan →
+              </Link>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

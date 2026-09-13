@@ -42,14 +42,16 @@ export interface NavGroup {
  */
 export const NAV: NavGroup[] = [
   {
-    label: "Beranda",
+    label: "Ruang Kerja",
     icon: "LayoutDashboard",
     items: [
-      { label: "Tugas & Ringkasan", href: "/dashboard" },
+      { label: "Prioritas Hari Ini", href: "/dashboard" },
+      { label: "Semua Tindak Lanjut", href: "/work" },
+      { label: "Notifikasi", href: "/notifications" },
       // Direktur -> employee task/reminder, in-system instead of personal WA.
       // Every role sees "Tugas dari Direktur" (their own assigned tasks);
       // ADMIN gets the "beri tugas" form inside the same page (see /tasks).
-      { label: "Tugas dari Direktur", href: "/tasks" },
+      { label: "Penugasan Tim", href: "/tasks" },
       // Self-service — every role can set their own photo/jabatan/WA,
       // unlike Settings > Pengguna which stays Admin-only. Lives here (not
       // Pengaturan) since that whole group is hidden from non-Admin/IT roles.
@@ -69,15 +71,23 @@ export const NAV: NavGroup[] = [
       { label: "Proyek Berjalan", href: "/projects" },
       // Outbound PO (SSO -> Vendor). Distinct from the customer's PO to SSO,
       // which lives inside the job's own "5. PO" folder.
-      { label: "Pesanan ke Vendor", href: "/procurement/vendor-po", roles: ["ADMIN", "PROJECT_MANAGER", "VIEWER", "IT"] },
-      { label: "Pelanggan & Kontak", href: "/sales/customers", roles: ["ADMIN", "SALES", "VIEWER", "IT"] },
+      {
+        label: "Pesanan ke Vendor",
+        href: "/procurement/vendor-po",
+        roles: ["ADMIN", "PROJECT_MANAGER", "VIEWER", "IT"],
+      },
+      {
+        label: "Pelanggan & Kontak",
+        href: "/sales/customers",
+        roles: ["ADMIN", "SALES", "VIEWER", "IT"],
+      },
       // Moved here from the old standalone "Dokumen" group (Aug 2026) — the
       // only thing that lived there worth keeping was the per-project folder
       // tree, and browsing project documents is squarely "Pekerjaan" work.
       // The old "Company Documents" grid (Administrasi/HR/Legal/etc., never
       // populated) was removed outright, not just hidden — see
       // lib/workflows/folders.ts's COMPANY_FOLDER_TEMPLATE, no longer called.
-      { label: "Dokumen Proyek", href: "/projects/folders" },
+      { label: "Data & Dokumen", href: "/data" },
     ],
   },
   {
@@ -97,7 +107,11 @@ export const NAV: NavGroup[] = [
       // role) specifically, per the founder's own answer — not the whole
       // Keuangan group, which is why this one item carries its own roles
       // override instead of inheriting the group's.
-      { label: "Bagan Akun", href: "/settings/chart-of-accounts", roles: ["ADMIN", "FINANCE"] },
+      {
+        label: "Bagan Akun",
+        href: "/settings/chart-of-accounts",
+        roles: ["ADMIN", "FINANCE"],
+      },
     ],
   },
   {
@@ -106,11 +120,31 @@ export const NAV: NavGroup[] = [
     label: "Laporan",
     icon: "BarChart3",
     items: [
-      { label: "Ringkasan Eksekutif", href: "/reports/executive", roles: ["ADMIN", "VIEWER"] },
-      { label: "Profitabilitas", href: "/reports/profitability", roles: ["ADMIN", "VIEWER"] },
-      { label: "Penjualan", href: "/reports/sales", roles: ["ADMIN", "SALES", "VIEWER"] },
-      { label: "Keuangan", href: "/reports/finance", roles: ["ADMIN", "FINANCE", "VIEWER"] },
-      { label: "Proyek", href: "/reports/project", roles: ["ADMIN", "PROJECT_MANAGER", "VIEWER"] },
+      {
+        label: "Ringkasan Eksekutif",
+        href: "/reports/executive",
+        roles: ["ADMIN", "VIEWER"],
+      },
+      {
+        label: "Profitabilitas",
+        href: "/reports/profitability",
+        roles: ["ADMIN", "VIEWER"],
+      },
+      {
+        label: "Penjualan",
+        href: "/reports/sales",
+        roles: ["ADMIN", "SALES", "VIEWER"],
+      },
+      {
+        label: "Keuangan",
+        href: "/reports/finance",
+        roles: ["ADMIN", "FINANCE", "VIEWER"],
+      },
+      {
+        label: "Proyek",
+        href: "/reports/project",
+        roles: ["ADMIN", "PROJECT_MANAGER", "VIEWER"],
+      },
     ],
   },
   {
@@ -142,7 +176,11 @@ export const NAV: NavGroup[] = [
       // exactly the same ADMIN/IT-only recovery action it always was, just
       // filed alongside Koreksi Dokumen instead of orphaned with no entry
       // point in the nav.
-      { label: "Sampah Dokumen", href: "/documents/trash", roles: ["ADMIN", "IT"] },
+      {
+        label: "Sampah Dokumen",
+        href: "/documents/trash",
+        roles: ["ADMIN", "IT"],
+      },
       { label: "Panduan Sistem", href: "/settings/manual" },
       { label: "Log Aktivitas", href: "/activity-log" },
     ],

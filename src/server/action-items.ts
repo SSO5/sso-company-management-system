@@ -2,7 +2,7 @@
 import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/current-user";
 import { computeBillingSchedule } from "@/lib/workflows/calculations";
-import type { SessionPayload } from "@/lib/auth/session";
+import { latestReportsPerProject } from "@/lib/workspace";
 
 /**
  * Cross-divisional "to-do list per jobdes" (spec, Aug 2026): instead of a
@@ -23,7 +23,11 @@ import type { SessionPayload } from "@/lib/auth/session";
  * instead.
  */
 
-export type ActionItemSeverity = "overdue" | "due_soon" | "pending_approval" | "attention";
+export type ActionItemSeverity =
+  | "overdue"
+  | "due_soon"
+  | "pending_approval"
+  | "attention";
 export type ActionItemModule = "sales" | "finance" | "project" | "procurement";
 
 export interface ActionItem {
@@ -48,47 +52,113 @@ export async function getMyActionItems(): Promise<ActionItem[]> {
   const isApprover = actor.role === "ADMIN";
   const seesFinance = actor.role === "ADMIN" || actor.role === "FINANCE";
   const seesSales = actor.role === "ADMIN" || actor.role === "SALES";
-  const seesProjects = actor.role === "ADMIN" || actor.role === "PROJECT_MANAGER";
+  const seesProjects =
+    actor.role === "ADMIN" || actor.role === "PROJECT_MANAGER";
 
   const [
-    quotationApprovals, vendorPoApprovals, expenseApprovals, invoiceApprovals,
-    overdueInvoices, dueSoonInvoices, staleQuotations,
-    overdueMilestones, openProgressReports, unassignedProjects, billingProjects,
+    quotationApprovals,
+    vendorPoApprovals,
+    expenseApprovals,
+    invoiceApprovals,
+    overdueInvoices,
+    dueSoonInvoices,
+    staleQuotations,
+    overdueMilestones,
+    openProgressReports,
+    unassignedProjects,
+    billingProjects,
   ] = await Promise.all([
     isApprover
       ? prisma.quotation.findMany({
-          where: { status: { in: ["SUBMITTED", "UNDER_REVIEW"] }, deletedAt: null, submittedById: { not: actor.userId } },
-          select: { id: true, number: true, grandTotal: true, customer: { select: { companyName: true } } },
+          where: {
+            status: { in: ["SUBMITTED", "UNDER_REVIEW"] },
+            deletedAt: null,
+            submittedById: { not: actor.userId },
+          },
+          select: {
+            id: true,
+            number: true,
+            grandTotal: true,
+            customer: { select: { companyName: true } },
+          },
         })
       : Promise.resolve([]),
     isApprover
       ? prisma.vendorPurchaseOrder.findMany({
-          where: { status: "SUBMITTED", deletedAt: null, submittedById: { not: actor.userId } },
-          select: { id: true, number: true, grandTotal: true, vendorName: true },
+          where: {
+            status: "SUBMITTED",
+            deletedAt: null,
+            submittedById: { not: actor.userId },
+          },
+          select: {
+            id: true,
+            number: true,
+            grandTotal: true,
+            vendorName: true,
+          },
         })
       : Promise.resolve([]),
     isApprover
       ? prisma.projectExpense.findMany({
-          where: { approvalStatus: "SUBMITTED", deletedAt: null, submittedById: { not: actor.userId } },
-          select: { id: true, number: true, total: true, description: true, project: { select: { id: true, name: true } } },
+          where: {
+            approvalStatus: "SUBMITTED",
+            deletedAt: null,
+            submittedById: { not: actor.userId },
+          },
+          select: {
+            id: true,
+            number: true,
+            total: true,
+            description: true,
+            project: { select: { id: true, name: true } },
+          },
         })
       : Promise.resolve([]),
     isApprover
       ? prisma.invoice.findMany({
-          where: { status: "SUBMITTED", deletedAt: null, submittedById: { not: actor.userId } },
-          select: { id: true, number: true, grandTotal: true, customer: { select: { companyName: true } } },
+          where: {
+            status: "SUBMITTED",
+            deletedAt: null,
+            submittedById: { not: actor.userId },
+          },
+          select: {
+            id: true,
+            number: true,
+            grandTotal: true,
+            customer: { select: { companyName: true } },
+          },
         })
       : Promise.resolve([]),
     seesFinance
       ? prisma.invoice.findMany({
-          where: { deletedAt: null, status: "OVERDUE" },
-          select: { id: true, number: true, dueDate: true, grandTotal: true, customer: { select: { companyName: true } } },
+          where: {
+            deletedAt: null,
+            status: { in: ["ISSUED", "PARTIALLY_PAID", "OVERDUE"] },
+            dueDate: { lt: now },
+          },
+          select: {
+            id: true,
+            number: true,
+            dueDate: true,
+            grandTotal: true,
+            customer: { select: { companyName: true } },
+          },
         })
       : Promise.resolve([]),
     seesFinance
       ? prisma.invoice.findMany({
-          where: { deletedAt: null, status: { in: ["ISSUED", "PARTIALLY_PAID"] }, dueDate: { gte: now, lte: soon } },
-          select: { id: true, number: true, dueDate: true, grandTotal: true, customer: { select: { companyName: true } } },
+          where: {
+            deletedAt: null,
+            status: { in: ["ISSUED", "PARTIALLY_PAID"] },
+            dueDate: { gte: now, lte: soon },
+          },
+          select: {
+            id: true,
+            number: true,
+            dueDate: true,
+            grandTotal: true,
+            customer: { select: { companyName: true } },
+          },
         })
       : Promise.resolve([]),
     seesSales
@@ -99,7 +169,12 @@ export async function getMyActionItems(): Promise<ActionItem[]> {
             validUntil: { lte: soon },
             ...(actor.role === "SALES" ? { salesPicId: actor.userId } : {}),
           },
-          select: { id: true, number: true, validUntil: true, customer: { select: { companyName: true } } },
+          select: {
+            id: true,
+            number: true,
+            validUntil: true,
+            customer: { select: { companyName: true } },
+          },
         })
       : Promise.resolve([]),
     seesProjects
@@ -107,20 +182,38 @@ export async function getMyActionItems(): Promise<ActionItem[]> {
           where: {
             status: { not: "COMPLETED" },
             dueDate: { lt: now },
-            project: { deletedAt: null, ...(actor.role === "PROJECT_MANAGER" ? { projectManagerId: actor.userId } : {}) },
+            project: {
+              deletedAt: null,
+              ...(actor.role === "PROJECT_MANAGER"
+                ? { projectManagerId: actor.userId }
+                : {}),
+            },
           },
-          select: { id: true, name: true, dueDate: true, project: { select: { id: true, name: true } } },
+          select: {
+            id: true,
+            name: true,
+            dueDate: true,
+            project: { select: { id: true, name: true } },
+          },
         })
       : Promise.resolve([]),
     seesProjects
       ? prisma.progressReport.findMany({
           where: {
             deletedAt: null,
-            items: { some: { isDone: false } },
-            project: { deletedAt: null, ...(actor.role === "PROJECT_MANAGER" ? { projectManagerId: actor.userId } : {}) },
+
+            project: {
+              deletedAt: null,
+              ...(actor.role === "PROJECT_MANAGER"
+                ? { projectManagerId: actor.userId }
+                : {}),
+            },
           },
           select: {
-            id: true, number: true, inspectionDate: true,
+            id: true,
+            number: true,
+            inspectionDate: true,
+            createdAt: true,
             project: { select: { id: true, name: true } },
             items: { select: { isDone: true } },
           },
@@ -128,7 +221,11 @@ export async function getMyActionItems(): Promise<ActionItem[]> {
       : Promise.resolve([]),
     actor.role === "ADMIN"
       ? prisma.project.findMany({
-          where: { deletedAt: null, status: { in: ["PLANNING", "ACTIVE"] }, projectManagerId: null },
+          where: {
+            deletedAt: null,
+            status: { in: ["PLANNING", "ACTIVE"] },
+            projectManagerId: null,
+          },
           select: { id: true, number: true, name: true },
         })
       : Promise.resolve([]),
@@ -141,105 +238,175 @@ export async function getMyActionItems(): Promise<ActionItem[]> {
       ? prisma.project.findMany({
           where: { deletedAt: null },
           select: {
-            id: true, number: true,
+            id: true,
+            number: true,
             customer: { select: { companyName: true } },
             purchaseOrders: {
               where: { deletedAt: null },
-              select: { id: true, number: true, poValue: true, status: true, paymentTerms: true, estimatedDeliveryDate: true },
+              select: {
+                id: true,
+                number: true,
+                poValue: true,
+                status: true,
+                paymentTerms: true,
+                estimatedDeliveryDate: true,
+              },
             },
-            invoices: { where: { deletedAt: null }, select: { grandTotal: true, dpPercent: true, status: true } },
+            invoices: {
+              where: { deletedAt: null },
+              select: { grandTotal: true, dpPercent: true, status: true },
+            },
           },
         })
       : Promise.resolve([]),
   ]);
 
   const billingDueSoon = computeBillingSchedule(billingProjects).filter(
-    (r) => r.nextBillingDate && r.nextBillingDate.getTime() - now.getTime() <= DAYS_7
+    (r) =>
+      r.nextBillingDate &&
+      r.nextBillingDate.getTime() - now.getTime() <= DAYS_7,
   );
 
   for (const q of quotationApprovals) {
     items.push({
-      id: `quo-approve-${q.id}`, module: "sales", severity: "pending_approval",
-      title: `Approve Quotation ${q.number}`, subtitle: q.customer.companyName,
-      href: `/sales/quotations/${q.id}`, dueDate: null,
+      id: `quo-approve-${q.id}`,
+      module: "sales",
+      severity: "pending_approval",
+      title: `Tinjau penawaran ${q.number}`,
+      subtitle: q.customer.companyName,
+      href: `/sales/quotations/${q.id}`,
+      dueDate: null,
     });
   }
   for (const po of vendorPoApprovals) {
     items.push({
-      id: `vpo-approve-${po.id}`, module: "procurement", severity: "pending_approval",
-      title: `Approve Vendor PO ${po.number}`, subtitle: po.vendorName,
-      href: `/procurement/vendor-po/${po.id}`, dueDate: null,
+      id: `vpo-approve-${po.id}`,
+      module: "procurement",
+      severity: "pending_approval",
+      title: `Tinjau pesanan vendor ${po.number}`,
+      subtitle: po.vendorName,
+      href: `/procurement/vendor-po/${po.id}`,
+      dueDate: null,
     });
   }
   for (const ex of expenseApprovals) {
     items.push({
-      id: `exp-approve-${ex.id}`, module: "finance", severity: "pending_approval",
-      title: `Approve Expense ${ex.number}`, subtitle: `${ex.project.name} — ${ex.description}`,
-      href: `/projects/${ex.project.id}?tab=costs`, dueDate: null,
+      id: `exp-approve-${ex.id}`,
+      module: "finance",
+      severity: "pending_approval",
+      title: `Tinjau pengeluaran ${ex.number}`,
+      subtitle: `${ex.project.name} — ${ex.description}`,
+      href: `/projects/${ex.project.id}?tab=costs`,
+      dueDate: null,
     });
   }
   for (const inv of invoiceApprovals) {
     items.push({
-      id: `inv-approve-${inv.id}`, module: "finance", severity: "pending_approval",
-      title: `Approve Invoice ${inv.number}`, subtitle: inv.customer.companyName,
-      href: `/finance/invoices/${inv.id}`, dueDate: null,
+      id: `inv-approve-${inv.id}`,
+      module: "finance",
+      severity: "pending_approval",
+      title: `Tinjau invoice ${inv.number}`,
+      subtitle: inv.customer.companyName,
+      href: `/finance/invoices/${inv.id}`,
+      dueDate: null,
     });
   }
   for (const inv of overdueInvoices) {
     items.push({
-      id: `inv-overdue-${inv.id}`, module: "finance", severity: "overdue",
-      title: `Invoice ${inv.number} overdue`, subtitle: inv.customer.companyName,
-      href: `/finance/invoices/${inv.id}`, dueDate: inv.dueDate,
+      id: `inv-overdue-${inv.id}`,
+      module: "finance",
+      severity: "overdue",
+      title: `Invoice ${inv.number} terlambat`,
+      subtitle: inv.customer.companyName,
+      href: `/finance/invoices/${inv.id}`,
+      dueDate: inv.dueDate,
     });
   }
   for (const inv of dueSoonInvoices) {
     items.push({
-      id: `inv-duesoon-${inv.id}`, module: "finance", severity: "due_soon",
-      title: `Invoice ${inv.number} due soon`, subtitle: inv.customer.companyName,
-      href: `/finance/invoices/${inv.id}`, dueDate: inv.dueDate,
+      id: `inv-duesoon-${inv.id}`,
+      module: "finance",
+      severity: "due_soon",
+      title: `Invoice ${inv.number} segera jatuh tempo`,
+      subtitle: inv.customer.companyName,
+      href: `/finance/invoices/${inv.id}`,
+      dueDate: inv.dueDate,
     });
   }
   for (const q of staleQuotations) {
     const overdue = q.validUntil && q.validUntil < now;
     items.push({
-      id: `quo-followup-${q.id}`, module: "sales", severity: overdue ? "overdue" : "due_soon",
-      title: overdue ? `Quotation ${q.number} expired — follow up` : `Quotation ${q.number} expiring — follow up`,
-      subtitle: q.customer.companyName, href: `/sales/quotations/${q.id}`, dueDate: q.validUntil,
+      id: `quo-followup-${q.id}`,
+      module: "sales",
+      severity: overdue ? "overdue" : "due_soon",
+      title: overdue
+        ? `Quotation ${q.number} kedaluwarsa — tindak lanjuti`
+        : `Quotation ${q.number} segera berakhir — tindak lanjuti`,
+      subtitle: q.customer.companyName,
+      href: `/sales/quotations/${q.id}`,
+      dueDate: q.validUntil,
     });
   }
   for (const m of overdueMilestones) {
     items.push({
-      id: `mile-overdue-${m.id}`, module: "project", severity: "overdue",
-      title: `Milestone "${m.name}" overdue`, subtitle: m.project.name,
-      href: `/projects/${m.project.id}`, dueDate: m.dueDate,
+      id: `mile-overdue-${m.id}`,
+      module: "project",
+      severity: "overdue",
+      title: `Milestone "${m.name}" terlambat`,
+      subtitle: m.project.name,
+      href: `/projects/${m.project.id}?tab=milestones`,
+      dueDate: m.dueDate,
     });
   }
-  for (const r of openProgressReports) {
+  for (const r of latestReportsPerProject(openProgressReports)) {
     const open = r.items.filter((i) => !i.isDone).length;
+    if (open === 0) continue;
     items.push({
-      id: `progrep-open-${r.id}`, module: "project", severity: "attention",
+      id: `progrep-open-${r.id}`,
+      module: "project",
+      severity: "attention",
       title: `${open} checkpoint${open > 1 ? "s" : ""} belum selesai — ${r.number}`,
-      subtitle: r.project.name, href: `/projects/${r.project.id}?tab=progress`, dueDate: null,
+      subtitle: r.project.name,
+      href: `/projects/${r.project.id}?tab=progress`,
+      dueDate: null,
     });
   }
   for (const p of unassignedProjects) {
     items.push({
-      id: `proj-nopm-${p.id}`, module: "project", severity: "attention",
-      title: `Project ${p.number} belum ada PM`, subtitle: p.name,
-      href: `/projects/${p.id}`, dueDate: null,
+      id: `proj-nopm-${p.id}`,
+      module: "project",
+      severity: "attention",
+      title: `Project ${p.number} belum ada PM`,
+      subtitle: p.name,
+      href: `/projects/${p.id}`,
+      dueDate: null,
     });
   }
   for (const r of billingDueSoon) {
     const overdue = r.nextBillingDate ? r.nextBillingDate < now : false;
     items.push({
-      id: `billing-duesoon-${r.projectId}`, module: "finance", severity: overdue ? "overdue" : "due_soon",
+      id: `billing-duesoon-${r.projectId}`,
+      module: "finance",
+      severity: overdue ? "overdue" : "due_soon",
       title: `${overdue ? "Lewat target" : "Segera"} tagih ${r.projectNumber} — Rp ${r.remainingToBill.toLocaleString("id-ID")}`,
-      subtitle: r.customerName, href: "/finance/receivables", dueDate: r.nextBillingDate,
+      subtitle: r.customerName,
+      href: "/finance/receivables",
+      dueDate: r.nextBillingDate,
     });
   }
 
-  const severityOrder: Record<ActionItemSeverity, number> = { overdue: 0, pending_approval: 1, due_soon: 2, attention: 3 };
-  items.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+  const severityOrder: Record<ActionItemSeverity, number> = {
+    overdue: 0,
+    pending_approval: 1,
+    due_soon: 2,
+    attention: 3,
+  };
+  items.sort(
+    (a, b) =>
+      severityOrder[a.severity] - severityOrder[b.severity] ||
+      (a.dueDate?.getTime() ?? Infinity) - (b.dueDate?.getTime() ?? Infinity) ||
+      a.title.localeCompare(b.title),
+  );
   return items;
 }
 

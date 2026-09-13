@@ -25,7 +25,9 @@ export async function getMyNotifications(limit = 12) {
       orderBy: [{ isRead: "asc" }, { createdAt: "desc" }],
       take: limit,
     }),
-    prisma.notification.count({ where: { userId: actor.userId, isRead: false } }),
+    prisma.notification.count({
+      where: { userId: actor.userId, isRead: false },
+    }),
   ]);
   return { items, unreadCount };
 }
@@ -37,10 +39,14 @@ export async function getMyNotifications(limit = 12) {
  */
 export async function getUnreadNotificationCount(): Promise<number> {
   const actor = await requireUserOrThrow();
-  return prisma.notification.count({ where: { userId: actor.userId, isRead: false } });
+  return prisma.notification.count({
+    where: { userId: actor.userId, isRead: false },
+  });
 }
 
-export async function markAllNotificationsRead(): Promise<ActionResult<{ count: number }>> {
+export async function markAllNotificationsRead(): Promise<
+  ActionResult<{ count: number }>
+> {
   return runAction(async () => {
     const actor = await requireUserOrThrow();
     const res = await prisma.notification.updateMany({
@@ -48,11 +54,14 @@ export async function markAllNotificationsRead(): Promise<ActionResult<{ count: 
       data: { isRead: true },
     });
     revalidatePath("/dashboard");
+    revalidatePath("/notifications");
     return { count: res.count };
   });
 }
 
-export async function markNotificationRead(id: string): Promise<ActionResult<{ id: string }>> {
+export async function markNotificationRead(
+  id: string,
+): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
     const actor = await requireUserOrThrow();
     // Scoped by userId as well as id: without it, any signed-in user could
@@ -62,6 +71,7 @@ export async function markNotificationRead(id: string): Promise<ActionResult<{ i
       data: { isRead: true },
     });
     revalidatePath("/dashboard");
+    revalidatePath("/notifications");
     return { id };
   });
 }
