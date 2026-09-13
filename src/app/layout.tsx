@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Sora, Fraunces, Space_Grotesk } from "next/font/google";
+import { Poppins, Sora, Fraunces, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
 // Display faces for the three built-in "suasana" (mood) presets — see
@@ -7,6 +7,17 @@ import "./globals.css";
 // per-mood at runtime) and exposed as CSS variables so the actual face
 // swap is a CSS var lookup scoped to `[data-mood]`, not a conditional font
 // load — small fixed cost, no layout-shift risk when a user switches moods.
+// Huruf utama seluruh aplikasi. Geometris dan sedikit membulat — itu yang
+// membuat referensi desainnya terasa ramah, bukan kaku seperti huruf sistem.
+// display: "swap" supaya teks tetap terbaca dengan huruf cadangan selama
+// font-nya diunduh, bukan menghilang sesaat.
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-poppins",
+  display: "swap",
+});
+
 const sora = Sora({ subsets: ["latin"], weight: ["600", "700"], variable: "--font-operations-deck" });
 const fraunces = Fraunces({ subsets: ["latin"], weight: ["600"], style: ["italic"], variable: "--font-vision-glass" });
 const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], weight: ["600", "700"], variable: "--font-aurora-glass" });
@@ -41,7 +52,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="id" className={`${sora.variable} ${fraunces.variable} ${spaceGrotesk.variable}`}>
+    <html lang="id" className={`${poppins.variable} ${sora.variable} ${fraunces.variable} ${spaceGrotesk.variable}`}>
       <body>{children}</body>
     </html>
   );

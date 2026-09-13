@@ -5,7 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Briefcase, Wallet, FolderKanban, FileText,
-  BarChart3, Settings, History, Hash, ChevronDown, X, ShoppingCart, type LucideIcon,
+  BarChart3, Settings, History, Hash, ChevronDown, X, ShoppingCart, PanelLeft, type LucideIcon,
 } from "lucide-react";
 import { NAV } from "@/lib/nav";
 import { cn, brandingUrl } from "@/lib/utils";
@@ -39,12 +39,23 @@ function stripQuery(href: string): string {
  * that was reachable in the default look becomes unreachable here.
  */
 export function Sidebar({
-  role, userName, avatarUrl, uiMood = "default", open, onClose,
-}: { role: UserRole; userName: string; avatarUrl: string | null; uiMood?: string; open: boolean; onClose: () => void }) {
+  role, userName, avatarUrl, uiMood = "default", compact: compactProp, onToggleCompact, open, onClose,
+}: {
+  role: UserRole;
+  userName: string;
+  avatarUrl: string | null;
+  uiMood?: string;
+  /** Dikendalikan AppShell: aturan rute + pilihan manual. Lihat app-shell.tsx. */
+  compact?: boolean;
+  /** Tidak diberikan ketika suasana yang memaksa rail — tombolnya jadi tidak ada. */
+  onToggleCompact?: () => void;
+  open: boolean;
+  onClose: () => void;
+}) {
   const pathname = usePathname();
   const avatarSrc = brandingUrl(avatarUrl);
   const initials = userName.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
-  const compact = uiMood !== "default";
+  const compact = compactProp ?? uiMood !== "default";
   // Filter at BOTH levels. Group-level filtering alone is not enough now that
   // nav.ts scopes individual items by role — without the item pass, a SALES
   // user would still see all five report links even though four of them are
@@ -124,6 +135,7 @@ export function Sidebar({
           // Saya's "suasana" picker overrides its background/text color in
           // globals.css's SUASANA block; on the default mood it does nothing.
           "sidebar-scroll mood-sidebar fixed inset-y-0 left-0 z-50 flex h-screen flex-col overflow-y-auto bg-primary text-primary-foreground transition-transform duration-200 ease-in-out",
+          "rail-anim",
           compact ? "w-20 items-center" : "w-64",
           "md:static md:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full"
@@ -133,9 +145,16 @@ export function Sidebar({
         {compact ? (
           <>
             <div className="flex flex-col items-center gap-1 px-2 pb-3 pt-5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 text-[11px] font-bold tracking-wide">
+              {/* Logo = jalan pulang. Di aplikasi mana pun orang menganggap
+                  logo membawa mereka kembali ke awal, jadi ia menunjuk ke
+                  grid modul, bukan sekadar hiasan. */}
+              <Link
+                href="/apps"
+                title="Semua Modul"
+                className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 text-[11px] font-bold tracking-wide transition-colors hover:bg-white/20"
+              >
                 SSO
-              </div>
+              </Link>
               <button
                 type="button"
                 onClick={onClose}
@@ -205,14 +224,17 @@ export function Sidebar({
         ) : (
           <>
             <div className="flex items-center justify-between gap-2 px-5 py-5">
-              <Image
-                src="/logo-wordmark.png"
-                alt="SSO Connect — PT Sarana Sinergi Optima"
-                width={220}
-                height={64}
-                priority
-                className="h-9 w-auto"
-              />
+              {/* Sama seperti di mode rail: logo membawa pulang ke grid modul. */}
+              <Link href="/apps" title="Semua Modul" className="shrink-0 rounded-md transition-opacity hover:opacity-80">
+                <Image
+                  src="/logo-wordmark.png"
+                  alt="SSO Connect — PT Sarana Sinergi Optima"
+                  width={220}
+                  height={64}
+                  priority
+                  className="h-9 w-auto"
+                />
+              </Link>
               <button
                 type="button"
                 onClick={onClose}
@@ -299,8 +321,16 @@ export function Sidebar({
                               key={item.href}
                               href={item.href}
                               className={cn(
-                                "block rounded-md px-3 py-1.5 text-sm transition-colors",
-                                active ? "bg-white/15 font-medium" : "text-primary-foreground/80 hover:bg-white/10"
+                                "block px-3 py-1.5 text-sm transition-colors",
+                                // Menu aktif jadi "lidah": -mr-3 membatalkan
+                                // padding nav sehingga ia menyentuh tepi kanan
+                                // sidebar dan menyatu dengan panel konten,
+                                // seolah panel itu ditarik keluar oleh menu
+                                // yang sedang dibuka. Warnanya bg-background,
+                                // sama persis dengan panelnya.
+                                active
+                                  ? "-mr-3 rounded-l-lg bg-background pr-3 font-semibold text-primary"
+                                  : "rounded-md text-primary-foreground/80 hover:bg-white/10"
                               )}
                             >
                               {item.label}
@@ -314,6 +344,30 @@ export function Sidebar({
               })}
             </nav>
           </>
+        )}
+
+        {/* Lipat/buka panel secara manual. Aturan rute di app-shell.tsx cuma
+            tebakan yang benar untuk kebanyakan orang — yang terbiasa bekerja
+            dengan rail sempit harus bisa menguncinya, dan pilihannya diingat.
+            Tombolnya hilang saat suasana non-default memaksa rail, karena di
+            situ lebar panel bukan lagi keputusan navigasi. */}
+        {onToggleCompact && (
+          <div className={cn("mt-auto shrink-0 px-3 pb-3 pt-2", compact && "px-2")}>
+            <button
+              type="button"
+              onClick={onToggleCompact}
+              title={compact ? "Buka panel" : "Lipat panel"}
+              aria-label={compact ? "Buka panel" : "Lipat panel"}
+              aria-pressed={compact}
+              className={cn(
+                "flex w-full items-center gap-2.5 rounded-md py-2 text-[13px] text-primary-foreground/55 transition-colors hover:bg-white/10 hover:text-primary-foreground/90",
+                compact ? "justify-center px-0" : "px-3"
+              )}
+            >
+              <PanelLeft className={cn("h-4 w-4 shrink-0 transition-transform duration-300", compact && "rotate-180")} />
+              {!compact && <span className="rail-label truncate">Lipat panel</span>}
+            </button>
+          </div>
         )}
       </aside>
 

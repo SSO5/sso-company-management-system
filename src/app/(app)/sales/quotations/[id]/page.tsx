@@ -5,6 +5,9 @@ import { listUsersForPicker } from "@/server/settings/users";
 import { requireUser } from "@/lib/auth/current-user";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { StatusBar } from "@/components/ui/status-bar";
+import { SmartButtons, type SmartButtonItem } from "@/components/ui/smart-buttons";
+import { quotationFlow } from "@/lib/status-flow";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { QuotationActions } from "@/components/sales/quotation-actions";
 import { QuotationRevisionHistory } from "@/components/sales/quotation-revision-history";
@@ -12,7 +15,7 @@ import { CustomerPoPanel } from "@/components/sales/customer-po-panel";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate, formatDateTime, formatRevisedNumber } from "@/lib/utils";
 import Link from "next/link";
-import { Eye, Download, Pencil } from "lucide-react";
+import { Eye, Download, Pencil, Calculator, History, FileCheck } from "lucide-react";
 import type { CommercialTermItem } from "@/lib/validation/sales";
 
 export default async function QuotationDetailPage({ params }: { params: { id: string } }) {
@@ -23,7 +26,7 @@ export default async function QuotationDetailPage({ params }: { params: { id: st
   ]);
   const commercialTerms = (q.commercialTerms as CommercialTermItem[] | null) ?? [];
 
-  const [poStatus, poFolder, revisionHistory] = await Promise.all([
+  const [poStatus, poFolder, revisionHistory, costing] = await Promise.all([
     getCustomerPoStatusForQuotation(q.id),
     q.opportunity
       ? prisma.folder.findFirst({ where: { opportunityId: q.opportunity.id, routeKey: "SALES/PO" }, select: { id: true } })
@@ -31,40 +34,76 @@ export default async function QuotationDetailPage({ params }: { params: { id: st
         ? prisma.folder.findFirst({ where: { projectId: q.project.id, routeKey: "SALES/PO" }, select: { id: true } })
         : Promise.resolve(null),
     getQuotationRevisionHistory(q.id),
+    // CostingSheet.quotationId unik, jadi paling banyak satu per penawaran.
+    prisma.costingSheet.findFirst({ where: { quotationId: q.id }, select: { id: true, number: true } }),
   ]);
   const canEditSales = actor.role === "ADMIN" || actor.role === "SALES" || actor.role === "IT";
 
+  // Smart button hanya dipasang untuk relasi yang memang relevan di sini.
+  // "Costing 0" pada penawaran yang tidak berasal dari costing bukan
+  // informasi — itu cuma kotak kosong yang harus dilewati mata.
+  const smartButtons: SmartButtonItem[] = [];
+  if (costing) {
+    smartButtons.push({
+      label: "Costing", value: costing.number, icon: Calculator,
+      href: `/sales/costing/${costing.id}`, title: "Lembar costing sumber penawaran ini",
+    });
+  }
+  if (!["WON", "LOST"].includes(q.status)) {
+    smartButtons.push({
+      label: "PO Pelanggan", value: poStatus.purchaseOrders.length, icon: FileCheck,
+      // Ditandai kuning begitu penawaran sudah sampai ke pelanggan tapi PO
+      // aslinya belum diunggah — itu satu-satunya hal yang menahan Mark Won.
+      alert: ["SENT", "APPROVED"].includes(q.status) && !poStatus.hasUploadedDocument,
+      title: poStatus.hasUploadedDocument ? undefined : "Belum ada file PO asli dari pelanggan",
+    });
+  }
+  if (q.revision > 0 || revisionHistory.length > 0) {
+    smartButtons.push({ label: "Revisi", value: q.revision, icon: History, title: "Nomor revisi berjalan" });
+  }
+
   return (
     <div className="space-y-5">
-      <div className="flex items-start justify-between">
-        <div>
-          {q.opportunity && (
-            <Link href={`/sales/opportunities/${q.opportunity.id}`} className="text-xs text-primary hover:underline">
-              ← Back to Opportunity {q.opportunity.number}
-            </Link>
-          )}
-          <p className="font-mono text-xs text-muted-foreground">{formatRevisedNumber(q.number, q.revision)}</p>
-          <h1 className="text-xl font-semibold">{q.customer.companyName}</h1>
-          <div className="mt-1 flex items-center gap-2">
-            <Badge>{q.status}</Badge>
-            {q.isLocked && <Badge variant="outline">Locked</Badge>}
+      <header className="space-y-4">
+        {q.opportunity && (
+          <Link href={`/sales/opportunities/${q.opportunity.id}`} className="text-xs text-primary hover:underline">
+            ← Back to Opportunity {q.opportunity.number}
+          </Link>
+        )}
+
+        {/* Baris aksi di kiri, jalur tahapan di kanan — susunan Odoo. Yang
+            bisa DILAKUKAN dan di mana dokumen ini BERADA terbaca sekaligus,
+            tanpa menggulir. */}
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
+          <div className="flex flex-wrap items-center gap-2">
+            {q.status === "DRAFT" && canEditSales && (
+              <Link href={`/sales/quotations/${q.id}/edit`}>
+                <Button variant="outline"><Pencil className="h-4 w-4" /> Edit</Button>
+              </Link>
+            )}
+            <a href={`/api/quotations/${q.id}/pdf?view=1`} target="_blank" rel="noreferrer">
+              <Button variant="outline"><Eye className="h-4 w-4" /> View / Print PDF</Button>
+            </a>
+            <a href={`/api/quotations/${q.id}/pdf`} target="_blank" rel="noreferrer">
+              <Button variant="outline" size="icon" title="Download PDF"><Download className="h-4 w-4" /></Button>
+            </a>
+            <QuotationActions id={q.id} status={q.status} role={actor.role} projectManagers={pms} opportunityId={q.opportunity?.id} hasUploadedPo={poStatus.hasUploadedDocument} />
+          </div>
+
+          <div className="flex items-center gap-2 lg:shrink-0">
+            <StatusBar flow={quotationFlow(q.status)} />
+            {q.isLocked && <Badge variant="outline" className="shrink-0">Locked</Badge>}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {q.status === "DRAFT" && (actor.role === "ADMIN" || actor.role === "SALES" || actor.role === "IT") && (
-            <Link href={`/sales/quotations/${q.id}/edit`}>
-              <Button variant="outline"><Pencil className="h-4 w-4" /> Edit</Button>
-            </Link>
-          )}
-          <a href={`/api/quotations/${q.id}/pdf?view=1`} target="_blank" rel="noreferrer">
-            <Button variant="outline"><Eye className="h-4 w-4" /> View / Print PDF</Button>
-          </a>
-          <a href={`/api/quotations/${q.id}/pdf`} target="_blank" rel="noreferrer">
-            <Button variant="outline" size="icon" title="Download PDF"><Download className="h-4 w-4" /></Button>
-          </a>
-          <QuotationActions id={q.id} status={q.status} role={actor.role} projectManagers={pms} opportunityId={q.opportunity?.id} hasUploadedPo={poStatus.hasUploadedDocument} />
+
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:gap-6">
+          <div>
+            <p className="font-mono text-xs text-muted-foreground">{formatRevisedNumber(q.number, q.revision)}</p>
+            <h1 className="mood-heading text-2xl font-semibold tracking-tight">{q.customer.companyName}</h1>
+          </div>
+          <SmartButtons items={smartButtons} className="md:justify-end" />
         </div>
-      </div>
+      </header>
 
       {/* q.project is a to-one relation, so include: { project: true } can't
           filter it by deletedAt the way an array relation's `where` can — a

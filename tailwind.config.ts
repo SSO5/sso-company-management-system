@@ -7,6 +7,22 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      // Poppins menggantikan tumpukan huruf sistem di SELURUH aplikasi.
+      // Cadangannya tetap lengkap: kalau Google Fonts tidak terjangkau,
+      // tampilannya turun ke huruf sistem tanpa ada yang rusak.
+      fontFamily: {
+        sans: [
+          "var(--font-poppins)",
+          "ui-sans-serif",
+          "system-ui",
+          "-apple-system",
+          "Segoe UI",
+          "Roboto",
+          "Helvetica Neue",
+          "Arial",
+          "sans-serif",
+        ],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -44,6 +60,14 @@ const config: Config = {
         warning: {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
+        },
+        // Warna merek apa adanya (lihat globals.css). Dipakai untuk aksen
+        // yang memang harus tampil sebagai identitas perusahaan — bukan
+        // pengganti primary/warning, yang punya arti semantik sendiri.
+        brand: {
+          blue: "hsl(var(--brand-blue))",
+          gold: "hsl(var(--brand-gold))",
+          "gold-ink": "hsl(var(--brand-gold-ink))",
         },
       },
       borderRadius: {

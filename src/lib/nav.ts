@@ -45,6 +45,10 @@ export const NAV: NavGroup[] = [
     label: "Beranda",
     icon: "LayoutDashboard",
     items: [
+      // Pintu masuk grid ikon (lihat lib/launcher.ts). Ditaruh paling atas
+      // karena ia peta seluruh aplikasi — tempat orang kembali kalau lupa
+      // sesuatu ada di mana.
+      { label: "Semua Modul", href: "/apps" },
       { label: "Tugas & Ringkasan", href: "/dashboard" },
       // Direktur -> employee task/reminder, in-system instead of personal WA.
       // Every role sees "Tugas dari Direktur" (their own assigned tasks);
