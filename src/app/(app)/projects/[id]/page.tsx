@@ -9,13 +9,17 @@ import { ProjectDetailTabs } from "@/components/projects/project-detail-tabs";
 import { JobNumberField } from "@/components/projects/job-number-field";
 import { ProjectStatusSelect } from "@/components/projects/project-status-select";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { FolderOpen, TriangleAlert } from "lucide-react";
 
 export default async function ProjectDetailPage({
   params,
+  searchParams,
 }: {
   params: { id: string };
+  searchParams: { tab?: string };
 }) {
+  if (searchParams.tab === "costs") redirect(`/finance/expenses?project=${params.id}`);
   const [
     {
       project,

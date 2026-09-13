@@ -296,7 +296,7 @@ export async function getMyActionItems(): Promise<ActionItem[]> {
       severity: "pending_approval",
       title: `Tinjau pengeluaran ${ex.number}`,
       subtitle: `${ex.project.name} — ${ex.description}`,
-      href: `/projects/${ex.project.id}?tab=costs`,
+      href: `/finance/expenses?project=${ex.project.id}`,
       dueDate: null,
     });
   }
