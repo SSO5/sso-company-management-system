@@ -4,3 +4,16 @@ tmp
 prototypes
 artifacts
 private-storage
+.npm-cache
+.next
+node_modules
+.git
+.claude
+.codex
+.agents
+cloudflared.exe
+*.log
+tsconfig.tsbuildinfo
+scripts/*workspace.py
+scripts/align-rules.py
+scripts/secure-panels.py

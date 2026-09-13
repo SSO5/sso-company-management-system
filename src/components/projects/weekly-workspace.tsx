@@ -266,9 +266,14 @@ export function WeeklyWorkspace({
                   variant="outline"
                   disabled={pending}
                   onClick={() =>
-                    action("Draf siap", () =>
-                      generateProgressReportFromDocument(d.id, projectId),
-                    )
+                    action("Draf siap", async () => {
+                      const result = await generateProgressReportFromDocument(d.id, projectId);
+                      if (result.ok) {
+                        setSelectedId(result.data.progressReportId);
+                        setPreviousChoice(null);
+                      }
+                      return result;
+                    })
                   }
                 >
                   {d.processingState === "FAILED"
