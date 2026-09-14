@@ -39,16 +39,71 @@ type Work = {
   notes: string | null;
 };
 const blank = (): Work => ({
-  title: "",
+  title: "Siapkan penagihan customer",
   kind: "BILLING",
   projectId: null,
   reference: null,
   ownerId: null,
   dueAt: null,
   status: "OPEN",
-  checks: [],
+  checks: [
+    { label: "PO dan termin sudah dicocokkan", done: false },
+    { label: "BAST atau bukti pekerjaan tersedia", done: false },
+    { label: "Invoice dan lampiran sudah diperiksa", done: false },
+    { label: "Faktur, cap, dan meterai sudah siap", done: false },
+  ],
   notes: null,
 });
+const workPresets: Record<Work["kind"], { label: string; title: string; checks: string[] }> = {
+  BILLING: {
+    label: "Penagihan customer",
+    title: "Siapkan penagihan customer",
+    checks: [
+      "PO dan termin sudah dicocokkan",
+      "BAST atau bukti pekerjaan tersedia",
+      "Invoice dan lampiran sudah diperiksa",
+      "Faktur, cap, dan meterai sudah siap",
+    ],
+  },
+  VENDOR: {
+    label: "Pembayaran vendor",
+    title: "Proses pembayaran vendor",
+    checks: [
+      "PO vendor dan termin pembayaran cocok",
+      "Invoice vendor sudah diterima",
+      "Persetujuan pembayaran tersedia",
+      "Bukti pembayaran sudah dicatat",
+    ],
+  },
+  TAX: {
+    label: "Faktur pajak",
+    title: "Periksa faktur pajak",
+    checks: [
+      "Nomor invoice dan masa pajak cocok",
+      "DPP dan PPN sudah dicocokkan",
+      "Faktur atau bukti tindak lanjut tersedia",
+    ],
+  },
+  COMPANY: {
+    label: "Biaya perusahaan",
+    title: "Catat biaya perusahaan",
+    checks: [
+      "Bukti transaksi tersedia",
+      "Kategori biaya sudah ditentukan",
+      "Persetujuan pengeluaran tersedia",
+    ],
+  },
+};
+function workFromPreset(kind: Work["kind"], ownerId: string | null): Work {
+  const preset = workPresets[kind];
+  return {
+    ...blank(),
+    kind,
+    title: preset.title,
+    ownerId,
+    checks: preset.checks.map((label) => ({ label, done: false, ownerId })),
+  };
+}
 const states: Record<string, string> = {
   OPEN: "Perlu dikerjakan",
   WAITING: "Menunggu",
@@ -113,6 +168,7 @@ export function FinanceWorkspace({ data }: { data: Data }) {
     text.toLowerCase().includes(search.toLowerCase());
   const userName = (id: string | null | undefined) =>
     data.users.find((u) => u.id === id)?.name || "Belum ditetapkan";
+  const currentUserName = userName(data.actorId);
   const projectName = (id: string | null) =>
     data.projects.find((p) => p.id === id)?.number ||
     "Perusahaan / belum terhubung";
@@ -129,6 +185,13 @@ export function FinanceWorkspace({ data }: { data: Data }) {
         Math.abs(i.withholdingTax - i.withholdingRows) > 0.01),
   );
   const activeWork = data.work.filter((w) => w.status !== "DONE");
+  const visibleWork = [...data.work]
+    .filter((item) => showDone || item.status !== "DONE")
+    .sort((a, b) => {
+      const mine = Number(b.ownerId === data.actorId) - Number(a.ownerId === data.actorId);
+      if (mine) return mine;
+      return (a.dueAt || "9999").localeCompare(b.dueAt || "9999");
+    });
   const attention = data.invoices.filter(
     (i) =>
       ["DRAFT", "SUBMITTED", "REJECTED", "APPROVED"].includes(i.status) ||
@@ -184,7 +247,63 @@ export function FinanceWorkspace({ data }: { data: Data }) {
     reference: string | null = null,
     projectId: string | null = null,
   ) {
-    setWork({ ...blank(), title, reference, projectId });
+    const prepared = workFromPreset("BILLING", data.actorId);
+    setWork({
+      ...prepared,
+      title: title || prepared.title,
+      reference,
+      projectId,
+    });
+  }
+  function referenceChoices(kind: Work["kind"]) {
+    if (kind === "VENDOR")
+      return data.vendors.map((item) => ({
+        value: `vendor:${item.id}`,
+        label: `${item.number} · ${item.name}`,
+        reference: item.number,
+        projectId: item.projectId,
+        title: `Proses pembayaran vendor ${item.number}`,
+      }));
+    if (kind === "TAX")
+      return data.invoices.map((item) => ({
+        value: `invoice:${item.id}`,
+        label: `${item.number} · ${item.customer}`,
+        reference: item.number,
+        projectId: item.projectId,
+        title: `Periksa faktur pajak ${item.number}`,
+      }));
+    if (kind === "BILLING")
+      return [
+        ...data.orders.map((item) => ({
+          value: `po:${item.id}`,
+          label: `PO ${item.number} · ${item.customer}`,
+          reference: item.number,
+          projectId: item.projectId,
+          title: `Siapkan penagihan ${item.number}`,
+        })),
+        ...data.invoices.map((item) => ({
+          value: `invoice:${item.id}`,
+          label: `Invoice ${item.number} · ${item.customer}`,
+          reference: item.number,
+          projectId: item.projectId,
+          title: `Tindak lanjuti penagihan ${item.number}`,
+        })),
+      ];
+    return [];
+  }
+  function applyReference(value: string) {
+    if (!work) return;
+    const choice = referenceChoices(work.kind).find((item) => item.value === value);
+    if (!choice) {
+      setWork({ ...work, reference: null, projectId: null });
+      return;
+    }
+    setWork({
+      ...work,
+      reference: choice.reference,
+      projectId: choice.projectId,
+      title: choice.title,
+    });
   }
   function docLinks(id: string, projectId?: string | null) {
     const docs = data.documents.filter((d) => d.relatedEntityId === id);
@@ -294,10 +413,10 @@ export function FinanceWorkspace({ data }: { data: Data }) {
                 Tampilkan selesai
               </label>
             </div>
-            {data.work
-              .filter((w) => showDone || w.status !== "DONE")
-              .map((w) => {
+            {visibleWork.map((w) => {
                 const checks = w.checks as Work["checks"];
+                const completed = checks.filter((item) => item.done).length;
+                const next = checks.find((item) => !item.done);
                 return (
                   <article
                     key={w.id}
@@ -305,8 +424,8 @@ export function FinanceWorkspace({ data }: { data: Data }) {
                   >
                     <div className="flex justify-between gap-3">
                       <div>
-                        <p className="text-xs text-primary">
-                          {states[w.status]} · {projectName(w.projectId)}
+                        <p className="text-xs font-medium text-primary">
+                          {w.ownerId === data.actorId ? "Pekerjaan saya" : states[w.status]} · {projectName(w.projectId)}
                         </p>
                         <h3 className="mt-1 font-semibold">{w.title}</h3>
                       </div>
@@ -324,7 +443,7 @@ export function FinanceWorkspace({ data }: { data: Data }) {
                             })
                           }
                         >
-                          Perbarui
+                          Buka pekerjaan
                         </Button>
                       )}
                     </div>
@@ -335,23 +454,38 @@ export function FinanceWorkspace({ data }: { data: Data }) {
                         : "Target belum ditetapkan"}
                       {w.reference ? ` · ${w.reference}` : ""}
                     </p>
-                    <div className="mt-3 space-y-2">
-                      {checks.map((c, i) => (
-                        <p key={i} className="flex gap-2 text-sm">
-                          <span
-                            className={
-                              c.done ? "text-emerald-700" : "text-amber-700"
-                            }
-                          >
-                            {c.done ? "✓" : "○"}
-                          </span>
-                          {c.label}
-                          <span className="ml-auto text-xs text-muted-foreground">
-                            {userName(c.ownerId)}
-                          </span>
-                        </p>
-                      ))}
-                    </div>
+                    {!!checks.length && (
+                      <div className="mt-3">
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span>{completed} dari {checks.length} prasyarat selesai</span>
+                          <span>{Math.round((completed / checks.length) * 100)}%</span>
+                        </div>
+                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                          <div
+                            className="h-full rounded-full bg-emerald-600 transition-all"
+                            style={{ width: `${(completed / checks.length) * 100}%` }}
+                          />
+                        </div>
+                        {next && (
+                          <div className="mt-3 rounded-xl bg-amber-50 p-3 text-sm">
+                            <span className="text-xs font-medium text-amber-800">Berikutnya</span>
+                            <p className="mt-1 font-medium">{next.label}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">PIC: {userName(next.ownerId || w.ownerId)}</p>
+                          </div>
+                        )}
+                        <details className="mt-2 text-sm">
+                          <summary className="cursor-pointer py-2 text-xs text-primary">Lihat seluruh prasyarat</summary>
+                          <div className="space-y-2 pt-1">
+                            {checks.map((item, index) => (
+                              <p key={index} className="flex gap-2">
+                                <span className={item.done ? "text-emerald-700" : "text-amber-700"}>{item.done ? "✓" : "○"}</span>
+                                <span>{item.label}</span>
+                              </p>
+                            ))}
+                          </div>
+                        </details>
+                      </div>
+                    )}
                     {w.notes && (
                       <p className="mt-3 whitespace-pre-wrap rounded-lg bg-muted/40 p-3 text-sm">
                         {w.notes}
@@ -999,7 +1133,7 @@ export function FinanceWorkspace({ data }: { data: Data }) {
         title={
           work?.id ? "Perbarui pekerjaan Finance" : "Catat pekerjaan Finance"
         }
-        description="Pekerjaan ini membantu koordinasi; tidak menerbitkan invoice atau melakukan pembayaran."
+        description="Pilih jenis dan sumbernya. Konteks pekerjaan serta langkah pemeriksaan akan disiapkan otomatis."
       >
         {work && (
           <form
@@ -1009,189 +1143,208 @@ export function FinanceWorkspace({ data }: { data: Data }) {
               save(() => saveFinanceWork(work));
             }}
           >
-            <label className="block text-sm">
-              Pekerjaan
+            <div>
+              <p className="text-sm font-medium">1. Apa yang sedang diproses?</p>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {(["BILLING", "VENDOR", "TAX", "COMPANY"] as const).map((kind) => (
+                  <button
+                    key={kind}
+                    type="button"
+                    onClick={() => {
+                      const next = workFromPreset(kind, work.ownerId || data.actorId);
+                      setWork({
+                        ...next,
+                        id: work.id,
+                        dueAt: work.dueAt,
+                        notes: work.notes,
+                      });
+                    }}
+                    className={`min-h-14 rounded-xl border px-3 text-left text-sm transition-colors ${work.kind === kind ? "border-primary bg-primary/5 font-semibold text-primary" : "hover:bg-muted/50"}`}
+                  >
+                    {workPresets[kind].label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {work.kind !== "COMPANY" && (
+              <label className="block text-sm font-medium">
+                2. Hubungkan ke {work.kind === "VENDOR" ? "PO vendor" : work.kind === "TAX" ? "invoice" : "PO atau invoice"}
+                <Select
+                  className="mt-2"
+                  aria-label="Dokumen sumber pekerjaan"
+                  value={
+                    referenceChoices(work.kind).find(
+                      (item) => item.reference === work.reference && item.projectId === work.projectId,
+                    )?.value || ""
+                  }
+                  onChange={(e) => applyReference(e.target.value)}
+                >
+                  <option value="">Pilih dari data aplikasi</option>
+                  {referenceChoices(work.kind).map((item) => (
+                    <option key={item.value} value={item.value}>{item.label}</option>
+                  ))}
+                </Select>
+                <span className="mt-2 block text-xs font-normal text-muted-foreground">
+                  Proyek dan nomor referensi terisi otomatis setelah dipilih.
+                </span>
+              </label>
+            )}
+
+            <label className="block text-sm font-medium">
+              {work.kind === "COMPANY" ? "2" : "3"}. Pekerjaan yang harus selesai
               <Input
+                className="mt-2"
                 required
                 value={work.title}
                 onChange={(e) => setWork({ ...work, title: e.target.value })}
               />
             </label>
+
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="text-sm">
-                Jenis
+              <label className="text-sm font-medium">
+                PIC utama
                 <Select
-                  value={work.kind}
-                  onChange={(e) =>
-                    setWork({ ...work, kind: e.target.value as Work["kind"] })
-                  }
-                >
-                  {[
-                    ["BILLING", "Penagihan"],
-                    ["VENDOR", "Vendor"],
-                    ["TAX", "Pajak & dokumen"],
-                    ["COMPANY", "Perusahaan"],
-                  ].map(([v, l]) => (
-                    <option key={v} value={v}>
-                      {l}
-                    </option>
-                  ))}
-                </Select>
-              </label>
-              <label className="text-sm">
-                Proyek
-                <Select
-                  value={work.projectId || ""}
-                  onChange={(e) =>
-                    setWork({ ...work, projectId: e.target.value || null })
-                  }
-                >
-                  <option value="">Perusahaan / belum terhubung</option>
-                  {data.projects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.number}
-                    </option>
-                  ))}
-                </Select>
-              </label>
-              <label className="text-sm">
-                PIC
-                <Select
+                  className="mt-2"
                   value={work.ownerId || ""}
-                  onChange={(e) =>
-                    setWork({ ...work, ownerId: e.target.value || null })
-                  }
+                  onChange={(e) => {
+                    const ownerId = e.target.value || null;
+                    setWork({
+                      ...work,
+                      ownerId,
+                      checks: work.checks.map((item) => ({
+                        ...item,
+                        ownerId: item.ownerId || ownerId,
+                      })),
+                    });
+                  }}
                 >
-                  <option value="">Belum ditetapkan</option>
+                  <option value="">Pilih PIC</option>
                   {data.users.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name}
-                    </option>
+                    <option key={u.id} value={u.id}>{u.name}</option>
                   ))}
                 </Select>
+                {!work.id && work.ownerId === data.actorId && (
+                  <span className="mt-1 block text-xs font-normal text-muted-foreground">Otomatis: {currentUserName}</span>
+                )}
               </label>
-              <label className="text-sm">
-                Target
+              <label className="text-sm font-medium">
+                Target selesai
                 <Input
+                  className="mt-2"
                   type="date"
                   value={work.dueAt || ""}
-                  onChange={(e) =>
-                    setWork({ ...work, dueAt: e.target.value || null })
-                  }
+                  onChange={(e) => setWork({ ...work, dueAt: e.target.value || null })}
                 />
               </label>
             </div>
-            <label className="block text-sm">
-              Nomor PO / invoice / rujukan
-              <Input
-                value={work.reference || ""}
-                onChange={(e) =>
-                  setWork({ ...work, reference: e.target.value })
-                }
-              />
-            </label>
-            <p className="text-sm font-medium">
-              Prasyarat yang perlu diselesaikan
-            </p>
-            {work.checks.map((c, i) => (
-              <div key={i} className="flex flex-wrap items-center gap-2">
-                <input
-                  type="checkbox"
-                  aria-label={`Selesai: ${c.label}`}
-                  checked={c.done}
-                  onChange={(e) =>
-                    setWork({
-                      ...work,
-                      checks: work.checks.map((x, j) =>
-                        i === j ? { ...x, done: e.target.checked } : x,
-                      ),
-                    })
-                  }
-                />
-                <Input
-                  aria-label={`Prasyarat ${i + 1}`}
-                  value={c.label}
-                  onChange={(e) =>
-                    setWork({
-                      ...work,
-                      checks: work.checks.map((x, j) =>
-                        i === j ? { ...x, label: e.target.value } : x,
-                      ),
-                    })
-                  }
-                  className="min-w-0 flex-1"
-                />
-                <Select
-                  aria-label={`PIC prasyarat ${i + 1}`}
-                  className="max-w-40"
-                  value={c.ownerId || ""}
-                  onChange={(e) =>
-                    setWork({
-                      ...work,
-                      checks: work.checks.map((x, j) =>
-                        i === j ? { ...x, ownerId: e.target.value || null } : x,
-                      ),
-                    })
-                  }
-                >
-                  <option value="">PIC</option>
-                  {data.users.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name}
-                    </option>
-                  ))}
-                </Select>
-                <button
-                  type="button"
-                  className="min-h-11 px-2 text-xs"
-                  onClick={() =>
-                    setWork({
-                      ...work,
-                      checks: work.checks.filter((_, j) => i !== j),
-                    })
-                  }
-                >
-                  Hapus
-                </button>
-              </div>
-            ))}
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() =>
-                setWork({
-                  ...work,
-                  checks: [...work.checks, { label: "", done: false }],
-                })
-              }
-            >
-              Tambah prasyarat
-            </Button>
-            <label className="block text-sm">
-              Status
-              <Select
-                value={work.status}
-                onChange={(e) =>
-                  setWork({ ...work, status: e.target.value as Work["status"] })
-                }
-              >
-                {["OPEN", "WAITING", "READY", "DONE"].map((s) => (
-                  <option key={s} value={s}>
-                    {states[s]}
-                  </option>
+
+            <div>
+              <p className="text-sm font-medium">Checklist pekerjaan</p>
+              <div className="mt-2 space-y-2">
+                {work.checks.map((item, index) => (
+                  <label key={index} className="flex min-h-12 items-center gap-3 rounded-xl border p-3 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={item.done}
+                      onChange={(e) =>
+                        setWork({
+                          ...work,
+                          checks: work.checks.map((check, position) =>
+                            position === index ? { ...check, done: e.target.checked } : check,
+                          ),
+                        })
+                      }
+                    />
+                    <span className={`min-w-0 flex-1 ${item.done ? "text-muted-foreground line-through" : ""}`}>{item.label}</span>
+                    <Select
+                      aria-label={`PIC ${item.label}`}
+                      className="max-w-36"
+                      value={item.ownerId || work.ownerId || ""}
+                      onChange={(e) =>
+                        setWork({
+                          ...work,
+                          checks: work.checks.map((check, position) =>
+                            position === index ? { ...check, ownerId: e.target.value || null } : check,
+                          ),
+                        })
+                      }
+                    >
+                      <option value="">PIC</option>
+                      {data.users.map((u) => (
+                        <option key={u.id} value={u.id}>{u.name}</option>
+                      ))}
+                    </Select>
+                  </label>
                 ))}
-              </Select>
-            </label>
-            <label className="block text-sm">
-              Hasil / hambatan / rujukan bukti
+              </div>
+              <details className="mt-2 rounded-xl bg-muted/30 p-3">
+                <summary className="cursor-pointer text-xs font-medium text-primary">Sesuaikan checklist</summary>
+                <div className="mt-3 space-y-2">
+                  {work.checks.map((item, index) => (
+                    <div key={index} className="flex gap-2">
+                      <Input
+                        aria-label={`Ubah langkah ${index + 1}`}
+                        value={item.label}
+                        onChange={(e) =>
+                          setWork({
+                            ...work,
+                            checks: work.checks.map((check, position) =>
+                              position === index ? { ...check, label: e.target.value } : check,
+                            ),
+                          })
+                        }
+                      />
+                      <button
+                        type="button"
+                        className="min-h-11 px-2 text-xs text-red-700"
+                        onClick={() => setWork({ ...work, checks: work.checks.filter((_, position) => position !== index) })}
+                      >
+                        Hapus
+                      </button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setWork({ ...work, checks: [...work.checks, { label: "Langkah baru", done: false, ownerId: work.ownerId }] })}
+                  >
+                    Tambah langkah
+                  </Button>
+                </div>
+              </details>
+            </div>
+
+            {work.id && (
+              <div>
+                <p className="text-sm font-medium">Status pekerjaan</p>
+                <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {(["OPEN", "WAITING", "READY", "DONE"] as const).map((status) => (
+                    <button
+                      key={status}
+                      type="button"
+                      onClick={() => setWork({ ...work, status })}
+                      className={`min-h-11 rounded-lg border px-2 text-xs ${work.status === status ? "border-primary bg-primary text-primary-foreground" : ""}`}
+                    >
+                      {states[status]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <label className="block text-sm font-medium">
+              Catatan, hambatan, atau bukti penyelesaian
               <Textarea
+                className="mt-2"
                 value={work.notes || ""}
+                placeholder="Opsional. Wajib diisi saat pekerjaan dinyatakan selesai."
                 onChange={(e) => setWork({ ...work, notes: e.target.value })}
               />
             </label>
-            <Button disabled={busy}>
-              {busy ? "Menyimpan…" : "Simpan pekerjaan"}
+            <Button className="w-full" disabled={busy}>
+              {busy ? "Menyimpan…" : work.id ? "Simpan pembaruan" : "Buat pekerjaan"}
             </Button>
           </form>
         )}
