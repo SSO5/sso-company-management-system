@@ -261,7 +261,7 @@ export function WeeklyWorkspace({
                 ? "VENDOR · file asli"
                 : d.progressFormat === "SSO"
                   ? "SSO · file unggahan"
-                  : "FORMAT BELUM DITETAPKAN"}
+                  : "Perlu pilih format"}
             </span>
             <p className="break-words text-sm font-medium">{d.originalName}</p>
             <p className="text-xs text-muted-foreground">
@@ -362,7 +362,15 @@ export function WeeklyWorkspace({
               Pilih dokumen untuk membukanya di panel kanan tanpa meninggalkan proyek.
             </p>
           </div>
-          {sourceList}
+          <details className="rounded-xl border bg-slate-50 p-4">
+            <summary className="flex cursor-pointer items-center gap-2 text-sm font-semibold">
+              <History size={16} /> File sumber dan unggahan ({documents.length})
+            </summary>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Buka hanya saat perlu memeriksa file vendor, menetapkan format, atau membuat ulang draf SSO.
+            </p>
+            <div className="mt-4">{sourceList}</div>
+          </details>
           <div className="space-y-3">
             {data.reports.map((r) => (
               <details key={r.id} className="rounded-xl border bg-white p-4">
