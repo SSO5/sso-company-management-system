@@ -18,31 +18,41 @@ export default async function DashboardPage() {
   const { kpis, projectProgress, salesPipeline } = data;
   const finance = ["ADMIN", "FINANCE", "VIEWER"].includes(actor.role),
     sales = ["ADMIN", "SALES", "VIEWER"].includes(actor.role);
+  const overdueCount = items.filter((i) => i.severity === "overdue").length;
+  const approvalCount = items.filter(
+    (i) => i.severity === "pending_approval",
+  ).length;
+  const projectAttentionCount = new Set(
+    items
+      .filter((i) => i.module === "project")
+      .map((i) => i.href.split("?")[0]),
+  ).size;
   const stats = [
     {
-      label: "Tindakan terlambat",
-      value: items.filter((i) => i.severity === "overdue").length,
-      detail: "Prioritas penyelesaian",
-      href: "/work?filter=overdue",
+      label: "Yang perlu saya selesaikan",
+      value: items.length,
+      detail: `${overdueCount} terlambat · ${approvalCount} menunggu persetujuan`,
+      href: "/work",
     },
     {
-      label: "Persetujuan menunggu",
-      value: items.filter((i) => i.severity === "pending_approval").length,
-      detail: "Sesuai kewenangan Anda",
-      href: "/work?filter=pending_approval",
-    },
-    {
-      label: "Proyek aktif",
+      label: "Pantauan proyek",
       value: kpis.activeProjects,
-      detail: "Aktif dan perlu perhatian",
+      detail: `${projectAttentionCount} proyek memerlukan perhatian`,
       href: "/projects",
     },
-    {
-      label: "Proyek perlu perhatian",
-      value: new Set(items.filter(i => i.module === "project").map(i => i.href.split("?")[0])).size,
-      detail: "Ada tindak lanjut atau keputusan",
-      href: "/projects",
-    },
+    finance
+      ? {
+          label: "Piutang yang perlu dipantau",
+          value: formatCurrency(kpis.outstandingReceivables),
+          detail: "Berdasarkan invoice dan penerimaan tercatat",
+          href: "/finance",
+        }
+      : {
+          label: "Prospek aktif",
+          value: salesPipeline.stages.reduce((sum, stage) => sum + stage.count, 0),
+          detail: "Dari kebutuhan pelanggan menuju pesanan",
+          href: "/sales/opportunities",
+        },
   ];
   const rooms = [
     {
@@ -82,14 +92,26 @@ export default async function DashboardPage() {
               : "Mulai dari yang paling penting. Lanjutkan pekerjaan di ruang yang tepat."}
           </p>
         </div>
-        <Link
-          href="/data"
-          className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-medium text-white"
-        >
-          <Database size={16} /> Data & Dokumen <ArrowUpRight size={16} />
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/work"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-medium text-white"
+          >
+            <ListChecks size={16} /> Buka pekerjaan saya <ArrowUpRight size={16} />
+          </Link>
+          <Link
+            href="/data"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border bg-white px-5 py-3 text-sm font-medium text-primary"
+          >
+            <Database size={16} /> Unggah atau cari dokumen
+          </Link>
+        </div>
       </div>
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <section aria-labelledby="fokus-hari-ini">
+        <h2 id="fokus-hari-ini" className="mb-3 text-sm font-semibold text-slate-700">
+          Tiga hal yang perlu diketahui sekarang
+        </h2>
+        <div className="grid gap-3 md:grid-cols-3">
         {stats.map((s) => (
           <Link
             key={s.label}
@@ -101,7 +123,8 @@ export default async function DashboardPage() {
             <small>{s.detail}</small>
           </Link>
         ))}
-      </div>
+        </div>
+      </section>
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(280px,1fr)]">
         <ActionItemsPanel
           items={items}

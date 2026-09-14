@@ -10,16 +10,16 @@ export default async function PaymentsPage() {
   const [payments, billingSchedule] = await Promise.all([listPayments(), getBillingSchedule()]);
   return (
     <div className="space-y-4">
-      <div><h1 className="text-xl font-semibold">Payments</h1><p className="text-sm text-muted-foreground">{payments.length} payment(s) recorded. Record new payments from an invoice&apos;s detail page.</p></div>
+      <div><p className="workspace-eyebrow">Riwayat kas masuk</p><h1 className="text-xl font-semibold">Penerimaan pembayaran</h1><p className="text-sm text-muted-foreground">{payments.length} penerimaan tercatat. Penerimaan baru dicatat dari halaman invoice terkait.</p></div>
 
       {/* Melengkapi gambaran arus kas: halaman ini soal uang yang SUDAH
           masuk, kartu ini soal yang belum pernah ditagih sama sekali —
           dua ujung siklus yang sama. */}
       <BillingScheduleCard rows={billingSchedule} compact title="Belum Ditagih" />
 
-      {payments.length === 0 ? <EmptyState title="No payments recorded yet" /> : (
+      {payments.length === 0 ? <EmptyState title="Belum ada penerimaan yang dicatat" /> : (
         <Table>
-          <TableHeader><TableRow><TableHead>Number</TableHead><TableHead>Invoice</TableHead><TableHead>Customer</TableHead><TableHead>Date</TableHead><TableHead>Amount</TableHead><TableHead>PPh Dipotong</TableHead><TableHead>Method</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Nomor</TableHead><TableHead>Invoice</TableHead><TableHead>Pelanggan</TableHead><TableHead>Tanggal</TableHead><TableHead>Kas diterima</TableHead><TableHead>PPh dipotong</TableHead><TableHead>Metode</TableHead></TableRow></TableHeader>
           <TableBody>
             {payments.map((p) => (
               <TableRow key={p.id}>

@@ -17,7 +17,7 @@ export default async function NewInvoicePage() {
 
   return (
     <div className="space-y-4">
-      <div><h1 className="text-xl font-semibold">New Invoice</h1><p className="text-sm text-muted-foreground">Automatically linked to the selected customer and project.</p></div>
+      <div><p className="workspace-eyebrow">Draf penagihan pelanggan</p><h1 className="text-xl font-semibold">Buat invoice</h1><p className="text-sm text-muted-foreground">Pilih pelanggan dan proyek agar hubungan datanya tersimpan otomatis.</p></div>
       <InvoiceForm customers={customers} projects={projects} contacts={contacts} salesUsers={salesUsers} />
     </div>
   );

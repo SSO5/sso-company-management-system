@@ -53,37 +53,37 @@ export function VendorPoForm({ customers, projects, users }: Props) {
   async function onSubmit(data: VendorPurchaseOrderInput) {
     const res = await createVendorPurchaseOrderAction(data);
     if (res.ok) {
-      toast({ title: "Vendor PO created", variant: "success" });
+      toast({ title: "PO vendor berhasil dibuat", variant: "success" });
       router.push(`/procurement/vendor-po/${res.data.id}`);
     } else {
-      toast({ title: "Unable to save PO", description: res.error, variant: "destructive" });
+      toast({ title: "PO vendor belum dapat disimpan", description: res.error, variant: "destructive" });
     }
   }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
       <Card>
-        <CardHeader><CardTitle>Vendor (TO)</CardTitle></CardHeader>
+        <CardHeader><CardTitle>1. Vendor tujuan</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <div className="space-y-1 md:col-span-2">
-            <Label>Vendor Name</Label>
+            <Label>Nama vendor</Label>
             <Input {...register("vendorName")} placeholder="PT ATHENA TEKNIK PERKASA" />
             {errors.vendorName && <p className="text-xs text-destructive">{errors.vendorName.message}</p>}
           </div>
           <div className="space-y-1 md:col-span-2">
-            <Label>Vendor Address</Label>
+            <Label>Alamat vendor</Label>
             <Input {...register("vendorAddress")} />
           </div>
           <div className="space-y-1">
-            <Label>Vendor Email</Label>
+            <Label>Email vendor</Label>
             <Input {...register("vendorEmail")} type="email" />
           </div>
           <div className="space-y-1">
-            <Label>Vendor Attn</Label>
+            <Label>Kontak vendor</Label>
             <Input {...register("vendorAttn")} placeholder="Bp. Kodrat AS (0813...)" />
           </div>
           <div className="space-y-1">
-            <Label>PO Date</Label>
+            <Label>Tanggal PO</Label>
             <Controller control={control} name="poDate" render={({ field }) => (
               <Input type="date" value={dateInputValue(field.value)} onChange={(e) => field.onChange(new Date(e.target.value))} />
             )} />
@@ -92,31 +92,31 @@ export function VendorPoForm({ customers, projects, users }: Props) {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Delivery Address</CardTitle></CardHeader>
+        <CardHeader><CardTitle>2. Tujuan pengiriman</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <div className="space-y-1 md:col-span-2">
-            <Label>Delivery To (name)</Label>
+            <Label>Nama penerima</Label>
             <Input {...register("deliveryName")} placeholder="PT JAKARTA PRIMA CRANES" />
           </div>
           <div className="space-y-1 md:col-span-2">
-            <Label>Delivery Address</Label>
+            <Label>Alamat pengiriman</Label>
             <Input {...register("deliveryAddress")} />
           </div>
           <div className="space-y-1">
-            <Label>Delivery Attn</Label>
+            <Label>Kontak penerima</Label>
             <Input {...register("deliveryAttn")} />
           </div>
           <div className="space-y-1">
-            <Label>Linked Customer (optional)</Label>
+            <Label>Pelanggan terkait <span className="font-normal text-muted-foreground">(opsional)</span></Label>
             <Select {...register("customerId")} defaultValue="">
-              <option value="">None</option>
+              <option value="">Tidak terkait pelanggan</option>
               {customers.map((c) => <option key={c.id} value={c.id}>{c.number} — {c.companyName}</option>)}
             </Select>
           </div>
           <div className="space-y-1">
-            <Label>Linked Project (optional)</Label>
+            <Label>Proyek terkait <span className="font-normal text-muted-foreground">(opsional)</span></Label>
             <Select {...register("projectId")} defaultValue="">
-              <option value="">None</option>
+              <option value="">Tidak terkait proyek</option>
               {projects.map((p) => <option key={p.id} value={p.id}>{p.number}</option>)}
             </Select>
           </div>
@@ -124,28 +124,28 @@ export function VendorPoForm({ customers, projects, users }: Props) {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>References &amp; Terms</CardTitle></CardHeader>
+        <CardHeader><CardTitle>3. Referensi dan ketentuan</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-2 gap-4">
           <div className="space-y-1">
-            <Label>Quotation Ref. (vendor&apos;s own quote no.)</Label>
+            <Label>Nomor penawaran vendor</Label>
             <Input {...register("quotationRef")} placeholder="ATP26-VII/Ext/12" />
           </div>
           <div className="space-y-1">
-            <Label>Project Ref.</Label>
+            <Label>Referensi proyek</Label>
             <Input {...register("projectRef")} placeholder="2026/BPN-L-0505" />
           </div>
           <div className="space-y-1">
-            <Label>Payment Terms</Label>
+            <Label>Syarat pembayaran</Label>
             <Input {...register("paymentTerms")} placeholder="30% DP Setelah PO, 70% Setelah pekerjaan selesai" />
           </div>
           <div className="space-y-1">
-            <Label>Delivery Terms</Label>
+            <Label>Waktu penyerahan</Label>
             <Input {...register("deliveryTerms")} placeholder="3 minggu setelah PO diterima" />
           </div>
           <div className="space-y-1">
-            <Label>Signer (Authorized by SSO)</Label>
+            <Label>Penandatangan dari SSO</Label>
             <Select {...register("signerId")} defaultValue="">
-              <option value="">Me (default)</option>
+              <option value="">Akun saya</option>
               {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
             </Select>
           </div>
@@ -154,21 +154,20 @@ export function VendorPoForm({ customers, projects, users }: Props) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Items</CardTitle>
+          <CardTitle>4. Rincian pesanan</CardTitle>
           <p className="text-[11px] text-muted-foreground">
-            Fill &quot;Group&quot; to start a bold numbered section (e.g. &quot;MOTOR 55 KW 75 HP&quot;) — leave blank on later rows in the same
-            group to keep them grouped under the last heading.
+            Isi kelompok pada baris pertama. Baris berikutnya boleh dikosongkan agar tetap berada dalam kelompok yang sama.
           </p>
         </CardHeader>
         <CardContent>
           <div className="mb-3 flex justify-end">
             <Button type="button" size="sm" variant="outline" onClick={() => append({ groupLabel: "", description: "", quantity: 1, unit: "lot", unitPrice: 0 })}>
-              <Plus className="h-3.5 w-3.5" /> Add Item
+              <Plus className="h-3.5 w-3.5" /> Tambah rincian
             </Button>
           </div>
           <Table>
             <TableHeader>
-              <TableRow><TableHead>Group</TableHead><TableHead>Description</TableHead><TableHead>Qty</TableHead><TableHead>Unit</TableHead><TableHead>Unit Price</TableHead><TableHead>Amount</TableHead><TableHead></TableHead></TableRow>
+              <TableRow><TableHead>Kelompok</TableHead><TableHead>Uraian</TableHead><TableHead>Jumlah</TableHead><TableHead>Satuan</TableHead><TableHead>Harga satuan</TableHead><TableHead>Total</TableHead><TableHead></TableHead></TableRow>
             </TableHeader>
             <TableBody>
               {fields.map((field, idx) => (
@@ -187,24 +186,24 @@ export function VendorPoForm({ customers, projects, users }: Props) {
 
           <div className="ml-auto mt-4 w-full max-w-xs space-y-1 text-sm">
             <div className="flex justify-between"><span className="text-muted-foreground">Sub Total</span><span>{formatCurrency(totals.subtotal)}</span></div>
-            <div className="flex items-center justify-between"><span className="text-muted-foreground">Discount</span><Input type="number" step="any" className="h-7 w-28 text-right" {...register("discount")} /></div>
+            <div className="flex items-center justify-between"><span className="text-muted-foreground">Potongan</span><Input type="number" step="any" className="h-7 w-28 text-right" {...register("discount")} /></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Netto</span><span>{formatCurrency(totals.netto)}</span></div>
-            <div className="flex items-center justify-between"><span className="text-muted-foreground">Tax %</span><Input type="number" step="any" className="h-7 w-28 text-right" {...register("taxPercent")} /></div>
-            <div className="flex justify-between border-t border-border pt-1 font-semibold"><span>TOTAL AMOUNT</span><span>{formatCurrency(totals.grandTotal)}</span></div>
+            <div className="flex items-center justify-between"><span className="text-muted-foreground">Pajak %</span><Input type="number" step="any" className="h-7 w-28 text-right" {...register("taxPercent")} /></div>
+            <div className="flex justify-between border-t border-border pt-1 font-semibold"><span>Total PO</span><span>{formatCurrency(totals.grandTotal)}</span></div>
           </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Note / Ketentuan</CardTitle></CardHeader>
+        <CardHeader><CardTitle>5. Catatan dan ketentuan</CardTitle></CardHeader>
         <CardContent>
           <Textarea {...register("notes")} rows={3} placeholder={"1. Biaya diatas sudah termasuk PPN 11%\n2. Jika dalam 1 hari kerja tidak ada konfirmasi, kami anggap vendor menyetujui seluruh syarat & ketentuan PO ini."} />
         </CardContent>
       </Card>
 
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
-        <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Saving..." : "Create Vendor PO"}</Button>
+        <Button type="button" variant="outline" onClick={() => router.back()}>Batal</Button>
+        <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Menyimpan…" : "Simpan draf PO vendor"}</Button>
       </div>
     </form>
   );

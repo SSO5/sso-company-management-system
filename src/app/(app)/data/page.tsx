@@ -224,7 +224,13 @@ export default async function DataPage({
                     {(d.fileSize / 1024 / 1024).toFixed(2)} MB
                   </span>
                   <div className="flex flex-wrap gap-4">
-                    <a className="py-2 font-medium text-primary" href={`/api/files/${d.id}?view=1`} target="_blank" rel="noopener noreferrer">Buka file asli ↗</a>
+                    <a
+                      className="rounded-lg border px-3 py-2 font-medium text-primary"
+                      href={`/api/files/${d.id}?view=1`}
+                      data-document-title={d.originalName}
+                    >
+                      Pratinjau di samping
+                    </a>
                     {d.folderId && (
                       <Link
                         className="py-2 font-medium text-primary"

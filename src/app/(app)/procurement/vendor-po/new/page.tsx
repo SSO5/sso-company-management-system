@@ -17,8 +17,9 @@ export default async function NewVendorPoPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-semibold">New Vendor Purchase Order</h1>
-        <p className="text-sm text-muted-foreground">Issued by SSO to a supplier or subcontractor.</p>
+        <p className="workspace-eyebrow">Draf dokumen pembelian</p>
+        <h1 className="text-xl font-semibold">Buat PO vendor</h1>
+        <p className="text-sm text-muted-foreground">Hubungkan dengan proyek agar nilai, dokumen, dan tindak lanjut dapat ditelusuri bersama.</p>
       </div>
       <VendorPoForm customers={customers} projects={projects} users={users} />
     </div>

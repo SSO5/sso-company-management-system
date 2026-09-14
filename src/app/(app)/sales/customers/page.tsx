@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { CustomerFormDialog } from "@/components/sales/customer-form-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus } from "lucide-react";
+import { displayLabel } from "@/lib/display-labels";
 
 export default async function CustomersPage() {
   const customers = await listCustomers();
@@ -14,25 +15,26 @@ export default async function CustomersPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold">Customers</h1>
-          <p className="text-sm text-muted-foreground">{customers.length} customer(s)</p>
+          <p className="workspace-eyebrow">Basis relasi pelanggan</p>
+          <h1 className="text-xl font-semibold">Pelanggan &amp; Kontak</h1>
+          <p className="text-sm text-muted-foreground">{customers.length} perusahaan tersimpan</p>
         </div>
-        <CustomerFormDialog trigger={<Button><Plus className="h-4 w-4" /> New Customer</Button>} />
+        <CustomerFormDialog trigger={<Button><Plus className="h-4 w-4" /> Tambah pelanggan</Button>} />
       </div>
 
       {customers.length === 0 ? (
-        <EmptyState title="No customers yet" description="Create your first customer to start the sales pipeline." />
+        <EmptyState title="Belum ada pelanggan" description="Tambahkan perusahaan agar dapat digunakan kembali pada prospek, penawaran, proyek, dan invoice." />
       ) : (
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Number</TableHead>
-              <TableHead>Company</TableHead>
-              <TableHead>Type</TableHead>
+              <TableHead>Nomor</TableHead>
+              <TableHead>Perusahaan</TableHead>
+              <TableHead>Hubungan</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Opportunities</TableHead>
-              <TableHead>Quotations</TableHead>
-              <TableHead>Projects</TableHead>
+              <TableHead>Prospek</TableHead>
+              <TableHead>Penawaran</TableHead>
+              <TableHead>Proyek</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -44,9 +46,9 @@ export default async function CustomersPage() {
                 <TableCell>
                   <Link href={`/sales/customers/${c.id}`} className="font-medium hover:underline">{c.companyName}</Link>
                 </TableCell>
-                <TableCell>{c.customerType}</TableCell>
+                <TableCell>{displayLabel(c.customerType)}</TableCell>
                 <TableCell>
-                  <Badge variant={c.status === "ACTIVE" ? "success" : "secondary"}>{c.status}</Badge>
+                  <Badge variant={c.status === "ACTIVE" ? "success" : "secondary"}>{displayLabel(c.status)}</Badge>
                 </TableCell>
                 <TableCell>{c._count.opportunities}</TableCell>
                 <TableCell>{c._count.quotations}</TableCell>

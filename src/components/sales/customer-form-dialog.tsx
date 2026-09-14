@@ -24,39 +24,39 @@ export function CustomerFormDialog({ trigger }: { trigger: React.ReactElement })
     const res = await createCustomer(payload);
     setPending(false);
     if (res.ok) {
-      toast({ title: "Customer created", variant: "success" });
+      toast({ title: "Pelanggan berhasil disimpan", variant: "success" });
       setOpen(false);
       router.refresh();
     } else {
-      toast({ title: "Unable to save customer", description: res.error, variant: "destructive" });
+      toast({ title: "Pelanggan belum dapat disimpan", description: res.error, variant: "destructive" });
     }
   }
 
   return (
     <>
       <DialogTrigger trigger={trigger} onClick={() => setOpen(true)} />
-      <Dialog open={open} onOpenChange={setOpen} title="New Customer" description="Creates a numbered customer record (CUS-YYYY-####).">
+      <Dialog open={open} onOpenChange={setOpen} title="Tambahkan pelanggan" description="Nomor pelanggan dibuat otomatis. Data lain dapat dilengkapi kemudian.">
         <form onSubmit={onSubmit} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2 space-y-1">
-              <Label htmlFor="companyName">Company Name</Label>
-              <Input id="companyName" name="companyName" required />
+              <Label htmlFor="companyName">Nama perusahaan</Label>
+              <Input id="companyName" name="companyName" required autoFocus />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="customerType">Type</Label>
+              <Label htmlFor="customerType">Hubungan saat ini</Label>
               <Select id="customerType" name="customerType" defaultValue="PROSPECT">
-                <option value="PROSPECT">Prospect</option>
-                <option value="CUSTOMER">Customer</option>
-                <option value="PARTNER">Partner</option>
-                <option value="OTHER">Other</option>
+                <option value="PROSPECT">Calon pelanggan</option>
+                <option value="CUSTOMER">Pelanggan</option>
+                <option value="PARTNER">Mitra</option>
+                <option value="OTHER">Lainnya</option>
               </Select>
             </div>
             <div className="space-y-1">
-              <Label htmlFor="industry">Industry</Label>
+              <Label htmlFor="industry">Bidang usaha</Label>
               <Input id="industry" name="industry" />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="phone">Phone</Label>
+              <Label htmlFor="phone">Telepon perusahaan</Label>
               <Input id="phone" name="phone" />
             </div>
             <div className="space-y-1">
@@ -64,19 +64,19 @@ export function CustomerFormDialog({ trigger }: { trigger: React.ReactElement })
               <Input id="email" name="email" type="email" />
             </div>
             <div className="col-span-2 space-y-1">
-              <Label htmlFor="address">Address</Label>
+              <Label htmlFor="address">Alamat</Label>
               <Textarea id="address" name="address" rows={2} />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="city">City</Label>
+              <Label htmlFor="city">Kota</Label>
               <Input id="city" name="city" />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="province">Province</Label>
+              <Label htmlFor="province">Provinsi</Label>
               <Input id="province" name="province" />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="taxId">Tax ID (NPWP)</Label>
+              <Label htmlFor="taxId">NPWP</Label>
               <Input id="taxId" name="taxId" />
             </div>
             <div className="space-y-1">
@@ -85,8 +85,8 @@ export function CustomerFormDialog({ trigger }: { trigger: React.ReactElement })
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button type="submit" disabled={pending}>{pending ? "Saving..." : "Create Customer"}</Button>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Batal</Button>
+            <Button type="submit" disabled={pending}>{pending ? "Menyimpan…" : "Simpan pelanggan"}</Button>
           </div>
         </form>
       </Dialog>

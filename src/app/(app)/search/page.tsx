@@ -9,9 +9,9 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
 
   return (
     <div className="space-y-4">
-      <div><h1 className="text-xl font-semibold">Search Results</h1><p className="text-sm text-muted-foreground">&quot;{query}&quot; — {results.length} result(s)</p></div>
+      <div><p className="workspace-eyebrow">Pencarian seluruh ruang</p><h1 className="text-xl font-semibold">Hasil pencarian</h1><p className="text-sm text-muted-foreground">&quot;{query}&quot; — {results.length} hasil</p></div>
       {results.length === 0 ? (
-        <EmptyState title="No results" description="Try a customer name, quotation number, project number, or invoice number." />
+        <EmptyState title="Data belum ditemukan" description="Coba nama pelanggan, nomor penawaran, nomor proyek, atau nomor invoice." />
       ) : (
         <div className="space-y-2">
           {results.map((r) => (

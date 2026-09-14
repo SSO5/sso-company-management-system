@@ -14,30 +14,31 @@ export default async function ContactsPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold">Contacts</h1>
-          <p className="text-sm text-muted-foreground">{contacts.length} contact(s) across all customers</p>
+          <p className="workspace-eyebrow">Orang yang dapat dihubungi</p>
+          <h1 className="text-xl font-semibold">Kontak pelanggan</h1>
+          <p className="text-sm text-muted-foreground">{contacts.length} kontak dari seluruh pelanggan</p>
         </div>
-        <ContactFormDialog customers={customers} trigger={<Button><Plus className="h-4 w-4" /> New Contact</Button>} />
+        <ContactFormDialog customers={customers} trigger={<Button><Plus className="h-4 w-4" /> Tambah kontak</Button>} />
       </div>
 
       {contacts.length === 0 ? (
-        <EmptyState title="No contacts yet" description="Add a contact under a customer to reach decision makers directly." />
+        <EmptyState title="Belum ada kontak" description="Tambahkan orang yang dapat dihubungi pada perusahaan pelanggan." />
       ) : (
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Customer</TableHead>
-              <TableHead>Position</TableHead>
+              <TableHead>Nama</TableHead>
+              <TableHead>Pelanggan</TableHead>
+              <TableHead>Jabatan</TableHead>
               <TableHead>Email</TableHead>
-              <TableHead>Phone</TableHead>
+              <TableHead>Telepon</TableHead>
               <TableHead></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {contacts.map((ct) => (
               <TableRow key={ct.id}>
-                <TableCell className="font-medium">{ct.name} {ct.isPrimary && <Badge variant="outline" className="ml-1">Primary</Badge>}</TableCell>
+                <TableCell className="font-medium">{ct.name} {ct.isPrimary && <Badge variant="outline" className="ml-1">Utama</Badge>}</TableCell>
                 <TableCell>{ct.customer.companyName}</TableCell>
                 <TableCell>{ct.position ?? "-"}</TableCell>
                 <TableCell>{ct.email ?? "-"}</TableCell>

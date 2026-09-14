@@ -50,7 +50,7 @@ export function QuotationActions({
     if (res.ok) {
       router.refresh();
     } else {
-      toast({ title: "Action failed", description: res.error, variant: "destructive" });
+      toast({ title: "Tindakan belum dapat diproses", description: res.error, variant: "destructive" });
     }
   }
 
@@ -66,10 +66,10 @@ export function QuotationActions({
     const res = await reviseQuotationAction(id);
     setPending(false);
     if (res.ok) {
-      toast({ title: "Quotation reopened as a new revision", variant: "success" });
+      toast({ title: "Revisi penawaran baru berhasil dibuat", variant: "success" });
       router.push(`/sales/quotations/${id}/edit`);
     } else {
-      toast({ title: "Unable to revise", description: res.error, variant: "destructive" });
+      toast({ title: "Revisi belum dapat dibuat", description: res.error, variant: "destructive" });
     }
   }
 
@@ -89,7 +89,7 @@ export function QuotationActions({
   return (
     <div className="flex flex-wrap gap-2">
       {status === "DRAFT" && canEditSales && (
-        <Button disabled={pending} onClick={() => run(() => submitQuotationAction(id))}>Submit for Approval</Button>
+        <Button disabled={pending} onClick={() => run(() => submitQuotationAction(id))}>Ajukan persetujuan</Button>
       )}
       {status === "DRAFT" && canEditSales && (
         <Button disabled={pending} variant="destructive" onClick={() => setDeleteOpen(true)}>Hapus</Button>
@@ -99,32 +99,32 @@ export function QuotationActions({
       )}
       {["SUBMITTED", "UNDER_REVIEW"].includes(status) && isAdmin && (
         <>
-          <Button disabled={pending} onClick={() => run(() => approveQuotationAction(id))}>Approve</Button>
-          <Button disabled={pending} variant="destructive" onClick={() => setRejectOpen(true)}>Reject</Button>
+          <Button disabled={pending} onClick={() => run(() => approveQuotationAction(id))}>Setujui</Button>
+          <Button disabled={pending} variant="destructive" onClick={() => setRejectOpen(true)}>Tolak</Button>
         </>
       )}
       {status === "APPROVED" && canEditSales && (
-        <Button disabled={pending} onClick={() => run(() => sendQuotationAction(id))}>Mark Sent to Customer</Button>
+        <Button disabled={pending} onClick={() => run(() => sendQuotationAction(id))}>Tandai dikirim ke pelanggan</Button>
       )}
       {["SENT", "APPROVED"].includes(status) && canEditSales && (
         <>
           <Button
             disabled={pending || !hasUploadedPo}
-            title={hasUploadedPo ? undefined : "Upload dulu file PO asli dari customer (lihat panel Customer PO di bawah) sebelum bisa Mark Won."}
+            title={hasUploadedPo ? undefined : "Unggah PO asli pelanggan terlebih dahulu sebelum menandai penawaran dimenangkan."}
             onClick={() => setWonOpen(true)}
           >
-            Mark Won
+            Tandai dimenangkan
           </Button>
-          <Button disabled={pending} variant="outline" onClick={() => setLostOpen(true)}>Mark Lost</Button>
+          <Button disabled={pending} variant="outline" onClick={() => setLostOpen(true)}>Tidak berlanjut</Button>
         </>
       )}
 
-      <Dialog open={rejectOpen} onOpenChange={setRejectOpen} title="Reject Quotation" description="Provide a reason — this is recorded on the audit trail.">
+      <Dialog open={rejectOpen} onOpenChange={setRejectOpen} title="Tolak penawaran" description="Alasan disimpan dalam riwayat pemeriksaan.">
         <div className="space-y-3">
-          <Textarea placeholder="Reason for rejection" value={reason} onChange={(e) => setReason(e.target.value)} rows={3} />
+          <Textarea placeholder="Alasan penolakan" value={reason} onChange={(e) => setReason(e.target.value)} rows={3} />
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setRejectOpen(false)}>Cancel</Button>
-            <Button variant="destructive" disabled={!reason || pending} onClick={() => { setRejectOpen(false); run(() => rejectQuotationAction(id, reason)); }}>Reject</Button>
+            <Button variant="outline" onClick={() => setRejectOpen(false)}>Batal</Button>
+            <Button variant="destructive" disabled={!reason || pending} onClick={() => { setRejectOpen(false); run(() => rejectQuotationAction(id, reason)); }}>Tolak penawaran</Button>
           </div>
         </div>
       </Dialog>
@@ -139,38 +139,38 @@ export function QuotationActions({
         </div>
       </Dialog>
 
-      <Dialog open={lostOpen} onOpenChange={setLostOpen} title="Mark Quotation Lost" description="Provide a reason for reporting.">
+      <Dialog open={lostOpen} onOpenChange={setLostOpen} title="Tandai tidak berlanjut" description="Catat alasannya agar dapat dipelajari dalam laporan penjualan.">
         <div className="space-y-3">
-          <Textarea placeholder="Reason (e.g. lost to competitor, budget cut)" value={reason} onChange={(e) => setReason(e.target.value)} rows={3} />
+          <Textarea placeholder="Contoh: harga, perubahan anggaran, atau kebutuhan dibatalkan" value={reason} onChange={(e) => setReason(e.target.value)} rows={3} />
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setLostOpen(false)}>Cancel</Button>
-            <Button variant="destructive" disabled={!reason || pending} onClick={() => { setLostOpen(false); run(() => markLostAction(id, reason)); }}>Mark Lost</Button>
+            <Button variant="outline" onClick={() => setLostOpen(false)}>Batal</Button>
+            <Button variant="destructive" disabled={!reason || pending} onClick={() => { setLostOpen(false); run(() => markLostAction(id, reason)); }}>Simpan alasan</Button>
           </div>
         </div>
       </Dialog>
 
-      <Dialog open={wonOpen} onOpenChange={setWonOpen} title="Mark Quotation Won" description="This automatically creates the Project, folders, tasks, and notifies Finance & PM.">
+      <Dialog open={wonOpen} onOpenChange={setWonOpen} title="Konfirmasi penawaran dimenangkan" description="Sistem akan membuat proyek dan folder kerja otomatis, lalu memberi tahu Finance dan Manajer Proyek.">
         <div className="space-y-3">
           <div className="space-y-1">
-            <Label>Assign Project Manager (optional)</Label>
+            <Label>Manajer proyek <span className="font-normal text-muted-foreground">(opsional)</span></Label>
             <Select value={pmId} onChange={(e) => setPmId(e.target.value)}>
-              <option value="">Unassigned — notify all PMs</option>
+              <option value="">Belum ditentukan — beri tahu semua Manajer Proyek</option>
               {projectManagers.map((pm) => <option key={pm.id} value={pm.id}>{pm.name}</option>)}
             </Select>
           </div>
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setWonOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setWonOpen(false)}>Batal</Button>
             <Button disabled={pending} onClick={() => {
               setWonOpen(false);
               run(async () => {
                 const res = await markWonAction(id, pmId || undefined);
                 if (res.ok) {
-                  toast({ title: "Project created", description: `Project ${res.data.projectId} generated automatically.`, variant: "success" });
+                  toast({ title: "Proyek berhasil dibuat", description: "Ruang proyek dan dokumen pendukung sudah disiapkan otomatis.", variant: "success" });
                   router.push(`/projects/${res.data.projectId}`);
                 }
                 return res;
               });
-            }}>Confirm — Create Project</Button>
+            }}>Konfirmasi dan buat proyek</Button>
           </div>
         </div>
       </Dialog>

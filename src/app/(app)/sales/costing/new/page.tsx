@@ -21,12 +21,13 @@ export default async function NewCostingPage({ searchParams }: { searchParams: {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-semibold">New Costing Sheet</h1>
+        <p className="workspace-eyebrow">Dasar penawaran</p>
+        <h1 className="text-xl font-semibold">Buat perhitungan biaya</h1>
         <p className="text-sm text-muted-foreground">
           {lockedOpportunity
-            ? `For opportunity ${lockedOpportunity.number} — ${lockedOpportunity.name}. `
+            ? `Untuk prospek ${lockedOpportunity.number} — ${lockedOpportunity.name}. `
             : ""}
-          Add sections and line items — selling price is computed automatically from cost and margin. Works from a phone too.
+          Tambahkan kelompok dan rincian biaya. Harga jual dihitung otomatis dari biaya dan margin.
         </p>
       </div>
       <CostingForm

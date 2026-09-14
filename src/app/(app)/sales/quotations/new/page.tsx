@@ -26,11 +26,12 @@ export default async function NewQuotationPage({ searchParams }: { searchParams:
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-semibold">New Quotation</h1>
+        <p className="workspace-eyebrow">Draf dokumen komersial</p>
+        <h1 className="text-xl font-semibold">Buat penawaran</h1>
         <p className="text-sm text-muted-foreground">
           {lockedOpportunity
-            ? `For opportunity ${lockedOpportunity.number} — ${lockedOpportunity.name}. Totals are calculated automatically and re-verified server-side on save.`
-            : "Totals are calculated automatically and re-verified server-side on save."}
+            ? `Untuk prospek ${lockedOpportunity.number} — ${lockedOpportunity.name}. Pelanggan, kontak, dan PIC diwarisi dari prospek.`
+            : "Nilai per baris, pajak, dan total dihitung otomatis serta diperiksa kembali saat disimpan."}
         </p>
       </div>
       <QuotationForm

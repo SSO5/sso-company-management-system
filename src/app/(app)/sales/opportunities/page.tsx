@@ -51,9 +51,10 @@ export default async function OpportunitiesPage() {
             customers={customers}
             contacts={contacts}
             salesUsers={salesUsers}
+            defaultSalesPicId={salesUsers.some((user) => user.id === actor.userId) ? actor.userId : undefined}
             trigger={
               <Button>
-                <Plus className="h-4 w-4" /> Prospek Baru
+                <Plus className="h-4 w-4" /> Catat prospek
               </Button>
             }
           />
@@ -62,8 +63,8 @@ export default async function OpportunitiesPage() {
 
       {opportunities.length === 0 ? (
         <EmptyState
-          title="No opportunities yet"
-          description="Log a new opportunity to start tracking it through the pipeline."
+          title="Belum ada prospek"
+          description="Catat kebutuhan pelanggan untuk mulai menyiapkan penawaran dan dokumennya."
         />
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">

@@ -27,48 +27,48 @@ export function PurchaseOrderFormDialog({
     const fd = new FormData(e.currentTarget);
     const res = await createPurchaseOrder(Object.fromEntries(fd.entries()));
     setPending(false);
-    if (res.ok) { toast({ title: "Purchase order created", variant: "success" }); setOpen(false); router.refresh(); }
-    else toast({ title: "Unable to save PO", description: res.error, variant: "destructive" });
+    if (res.ok) { toast({ title: "PO pelanggan berhasil dicatat", variant: "success" }); setOpen(false); router.refresh(); }
+    else toast({ title: "PO pelanggan belum dapat disimpan", description: res.error, variant: "destructive" });
   }
 
   return (
     <>
       <DialogTrigger trigger={trigger} onClick={() => setOpen(true)} />
-      <Dialog open={open} onOpenChange={setOpen} title="New Purchase Order">
+      <Dialog open={open} onOpenChange={setOpen} title="Catat PO pelanggan" description="Salin data dari dokumen PO asli. Hubungkan ke proyek bila ruang proyek sudah tersedia.">
         <form onSubmit={onSubmit} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>Customer</Label>
+              <Label>Pelanggan</Label>
               <Select name="customerId" required defaultValue="">
-                <option value="" disabled>Select</option>
+                <option value="" disabled>Pilih pelanggan</option>
                 {customers.map((c) => <option key={c.id} value={c.id}>{c.number} — {c.companyName}</option>)}
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>Linked Project (optional)</Label>
+              <Label>Proyek terkait <span className="font-normal text-muted-foreground">(opsional)</span></Label>
               <Select name="projectId" defaultValue="">
-                <option value="">None</option>
+                <option value="">Belum terkait proyek</option>
                 {projects.map((p) => <option key={p.id} value={p.id}>{p.number}</option>)}
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>PO Number (dari customer)</Label>
+              <Label>Nomor PO pelanggan</Label>
               <Input name="number" required placeholder="EPC-L/2026-0450" />
             </div>
             <div className="space-y-1">
-              <Label>PO Date</Label>
+              <Label>Tanggal PO</Label>
               <Input name="poDate" type="date" required />
             </div>
             <div className="space-y-1">
-              <Label>PO Value (IDR)</Label>
+              <Label>Nilai PO (Rp)</Label>
               <Input name="poValue" type="number" min={0} required />
             </div>
             <div className="space-y-1">
-              <Label>Start Date</Label>
+              <Label>Tanggal mulai</Label>
               <Input name="startDate" type="date" />
             </div>
             <div className="space-y-1">
-              <Label>End Date</Label>
+              <Label>Target selesai</Label>
               <Input name="endDate" type="date" />
             </div>
             <div className="space-y-1 col-span-2">
@@ -86,8 +86,8 @@ export function PurchaseOrderFormDialog({
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button type="submit" disabled={pending}>{pending ? "Saving..." : "Create PO"}</Button>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Batal</Button>
+            <Button type="submit" disabled={pending}>{pending ? "Menyimpan…" : "Simpan PO pelanggan"}</Button>
           </div>
         </form>
       </Dialog>

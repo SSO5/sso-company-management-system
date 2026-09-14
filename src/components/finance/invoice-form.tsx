@@ -52,10 +52,10 @@ export function InvoiceForm({ customers, projects, contacts, salesUsers }: Props
   async function onSubmit(data: InvoiceInput) {
     const res = await createInvoiceAction(data);
     if (res.ok) {
-      toast({ title: "Invoice created", variant: "success" });
+      toast({ title: "Draf invoice berhasil dibuat", variant: "success" });
       router.push(`/finance/invoices/${res.data.id}`);
     } else {
-      toast({ title: "Unable to save invoice", description: res.error, variant: "destructive" });
+      toast({ title: "Invoice belum dapat disimpan", description: res.error, variant: "destructive" });
     }
   }
 
@@ -63,96 +63,95 @@ export function InvoiceForm({ customers, projects, contacts, salesUsers }: Props
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
       <div className="grid grid-cols-2 gap-4 rounded-lg border border-border bg-card p-4 md:grid-cols-4">
         <div className="space-y-1">
-          <Label>Customer</Label>
+          <Label>Pelanggan</Label>
           <Select {...register("customerId")} defaultValue="">
-            <option value="" disabled>Select</option>
+            <option value="" disabled>Pilih pelanggan</option>
             {customers.map((c) => <option key={c.id} value={c.id}>{c.number} — {c.companyName}</option>)}
           </Select>
           {errors.customerId && <p className="text-xs text-destructive">{errors.customerId.message}</p>}
         </div>
         <div className="space-y-1">
-          <Label>Contact / Attn (optional)</Label>
+          <Label>Kontak tujuan <span className="font-normal text-muted-foreground">(opsional)</span></Label>
           <Select {...register("contactId")} defaultValue="">
-            <option value="">None</option>
+            <option value="">Belum ditentukan</option>
             {filteredContacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </Select>
         </div>
         <div className="space-y-1">
-          <Label>Project (optional)</Label>
+          <Label>Proyek <span className="font-normal text-muted-foreground">(opsional)</span></Label>
           <Select {...register("projectId")} defaultValue="">
-            <option value="">None</option>
+            <option value="">Tidak terkait proyek</option>
             {filteredProjects.map((p) => <option key={p.id} value={p.id}>{p.number}</option>)}
           </Select>
         </div>
         <div className="space-y-1">
-          <Label>Sales PIC (optional)</Label>
+          <Label>PIC penjualan <span className="font-normal text-muted-foreground">(opsional)</span></Label>
           <Select {...register("salesPicId")} defaultValue="">
-            <option value="">None</option>
+            <option value="">Belum ditentukan</option>
             {salesUsers.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
           </Select>
         </div>
         <div className="space-y-1">
-          <Label>Invoice Date</Label>
+          <Label>Tanggal invoice</Label>
           <Controller control={control} name="invoiceDate" render={({ field }) => (
             <Input type="date" value={dateInputValue(field.value)} onChange={(e) => field.onChange(new Date(e.target.value))} />
           )} />
         </div>
         <div className="space-y-1">
-          <Label>Due Date</Label>
+          <Label>Jatuh tempo</Label>
           <Controller control={control} name="dueDate" render={({ field }) => (
             <Input type="date" value={dateInputValue(field.value)} onChange={(e) => field.onChange(new Date(e.target.value))} />
           )} />
         </div>
         <div className="space-y-1">
-          <Label>Customer PO No. (optional)</Label>
+          <Label>Nomor PO pelanggan <span className="font-normal text-muted-foreground">(opsional)</span></Label>
           <Input {...register("customerPO")} placeholder="EPC-L/2026-0450" />
         </div>
         <div className="space-y-1">
-          <Label>PO Date (optional)</Label>
+          <Label>Tanggal PO <span className="font-normal text-muted-foreground">(opsional)</span></Label>
           <Controller control={control} name="poDate" render={({ field }) => (
             <Input type="date" value={dateInputValue(field.value)} onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : null)} />
           )} />
         </div>
         <div className="space-y-1">
-          <Label>Delivery Date (optional)</Label>
+          <Label>Tanggal penyerahan <span className="font-normal text-muted-foreground">(opsional)</span></Label>
           <Controller control={control} name="deliveryDate" render={({ field }) => (
             <Input type="date" value={dateInputValue(field.value)} onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : null)} />
           )} />
         </div>
         <div className="space-y-1">
-          <Label>Job No. (optional)</Label>
+          <Label>Nomor pekerjaan <span className="font-normal text-muted-foreground">(opsional)</span></Label>
           <Input {...register("jobNo")} placeholder="JO-2607-003" />
         </div>
         <div className="space-y-1">
-          <Label>Down Payment % (optional)</Label>
-          <Input type="number" step="any" min={0} max={100} {...register("dpPercent")} placeholder="e.g. 20 for a DP invoice" />
-          <p className="text-[11px] text-muted-foreground">Leave blank if this invoice bills the full amount.</p>
+          <Label>Persentase uang muka <span className="font-normal text-muted-foreground">(opsional)</span></Label>
+          <Input type="number" step="any" min={0} max={100} {...register("dpPercent")} placeholder="Contoh: 20" />
+          <p className="text-[11px] text-muted-foreground">Kosongkan apabila invoice menagihkan nilai penuh.</p>
         </div>
       </div>
 
       <div className="rounded-lg border border-border bg-card p-4">
         <div className="mb-3 flex items-center justify-between">
           <div>
-            <Label>Invoice Items</Label>
+            <Label>Rincian tagihan</Label>
             <p className="text-[11px] text-muted-foreground">
-              Fill &quot;Group&quot; to start a bold section heading (e.g. &quot;1. OVERHOUL GEARBOX...&quot;) — leave later rows in the same
-              group blank and it keeps grouping under the last one. Tick &quot;Note only&quot; for a scope bullet with no price of its own.
+              Isi kelompok pada baris pertama pekerjaan. Baris berikutnya boleh dikosongkan agar tetap berada dalam kelompok yang sama. Gunakan “catatan saja” untuk lingkup tanpa harga.
             </p>
           </div>
           <Button type="button" size="sm" variant="outline" onClick={() => append({ groupLabel: "", description: "", quantity: 1, unit: "unit", unitPrice: 0, taxPercent: 11, isNote: false })}>
-            <Plus className="h-3.5 w-3.5" /> Add Item
+            <Plus className="h-3.5 w-3.5" /> Tambah rincian
           </Button>
         </div>
         <Table>
           <TableHeader>
-            <TableRow><TableHead>Group</TableHead><TableHead>Description</TableHead><TableHead>Qty</TableHead><TableHead>Unit</TableHead><TableHead>Unit Price</TableHead><TableHead>Tax %</TableHead><TableHead>Note only</TableHead><TableHead>Total</TableHead><TableHead></TableHead></TableRow>
+            <TableRow><TableHead>Kelompok</TableHead><TableHead>Uraian</TableHead><TableHead>Jumlah</TableHead><TableHead>Satuan</TableHead><TableHead>Harga satuan</TableHead><TableHead>Pajak %</TableHead><TableHead>Catatan saja</TableHead><TableHead>Total</TableHead><TableHead></TableHead></TableRow>
           </TableHeader>
           <TableBody>
             {fields.map((field, idx) => {
               const isNote = watchedItems?.[idx]?.isNote;
               return (
                 <TableRow key={field.id}>
-                  <TableCell className="min-w-[140px]"><Input {...register(`items.${idx}.groupLabel`)} placeholder="(leave blank to continue group)" /></TableCell>
+                  <TableCell className="min-w-[140px]"><Input {...register(`items.${idx}.groupLabel`)} placeholder="Kosongkan jika sama" /></TableCell>
                   <TableCell className="min-w-[200px]"><Input {...register(`items.${idx}.description`)} /></TableCell>
                   <TableCell className="w-20"><Input type="number" step="any" disabled={isNote} {...register(`items.${idx}.quantity`)} /></TableCell>
                   <TableCell className="w-20"><Input disabled={isNote} {...register(`items.${idx}.unit`)} /></TableCell>
@@ -169,20 +168,20 @@ export function InvoiceForm({ customers, projects, contacts, salesUsers }: Props
 
         <div className="ml-auto mt-4 w-full max-w-xs space-y-1 text-sm">
           <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatCurrency(totals.subtotal)}</span></div>
-          <div className="flex items-center justify-between"><span className="text-muted-foreground">Discount</span><Input type="number" step="any" className="h-7 w-28 text-right" {...register("discount")} /></div>
-          <div className="flex justify-between"><span className="text-muted-foreground">Tax</span><span>{formatCurrency(totals.tax)}</span></div>
-          <div className="flex justify-between border-t border-border pt-1 font-semibold"><span>Grand Total</span><span>{formatCurrency(totals.grandTotal)}</span></div>
+          <div className="flex items-center justify-between"><span className="text-muted-foreground">Potongan</span><Input type="number" step="any" className="h-7 w-28 text-right" {...register("discount")} /></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">Pajak</span><span>{formatCurrency(totals.tax)}</span></div>
+          <div className="flex justify-between border-t border-border pt-1 font-semibold"><span>Total tagihan</span><span>{formatCurrency(totals.grandTotal)}</span></div>
         </div>
       </div>
 
       <div className="rounded-lg border border-border bg-card p-4">
-        <Label>Note (optional, printed on PDF)</Label>
+        <Label>Catatan invoice <span className="font-normal text-muted-foreground">(opsional, tercetak pada PDF)</span></Label>
         <Textarea {...register("notes")} rows={4} placeholder={"1. Harga sudah termasuk:\n   a. ...\n2. Semua sparepart yang diganti..."} className="mt-1" />
       </div>
 
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
-        <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Saving..." : "Create Invoice"}</Button>
+        <Button type="button" variant="outline" onClick={() => router.back()}>Batal</Button>
+        <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Menyimpan…" : "Simpan sebagai draf"}</Button>
       </div>
     </form>
   );

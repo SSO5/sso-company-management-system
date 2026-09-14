@@ -64,10 +64,10 @@ export function QuotationForm({ customers, contacts, opportunities, salesUsers, 
   async function onSubmit(data: QuotationInput) {
     const res = quotationId ? await updateQuotationAction(quotationId, data) : await createQuotationAction(data);
     if (res.ok) {
-      toast({ title: quotationId ? "Quotation updated" : "Quotation created", variant: "success" });
+      toast({ title: quotationId ? "Penawaran berhasil diperbarui" : "Draf penawaran berhasil dibuat", variant: "success" });
       router.push(`/sales/quotations/${res.data.id}`);
     } else {
-      toast({ title: "Unable to save quotation", description: res.error, variant: "destructive" });
+      toast({ title: "Penawaran belum dapat disimpan", description: res.error, variant: "destructive" });
     }
   }
 
@@ -75,70 +75,69 @@ export function QuotationForm({ customers, contacts, opportunities, salesUsers, 
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
       <div className="grid grid-cols-2 gap-4 rounded-lg border border-border bg-card p-4 md:grid-cols-3">
         <div className="space-y-1">
-          <Label>Customer</Label>
+          <Label>Pelanggan</Label>
           <Select {...register("customerId")} defaultValue="">
-            <option value="" disabled>Select customer</option>
+            <option value="" disabled>Pilih pelanggan</option>
             {customers.map((c) => <option key={c.id} value={c.id}>{c.number} — {c.companyName}</option>)}
           </Select>
           {errors.customerId && <p className="text-xs text-destructive">{errors.customerId.message}</p>}
         </div>
         <div className="space-y-1">
-          <Label>Contact</Label>
+          <Label>Kontak tujuan</Label>
           <Select {...register("contactId")} defaultValue="">
-            <option value="">None</option>
+            <option value="">Belum ditentukan</option>
             {filteredContacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </Select>
         </div>
         <div className="space-y-1">
-          <Label>Opportunity</Label>
+          <Label>Prospek terkait</Label>
           <Select {...register("opportunityId")} defaultValue="">
-            <option value="">None</option>
+            <option value="">Tidak terkait prospek</option>
             {filteredOpportunities.map((o) => <option key={o.id} value={o.id}>{o.number} — {o.name}</option>)}
           </Select>
         </div>
         <div className="space-y-1">
-          <Label>Sales PIC</Label>
+          <Label>PIC penawaran</Label>
           <Select {...register("salesPicId")} defaultValue="">
-            <option value="" disabled>Select</option>
+            <option value="" disabled>Pilih PIC</option>
             {salesUsers.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
           </Select>
           {errors.salesPicId && <p className="text-xs text-destructive">{errors.salesPicId.message}</p>}
         </div>
         <div className="space-y-1">
-          <Label>Signer (PDF name/title/signature)</Label>
+          <Label>Penandatangan PDF</Label>
           <Select {...register("signerId")} defaultValue="">
-            <option value="">Same as Sales PIC</option>
+            <option value="">Sama dengan PIC penawaran</option>
             {signerUsers.map((u) => <option key={u.id} value={u.id}>{u.name}{u.title ? ` — ${u.title}` : ""}</option>)}
           </Select>
         </div>
         <div className="space-y-1">
-          <Label>Quotation Date</Label>
+          <Label>Tanggal penawaran</Label>
           <Controller control={control} name="quotationDate" render={({ field }) => (
             <Input type="date" value={field.value ? new Date(field.value).toISOString().slice(0, 10) : ""} onChange={(e) => field.onChange(new Date(e.target.value))} />
           )} />
         </div>
         <div className="space-y-1">
-          <Label>Valid Until</Label>
+          <Label>Berlaku sampai</Label>
           <Controller control={control} name="validUntil" render={({ field }) => (
             <Input type="date" value={field.value ? new Date(field.value as unknown as string).toISOString().slice(0, 10) : ""} onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : null)} />
           )} />
         </div>
         <div className="col-span-2 space-y-1 md:col-span-3">
-          <Label>PDF Subject Line <span className="text-muted-foreground">(e.g. &quot;Quotation — Bracket Idler for Mechanical Parts&quot;)</span></Label>
+          <Label>Perihal pada PDF <span className="text-muted-foreground">(contoh: Penawaran Perbaikan Motor 55 kW)</span></Label>
           <Input {...register("subjectLine")} />
         </div>
         <div className="col-span-2 space-y-1 md:col-span-3">
-          <Label>Description</Label>
+          <Label>Ringkasan penawaran</Label>
           <Textarea rows={2} {...register("description")} />
         </div>
       </div>
 
       <div className="rounded-lg border border-border bg-card p-4">
         <div className="mb-1">
-          <Label>Commercial Provisions</Label>
+          <Label>Ketentuan komersial</Label>
           <p className="text-xs text-muted-foreground">
-            Isi enam poin ini persis seperti yang akan tercetak di halaman 2 Quotation PDF (Price, Validity, Lead Time,
-            Scope of Work, Payment Terms, Warranty). Sudah diisi dengan teks standar — ubah sesuai kebutuhan quotation ini.
+            Enam poin ini tercetak pada halaman kedua PDF: harga, masa berlaku, waktu pengerjaan, lingkup, pembayaran, dan garansi. Teks awal sudah disiapkan dan dapat disesuaikan.
           </p>
         </div>
         <div className="mt-3 space-y-3">
@@ -159,20 +158,20 @@ export function QuotationForm({ customers, contacts, opportunities, salesUsers, 
 
       <div className="rounded-lg border border-border bg-card p-4">
         <div className="mb-3 flex items-center justify-between">
-          <Label>Quotation Items</Label>
+          <Label>Rincian penawaran</Label>
           <Button type="button" size="sm" variant="outline" onClick={() => append({ itemName: "", quantity: 1, unit: "unit", unitPrice: 0, discountPercent: 0, taxPercent: 11 })}>
-            <Plus className="h-3.5 w-3.5" /> Add Item
+            <Plus className="h-3.5 w-3.5" /> Tambah rincian
           </Button>
         </div>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Item</TableHead>
-              <TableHead>Qty</TableHead>
-              <TableHead>Unit</TableHead>
-              <TableHead>Unit Price</TableHead>
-              <TableHead>Disc %</TableHead>
-              <TableHead>Tax %</TableHead>
+              <TableHead>Uraian</TableHead>
+              <TableHead>Jumlah</TableHead>
+              <TableHead>Satuan</TableHead>
+              <TableHead>Harga satuan</TableHead>
+              <TableHead>Potongan %</TableHead>
+              <TableHead>Pajak %</TableHead>
               <TableHead>Total</TableHead>
               <TableHead></TableHead>
             </TableRow>
@@ -201,23 +200,23 @@ export function QuotationForm({ customers, contacts, opportunities, salesUsers, 
         <div className="ml-auto mt-4 w-full max-w-xs space-y-1 text-sm">
           <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatCurrency(totals.subtotal)}</span></div>
           <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Discount</span>
+            <span className="text-muted-foreground">Potongan</span>
             <Input type="number" step="any" className="h-7 w-28 text-right" {...register("discount")} />
           </div>
-          <div className="flex justify-between"><span className="text-muted-foreground">Tax</span><span>{formatCurrency(totals.tax)}</span></div>
-          <div className="flex justify-between border-t border-border pt-1 font-semibold"><span>Grand Total</span><span>{formatCurrency(totals.grandTotal)}</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">Pajak</span><span>{formatCurrency(totals.tax)}</span></div>
+          <div className="flex justify-between border-t border-border pt-1 font-semibold"><span>Total penawaran</span><span>{formatCurrency(totals.grandTotal)}</span></div>
         </div>
       </div>
 
       <div className="space-y-1">
-        <Label>Notes</Label>
+        <Label>Catatan tambahan</Label>
         <Textarea rows={2} {...register("notes")} />
       </div>
 
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
+        <Button type="button" variant="outline" onClick={() => router.back()}>Batal</Button>
         <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Saving..." : quotationId ? "Save Changes" : "Save as Draft"}
+          {isSubmitting ? "Menyimpan…" : quotationId ? "Simpan perubahan" : "Simpan sebagai draf"}
         </Button>
       </div>
     </form>

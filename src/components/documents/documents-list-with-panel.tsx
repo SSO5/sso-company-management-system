@@ -7,6 +7,7 @@ import { useToast } from "@/components/ui/toast";
 import { trashDocument } from "@/server/documents/documents";
 import { formatDateTime, cn } from "@/lib/utils";
 import { FileText, Eye, Download, Trash2, X } from "lucide-react";
+import { useDocumentPreview } from "@/components/documents/document-preview";
 
 interface DocumentRow {
   id: string; originalName: string; fileSize: number; uploadedAt: Date;
@@ -31,6 +32,7 @@ export function DocumentsListWithPanel({ documents, folderId }: { documents: Doc
   const [pending, setPending] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+  const openPreview = useDocumentPreview();
 
   const selected = documents.find((d) => d.id === selectedId) ?? null;
 
@@ -46,12 +48,18 @@ export function DocumentsListWithPanel({ documents, folderId }: { documents: Doc
     <div className="flex items-start gap-4">
       <div className="min-w-0 flex-1">
         <Table>
-          <TableHeader><TableRow><TableHead>File</TableHead><TableHead>Size</TableHead><TableHead>Uploaded By</TableHead><TableHead>Uploaded At</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Dokumen</TableHead><TableHead>Ukuran</TableHead><TableHead>Diunggah oleh</TableHead><TableHead>Waktu unggah</TableHead></TableRow></TableHeader>
           <TableBody>
             {documents.map((d) => (
               <TableRow
                 key={d.id}
-                onClick={() => setSelectedId(d.id)}
+                onClick={() => {
+                  setSelectedId(d.id);
+                  openPreview({
+                    url: `/api/files/${d.id}?view=1`,
+                    title: d.originalName,
+                  });
+                }}
                 className={cn("cursor-pointer", selectedId === d.id && "bg-primary/5")}
               >
                 <TableCell className="flex items-center gap-2 font-medium">
@@ -70,33 +78,35 @@ export function DocumentsListWithPanel({ documents, folderId }: { documents: Doc
       {selected && (
         <div className="w-80 shrink-0 rounded-lg border border-border bg-card p-4">
           <div className="mb-3 flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Detail Dokumen</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Dokumen terpilih</span>
             <button type="button" onClick={() => setSelectedId(null)} aria-label="Tutup" className="text-muted-foreground hover:text-foreground">
               <X className="h-4 w-4" />
             </button>
           </div>
 
-          <div className="mb-4 flex h-32 flex-col items-center justify-center gap-2 rounded-md border border-border bg-muted">
+          <button
+            type="button"
+            onClick={() => openPreview({ url: `/api/files/${selected.id}?view=1`, title: selected.originalName })}
+            className="mb-4 flex h-32 w-full flex-col items-center justify-center gap-2 rounded-md border border-border bg-muted transition-colors hover:bg-primary/5"
+          >
             <div className="flex h-11 w-11 items-center justify-center rounded-md bg-primary/10">
               <FileText className="h-6 w-6 text-primary" />
             </div>
-            <span className="text-[11px] text-muted-foreground">Preview belum tersedia — gunakan Lihat</span>
-          </div>
+            <span className="text-[11px] text-muted-foreground">Klik untuk membuka pratinjau di samping</span>
+          </button>
 
           <p className="break-words text-sm font-semibold">{selected.originalName}</p>
           <p className="mb-4 text-xs text-muted-foreground">{formatBytes(selected.fileSize)}</p>
 
           <div className="mb-4 space-y-2 border-y border-border py-3 text-xs">
-            <div className="flex justify-between"><span className="text-muted-foreground">Diupload oleh</span><span className="font-medium">{selected.uploadedBy.name}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Tanggal upload</span><span className="font-medium">{formatDateTime(selected.uploadedAt)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Diunggah oleh</span><span className="font-medium">{selected.uploadedBy.name}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Waktu unggah</span><span className="font-medium">{formatDateTime(selected.uploadedAt)}</span></div>
             {selected.description && <p className="text-muted-foreground">{selected.description}</p>}
           </div>
 
           <div className="flex gap-2">
-            <a href={`/api/files/${selected.id}?view=1`} target="_blank" rel="noreferrer" className="flex-1">
-              <Button className="w-full"><Eye className="h-3.5 w-3.5" /> Lihat</Button>
-            </a>
-            <a href={`/api/files/${selected.id}`} target="_blank" rel="noreferrer">
+            <Button className="flex-1" onClick={() => openPreview({ url: `/api/files/${selected.id}?view=1`, title: selected.originalName })}><Eye className="h-3.5 w-3.5" /> Pratinjau</Button>
+            <a href={`/api/files/${selected.id}`} download data-preview="off">
               <Button variant="outline" size="icon"><Download className="h-3.5 w-3.5" /></Button>
             </a>
             <Button variant="outline" size="icon" disabled={pending} onClick={() => onDelete(selected.id)}>

@@ -14,7 +14,7 @@ const INDICATOR_STYLES: Record<string, string> = {
   paid: "bg-success/15 text-success",
 };
 const INDICATOR_LABEL: Record<string, string> = {
-  not_due: "Not Due", due_soon: "Due Soon", overdue: "Overdue", paid: "Paid",
+  not_due: "Belum jatuh tempo", due_soon: "Segera jatuh tempo", overdue: "Lewat jatuh tempo", paid: "Lunas",
 };
 
 export default async function ReceivablesPage() {
@@ -25,8 +25,9 @@ export default async function ReceivablesPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-semibold">Accounts Receivable</h1>
-        <p className="text-sm text-muted-foreground">{formatCurrency(totalOutstanding)} outstanding · {overdueCount} overdue</p>
+        <p className="workspace-eyebrow">Uang yang sudah ditagihkan</p>
+        <h1 className="text-xl font-semibold">Piutang pelanggan</h1>
+        <p className="text-sm text-muted-foreground">Sisa {formatCurrency(totalOutstanding)} · {overdueCount} invoice lewat jatuh tempo</p>
       </div>
 
       {/* Sudah ditagih tapi belum dibayar (di atas) vs BELUM ditagih sama
@@ -36,9 +37,9 @@ export default async function ReceivablesPage() {
           tempo. */}
       <BillingScheduleCard rows={billingSchedule} />
 
-      {rows.length === 0 ? <EmptyState title="No receivables to show" /> : (
+      {rows.length === 0 ? <EmptyState title="Tidak ada piutang yang perlu ditampilkan" /> : (
         <Table>
-          <TableHeader><TableRow><TableHead>Customer</TableHead><TableHead>Invoice</TableHead><TableHead>Invoice Date</TableHead><TableHead>Due Date</TableHead><TableHead>Tagihan Invoice</TableHead><TableHead>Paid</TableHead><TableHead>Outstanding</TableHead><TableHead>Days Overdue</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Pelanggan</TableHead><TableHead>Invoice</TableHead><TableHead>Tanggal invoice</TableHead><TableHead>Jatuh tempo</TableHead><TableHead>Nilai tagihan</TableHead><TableHead>Diterima</TableHead><TableHead>Sisa</TableHead><TableHead>Hari terlambat</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
           <TableBody>
             {rows.map((r) => (
               <TableRow key={r.id}>

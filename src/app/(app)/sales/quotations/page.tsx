@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatCurrency, formatDate, formatRevisedNumber } from "@/lib/utils";
 import { Plus } from "lucide-react";
+import { displayLabel } from "@/lib/display-labels";
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "success" | "warning" | "destructive" | "outline"> = {
   DRAFT: "secondary", SUBMITTED: "warning", UNDER_REVIEW: "warning", APPROVED: "outline",
@@ -20,23 +21,24 @@ export default async function QuotationsPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold">Quotations</h1>
-          <p className="text-sm text-muted-foreground">{quotations.length} quotation(s)</p>
+          <p className="workspace-eyebrow">Dokumen komersial pelanggan</p>
+          <h1 className="text-xl font-semibold">Penawaran</h1>
+          <p className="text-sm text-muted-foreground">{quotations.length} penawaran tercatat</p>
         </div>
-        <Link href="/sales/quotations/new"><Button><Plus className="h-4 w-4" /> New Quotation</Button></Link>
+        <Link href="/sales/quotations/new"><Button><Plus className="h-4 w-4" /> Buat penawaran</Button></Link>
       </div>
 
       {quotations.length === 0 ? (
-        <EmptyState title="No quotations yet" description="Create a quotation from an opportunity to start the deal cycle." />
+        <EmptyState title="Belum ada penawaran" description="Buat penawaran dari ruang prospek agar pelanggan, kontak, dan PIC terisi otomatis." />
       ) : (
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Number</TableHead>
-              <TableHead>Customer</TableHead>
-              <TableHead>Sales PIC</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Grand Total</TableHead>
+              <TableHead>Nomor</TableHead>
+              <TableHead>Pelanggan</TableHead>
+              <TableHead>PIC</TableHead>
+              <TableHead>Tanggal</TableHead>
+              <TableHead>Total penawaran</TableHead>
               <TableHead>Status</TableHead>
             </TableRow>
           </TableHeader>
@@ -48,7 +50,7 @@ export default async function QuotationsPage() {
                 <TableCell>{q.salesPic.name}</TableCell>
                 <TableCell>{formatDate(q.quotationDate)}</TableCell>
                 <TableCell>{formatCurrency(Number(q.grandTotal))}</TableCell>
-                <TableCell><Badge variant={STATUS_VARIANT[q.status]}>{q.status}</Badge></TableCell>
+                <TableCell><Badge variant={STATUS_VARIANT[q.status]}>{displayLabel(q.status)}</Badge></TableCell>
               </TableRow>
             ))}
           </TableBody>

@@ -8,13 +8,13 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { Plus, FileDown } from "lucide-react";
 
 const STATUS_LABEL: Record<string, string> = {
-  DRAFT: "Draft",
-  SUBMITTED: "Awaiting Approval",
-  APPROVED: "Approved",
-  REJECTED: "Rejected",
-  SENT: "Sent",
-  CONFIRMED: "Confirmed",
-  CANCELLED: "Cancelled",
+  DRAFT: "Draf",
+  SUBMITTED: "Menunggu persetujuan",
+  APPROVED: "Disetujui",
+  REJECTED: "Ditolak",
+  SENT: "Dikirim",
+  CONFIRMED: "Dikonfirmasi",
+  CANCELLED: "Dibatalkan",
 };
 
 const NO_PROJECT_KEY = "__none__";
@@ -47,14 +47,15 @@ export default async function VendorPurchaseOrdersPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold">Procurement — Vendor Purchase Orders</h1>
-          <p className="text-sm text-muted-foreground">{pos.length} PO issued from SSO to suppliers / subcontractors, across {groups.length} project(s).</p>
+          <p className="workspace-eyebrow">Pembelian untuk pelaksanaan pekerjaan</p>
+          <h1 className="text-xl font-semibold">Pesanan ke vendor</h1>
+          <p className="text-sm text-muted-foreground">{pos.length} PO vendor pada {groups.length} kelompok proyek.</p>
         </div>
-        <Link href="/procurement/vendor-po/new"><Button><Plus className="h-4 w-4" /> New Vendor PO</Button></Link>
+        <Link href="/procurement/vendor-po/new"><Button><Plus className="h-4 w-4" /> Buat PO vendor</Button></Link>
       </div>
 
       {pos.length === 0 ? (
-        <div className="rounded-lg border border-border bg-card py-8 text-center text-sm text-muted-foreground">No vendor purchase orders yet.</div>
+        <div className="rounded-lg border border-border bg-card py-8 text-center text-sm text-muted-foreground">Belum ada PO vendor.</div>
       ) : (
         <div className="space-y-4">
           {groups.map((g) => {
@@ -75,9 +76,9 @@ export default async function VendorPurchaseOrdersPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Number</TableHead>
+                      <TableHead>Nomor</TableHead>
                       <TableHead>Vendor</TableHead>
-                      <TableHead>PO Date</TableHead>
+                      <TableHead>Tanggal PO</TableHead>
                       <TableHead>Total</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead></TableHead>
@@ -94,7 +95,7 @@ export default async function VendorPurchaseOrdersPage() {
                         <TableCell>{formatCurrency(Number(po.grandTotal))}</TableCell>
                         <TableCell>{STATUS_LABEL[po.status] ?? po.status}</TableCell>
                         <TableCell className="text-right">
-                          <a href={`/api/procurement/vendor-po/${po.id}/pdf`} target="_blank" rel="noreferrer">
+                          <a href={`/api/procurement/vendor-po/${po.id}/pdf?view=1`} data-document-title={`PO vendor ${po.number}`}>
                             <Button size="icon" variant="ghost"><FileDown className="h-4 w-4" /></Button>
                           </a>
                         </TableCell>

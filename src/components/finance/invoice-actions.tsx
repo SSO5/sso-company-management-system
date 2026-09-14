@@ -24,7 +24,7 @@ export function InvoiceActions({ id, status, role }: { id: string; status: Invoi
     if (res.ok) {
       router.refresh();
     } else {
-      toast({ title: "Action failed", description: res.error, variant: "destructive" });
+      toast({ title: "Tindakan belum dapat diproses", description: res.error, variant: "destructive" });
     }
   }
 
@@ -37,24 +37,24 @@ export function InvoiceActions({ id, status, role }: { id: string; status: Invoi
   return (
     <div className="flex flex-wrap gap-2">
       {status === "DRAFT" && canEditFinance && (
-        <Button size="sm" disabled={pending} onClick={() => run(() => submitInvoiceAction(id))}>Submit for Approval</Button>
+        <Button size="sm" disabled={pending} onClick={() => run(() => submitInvoiceAction(id))}>Ajukan persetujuan</Button>
       )}
       {status === "SUBMITTED" && isAdmin && (
         <>
-          <Button size="sm" disabled={pending} onClick={() => run(() => approveInvoiceAction(id))}>Approve</Button>
-          <Button size="sm" variant="destructive" disabled={pending} onClick={() => setRejectOpen(true)}>Reject</Button>
+          <Button size="sm" disabled={pending} onClick={() => run(() => approveInvoiceAction(id))}>Setujui</Button>
+          <Button size="sm" variant="destructive" disabled={pending} onClick={() => setRejectOpen(true)}>Tolak</Button>
         </>
       )}
       {status === "APPROVED" && canEditFinance && (
-        <Button size="sm" disabled={pending} onClick={() => run(() => markInvoiceIssuedAction(id))}>Mark Issued to Customer</Button>
+        <Button size="sm" disabled={pending} onClick={() => run(() => markInvoiceIssuedAction(id))}>Tandai diterbitkan</Button>
       )}
 
-      <Dialog open={rejectOpen} onOpenChange={setRejectOpen} title="Reject Invoice" description="Provide a reason — this is recorded on the audit trail.">
+      <Dialog open={rejectOpen} onOpenChange={setRejectOpen} title="Tolak invoice" description="Alasan disimpan dalam riwayat pemeriksaan.">
         <div className="space-y-3">
-          <Textarea placeholder="Reason for rejection" value={reason} onChange={(e) => setReason(e.target.value)} rows={3} />
+          <Textarea placeholder="Alasan penolakan" value={reason} onChange={(e) => setReason(e.target.value)} rows={3} />
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setRejectOpen(false)}>Cancel</Button>
-            <Button variant="destructive" disabled={!reason || pending} onClick={() => { setRejectOpen(false); run(() => rejectInvoiceAction(id, reason)); }}>Reject</Button>
+            <Button variant="outline" onClick={() => setRejectOpen(false)}>Batal</Button>
+            <Button variant="destructive" disabled={!reason || pending} onClick={() => { setRejectOpen(false); run(() => rejectInvoiceAction(id, reason)); }}>Tolak invoice</Button>
           </div>
         </div>
       </Dialog>

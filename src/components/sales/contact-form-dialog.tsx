@@ -29,33 +29,33 @@ export function ContactFormDialog({
     const res = await createContact(payload);
     setPending(false);
     if (res.ok) {
-      toast({ title: "Contact added", variant: "success" });
+      toast({ title: "Kontak berhasil ditambahkan", variant: "success" });
       setOpen(false);
       router.refresh();
     } else {
-      toast({ title: "Unable to save contact", description: res.error, variant: "destructive" });
+      toast({ title: "Kontak belum dapat disimpan", description: res.error, variant: "destructive" });
     }
   }
 
   return (
     <>
       <DialogTrigger trigger={trigger} onClick={() => setOpen(true)} />
-      <Dialog open={open} onOpenChange={setOpen} title="New Contact">
+      <Dialog open={open} onOpenChange={setOpen} title="Tambahkan kontak pelanggan" description="Simpan orang yang dapat dihubungi agar bisa dipilih kembali pada penawaran dan invoice.">
         <form onSubmit={onSubmit} className="space-y-3">
           <div className="space-y-1">
-            <Label htmlFor="customerId">Customer</Label>
+            <Label htmlFor="customerId">Pelanggan</Label>
             <Select id="customerId" name="customerId" required defaultValue="">
-              <option value="" disabled>Select customer</option>
+              <option value="" disabled>Pilih pelanggan</option>
               {customers.map((c) => <option key={c.id} value={c.id}>{c.number} — {c.companyName}</option>)}
             </Select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name">Nama</Label>
               <Input id="name" name="name" required />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="position">Position</Label>
+              <Label htmlFor="position">Jabatan</Label>
               <Input id="position" name="position" />
             </div>
             <div className="space-y-1">
@@ -63,7 +63,7 @@ export function ContactFormDialog({
               <Input id="email" name="email" type="email" />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="phone">Phone</Label>
+              <Label htmlFor="phone">Telepon</Label>
               <Input id="phone" name="phone" />
             </div>
             <div className="space-y-1">
@@ -72,12 +72,12 @@ export function ContactFormDialog({
             </div>
             <div className="flex items-end gap-2 pb-1.5">
               <input id="isPrimary" name="isPrimary" type="checkbox" className="h-4 w-4" />
-              <Label htmlFor="isPrimary">Primary contact</Label>
+              <Label htmlFor="isPrimary">Kontak utama</Label>
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button type="submit" disabled={pending}>{pending ? "Saving..." : "Add Contact"}</Button>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Batal</Button>
+            <Button type="submit" disabled={pending}>{pending ? "Menyimpan…" : "Simpan kontak"}</Button>
           </div>
         </form>
       </Dialog>

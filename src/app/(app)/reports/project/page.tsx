@@ -8,18 +8,18 @@ import { TriangleAlert } from "lucide-react";
 export default async function ProjectReportPage() {
   const r = await getProjectReport();
   const kpis = [
-    { label: "Total Projects", value: r.total },
-    { label: "Active", value: r.active },
-    { label: "Completed", value: r.completed },
+    { label: "Total proyek", value: r.total },
+    { label: "Aktif", value: r.active },
+    { label: "Selesai", value: r.completed },
     { label: "Butuh Perhatian", value: r.signalsDetected, warn: r.signalsDetected > 0 },
-    { label: "Delayed (End Date)", value: r.delayed },
-    { label: "Avg Progress", value: `${r.avgProgress}%` },
-    { label: "Avg Deviasi Jadwal", value: `${r.avgScheduleDeviation}%`, warn: r.avgScheduleDeviation > 15 },
+    { label: "Lewat target akhir", value: r.delayed },
+    { label: "Rata-rata progres", value: `${r.avgProgress}%` },
+    { label: "Rata-rata deviasi jadwal", value: `${r.avgScheduleDeviation}%`, warn: r.avgScheduleDeviation > 15 },
   ];
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-xl font-semibold">Project Report</h1></div>
+      <div><p className="workspace-eyebrow">Kondisi seluruh kontrak</p><h1 className="text-xl font-semibold">Laporan proyek</h1></div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
         {kpis.map((k) => (
@@ -31,10 +31,10 @@ export default async function ProjectReportPage() {
       </div>
 
       <Card>
-        <CardHeader><CardTitle className="flex items-center gap-1.5"><TriangleAlert className="h-4 w-4 text-destructive" /> Project Butuh Perhatian</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-1.5"><TriangleAlert className="h-4 w-4 text-destructive" /> Proyek yang perlu perhatian</CardTitle></CardHeader>
         <CardContent>
           {r.riskyProjects.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Tidak ada project Active dengan sinyal risiko saat ini.</p>
+            <p className="text-sm text-muted-foreground">Tidak ada proyek aktif dengan sinyal risiko saat ini.</p>
           ) : (
             <div className="space-y-2">
               {r.riskyProjects.map((p) => (
@@ -57,16 +57,16 @@ export default async function ProjectReportPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Budget vs Realisasi Biaya (Top 10 Active Project)</CardTitle>
+          <CardTitle>Anggaran dan realisasi biaya (10 proyek aktif)</CardTitle>
         </CardHeader>
         <CardContent>
           {r.budgetVsCost.length === 0 ? (
-            <EmptyState title="Belum ada project Active dengan biaya tercatat" />
+            <EmptyState title="Belum ada proyek aktif dengan biaya tercatat" />
           ) : (
             <GroupedBarChart
               data={r.budgetVsCost}
               bars={[
-                { key: "budget", color: "#3b82f6", label: "Budget" },
+                { key: "budget", color: "#3b82f6", label: "Anggaran" },
                 { key: "cost", color: "#ef4444", label: "Realisasi Biaya" },
               ]}
             />
@@ -74,7 +74,7 @@ export default async function ProjectReportPage() {
         </CardContent>
       </Card>
 
-      <Card><CardHeader><CardTitle>Project Status Breakdown</CardTitle></CardHeader><CardContent><SimplePieChart data={r.statusBreakdown} /></CardContent></Card>
+      <Card><CardHeader><CardTitle>Komposisi status proyek</CardTitle></CardHeader><CardContent><SimplePieChart data={r.statusBreakdown} /></CardContent></Card>
     </div>
   );
 }

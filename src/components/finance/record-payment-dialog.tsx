@@ -53,19 +53,19 @@ export function RecordPaymentDialog({ invoiceId, outstanding, trigger }: { invoi
     fd.set("withholdingTax", String(withholdingNum));
     const res = await recordPaymentAction(fd);
     setPending(false);
-    if (res.ok) { toast({ title: "Payment recorded", variant: "success" }); setOpen(false); router.refresh(); }
-    else toast({ title: "Unable to record payment", description: res.error, variant: "destructive" });
+    if (res.ok) { toast({ title: "Penerimaan berhasil dicatat", variant: "success" }); setOpen(false); router.refresh(); }
+    else toast({ title: "Penerimaan belum dapat dicatat", description: res.error, variant: "destructive" });
   }
 
   return (
     <>
       <DialogTrigger trigger={trigger} onClick={() => setOpen(true)} />
-      <Dialog open={open} onOpenChange={setOpen} title="Record Payment" description={`Outstanding balance: ${formatCurrency(outstanding)}`}>
+      <Dialog open={open} onOpenChange={setOpen} title="Catat penerimaan pembayaran" description={`Sisa tagihan tercatat: ${formatCurrency(outstanding)}`}>
         <form onSubmit={onSubmit} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1"><Label>Payment Date</Label><Input name="paymentDate" type="date" required defaultValue={new Date().toISOString().slice(0,10)} /></div>
+            <div className="space-y-1"><Label>Tanggal diterima</Label><Input name="paymentDate" type="date" required defaultValue={new Date().toISOString().slice(0,10)} /></div>
             <div className="space-y-1">
-              <Label>Amount diterima (tunai)</Label>
+              <Label>Jumlah kas yang diterima</Label>
               {/* CurrencyInput: thousand-grouped display ("150.000.000") with
                   the plain digits submitted under name="amount" — one zero
                   too many is otherwise invisible in a bare number field. */}
@@ -79,10 +79,10 @@ export function RecordPaymentDialog({ invoiceId, outstanding, trigger }: { invoi
               />
             </div>
             <div className="space-y-1">
-              <Label>Method</Label>
+              <Label>Metode penerimaan</Label>
               <Select name="method" defaultValue="BANK_TRANSFER">
-                <option value="BANK_TRANSFER">Bank Transfer</option><option value="CASH">Cash</option>
-                <option value="CHECK">Check</option><option value="CREDIT_CARD">Credit Card</option><option value="OTHER">Other</option>
+                <option value="BANK_TRANSFER">Transfer bank</option><option value="CASH">Tunai</option>
+                <option value="CHECK">Cek</option><option value="CREDIT_CARD">Kartu kredit</option><option value="OTHER">Lainnya</option>
               </Select>
             </div>
             <div className="col-span-2 flex items-center gap-2 rounded-md border border-border p-2">
@@ -109,28 +109,28 @@ export function RecordPaymentDialog({ invoiceId, outstanding, trigger }: { invoi
                 </p>
               </div>
             )}
-            <div className="space-y-1"><Label>Reference Number</Label><Input name="referenceNumber" /></div>
-            <div className="space-y-1"><Label>Bank Account</Label><Input name="bankAccount" /></div>
+            <div className="space-y-1"><Label>Nomor referensi</Label><Input name="referenceNumber" /></div>
+            <div className="space-y-1"><Label>Rekening penerima</Label><Input name="bankAccount" /></div>
             <div className="col-span-2 space-y-1">
               <Label>Bukti Transfer <span className="text-destructive">*</span></Label>
               <Input name="file" type="file" required accept=".pdf,.jpg,.jpeg,.png,.webp" />
               <p className="text-[11px] text-muted-foreground">Foto/PDF bukti transfer wajib diupload — pembayaran tidak bisa dicatat tanpa bukti.</p>
             </div>
             <div className="col-span-2 space-y-1">
-              <Label>Notes {!willSettleInFull && amountNum > 0 && <span className="text-destructive">* (wajib — masih ada sisa tagihan)</span>}</Label>
+              <Label>Catatan {!willSettleInFull && amountNum > 0 && <span className="text-destructive">* (wajib — masih ada sisa tagihan)</span>}</Label>
               <Textarea name="notes" rows={2} required={amountNum > 0 && !willSettleInFull} />
             </div>
             {amountNum > 0 && (
               <div className={`col-span-2 rounded-md border p-2 text-xs ${willSettleInFull ? "border-success/40 bg-success/10" : "border-warning/40 bg-warning/10"}`}>
-                Sisa tagihan setelah payment ini: <span className="font-medium">{formatCurrency(remaining)}</span> — status akan menjadi{" "}
-                <span className="font-medium">{willSettleInFull ? "PAID" : "PARTIALLY_PAID"}</span>
-                {!willSettleInFull && ` (tetap ditandai OVERDUE lagi kalau sudah lewat jatuh tempo)`}
+                Sisa tagihan setelah penerimaan ini: <span className="font-medium">{formatCurrency(remaining)}</span> — status menjadi{" "}
+                <span className="font-medium">{willSettleInFull ? "Lunas" : "Dibayar sebagian"}</span>
+                {!willSettleInFull && ` dan akan kembali ditandai terlambat bila melewati jatuh tempo`}
               </div>
             )}
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button type="submit" disabled={pending}>{pending ? "Saving..." : "Record Payment"}</Button>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Batal</Button>
+            <Button type="submit" disabled={pending}>{pending ? "Menyimpan…" : "Catat penerimaan"}</Button>
           </div>
         </form>
       </Dialog>

@@ -43,8 +43,8 @@ export function CostingSectionCard({ control, register, sectionIndex, removeSect
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <div className="flex flex-1 items-center gap-2">
           <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <Input className="h-8 w-20" placeholder="Code" {...register(`sections.${sectionIndex}.code`)} />
-          <Input className="h-8 flex-1" placeholder="Section name (e.g. Material, Fabrication)" {...register(`sections.${sectionIndex}.name`)} />
+          <Input className="h-8 w-20" placeholder="Kode" {...register(`sections.${sectionIndex}.code`)} />
+          <Input className="h-8 flex-1" placeholder="Nama kelompok, contoh: Material" {...register(`sections.${sectionIndex}.name`)} />
         </div>
         <Button type="button" size="icon" variant="ghost" onClick={removeSection} disabled={!canRemoveSection}>
           <Trash2 className="h-4 w-4" />
@@ -61,35 +61,35 @@ export function CostingSectionCard({ control, register, sectionIndex, removeSect
             <div key={field.id} className="rounded-md border border-border p-3">
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <div className="col-span-2 space-y-1 sm:col-span-4">
-                  <Label className="text-xs">Item / Description</Label>
-                  <Input placeholder="e.g. Gearbox housing, cast iron" {...register(`sections.${sectionIndex}.items.${itemIndex}.name`)} />
+                  <Label className="text-xs">Uraian biaya</Label>
+                  <Input placeholder="Contoh: Gearbox housing, cast iron" {...register(`sections.${sectionIndex}.items.${itemIndex}.name`)} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Qty</Label>
+                  <Label className="text-xs">Jumlah</Label>
                   <Input type="number" step="any" {...register(`sections.${sectionIndex}.items.${itemIndex}.quantity`)} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Unit</Label>
+                  <Label className="text-xs">Satuan</Label>
                   <Input placeholder="pcs / lot / kg" {...register(`sections.${sectionIndex}.items.${itemIndex}.unit`)} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Cost / Unit</Label>
+                  <Label className="text-xs">Biaya per satuan</Label>
                   <Input type="number" step="any" {...register(`sections.${sectionIndex}.items.${itemIndex}.costUnitPrice`)} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Supplier Disc %</Label>
+                  <Label className="text-xs">Potongan vendor %</Label>
                   <Input type="number" step="any" {...register(`sections.${sectionIndex}.items.${itemIndex}.supplierDiscountPercent`)} />
                 </div>
                 <div className="col-span-2 space-y-1 sm:col-span-4">
-                  <Label className="text-xs">Margin % <span className="text-muted-foreground">(varies per item — cross-subsidize freely)</span></Label>
+                  <Label className="text-xs">Margin % <span className="text-muted-foreground">(dapat berbeda per rincian)</span></Label>
                   <Input type="number" step="any" {...register(`sections.${sectionIndex}.items.${itemIndex}.marginPercent`)} />
                 </div>
               </div>
               <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2 text-xs">
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground">
-                  <span>Cost total: <span className="font-medium text-foreground">{formatCurrency(calc.costTotal)}</span></span>
-                  <span>Selling/unit: <span className="font-medium text-foreground">{formatCurrency(calc.sellingUnitPrice)}</span></span>
-                  <span>Selling total: <span className="font-medium text-foreground">{formatCurrency(calc.sellingTotalPrice)}</span></span>
+                  <span>Total biaya: <span className="font-medium text-foreground">{formatCurrency(calc.costTotal)}</span></span>
+                  <span>Harga jual/satuan: <span className="font-medium text-foreground">{formatCurrency(calc.sellingUnitPrice)}</span></span>
+                  <span>Total harga jual: <span className="font-medium text-foreground">{formatCurrency(calc.sellingTotalPrice)}</span></span>
                 </div>
                 <Button type="button" size="sm" variant="ghost" onClick={() => remove(itemIndex)} disabled={fields.length === 1}>
                   <Trash2 className="h-3.5 w-3.5" />
@@ -102,11 +102,11 @@ export function CostingSectionCard({ control, register, sectionIndex, removeSect
           type="button" size="sm" variant="outline"
           onClick={() => append({ name: "", quantity: 1, unit: "pcs", currency: "IDR", costUnitPrice: 0, supplierDiscountPercent: 0, marginPercent: 35 })}
         >
-          <Plus className="h-3.5 w-3.5" /> Add Line Item
+          <Plus className="h-3.5 w-3.5" /> Tambah rincian biaya
         </Button>
         <div className="flex justify-end gap-4 border-t border-border pt-2 text-sm">
-          <span className="text-muted-foreground">Section cost: <span className="font-medium text-foreground">{formatCurrency(sectionCost)}</span></span>
-          <span className="text-muted-foreground">Section selling: <span className="font-semibold text-foreground">{formatCurrency(sectionSelling)}</span></span>
+          <span className="text-muted-foreground">Biaya kelompok: <span className="font-medium text-foreground">{formatCurrency(sectionCost)}</span></span>
+          <span className="text-muted-foreground">Harga jual kelompok: <span className="font-semibold text-foreground">{formatCurrency(sectionSelling)}</span></span>
         </div>
       </CardContent>
     </Card>

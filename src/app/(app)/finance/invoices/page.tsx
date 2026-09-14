@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { invoiceDueAmount, invoiceOutstanding, looksLikeUnrecordedWithholding } from "@/lib/workflows/calculations";
 import { Plus } from "lucide-react";
+import { displayLabel } from "@/lib/display-labels";
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "success" | "warning" | "destructive" | "outline"> = {
   DRAFT: "secondary", SUBMITTED: "warning", APPROVED: "success", REJECTED: "destructive",
@@ -20,8 +21,8 @@ export default async function InvoicesPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-xl font-semibold">Invoices</h1><p className="text-sm text-muted-foreground">{invoices.length} invoice(s)</p></div>
-        <Link href="/finance/invoices/new"><Button><Plus className="h-4 w-4" /> New Invoice</Button></Link>
+        <div><p className="workspace-eyebrow">Penagihan dan penerimaan</p><h1 className="text-xl font-semibold">Invoice pelanggan</h1><p className="text-sm text-muted-foreground">{invoices.length} invoice tercatat</p></div>
+        <Link href="/finance/invoices/new"><Button><Plus className="h-4 w-4" /> Buat invoice</Button></Link>
       </div>
 
       {/* Belum ditagih sama sekali — bukan invoice yang sudah ada di tabel
@@ -30,9 +31,9 @@ export default async function InvoicesPage() {
           persis sebelum menekan "New Invoice". */}
       <BillingScheduleCard rows={billingSchedule} compact title="Belum Dibuatkan Invoice" />
 
-      {invoices.length === 0 ? <EmptyState title="No invoices yet" /> : (
+      {invoices.length === 0 ? <EmptyState title="Belum ada invoice" description="Buat draf invoice dari PO atau proyek yang siap ditagihkan." /> : (
         <Table>
-          <TableHeader><TableRow><TableHead>Number</TableHead><TableHead>Customer</TableHead><TableHead>Project</TableHead><TableHead>Due Date</TableHead><TableHead>Tagihan Invoice</TableHead><TableHead>Paid</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Nomor</TableHead><TableHead>Pelanggan</TableHead><TableHead>Proyek</TableHead><TableHead>Jatuh tempo</TableHead><TableHead>Nilai tagihan</TableHead><TableHead>Diterima</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
           <TableBody>
             {invoices.map((inv) => (
               <TableRow key={inv.id}>
@@ -48,7 +49,7 @@ export default async function InvoicesPage() {
                 <TableCell>{formatCurrency(invoiceDueAmount(inv))}</TableCell>
                 <TableCell>{formatCurrency(Number(inv.paidAmount))}</TableCell>
                 <TableCell>
-                  <Badge variant={STATUS_VARIANT[inv.status]}>{inv.status}</Badge>
+                  <Badge variant={STATUS_VARIANT[inv.status]}>{displayLabel(inv.status)}</Badge>
                   {(inv.status === "OVERDUE" || inv.status === "PARTIALLY_PAID") && invoiceOutstanding(inv) > 0 && (
                     <p className="mt-0.5 whitespace-nowrap text-[11px] text-muted-foreground">
                       Sisa {formatCurrency(invoiceOutstanding(inv))}
