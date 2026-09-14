@@ -68,6 +68,7 @@ export async function getMyActionItems(): Promise<ActionItem[]> {
     openProgressReports,
     unassignedProjects,
     billingProjects,
+    financeWorkItems,
   ] = await Promise.all([
     isApprover
       ? prisma.quotation.findMany({
@@ -260,6 +261,15 @@ export async function getMyActionItems(): Promise<ActionItem[]> {
           },
         })
       : Promise.resolve([]),
+    seesFinance
+      ? prisma.financeWorkItem.findMany({
+          where: {
+            status: { not: "DONE" },
+            ...(actor.role === "FINANCE" ? { ownerId: actor.userId } : {}),
+          },
+          orderBy: [{ dueAt: "asc" }, { createdAt: "desc" }],
+        })
+      : Promise.resolve([]),
   ]);
 
   const billingDueSoon = computeBillingSchedule(billingProjects).filter(
@@ -380,6 +390,22 @@ export async function getMyActionItems(): Promise<ActionItem[]> {
       subtitle: r.customerName,
       href: "/finance/receivables",
       dueDate: r.nextBillingDate,
+    });
+  }
+  for (const work of financeWorkItems) {
+    items.push({
+      id: `finance-work-${work.id}`,
+      module: "finance",
+      severity:
+        work.dueAt && work.dueAt < now
+          ? "overdue"
+          : work.status === "WAITING"
+            ? "attention"
+            : "critical",
+      title: work.title,
+      subtitle: work.reference || "Pekerjaan Finance",
+      href: "/finance",
+      dueDate: work.dueAt,
     });
   }
 
