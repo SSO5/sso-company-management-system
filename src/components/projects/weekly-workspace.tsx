@@ -126,6 +126,7 @@ export function WeeklyWorkspace({
     [previous, selected],
   );
   const [filter, setFilter] = useState("action");
+  const [showAllHistory, setShowAllHistory] = useState(false);
   const [busy, setBusy] = useState("");
   const [modal, setModal] = useState<
     "upload" | "settings" | "send" | "reject" | "followup" | "details" | null
@@ -372,46 +373,52 @@ export function WeeklyWorkspace({
             <div className="mt-4">{sourceList}</div>
           </details>
           <div className="space-y-3">
-            {data.reports.map((r) => (
-              <details key={r.id} className="rounded-xl border bg-white p-4">
-                <summary className="cursor-pointer text-sm font-semibold">
-                  SSO · {r.number} · {formatDate(r.inspectionDate)}
-                </summary>
-                <div className="mt-3 space-y-3">
-                  <Button
-                    variant="outline"
-                    onClick={() =>
-                      previewDocument({
-                        title: r.number,
-                        url: `/api/progress-reports/${r.id}/pdf?view=1`,
-                      })
-                    }
-                  >
-                    <Eye size={15} /> Lihat di samping
-                  </Button>
-                  {!r.reviews.length && (
-                    <p className="text-xs text-muted-foreground">
-                      Belum ada persetujuan atau catatan pengiriman.
-                    </p>
-                  )}
-                  {r.reviews.map((v) => (
-                    <div key={v.id} className="rounded-lg bg-slate-50 p-3 text-sm">
-                      <b>Versi {v.version} · {reviewLabels[v.status]}</b>
-                      <p className="text-xs text-muted-foreground">
-                        Diajukan {formatDate(v.requestedAt)}
-                        {v.decidedAt ? ` · Diputuskan ${formatDate(v.decidedAt)}` : ""}
-                      </p>
-                      {v.decisionNote && <p className="mt-2">{v.decisionNote}</p>}
-                      {v.dispatch && (
-                        <p className="mt-2">
-                          {v.dispatch.channel} → {v.dispatch.recipient} · {formatDate(v.dispatch.sentAt)}
-                        </p>
-                      )}
+            {data.reports.slice(0, showAllHistory ? undefined : 5).map((r) => (
+              <div key={r.id} className="overflow-hidden rounded-xl border bg-white">
+                <button
+                  type="button"
+                  className="flex min-h-14 w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50"
+                  onClick={() =>
+                    previewDocument({
+                      title: `${r.number} · ${formatDate(r.inspectionDate)}`,
+                      url: `/api/progress-reports/${r.id}/pdf?view=1`,
+                    })
+                  }
+                >
+                  <span className="text-sm font-semibold">SSO · {r.number} · {formatDate(r.inspectionDate)}</span>
+                  <span className="flex shrink-0 items-center gap-2 text-xs font-medium text-primary"><Eye size={15} /> Lihat di samping</span>
+                </button>
+                {r.reviews.length > 0 && (
+                  <details className="border-t bg-slate-50/60 px-4 py-3">
+                    <summary className="cursor-pointer text-xs font-medium">
+                      Persetujuan dan pengiriman ({r.reviews.length})
+                    </summary>
+                    <div className="mt-3 space-y-2">
+                      {r.reviews.map((v) => (
+                        <div key={v.id} className="rounded-lg bg-white p-3 text-sm">
+                          <b>Versi {v.version} · {reviewLabels[v.status]}</b>
+                          <p className="text-xs text-muted-foreground">
+                            Diajukan {formatDate(v.requestedAt)}
+                            {v.decidedAt ? ` · Diputuskan ${formatDate(v.decidedAt)}` : ""}
+                          </p>
+                          {v.decisionNote && <p className="mt-2">{v.decisionNote}</p>}
+                          {v.dispatch && (
+                            <p className="mt-2">
+                              {v.dispatch.channel} → {v.dispatch.recipient} · {formatDate(v.dispatch.sentAt)}
+                            </p>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </details>
+                  </details>
+                )}
+              </div>
             ))}
+            {data.reports.length > 5 && (
+              <Button variant="outline" onClick={() => setShowAllHistory((value) => !value)}>
+                {showAllHistory ? "Tampilkan 5 laporan terbaru" : `Lihat semua ${data.reports.length} laporan`}
+              </Button>
+            )}
           </div>
         </>
       ) : (
