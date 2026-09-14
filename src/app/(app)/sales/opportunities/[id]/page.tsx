@@ -37,6 +37,12 @@ export default async function OpportunityDetailPage({
     requireUser(),
     getJobChecklistFor("OPPORTUNITY", params.id),
   ]);
+  const latestCosting = o.costingSheets[0];
+  const latestQuotation = o.quotations[0];
+  const customerPo = latestQuotation?.purchaseOrders[0];
+  const project = o.projects[0];
+  const vendorPo = project?.vendorPurchaseOrders[0];
+  const invoice = project?.invoices[0];
 
   return (
     <div className="space-y-4">
@@ -58,7 +64,7 @@ export default async function OpportunityDetailPage({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Stage:</span>
+          <span className="text-xs text-muted-foreground">Tahap:</span>
           <OpportunityStageSelect id={o.id} status={o.status} />
           {(actor.role === "ADMIN" || actor.role === "IT") && (
             <OpportunityDeleteButton id={o.id} number={o.number} size="sm" />
@@ -68,17 +74,58 @@ export default async function OpportunityDetailPage({
 
       {o.projects.length > 0 && (
         <div className="rounded-md border border-success/30 bg-success/10 px-3 py-2 text-sm">
-          Won — Project{" "}
+          Menang — Proyek{" "}
           <Link
             href={`/projects/${o.projects[0].id}`}
             className="font-medium underline"
           >
             {o.projects[0].number}
           </Link>{" "}
-          was created and this Opportunity&apos;s folders were merged into it
-          automatically.
+          sudah dibuat dan dokumen prospek sudah dipindahkan ke ruang proyek.
         </div>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Alur dokumen komersial</CardTitle>
+          <p className="text-xs text-muted-foreground">Buka langkah berikutnya dari sini. Nomor, pelanggan, PIC, dan referensi diwarisi dari langkah sebelumnya; angka tetap harus diperiksa sebelum diajukan.</p>
+        </CardHeader>
+        <CardContent className="grid gap-2 lg:grid-cols-5">
+          {[
+            {
+              step: "01", title: "Costing internal", format: "Rahasia SSO",
+              status: latestCosting ? `${latestCosting.number}${latestCosting.revision ? `.R${latestCosting.revision}` : ""}` : "Belum dibuat",
+              href: latestCosting ? `/sales/costing/${latestCosting.id}` : `/sales/costing/new?opportunityId=${o.id}`,
+            },
+            {
+              step: "02", title: "Penawaran", format: "Format SSO",
+              status: latestQuotation ? formatRevisedNumber(latestQuotation.number, latestQuotation.revision) : "Belum dibuat",
+              href: latestQuotation ? `/sales/quotations/${latestQuotation.id}` : `/sales/quotations/new?opportunityId=${o.id}`,
+            },
+            {
+              step: "03", title: "PO customer", format: "File asli customer",
+              status: customerPo ? customerPo.number : latestQuotation ? "Perlu diunggah" : "Menunggu penawaran",
+              href: latestQuotation ? `/sales/quotations/${latestQuotation.id}` : `/sales/quotations/new?opportunityId=${o.id}`,
+            },
+            {
+              step: "04", title: "PO vendor", format: "Format SSO",
+              status: vendorPo ? `${vendorPo.number} · ${vendorPo.status}` : project ? "Belum dibuat" : "Menunggu proyek",
+              href: vendorPo ? `/procurement/vendor-po/${vendorPo.id}` : project ? `/procurement/vendor-po/new?projectId=${project.id}` : latestQuotation ? `/sales/quotations/${latestQuotation.id}` : `/sales/quotations/new?opportunityId=${o.id}`,
+            },
+            {
+              step: "05", title: "Invoice", format: "Format SSO",
+              status: invoice ? `${invoice.number} · ${invoice.status}` : project ? "Belum dibuat" : "Menunggu proyek",
+              href: invoice ? `/finance/invoices/${invoice.id}` : project ? `/finance/invoices/new?projectId=${project.id}` : latestQuotation ? `/sales/quotations/${latestQuotation.id}` : `/sales/quotations/new?opportunityId=${o.id}`,
+            },
+          ].map((item) => (
+            <Link key={item.step} href={item.href} className="group rounded-lg border border-border p-3 transition-colors hover:border-primary/40 hover:bg-primary/5">
+              <div className="flex items-center justify-between gap-2"><span className="font-mono text-xs text-primary">{item.step}</span><span className="text-[10px] text-muted-foreground">{item.format}</span></div>
+              <p className="mt-3 text-sm font-medium">{item.title}</p>
+              <p className="mt-1 truncate text-xs text-muted-foreground group-hover:text-foreground">{item.status}</p>
+            </Link>
+          ))}
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Card>
@@ -126,7 +173,7 @@ export default async function OpportunityDetailPage({
         </CardHeader>
         <CardContent>
           {folders.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No folders yet.</p>
+            <p className="text-sm text-muted-foreground">Belum ada folder.</p>
           ) : (
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
               {folders.map((f) => (
@@ -201,9 +248,7 @@ export default async function OpportunityDetailPage({
       {o.projects.length === 0 && o.quotations.length === 0 && (
         <div className="flex items-center gap-2 rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
           <FolderKanban className="h-4 w-4" />
-          Open the &quot;4. Quotation&quot; folder above to draft the first
-          quotation for this prospect — its number is issued the moment you save
-          it.
+          Mulai dari costing internal atau penawaran pada alur di atas. Nomor dokumen akan diterbitkan ketika draf pertama disimpan.
         </div>
       )}
     </div>

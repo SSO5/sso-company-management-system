@@ -50,6 +50,9 @@ export default async function NewQuotationPage({ searchParams }: { searchParams:
                 // even though the deal already has an owner and a contact.
                 salesPicId: lockedOpportunity.salesPicId ?? undefined,
                 contactId: lockedOpportunity.contactId ?? undefined,
+                subjectLine: lockedOpportunity.name,
+                description: lockedOpportunity.name,
+                validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
               }
             : undefined
         }

@@ -68,7 +68,7 @@ export function TaskPanel({
             description: fd.get("description"),
             assignedToId: fd.get("owner"),
             dueDate: fd.get("due") ? `${fd.get("due")}T17:00:00+07:00` : null,
-            priority: "MEDIUM",
+            priority: fd.get("priority"),
           });
       if (!result.ok) throw new Error(result.error);
       setCreate(false);
@@ -239,13 +239,10 @@ export function TaskPanel({
                 Pekerjaan yang perlu diselesaikan
                 <Input name="title" required />
               </label>
-              <label className="block text-sm">
-                Konteks / hasil yang diharapkan
-                <Textarea name="description" />
-              </label>
-              <label className="block text-sm">
-                PIC
-                <Select name="owner" required defaultValue="">
+              <div className="grid gap-4 sm:grid-cols-3">
+                <label className="block text-sm sm:col-span-2">
+                  PIC
+                  <Select name="owner" required defaultValue="">
                   <option value="" disabled>
                     Pilih penanggung jawab
                   </option>
@@ -254,12 +251,32 @@ export function TaskPanel({
                       {a.name}
                     </option>
                   ))}
-                </Select>
-              </label>
+                  </Select>
+                </label>
+                <label className="block text-sm">
+                  Prioritas
+                  <Select name="priority" defaultValue="HIGH">
+                    <option value="CRITICAL">Sangat penting</option>
+                    <option value="HIGH">Penting</option>
+                    <option value="MEDIUM">Normal</option>
+                    <option value="LOW">Rendah</option>
+                  </Select>
+                </label>
+              </div>
               <label className="block text-sm">
-                Target
+                Target selesai
                 <Input name="due" type="date" required />
               </label>
+              <details className="rounded-xl border p-3">
+                <summary className="cursor-pointer text-sm font-medium">
+                  Tambahkan konteks atau bukti sumber
+                </summary>
+                <Textarea
+                  className="mt-3"
+                  name="description"
+                  placeholder="Contoh: Email customer 10 Sep 2026 meminta estimasi selesai Motor 45 kW. Hasil yang diharapkan: estimasi terkonfirmasi dan customer mendapat jawaban."
+                />
+              </details>
             </>
           )}
           <Button disabled={pending}>

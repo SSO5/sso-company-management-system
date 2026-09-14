@@ -42,6 +42,11 @@ export async function getOpportunityDetail(id: string) {
         },
       },
       salesPic: { select: { name: true } },
+      costingSheets: {
+        where: { deletedAt: null },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, number: true, revision: true, status: true, quotationId: true },
+      },
       quotations: {
         where: { deletedAt: null },
         orderBy: { createdAt: "desc" },
@@ -51,6 +56,12 @@ export async function getOpportunityDetail(id: string) {
           revision: true,
           status: true,
           grandTotal: true,
+          purchaseOrders: {
+            where: { deletedAt: null },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: { id: true, number: true, status: true },
+          },
           revisionHistory: {
             orderBy: { revision: "desc" },
             select: {
@@ -68,7 +79,12 @@ export async function getOpportunityDetail(id: string) {
       // banner below once it's no longer the live outcome of this deal.
       projects: {
         where: { deletedAt: null },
-        select: { id: true, number: true },
+        select: {
+          id: true,
+          number: true,
+          vendorPurchaseOrders: { where: { deletedAt: null }, orderBy: { createdAt: "desc" }, take: 1, select: { id: true, number: true, status: true } },
+          invoices: { where: { deletedAt: null }, orderBy: { createdAt: "desc" }, take: 1, select: { id: true, number: true, status: true } },
+        },
       },
     },
   });

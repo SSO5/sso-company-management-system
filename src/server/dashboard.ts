@@ -13,7 +13,8 @@ import {
 /** Read-only home summary. No reminders, status writes, or historical reports on the hot path. */
 export async function getDashboardData() {
   const actor = await requireUserOrThrow();
-  const [invoices, projects, pipeline] = await Promise.all([
+  const seesFinance = ["ADMIN", "FINANCE", "VIEWER"].includes(actor.role);
+  const [invoices, projects, pipeline, bankRows, projectExpenses, companyExpenses, financeWork] = await Promise.all([
     prisma.invoice.findMany({
       where: { deletedAt: null, status: { in: [...ISSUED_INVOICE_STATUSES] } },
       select: {
@@ -68,7 +69,28 @@ export async function getDashboardData() {
       _count: { _all: true },
       _sum: { estimatedValue: true },
     }),
+    seesFinance
+      ? prisma.financeBankBalance.findMany({ orderBy: [{ asOf: "desc" }, { createdAt: "desc" }] })
+      : Promise.resolve([]),
+    seesFinance
+      ? prisma.projectExpense.findMany({
+          where: { deletedAt: null, approvalStatus: "APPROVED", paymentStatus: "UNPAID" },
+          select: { total: true },
+        })
+      : Promise.resolve([]),
+    seesFinance
+      ? prisma.companyExpense.findMany({
+          where: { deletedAt: null, approvalStatus: "APPROVED", paymentStatus: "UNPAID" },
+          select: { total: true },
+        })
+      : Promise.resolve([]),
+    seesFinance
+      ? prisma.financeWorkItem.count({ where: { status: { not: "DONE" } } })
+      : Promise.resolve(0),
   ]);
+  const latestBankRows = [...bankRows]
+    .sort((a, b) => b.asOf.getTime() - a.asOf.getTime())
+    .filter((row, index, rows) => rows.findIndex((candidate) => candidate.bankName === row.bankName) === index);
   const projectProgress = projects.map((p) => {
     const curve = computeSCurve({
       contractValue: Number(p.contractValue),
@@ -110,6 +132,10 @@ export async function getDashboardData() {
         .reduce((s, i) => s + Math.max(0, invoiceOutstanding(i)), 0),
       activeProjects: projects.length,
       atRiskProjects: projectProgress.filter((p) => p.atRisk).length,
+      latestCashBalance: latestBankRows.reduce((sum, row) => sum + Number(row.amount), 0),
+      cashAsOf: latestBankRows[0]?.asOf ?? null,
+      approvedUnpaidCosts: [...projectExpenses, ...companyExpenses].reduce((sum, row) => sum + Number(row.total), 0),
+      openFinanceWork: financeWork,
     },
     projectProgress,
     salesPipeline: {

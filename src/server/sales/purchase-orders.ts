@@ -277,7 +277,10 @@ export async function uploadAndExtractPurchaseOrder(
 
     let extracted: ExtractedPurchaseOrder | null = null;
     let extractionError: string | null = null;
-    if (!isExtractableMimeType(mimeType)) {
+    const skipExtraction = formData.get("skipExtraction") === "true";
+    if (skipExtraction) {
+      extractionError = "Pembacaan otomatis tidak digunakan.";
+    } else if (!isExtractableMimeType(mimeType)) {
       extractionError = "Tipe file ini tidak didukung untuk ekstraksi otomatis (hanya PDF/gambar) — isi data PO secara manual.";
     } else {
       try {

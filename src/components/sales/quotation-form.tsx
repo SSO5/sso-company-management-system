@@ -133,14 +133,12 @@ export function QuotationForm({ customers, contacts, opportunities, salesUsers, 
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-card p-4">
-        <div className="mb-1">
-          <Label>Ketentuan komersial</Label>
-          <p className="text-xs text-muted-foreground">
-            Enam poin ini tercetak pada halaman kedua PDF: harga, masa berlaku, waktu pengerjaan, lingkup, pembayaran, dan garansi. Teks awal sudah disiapkan dan dapat disesuaikan.
-          </p>
-        </div>
-        <div className="mt-3 space-y-3">
+      <details className="rounded-lg border border-border bg-card">
+        <summary className="cursor-pointer select-none px-4 py-3">
+          <span className="text-sm font-medium">Ketentuan standar SSO</span>
+          <span className="ml-2 text-xs text-muted-foreground">6 poin sudah terisi; buka hanya jika ada kesepakatan khusus</span>
+        </summary>
+        <div className="space-y-3 border-t border-border p-4">
           {termFields.map((field, idx) => (
             <div key={field.id} className="grid grid-cols-1 gap-2 rounded-md border border-border/60 p-3 md:grid-cols-4">
               <div className="space-y-1">
@@ -154,7 +152,7 @@ export function QuotationForm({ customers, contacts, opportunities, salesUsers, 
             </div>
           ))}
         </div>
-      </div>
+      </details>
 
       <div className="rounded-lg border border-border bg-card p-4">
         <div className="mb-3 flex items-center justify-between">
@@ -208,10 +206,10 @@ export function QuotationForm({ customers, contacts, opportunities, salesUsers, 
         </div>
       </div>
 
-      <div className="space-y-1">
-        <Label>Catatan tambahan</Label>
-        <Textarea rows={2} {...register("notes")} />
-      </div>
+      <details className="rounded-lg border border-border bg-card">
+        <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium">Catatan tambahan <span className="font-normal text-muted-foreground">(opsional)</span></summary>
+        <div className="border-t border-border p-4"><Textarea rows={2} {...register("notes")} /></div>
+      </details>
 
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={() => router.back()}>Batal</Button>

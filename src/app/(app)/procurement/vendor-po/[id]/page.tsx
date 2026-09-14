@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { VendorPOActions } from "@/components/sales/vendor-po-actions";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { FileDown } from "lucide-react";
+import { FileDown, FileCheck2 } from "lucide-react";
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "success" | "warning" | "destructive" | "outline"> = {
   DRAFT: "secondary",
@@ -83,6 +83,18 @@ export default async function VendorPoDetailPage({ params }: { params: { id: str
           </Card>
         )
       ) : null}
+
+      {po.confirmationDocument && (
+        <Card className="border-success/30 bg-success/5">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4 text-sm">
+            <div className="flex items-center gap-2">
+              <FileCheck2 className="h-4 w-4 text-success" />
+              <div><p className="font-medium">Konfirmasi vendor tersimpan</p><p className="text-xs text-muted-foreground">{po.confirmationDocument.originalName} · {formatDate(po.confirmationDocument.uploadedAt)}</p></div>
+            </div>
+            <a href={`/api/files/${po.confirmationDocument.id}`} target="_blank" rel="noreferrer"><Button size="sm" variant="outline">Lihat bukti</Button></a>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader><CardTitle className="text-sm">Vendor &amp; Delivery</CardTitle></CardHeader>

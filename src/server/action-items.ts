@@ -25,6 +25,7 @@ import { isUntouchedTemplateTask } from "@/lib/weekly-policy";
 
 export type ActionItemSeverity =
   | "overdue"
+  | "critical"
   | "due_soon"
   | "pending_approval"
   | "attention";
@@ -388,7 +389,7 @@ export async function getMyActionItems(): Promise<ActionItem[]> {
     prisma.projectWeeklySettings.findMany({ where: { project: { deletedAt: null, status: { notIn: ["CLOSED", "CANCELLED"] } }, ...(actor.role === "ADMIN" ? {} : { ownerId: actor.userId }) }, include: { project: { select: { name: true, progressReports: { where: { deletedAt: null }, select: { createdAt: true, reviews: { select: { dispatch: { select: { sentAt: true } } } } }, orderBy: { createdAt: "desc" }, take: 1 } } } } }),
   ]);
   for (const review of reportReviews) items.push({ id: `weekly-review-${review.id}`, module: "project", severity: "pending_approval", title: `Periksa laporan ${review.report.number} · versi ${review.version}`, subtitle: review.report.project.name, href: `/projects/${review.report.projectId}?tab=progress&review=${review.id}`, dueDate: null });
-  for (const task of followups.filter(t => !isUntouchedTemplateTask(t))) items.push({ id: `followup-${task.id}`, module: "project", severity: task.dueDate && task.dueDate < now ? "overdue" : task.status === "BLOCKED" ? "attention" : "due_soon", title: task.title, subtitle: `${task.project.name}${task.status === "BLOCKED" ? " · Ada hambatan" : ""}`, href: `/projects/${task.projectId}?tab=tasks`, dueDate: task.dueDate });
+  for (const task of followups.filter(t => !isUntouchedTemplateTask(t))) items.push({ id: `followup-${task.id}`, module: "project", severity: task.dueDate && task.dueDate < now ? "overdue" : ["CRITICAL", "HIGH"].includes(task.priority) ? "critical" : task.status === "BLOCKED" ? "attention" : "due_soon", title: task.title, subtitle: `${task.project.name}${task.status === "BLOCKED" ? " · Ada hambatan" : task.priority === "CRITICAL" ? " · Sangat penting" : ""}`, href: `/projects/${task.projectId}?tab=tasks`, dueDate: task.dueDate });
   for (const cycle of weeklyCycles) {
     const last = cycle.project.progressReports[0];
     const target = cycle.customerDueAt;
@@ -398,9 +399,10 @@ export async function getMyActionItems(): Promise<ActionItem[]> {
 
   const severityOrder: Record<ActionItemSeverity, number> = {
     overdue: 0,
-    pending_approval: 1,
-    due_soon: 2,
-    attention: 3,
+    critical: 1,
+    pending_approval: 2,
+    due_soon: 3,
+    attention: 4,
   };
   items.sort(
     (a, b) =>

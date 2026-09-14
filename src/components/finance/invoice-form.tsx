@@ -1,5 +1,5 @@
 "use client";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -18,9 +18,24 @@ import { Plus, Trash2 } from "lucide-react";
 
 interface Props {
   customers: { id: string; companyName: string; number: string }[];
-  projects: { id: string; customerId: string; number: string }[];
+  projects: {
+    id: string;
+    customerId: string;
+    number: string;
+    name: string;
+    jobNumber: string | null;
+    salesPicId: string | null;
+    quotation: {
+      id: string;
+      number: string;
+      contactId: string | null;
+      items: { itemName: string; quantity: number; unit: string; unitPrice: number; taxPercent: number }[];
+    } | null;
+    purchaseOrders: { number: string; poDate: Date; estimatedDeliveryDate: Date | null; paymentTerms: string | null }[];
+  }[];
   contacts: { id: string; customerId: string; name: string }[];
   salesUsers: { id: string; name: string }[];
+  defaultProjectId?: string;
 }
 
 function dateInputValue(d: Date | string | null | undefined): string {
@@ -28,26 +43,65 @@ function dateInputValue(d: Date | string | null | undefined): string {
   return new Date(d).toISOString().slice(0, 10);
 }
 
-export function InvoiceForm({ customers, projects, contacts, salesUsers }: Props) {
+function dpFromTerms(terms: string | null | undefined): number | null {
+  const match = terms?.match(/(\d+(?:[.,]\d+)?)\s*%\s*(?:DP|down\s*payment)/i);
+  return match ? Number(match[1].replace(",", ".")) : null;
+}
+
+export function InvoiceForm({ customers, projects, contacts, salesUsers, defaultProjectId }: Props) {
   const router = useRouter();
   const { toast } = useToast();
 
-  const { register, control, handleSubmit, watch, formState: { isSubmitting, errors } } = useForm<InvoiceInput>({
+  const { register, control, handleSubmit, watch, setValue, formState: { isSubmitting, errors } } = useForm<InvoiceInput>({
     resolver: zodResolver(invoiceSchema),
     defaultValues: {
       invoiceDate: new Date(),
       dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+      projectId: defaultProjectId,
       discount: 0,
       items: [{ groupLabel: "", description: "", quantity: 1, unit: "unit", unitPrice: 0, taxPercent: 11, isNote: false }],
     },
   });
-  const { fields, append, remove } = useFieldArray({ control, name: "items" });
+  const { fields, append, remove, replace } = useFieldArray({ control, name: "items" });
   const watchedItems = watch("items");
   const watchedDiscount = watch("discount");
   const watchedCustomerId = watch("customerId");
+  const watchedProjectId = watch("projectId");
   const totals = useMemo(() => calcInvoiceTotals(watchedItems || [], Number(watchedDiscount || 0)), [watchedItems, watchedDiscount]);
-  const filteredProjects = projects.filter((p) => p.customerId === watchedCustomerId);
+  const filteredProjects = watchedCustomerId ? projects.filter((p) => p.customerId === watchedCustomerId) : projects;
   const filteredContacts = contacts.filter((c) => c.customerId === watchedCustomerId);
+  const selectedProject = projects.find((p) => p.id === watchedProjectId);
+  const sourcePo = selectedProject?.purchaseOrders[0];
+
+  useEffect(() => {
+    if (!selectedProject) return;
+    setValue("customerId", selectedProject.customerId);
+    setValue("jobNo", selectedProject.jobNumber ?? undefined);
+    setValue("salesPicId", selectedProject.salesPicId ?? undefined);
+    setValue("quotationId", selectedProject.quotation?.id ?? undefined);
+    setValue("contactId", selectedProject.quotation?.contactId ?? undefined);
+    if (sourcePo) {
+      setValue("customerPO", sourcePo.number);
+      setValue("poDate", sourcePo.poDate);
+      setValue("deliveryDate", sourcePo.estimatedDeliveryDate ?? undefined);
+      const suggestedDp = dpFromTerms(sourcePo.paymentTerms);
+      if (suggestedDp) setValue("dpPercent", suggestedDp);
+    }
+  }, [selectedProject, setValue, sourcePo]);
+
+  function copyQuotationItems() {
+    if (!selectedProject?.quotation?.items.length) return;
+    replace(selectedProject.quotation.items.map((item) => ({
+      groupLabel: "",
+      description: item.itemName,
+      quantity: item.quantity,
+      unit: item.unit,
+      unitPrice: item.unitPrice,
+      taxPercent: item.taxPercent,
+      isNote: false,
+    })));
+    toast({ title: "Rincian penawaran disalin", description: "Periksa termin dan nilai yang akan ditagihkan sebelum menyimpan invoice.", variant: "success" });
+  }
 
   async function onSubmit(data: InvoiceInput) {
     const res = await createInvoiceAction(data);
@@ -94,6 +148,20 @@ export function InvoiceForm({ customers, projects, contacts, salesUsers }: Props
             <Input type="date" value={dateInputValue(field.value)} onChange={(e) => field.onChange(new Date(e.target.value))} />
           )} />
         </div>
+        {selectedProject && (
+          <div className="mt-4 flex flex-col gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-medium">Sumber data: {selectedProject.number} — {selectedProject.name}</p>
+              <p className="text-xs text-muted-foreground">
+                {sourcePo ? `PO customer ${sourcePo.number} sudah diisi otomatis.` : "Belum ada PO customer pada proyek ini."}
+                {selectedProject.quotation ? ` Penawaran ${selectedProject.quotation.number} tersedia sebagai sumber rincian.` : " Belum ada penawaran terkait."}
+              </p>
+            </div>
+            <Button type="button" variant="outline" size="sm" disabled={!selectedProject.quotation?.items.length} onClick={copyQuotationItems}>
+              Salin rincian penawaran
+            </Button>
+          </div>
+        )}
         <div className="space-y-1">
           <Label>Nomor PO pelanggan <span className="font-normal text-muted-foreground">(opsional)</span></Label>
           <Input {...register("customerPO")} placeholder="EPC-L/2026-0450" />

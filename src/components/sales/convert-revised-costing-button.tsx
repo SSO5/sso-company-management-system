@@ -23,16 +23,16 @@ export function ConvertRevisedCostingButton({ costingId, quotationLabel }: { cos
     const res = await convertRevisedCostingToQuotationAction(costingId);
     setPending(false);
     if (res.ok) {
-      toast({ title: `Quotation ${quotationLabel} updated`, variant: "success" });
+      toast({ title: `Penawaran ${quotationLabel} diperbarui`, variant: "success" });
       router.refresh();
     } else {
-      toast({ title: "Unable to convert to quotation", description: res.error, variant: "destructive" });
+      toast({ title: "Penawaran belum dapat diperbarui", description: res.error, variant: "destructive" });
     }
   }
 
   return (
     <Button disabled={pending} onClick={onClick}>
-      <RefreshCw className="h-4 w-4" /> Convert to Quotation ({quotationLabel})
+      <RefreshCw className="h-4 w-4" /> Terapkan ke penawaran {quotationLabel}
     </Button>
   );
 }

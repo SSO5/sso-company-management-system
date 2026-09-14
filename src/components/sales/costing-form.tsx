@@ -112,10 +112,12 @@ export function CostingForm({ customers, opportunities, costingId, defaultValues
             <Input type="date" value={field.value ? new Date(field.value).toISOString().slice(0, 10) : ""} onChange={(e) => field.onChange(new Date(e.target.value))} />
           )} />
         </div>
-        <div className="col-span-1 space-y-1 sm:col-span-2 md:col-span-3">
-          <Label>Catatan</Label>
-          <Textarea rows={2} {...register("notes")} />
-        </div>
+        <details className="col-span-1 rounded-lg border border-border bg-muted/20 sm:col-span-2 md:col-span-3">
+          <summary className="cursor-pointer select-none px-3 py-2 text-sm font-medium">Catatan tambahan <span className="font-normal text-muted-foreground">(opsional)</span></summary>
+          <div className="border-t border-border p-3">
+            <Textarea rows={2} {...register("notes")} placeholder="Keterangan khusus yang hanya perlu diketahui tim internal." />
+          </div>
+        </details>
       </div>
 
       <div className="space-y-3">
@@ -139,22 +141,11 @@ export function CostingForm({ customers, opportunities, costingId, defaultValues
       </div>
 
       <div className="rounded-lg border border-border bg-card p-4">
-        <Label className="text-sm">Ringkasan perhitungan</Label>
-        <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1">
-              <Label className="text-xs">Operasional (Rp)</Label>
-              <Input type="number" step="any" {...register("operationalCost")} />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">PPN % <span className="text-muted-foreground">(dari harga pokok)</span></Label>
-              <Input type="number" step="any" {...register("ppnPercent")} />
-            </div>
-            <div className="col-span-2 space-y-1">
-              <Label className="text-xs">PPh final % <span className="text-muted-foreground">(dari harga pokok)</span></Label>
-              <Input type="number" step="any" className="max-w-[8rem]" {...register("pphFinalPercent")} />
-            </div>
-          </div>
+        <div>
+          <Label className="text-sm">Ringkasan keputusan harga</Label>
+          <p className="text-xs text-muted-foreground">Angka ini hanya untuk internal SSO dan tidak ikut tampil pada penawaran customer.</p>
+        </div>
+        <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_18rem]">
           <div className="space-y-1 text-sm">
             <div className="flex justify-between"><span className="text-muted-foreground">Total harga jual</span><span>{formatCurrency(summary.totalRevenue)}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Total harga pokok</span><span>{formatCurrency(summary.totalCost)}</span></div>
@@ -165,6 +156,23 @@ export function CostingForm({ customers, opportunities, costingId, defaultValues
             <div className="flex justify-between border-t border-border pt-1 font-semibold"><span>Laba bersih rencana</span><span>{formatCurrency(summary.netProfit)}</span></div>
             <div className="flex justify-between text-xs text-muted-foreground"><span>Margin bersih</span><span>{summary.netMarginPercent.toFixed(1)}%</span></div>
           </div>
+          <details className="rounded-lg border border-border bg-muted/20">
+            <summary className="cursor-pointer select-none px-3 py-2 text-sm font-medium">Biaya dan pajak internal</summary>
+            <div className="grid grid-cols-2 gap-2 border-t border-border p-3">
+              <div className="col-span-2 space-y-1">
+                <Label className="text-xs">Biaya operasional (Rp)</Label>
+                <Input type="number" step="any" {...register("operationalCost")} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">PPN masukan %</Label>
+                <Input type="number" step="any" {...register("ppnPercent")} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">PPh final %</Label>
+                <Input type="number" step="any" {...register("pphFinalPercent")} />
+              </div>
+            </div>
+          </details>
         </div>
       </div>
 

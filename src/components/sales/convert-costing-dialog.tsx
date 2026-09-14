@@ -57,17 +57,17 @@ export function ConvertCostingDialog({ costingId, users, contacts, defaultSalesP
     const res = await convertCostingToQuotationAsRevisionAction(costingId, existingQuotation.id);
     setSubmitting(false);
     if (res.ok) {
-      toast({ title: `Attached as Revision R${existingQuotation.revision + 1} of ${existingQuotation.number}`, variant: "success" });
+      toast({ title: `Costing menjadi revisi R${existingQuotation.revision + 1} untuk ${existingQuotation.number}`, variant: "success" });
       setOpen(false);
       router.push(`/sales/quotations/${res.data.quotationId}/edit`);
     } else {
-      toast({ title: "Unable to attach as revision", description: res.error, variant: "destructive" });
+      toast({ title: "Revisi belum dapat dibuat", description: res.error, variant: "destructive" });
     }
   }
 
   async function onConfirm() {
     if (!salesPicId) {
-      toast({ title: "Select a Sales PIC first", variant: "destructive" });
+      toast({ title: "Pilih PIC penawaran terlebih dahulu", variant: "destructive" });
       return;
     }
     setSubmitting(true);
@@ -79,29 +79,29 @@ export function ConvertCostingDialog({ costingId, users, contacts, defaultSalesP
     });
     setSubmitting(false);
     if (res.ok) {
-      toast({ title: "Quotation created from costing sheet — review it before submitting", variant: "success" });
+      toast({ title: "Draf penawaran dibuat dari costing", description: "Periksa harga jual dan ketentuannya sebelum diajukan.", variant: "success" });
       setOpen(false);
       // Land on the editable form (not the read-only detail page) so the PIC
       // sees and can adjust everything — subject line, valid-until, and the
       // Commercial Provisions terms grid — before submitting for approval.
       router.push(`/sales/quotations/${res.data.quotationId}/edit`);
     } else {
-      toast({ title: "Unable to convert", description: res.error, variant: "destructive" });
+      toast({ title: "Penawaran belum dapat dibuat", description: res.error, variant: "destructive" });
     }
   }
 
   return (
     <>
-      <Button onClick={() => setOpen(true)}>Convert to Quotation</Button>
+      <Button onClick={() => setOpen(true)}>Buat penawaran dari costing</Button>
       {step === "ask" && existingQuotation ? (
         <Dialog
           open={open}
           onOpenChange={(v) => (v ? setOpen(true) : resetAndClose())}
-          title="Convert to Quotation"
+          title="Gunakan sebagai revisi penawaran?"
           description={`Deal ini sudah punya Quotation ${formatRevisedNumber(existingQuotation.number, existingQuotation.revision)}. Buat costing ini sebagai Revisi R${existingQuotation.revision + 1} dari quotation tersebut?`}
         >
           <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
-            <Button type="button" variant="outline" onClick={() => setStep("form")}>Buat Quotation Terpisah</Button>
+            <Button type="button" variant="outline" onClick={() => setStep("form")}>Buat penawaran terpisah</Button>
             <Button type="button" onClick={onConfirmRevision} disabled={submitting}>
               {submitting ? "Menyimpan..." : `Ya, Jadikan Revisi R${existingQuotation.revision + 1}`}
             </Button>
@@ -111,8 +111,8 @@ export function ConvertCostingDialog({ costingId, users, contacts, defaultSalesP
         <Dialog
           open={open}
           onOpenChange={(v) => (v ? setOpen(true) : resetAndClose())}
-          title="Convert to Quotation"
-          description="Every line item and selling price carries over — nothing needs retyping. Pick who owns the deal and who signs the PDF."
+          title="Buat penawaran dari costing"
+          description="Rincian dan harga jual disalin dari costing. Tentukan PIC dan penandatangan, lalu periksa draf sebelum diajukan."
         >
           <div className="space-y-3">
             {existingQuotation && (
@@ -121,31 +121,31 @@ export function ConvertCostingDialog({ costingId, users, contacts, defaultSalesP
               </p>
             )}
             <div className="space-y-1">
-              <Label>Sales PIC</Label>
+              <Label>PIC penawaran</Label>
               <Select value={salesPicId} onChange={(e) => setSalesPicId(e.target.value)}>
-                <option value="" disabled>Select</option>
+                <option value="" disabled>Pilih PIC</option>
                 {users.map((u) => <option key={u.id} value={u.id}>{u.name}{u.title ? ` — ${u.title}` : ""}</option>)}
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>Signer (name/title/signature on PDF)</Label>
+              <Label>Penandatangan PDF</Label>
               <Select value={signerId} onChange={(e) => setSignerId(e.target.value)}>
-                <option value="">Same as Sales PIC</option>
+                <option value="">Sama dengan PIC penawaran</option>
                 {users.map((u) => <option key={u.id} value={u.id}>{u.name}{u.title ? ` — ${u.title}` : ""}</option>)}
               </Select>
             </div>
             {contacts.length > 0 && (
               <div className="space-y-1">
-                <Label>Customer Contact</Label>
+                <Label>Kontak customer</Label>
                 <Select value={contactId} onChange={(e) => setContactId(e.target.value)}>
-                  <option value="">None</option>
+                  <option value="">Belum ditentukan</option>
                   {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </Select>
               </div>
             )}
             <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={resetAndClose}>Cancel</Button>
-              <Button type="button" onClick={onConfirm} disabled={submitting}>{submitting ? "Converting..." : "Create Quotation"}</Button>
+              <Button type="button" variant="outline" onClick={resetAndClose}>Batal</Button>
+              <Button type="button" onClick={onConfirm} disabled={submitting}>{submitting ? "Membuat…" : "Buat draf penawaran"}</Button>
             </div>
           </div>
         </Dialog>

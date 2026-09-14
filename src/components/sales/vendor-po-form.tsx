@@ -1,5 +1,5 @@
 "use client";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,8 +19,22 @@ import { Plus, Trash2 } from "lucide-react";
 
 interface Props {
   customers: { id: string; companyName: string; number: string }[];
-  projects: { id: string; number: string }[];
+  projects: {
+    id: string;
+    number: string;
+    name: string;
+    jobNumber: string | null;
+    customerId: string;
+    customerName: string;
+    deliveryAddress: string | null;
+    costing: {
+      number: string;
+      revision: number;
+      items: { groupLabel: string; description: string; quantity: number; unit: string; unitPrice: number }[];
+    } | null;
+  }[];
   users: { id: string; name: string }[];
+  defaultProjectId?: string;
 }
 
 function dateInputValue(d: Date | string | null | undefined): string {
@@ -28,27 +42,48 @@ function dateInputValue(d: Date | string | null | undefined): string {
   return new Date(d).toISOString().slice(0, 10);
 }
 
-export function VendorPoForm({ customers, projects, users }: Props) {
+export function VendorPoForm({ customers, projects, users, defaultProjectId }: Props) {
   const router = useRouter();
   const { toast } = useToast();
 
-  const { register, control, handleSubmit, watch, formState: { isSubmitting, errors } } = useForm<VendorPurchaseOrderInput>({
+  const { register, control, handleSubmit, watch, setValue, formState: { isSubmitting, errors } } = useForm<VendorPurchaseOrderInput>({
     resolver: zodResolver(vendorPurchaseOrderSchema),
     defaultValues: {
       poDate: new Date(),
       discount: 0,
       taxPercent: 11,
+      projectId: defaultProjectId,
       items: [{ groupLabel: "", description: "", quantity: 1, unit: "lot", unitPrice: 0 }],
     },
   });
-  const { fields, append, remove } = useFieldArray({ control, name: "items" });
+  const { fields, append, remove, replace } = useFieldArray({ control, name: "items" });
   const watchedItems = watch("items");
   const watchedDiscount = watch("discount");
   const watchedTaxPercent = watch("taxPercent");
+  const watchedProjectId = watch("projectId");
+  const selectedProject = projects.find((project) => project.id === watchedProjectId);
   const totals = useMemo(
     () => calcVendorPoTotals(watchedItems || [], Number(watchedDiscount || 0), Number(watchedTaxPercent || 0)),
     [watchedItems, watchedDiscount, watchedTaxPercent]
   );
+
+  useEffect(() => {
+    if (!selectedProject) return;
+    setValue("customerId", selectedProject.customerId);
+    setValue("deliveryName", selectedProject.customerName);
+    setValue("deliveryAddress", selectedProject.deliveryAddress ?? undefined);
+    setValue("projectRef", selectedProject.jobNumber ?? selectedProject.number);
+  }, [selectedProject, setValue]);
+
+  function copyCostingItems() {
+    if (!selectedProject?.costing?.items.length) return;
+    replace(selectedProject.costing.items);
+    toast({
+      title: "Biaya dari costing disalin",
+      description: "Hapus item yang bukan bagian vendor ini dan cocokkan kembali dengan penawaran vendor.",
+      variant: "success",
+    });
+  }
 
   async function onSubmit(data: VendorPurchaseOrderInput) {
     const res = await createVendorPurchaseOrderAction(data);
@@ -62,6 +97,21 @@ export function VendorPoForm({ customers, projects, users }: Props) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <Card className="border-primary/20 bg-primary/5">
+        <CardContent className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-[1fr_auto] sm:items-end">
+          <div className="space-y-1">
+            <Label>Mulai dari proyek</Label>
+            <Select {...register("projectId")} defaultValue="">
+              <option value="">Pilih proyek agar referensi terisi otomatis</option>
+              {projects.map((project) => <option key={project.id} value={project.id}>{project.number} — {project.name}</option>)}
+            </Select>
+            <p className="text-xs text-muted-foreground">Pelanggan, alamat pengiriman, dan nomor pekerjaan akan diwarisi dari proyek.</p>
+          </div>
+          {selectedProject?.costing && (
+            <Button type="button" variant="outline" onClick={copyCostingItems}>Salin biaya dari costing {selectedProject.costing.number}{selectedProject.costing.revision ? `.R${selectedProject.costing.revision}` : ""}</Button>
+          )}
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader><CardTitle>1. Vendor tujuan</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -114,11 +164,8 @@ export function VendorPoForm({ customers, projects, users }: Props) {
             </Select>
           </div>
           <div className="space-y-1">
-            <Label>Proyek terkait <span className="font-normal text-muted-foreground">(opsional)</span></Label>
-            <Select {...register("projectId")} defaultValue="">
-              <option value="">Tidak terkait proyek</option>
-              {projects.map((p) => <option key={p.id} value={p.id}>{p.number}</option>)}
-            </Select>
+            <Label>Proyek terkait</Label>
+            <Input value={selectedProject ? `${selectedProject.number} — ${selectedProject.name}` : "Belum dipilih"} readOnly />
           </div>
         </CardContent>
       </Card>

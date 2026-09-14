@@ -46,6 +46,7 @@ export function PoExtractUploadDialog({
   const [extracted, setExtracted] = useState<ExtractedPurchaseOrder | null>(null);
   const [extractionError, setExtractionError] = useState<string | null>(null);
   const [fileName, setFileName] = useState("");
+  const [autoRead, setAutoRead] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -55,12 +56,14 @@ export function PoExtractUploadDialog({
     setExtracted(null);
     setExtractionError(null);
     setFileName("");
+    setAutoRead(false);
   }
 
   async function onUpload(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setPending(true);
     const fd = new FormData(e.currentTarget);
+    fd.set("skipExtraction", autoRead ? "false" : "true");
     const file = fd.get("file") as File | null;
     setFileName(file?.name ?? "");
     const res = await uploadAndExtractPurchaseOrder({ folderId, projectId, customerId }, fd);
@@ -105,17 +108,17 @@ export function PoExtractUploadDialog({
   return (
     <>
       <Button size="sm" onClick={() => setOpen(true)}>
-        <Sparkles className="h-3.5 w-3.5" /> {buttonLabel ?? "Upload PO (AI-assisted)"}
+        <Upload className="h-3.5 w-3.5" /> {buttonLabel ?? "Unggah PO customer"}
       </Button>
 
       <Dialog
         open={open}
         onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}
-        title={step === "upload" ? "Upload Customer PO" : "Konfirmasi Data PO"}
+        title={step === "upload" ? "Unggah PO asli dari customer" : "Periksa data PO"}
         description={
           step === "upload"
-            ? "PDF atau foto PO asli — AI akan membaca dan mengisi form berikutnya, tetap perlu kamu periksa."
-            : `Dari file "${fileName}". Periksa/lengkapi sebelum disimpan sebagai record PO resmi.`
+            ? "File tetap disimpan dalam format customer. Isi data utama secara manual atau aktifkan pembacaan otomatis bila diperlukan."
+            : `Dari file "${fileName}". Periksa data utama sebelum mencatat PO.`
         }
       >
         {step === "upload" && (
@@ -124,10 +127,17 @@ export function PoExtractUploadDialog({
               <Label htmlFor="po-file">File PO</Label>
               <Input id="po-file" name="file" type="file" required accept=".pdf,.jpg,.jpeg,.png,.webp" />
             </div>
+            <label className="flex cursor-pointer items-start gap-2 rounded-md border border-border bg-muted/30 p-3 text-sm">
+              <input type="checkbox" className="mt-0.5 h-4 w-4" checked={autoRead} onChange={(event) => setAutoRead(event.target.checked)} />
+              <span>
+                <span className="flex items-center gap-1 font-medium"><Sparkles className="h-3.5 w-3.5" /> Coba isi data otomatis</span>
+                <span className="block text-xs text-muted-foreground">Opsional. Tanpa fitur ini, file langsung tersimpan dan form tetap dapat diisi biasa.</span>
+              </span>
+            </label>
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Batal</Button>
               <Button type="submit" disabled={pending}>
-                <Upload className="h-3.5 w-3.5" /> {pending ? "Mengunggah & membaca..." : "Upload"}
+                <Upload className="h-3.5 w-3.5" /> {pending ? (autoRead ? "Mengunggah dan membaca…" : "Mengunggah…") : "Lanjut"}
               </Button>
             </div>
           </form>
@@ -138,7 +148,7 @@ export function PoExtractUploadDialog({
             {extractionError && (
               <div className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 p-2.5 text-xs text-warning-foreground">
                 <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                <span>{extractionError} File tetap tersimpan di Documents — isi field di bawah secara manual.</span>
+                <span>{extractionError} File tetap tersimpan; isi data utama di bawah.</span>
               </div>
             )}
             {extracted?.confidence === "low" && (
@@ -148,35 +158,35 @@ export function PoExtractUploadDialog({
               </div>
             )}
             <div className="space-y-1">
-              <Label htmlFor="po-number">PO Number (dari customer)</Label>
+              <Label htmlFor="po-number">Nomor PO customer</Label>
               <Input id="po-number" name="number" required defaultValue={extracted?.number ?? ""} placeholder="EPC-L/2026-0450" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label htmlFor="po-date">PO Date</Label>
+                <Label htmlFor="po-date">Tanggal PO</Label>
                 <Input id="po-date" name="poDate" type="date" required defaultValue={extracted?.poDate ?? ""} />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="po-value">PO Value (IDR)</Label>
+                <Label htmlFor="po-value">Nilai PO (IDR)</Label>
                 <Input id="po-value" name="poValue" type="number" min={0} required defaultValue={extracted?.poValue ?? ""} />
               </div>
             </div>
             <div className="space-y-1">
-              <Label htmlFor="po-payment-terms">Term of Payment (opsional)</Label>
+              <Label htmlFor="po-payment-terms">Syarat pembayaran <span className="font-normal text-muted-foreground">(opsional)</span></Label>
               <Input id="po-payment-terms" name="paymentTerms" defaultValue={extracted?.paymentTerms ?? ""} placeholder="40% DP, 50% Before Delivered, 10% Retention" />
               <p className="text-[11px] text-muted-foreground">Dipakai untuk menghitung sisa penagihan di tab Documents.</p>
             </div>
             <div className="space-y-1">
-              <Label htmlFor="po-delivery-terms">Term of Delivery (opsional)</Label>
+              <Label htmlFor="po-delivery-terms">Syarat penyerahan <span className="font-normal text-muted-foreground">(opsional)</span></Label>
               <Input id="po-delivery-terms" name="deliveryTerms" defaultValue={extracted?.deliveryTerms ?? ""} placeholder="ETA MAX 6 Weeks ARO" />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="po-est-delivery">Perkiraan Tanggal Selesai/Kirim (opsional)</Label>
+              <Label htmlFor="po-est-delivery">Perkiraan tanggal selesai/kirim <span className="font-normal text-muted-foreground">(opsional)</span></Label>
               <Input id="po-est-delivery" name="estimatedDeliveryDate" type="date" defaultValue={extracted?.estimatedDeliveryDate ?? ""} />
               <p className="text-[11px] text-muted-foreground">
                 {extracted?.estimatedDeliveryDate
-                  ? "Dihitung AI dari Term of Delivery + tanggal PO — periksa ulang, ini perkiraan."
-                  : "AI tidak bisa menghitung tanggal dari Term of Delivery — isi manual kalau tahu."}
+                  ? "Dihitung dari syarat penyerahan dan tanggal PO; periksa kembali sebelum menyimpan."
+                  : "Isi jika tanggalnya sudah diketahui."}
               </p>
             </div>
             <div className="flex justify-end gap-2 pt-2">

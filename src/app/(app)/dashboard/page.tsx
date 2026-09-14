@@ -4,10 +4,9 @@ import { getDashboardData } from "@/server/dashboard";
 import { getMyActionItems } from "@/server/action-items";
 import { requireUser } from "@/lib/auth/current-user";
 import { ActionItemsPanel } from "@/components/dashboard/action-items-panel";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
 import { ROLE_LABELS } from "@/lib/workspace";
-import { ArrowUpRight, FolderKanban, Database, ListChecks } from "lucide-react";
+import { ArrowUpRight, Database, ListChecks } from "lucide-react";
 
 export default async function DashboardPage() {
   const [actor, data, items] = await Promise.all([
@@ -15,65 +14,8 @@ export default async function DashboardPage() {
     getDashboardData(),
     getMyActionItems(),
   ]);
-  const { kpis, projectProgress, salesPipeline } = data;
-  const finance = ["ADMIN", "FINANCE", "VIEWER"].includes(actor.role),
-    sales = ["ADMIN", "SALES", "VIEWER"].includes(actor.role);
-  const overdueCount = items.filter((i) => i.severity === "overdue").length;
-  const approvalCount = items.filter(
-    (i) => i.severity === "pending_approval",
-  ).length;
-  const projectAttentionCount = new Set(
-    items
-      .filter((i) => i.module === "project")
-      .map((i) => i.href.split("?")[0]),
-  ).size;
-  const stats = [
-    {
-      label: "Yang perlu saya selesaikan",
-      value: items.length,
-      detail: `${overdueCount} terlambat · ${approvalCount} menunggu persetujuan`,
-      href: "/work",
-    },
-    {
-      label: "Pantauan proyek",
-      value: kpis.activeProjects,
-      detail: `${projectAttentionCount} proyek memerlukan perhatian`,
-      href: "/projects",
-    },
-    finance
-      ? {
-          label: "Piutang yang perlu dipantau",
-          value: formatCurrency(kpis.outstandingReceivables),
-          detail: "Berdasarkan invoice dan penerimaan tercatat",
-          href: "/finance",
-        }
-      : {
-          label: "Prospek aktif",
-          value: salesPipeline.stages.reduce((sum, stage) => sum + stage.count, 0),
-          detail: "Dari kebutuhan pelanggan menuju pesanan",
-          href: "/sales/opportunities",
-        },
-  ];
-  const rooms = [
-    {
-      href: "/work",
-      title: "Tindak lanjut",
-      desc: "Persetujuan dan pekerjaan jatuh tempo",
-      Icon: ListChecks,
-    },
-    {
-      href: "/projects",
-      title: "Ruang proyek",
-      desc: "Perubahan progres, tindak lanjut, dan laporan",
-      Icon: FolderKanban,
-    },
-    {
-      href: "/data",
-      title: "Data & Dokumen",
-      desc: "Dokumen asli dan catatan aplikasi",
-      Icon: Database,
-    },
-  ];
+  const { kpis } = data;
+  const finance = ["ADMIN", "FINANCE", "VIEWER"].includes(actor.role);
   return (
     <div className="space-y-6">
       <div className="workspace-heading">
@@ -107,121 +49,55 @@ export default async function DashboardPage() {
           </Link>
         </div>
       </div>
-      <section aria-labelledby="fokus-hari-ini">
-        <h2 id="fokus-hari-ini" className="mb-3 text-sm font-semibold text-slate-700">
-          Tiga hal yang perlu diketahui sekarang
-        </h2>
-        <div className="grid gap-3 md:grid-cols-3">
-        {stats.map((s) => (
-          <Link
-            key={s.label}
-            href={s.href}
-            className="workspace-stat hover:bg-slate-50"
-          >
-            <span className="text-sm text-slate-600">{s.label}</span>
-            <strong>{s.value}</strong>
-            <small>{s.detail}</small>
-          </Link>
-        ))}
+      <section aria-labelledby="tindakan-sekarang">
+        <div className="mb-3">
+          <p className="workspace-eyebrow">1 · Tindakan</p>
+          <h2 id="tindakan-sekarang" className="text-xl font-semibold">Apa yang harus diselesaikan sekarang?</h2>
         </div>
-      </section>
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(280px,1fr)]">
         <ActionItemsPanel
           items={items}
-          limit={6}
+          limit={8}
           title={actor.role === "ADMIN" ? "Prioritas tim" : "Prioritas Anda"}
         />
-        <Card>
-          <CardHeader>
-            <CardTitle>Ruang kerja</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {rooms.map(({ href, title, desc, Icon }) => (
-              <Link key={href} href={href} className="workspace-action">
-                <Icon size={20} className="shrink-0 text-primary" />
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold">{title}</p>
-                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                    {desc}
-                  </p>
-                </div>
-                <ArrowUpRight size={16} className="ml-auto shrink-0" />
-              </Link>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
-      <WeeklyOverview />
-      <div className="grid gap-5 lg:grid-cols-2">
-        {sales && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Prospek menuju pesanan</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {salesPipeline.stages.map((s) => (
-                  <Link
-                    href="/sales/opportunities"
-                    key={s.status}
-                    className="rounded-xl bg-slate-50 p-3"
-                  >
-                    <p className="text-xs text-muted-foreground">
-                      {
-                        {
-                          NEW: "Baru",
-                          QUALIFIED: "Terkualifikasi",
-                          PROPOSAL: "Penawaran",
-                          NEGOTIATION: "Negosiasi",
-                        }[s.status]
-                      }
-                    </p>
-                    <p className="mt-2 text-xl font-semibold">{s.count}</p>
-                  </Link>
-                ))}
-              </div>
-              <p className="mt-4 text-sm text-muted-foreground">
-                Estimasi nilai prospek:{" "}
-                <b className="text-foreground">
-                  {formatCurrency(salesPipeline.totalValue)}
-                </b>
-              </p>
-            </CardContent>
-          </Card>
-        )}
-        {finance && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Penagihan perusahaan</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex flex-wrap justify-between gap-2 text-sm">
-                <span className="text-muted-foreground">
-                  Invoice diterbitkan
-                </span>
-                <b>{formatCurrency(kpis.totalRevenue)}</b>
-              </div>
-              <div className="flex flex-wrap justify-between gap-2 text-sm">
-                <span className="text-muted-foreground">
-                  Piutang belum diselesaikan
-                </span>
-                <b>{formatCurrency(kpis.outstandingReceivables)}</b>
-              </div>
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                Akumulasi seluruh periode. Draf dan pengajuan belum dihitung
-                sebagai penagihan. Nilai invoice bukan pengakuan pendapatan
-                akuntansi.
-              </p>
-              <Link
-                href="/finance/receivables"
-                className="inline-block py-2 text-sm text-primary"
-              >
-                Tinjau piutang dan jadwal penagihan →
-              </Link>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+      </section>
+      <section aria-labelledby="perubahan-proyek">
+        <div className="mb-3">
+          <p className="workspace-eyebrow">2 · Proyek</p>
+          <h2 id="perubahan-proyek" className="text-xl font-semibold">Apa yang berubah pada pekerjaan?</h2>
+        </div>
+        <WeeklyOverview />
+      </section>
+      {finance && (
+        <section aria-labelledby="kondisi-keuangan">
+          <div className="mb-3">
+            <p className="workspace-eyebrow">3 · Keuangan</p>
+            <h2 id="kondisi-keuangan" className="text-xl font-semibold">Bagaimana kondisi keuangan SSO?</h2>
+          </div>
+          <div className="grid gap-3 md:grid-cols-4">
+            <Link href="/finance" className="workspace-stat hover:bg-slate-50">
+              <span className="text-sm text-slate-600">Saldo bank tercatat</span>
+              <strong>{formatCurrency(kpis.latestCashBalance)}</strong>
+              <small>{kpis.cashAsOf ? `Per ${new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(kpis.cashAsOf)}` : "Belum ada bukti saldo terbaru"}</small>
+            </Link>
+            <Link href="/finance/receivables" className="workspace-stat hover:bg-slate-50">
+              <span className="text-sm text-slate-600">Piutang tercatat</span>
+              <strong>{formatCurrency(kpis.outstandingReceivables)}</strong>
+              <small>Dari invoice yang sudah diterbitkan</small>
+            </Link>
+            <Link href="/finance/expenses" className="workspace-stat hover:bg-slate-50">
+              <span className="text-sm text-slate-600">Biaya disetujui belum dibayar</span>
+              <strong>{formatCurrency(kpis.approvedUnpaidCosts)}</strong>
+              <small>Proyek dan operasional perusahaan</small>
+            </Link>
+            <Link href="/finance" className="workspace-stat hover:bg-slate-50">
+              <span className="text-sm text-slate-600">Pekerjaan finance terbuka</span>
+              <strong>{kpis.openFinanceWork}</strong>
+              <small>Butuh tindak lanjut atau prasyarat</small>
+            </Link>
+          </div>
+          <p className="mt-3 text-xs text-muted-foreground">Angka hanya berasal dari transaksi dan dokumen yang sudah tercatat. Saldo kosong tidak berarti kas nol.</p>
+        </section>
+      )}
     </div>
   );
 }

@@ -10,6 +10,7 @@ export default async function WorkPage({
   const filters = [
     ["all", "Semua"],
     ["overdue", "Terlambat"],
+    ["critical", "Penting"],
     ["pending_approval", "Persetujuan"],
     ["due_soon", "Segera"],
     ["attention", "Periksa"],
@@ -21,15 +22,15 @@ export default async function WorkPage({
     <div className="space-y-5">
       <div className="workspace-heading">
         <div>
-          <p className="workspace-eyebrow">Antrean pekerjaan</p>
-          <h1>Tindak lanjut</h1>
+          <p className="workspace-eyebrow">Fokus kerja</p>
+          <h1>Pekerjaan saya</h1>
           <p className="workspace-muted mt-2">
             Diurutkan menurut urgensi dan jatuh tempo. Klik tindakan untuk
             membuka ruang terkait.
           </p>
         </div>
         <Link href="/tasks" className="text-sm text-primary">
-          Buka penugasan tim →
+          Lihat arahan direktur →
         </Link>
       </div>
       <nav className="flex flex-wrap gap-2" aria-label="Filter tindakan">

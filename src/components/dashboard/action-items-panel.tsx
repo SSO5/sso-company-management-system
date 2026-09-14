@@ -5,6 +5,7 @@ import type { ActionItem } from "@/server/action-items";
 import { ArrowUpRight, CheckCircle2 } from "lucide-react";
 const labels = {
   overdue: "Terlambat",
+  critical: "Penting",
   pending_approval: "Persetujuan",
   due_soon: "Segera",
   attention: "Periksa",
@@ -41,7 +42,7 @@ export function ActionItemsPanel({
         {items.slice(0, limit).map((i) => (
           <Link key={i.id} href={i.href} className="workspace-action">
             <div
-              className={`h-9 w-1 shrink-0 rounded-full ${i.severity === "overdue" ? "bg-red-500" : i.severity === "pending_approval" ? "bg-blue-500" : "bg-amber-400"}`}
+              className={`h-9 w-1 shrink-0 rounded-full ${i.severity === "overdue" ? "bg-red-500" : i.severity === "critical" ? "bg-orange-500" : i.severity === "pending_approval" ? "bg-blue-500" : "bg-amber-400"}`}
             />
             <div className="min-w-0 flex-1">
               <div className="mb-2 flex flex-wrap gap-2 text-[11px] text-muted-foreground">

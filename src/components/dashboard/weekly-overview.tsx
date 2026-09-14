@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/current-user";
 import { requirePermission } from "@/lib/permissions";
 import { formatDate } from "@/lib/utils";
+import { compareWeeklyItems } from "@/lib/weekly-comparison";
 export async function WeeklyOverview() {
   const actor = await requireUserOrThrow();
   requirePermission(actor.role, "project", "view");
@@ -26,6 +27,11 @@ export async function WeeklyOverview() {
           inspectionDate: true,
           summary: true,
           dateVerified: true,
+          number: true,
+          items: {
+            select: { id: true, sectionName: true, partName: true, quantity: true, notes: true, isDone: true },
+            orderBy: { sortOrder: "asc" },
+          },
         },
       },
       _count: {
@@ -58,6 +64,14 @@ export async function WeeklyOverview() {
       <div className="mt-5 grid gap-3 lg:grid-cols-2">
         {projects.map((p) => {
           const latest = p.progressReports[0];
+          const previous = p.progressReports.find(
+            (report) => latest && report.inspectionDate < latest.inspectionDate,
+          );
+          const changes = previous && latest
+            ? compareWeeklyItems(previous.items, latest.items)
+            : [];
+          const changed = changes.filter((item) => ["changed", "new"].includes(item.kind)).length;
+          const needsCheck = changes.filter((item) => ["missing", "ambiguous"].includes(item.kind)).length;
           const ambiguous =
             latest &&
             p.progressReports.filter(
@@ -75,11 +89,19 @@ export async function WeeklyOverview() {
                 {p.number} · {p.customer.companyName}
               </p>
               <h3 className="mt-2 text-sm font-semibold">{p.name}</h3>
-              <p className="mt-3 text-xs text-muted-foreground">
+              <p className="mt-3 text-xs font-medium text-slate-700">
                 {latest
-                  ? `Laporan ${formatDate(latest.inspectionDate)}${latest.dateVerified ? "" : " · tanggal perlu diperiksa"}`
+                  ? previous
+                    ? `${formatDate(previous.inspectionDate)} → ${formatDate(latest.inspectionDate)}`
+                    : `Laporan awal ${formatDate(latest.inspectionDate)}`
                   : "Belum ada laporan progres"}
               </p>
+              {latest && previous && (
+                <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-800">{changed} perubahan</span>
+                  {needsCheck > 0 && <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-800">{needsCheck} perlu diperiksa</span>}
+                </div>
+              )}
               <p className="mt-2 line-clamp-3 text-sm leading-relaxed">
                 {ambiguous
                   ? "Ada beberapa versi pada tanggal terakhir. Pilih sumber yang benar sebelum menyimpulkan progres."

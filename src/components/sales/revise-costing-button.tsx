@@ -20,16 +20,16 @@ export function ReviseCostingButton({ costingId }: { costingId: string }) {
     const res = await reviseCostingSheetAction(costingId);
     setPending(false);
     if (res.ok) {
-      toast({ title: "Marked as a new revision", variant: "success" });
+      toast({ title: "Revisi costing baru dibuat", description: "Versi sebelumnya tetap tersimpan dalam riwayat.", variant: "success" });
       router.refresh();
     } else {
-      toast({ title: "Unable to revise", description: res.error, variant: "destructive" });
+      toast({ title: "Revisi belum dapat dibuat", description: res.error, variant: "destructive" });
     }
   }
 
   return (
     <Button variant="outline" disabled={pending} onClick={onClick}>
-      Buat Revisi (R+1)
+      Buat revisi baru
     </Button>
   );
 }

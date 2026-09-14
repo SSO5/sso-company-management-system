@@ -53,9 +53,9 @@ export default async function EditQuotationPage({ params }: { params: { id: stri
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-semibold">Edit Quotation — {q.number}</h1>
+        <h1 className="text-xl font-semibold">Ubah penawaran — {q.number}</h1>
         <p className="text-sm text-muted-foreground">
-          Tinjau semua field termasuk Commercial Provisions sebelum submit — terutama jika quotation ini dibuat otomatis dari Costing Sheet.
+          Periksa rincian harga dan ketentuan komersial sebelum diajukan untuk persetujuan.
         </p>
       </div>
       <QuotationForm

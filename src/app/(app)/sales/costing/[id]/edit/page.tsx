@@ -49,8 +49,8 @@ export default async function EditCostingPage({ params }: { params: { id: string
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-semibold">Edit Costing Sheet — {sheet.number}</h1>
-        <p className="text-sm text-muted-foreground">Changes recompute all totals on save.</p>
+        <h1 className="text-xl font-semibold">Ubah costing — {sheet.number}</h1>
+        <p className="text-sm text-muted-foreground">Semua total dihitung ulang ketika perubahan disimpan.</p>
       </div>
       <CostingForm customers={customers} opportunities={opportunities} costingId={sheet.id} defaultValues={defaultValues} />
     </div>

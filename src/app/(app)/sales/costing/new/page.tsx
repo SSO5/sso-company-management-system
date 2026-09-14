@@ -33,7 +33,11 @@ export default async function NewCostingPage({ searchParams }: { searchParams: {
       <CostingForm
         customers={customers}
         opportunities={opportunities}
-        defaultValues={lockedOpportunity ? { customerId: lockedOpportunity.customerId, opportunityId: lockedOpportunity.id } : undefined}
+        defaultValues={lockedOpportunity ? {
+          customerId: lockedOpportunity.customerId,
+          opportunityId: lockedOpportunity.id,
+          projectTitle: lockedOpportunity.name,
+        } : undefined}
       />
     </div>
   );
