@@ -488,7 +488,7 @@ export function WeeklyWorkspace({
               </span>
               <span className="inline-flex items-center gap-2">
                 <Send size={15} className="text-primary" />
-                <span className="text-muted-foreground">Customer</span>
+                <span className="text-muted-foreground">Pelanggan</span>
                 <b>{data.settings?.customerDueAt ? formatDate(data.settings.customerDueAt) : "Belum diatur"}</b>
               </span>
               {canAssign && (

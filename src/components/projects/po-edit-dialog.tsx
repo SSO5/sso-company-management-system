@@ -82,7 +82,7 @@ export function PoEditDialog({ po }: { po: EditablePO }) {
               <option value="PENDING">Pending</option>
               <option value="RECEIVED">Received</option>
               <option value="VERIFIED">Verified</option>
-              <option value="CANCELLED">Cancelled</option>
+              <option value="CANCELLED">Dibatalkan</option>
             </Select>
           </div>
           <div className="space-y-1">

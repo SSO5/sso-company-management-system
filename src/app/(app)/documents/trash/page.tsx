@@ -27,14 +27,14 @@ export default function TrashPage() {
 
   return (
     <div className="space-y-4">
-      <div><h1 className="text-xl font-semibold">Trash</h1><p className="text-sm text-muted-foreground">Deleted files are kept here until permanently removed.</p></div>
+      <div><h1 className="text-xl font-semibold">Sampah</h1><p className="text-sm text-muted-foreground">File yang dihapus disimpan di sini sebelum dihapus permanen.</p></div>
       {loading ? (
-        <p className="text-sm text-muted-foreground">Loading...</p>
+        <p className="text-sm text-muted-foreground">Memuat…</p>
       ) : docs.length === 0 ? (
-        <EmptyState title="Trash is empty" />
+        <EmptyState title="Sampah kosong" />
       ) : (
         <Table>
-          <TableHeader><TableRow><TableHead>File</TableHead><TableHead>Original Location</TableHead><TableHead>Deleted By</TableHead><TableHead>Deleted At</TableHead><TableHead></TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>File</TableHead><TableHead>Lokasi asal</TableHead><TableHead>Dihapus oleh</TableHead><TableHead>Waktu dihapus</TableHead><TableHead></TableHead></TableRow></TableHeader>
           <TableBody>
             {docs.map((d) => (
               <TableRow key={d.id}>
@@ -45,13 +45,13 @@ export default function TrashPage() {
                 <TableCell className="flex gap-2">
                   <Button size="sm" variant="outline" onClick={async () => {
                     const res = await restoreDocument(d.id);
-                    if (res.ok) load(); else toast({ title: "Unable to restore", description: res.error, variant: "destructive" });
-                  }}>Restore</Button>
+                    if (res.ok) load(); else toast({ title: "File belum dapat dipulihkan", description: res.error, variant: "destructive" });
+                  }}>Pulihkan</Button>
                   <Button size="sm" variant="destructive" onClick={async () => {
-                    if (!confirm("Permanently delete this file? This cannot be undone.")) return;
+                    if (!confirm("Hapus file ini secara permanen? Tindakan ini tidak dapat dibatalkan.")) return;
                     const res = await permanentDelete(d.id);
-                    if (res.ok) load(); else toast({ title: "Unable to delete", description: res.error, variant: "destructive" });
-                  }}>Delete Permanently</Button>
+                    if (res.ok) load(); else toast({ title: "File belum dapat dihapus", description: res.error, variant: "destructive" });
+                  }}>Hapus permanen</Button>
                 </TableCell>
               </TableRow>
             ))}

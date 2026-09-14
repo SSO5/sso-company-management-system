@@ -61,7 +61,12 @@ export function InvoiceForm({ customers, projects, contacts, salesUsers }: Props
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-      <div className="grid grid-cols-2 gap-4 rounded-lg border border-border bg-card p-4 md:grid-cols-4">
+      <section className="rounded-xl border border-border bg-card p-4">
+        <div className="mb-4">
+          <p className="font-medium">Informasi utama</p>
+          <p className="text-xs text-muted-foreground">Pilih pelanggan, proyek, dan tanggal penagihan. Detail lain dapat ditambahkan bila dokumen memang memerlukannya.</p>
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="space-y-1">
           <Label>Pelanggan</Label>
           <Select {...register("customerId")} defaultValue="">
@@ -71,24 +76,10 @@ export function InvoiceForm({ customers, projects, contacts, salesUsers }: Props
           {errors.customerId && <p className="text-xs text-destructive">{errors.customerId.message}</p>}
         </div>
         <div className="space-y-1">
-          <Label>Kontak tujuan <span className="font-normal text-muted-foreground">(opsional)</span></Label>
-          <Select {...register("contactId")} defaultValue="">
-            <option value="">Belum ditentukan</option>
-            {filteredContacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </Select>
-        </div>
-        <div className="space-y-1">
           <Label>Proyek <span className="font-normal text-muted-foreground">(opsional)</span></Label>
           <Select {...register("projectId")} defaultValue="">
             <option value="">Tidak terkait proyek</option>
             {filteredProjects.map((p) => <option key={p.id} value={p.id}>{p.number}</option>)}
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <Label>PIC penjualan <span className="font-normal text-muted-foreground">(opsional)</span></Label>
-          <Select {...register("salesPicId")} defaultValue="">
-            <option value="">Belum ditentukan</option>
-            {salesUsers.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
           </Select>
         </div>
         <div className="space-y-1">
@@ -107,28 +98,48 @@ export function InvoiceForm({ customers, projects, contacts, salesUsers }: Props
           <Label>Nomor PO pelanggan <span className="font-normal text-muted-foreground">(opsional)</span></Label>
           <Input {...register("customerPO")} placeholder="EPC-L/2026-0450" />
         </div>
-        <div className="space-y-1">
-          <Label>Tanggal PO <span className="font-normal text-muted-foreground">(opsional)</span></Label>
-          <Controller control={control} name="poDate" render={({ field }) => (
-            <Input type="date" value={dateInputValue(field.value)} onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : null)} />
-          )} />
         </div>
-        <div className="space-y-1">
-          <Label>Tanggal penyerahan <span className="font-normal text-muted-foreground">(opsional)</span></Label>
-          <Controller control={control} name="deliveryDate" render={({ field }) => (
-            <Input type="date" value={dateInputValue(field.value)} onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : null)} />
-          )} />
-        </div>
-        <div className="space-y-1">
-          <Label>Nomor pekerjaan <span className="font-normal text-muted-foreground">(opsional)</span></Label>
-          <Input {...register("jobNo")} placeholder="JO-2607-003" />
-        </div>
-        <div className="space-y-1">
-          <Label>Persentase uang muka <span className="font-normal text-muted-foreground">(opsional)</span></Label>
-          <Input type="number" step="any" min={0} max={100} {...register("dpPercent")} placeholder="Contoh: 20" />
-          <p className="text-[11px] text-muted-foreground">Kosongkan apabila invoice menagihkan nilai penuh.</p>
-        </div>
-      </div>
+        <details className="mt-4 rounded-lg border border-border bg-muted/20 open:bg-background">
+          <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium">Tambahkan detail pendukung <span className="font-normal text-muted-foreground">(kontak, PIC, tanggal PO, penyerahan, nomor pekerjaan, atau DP)</span></summary>
+          <div className="grid grid-cols-1 gap-4 border-t border-border p-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="space-y-1">
+              <Label>Kontak tujuan</Label>
+              <Select {...register("contactId")} defaultValue="">
+                <option value="">Belum ditentukan</option>
+                {filteredContacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>PIC penjualan</Label>
+              <Select {...register("salesPicId")} defaultValue="">
+                <option value="">Belum ditentukan</option>
+                {salesUsers.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>Tanggal PO</Label>
+              <Controller control={control} name="poDate" render={({ field }) => (
+                <Input type="date" value={dateInputValue(field.value)} onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : null)} />
+              )} />
+            </div>
+            <div className="space-y-1">
+              <Label>Tanggal penyerahan</Label>
+              <Controller control={control} name="deliveryDate" render={({ field }) => (
+                <Input type="date" value={dateInputValue(field.value)} onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : null)} />
+              )} />
+            </div>
+            <div className="space-y-1">
+              <Label>Nomor pekerjaan</Label>
+              <Input {...register("jobNo")} placeholder="JO-2607-003" />
+            </div>
+            <div className="space-y-1">
+              <Label>Persentase uang muka</Label>
+              <Input type="number" step="any" min={0} max={100} {...register("dpPercent")} placeholder="Contoh: 20" />
+              <p className="text-[11px] text-muted-foreground">Kosongkan apabila invoice menagihkan nilai penuh.</p>
+            </div>
+          </div>
+        </details>
+      </section>
 
       <div className="rounded-lg border border-border bg-card p-4">
         <div className="mb-3 flex items-center justify-between">

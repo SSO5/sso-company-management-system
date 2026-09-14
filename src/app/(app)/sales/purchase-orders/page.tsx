@@ -11,6 +11,7 @@ import { PoEditDialog } from "@/components/projects/po-edit-dialog";
 import { PoRowActions } from "@/components/projects/po-row-actions";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { Plus } from "lucide-react";
+import { displayLabel } from "@/lib/display-labels";
 
 export default async function PurchaseOrdersPage() {
   const [pos, customers, projects, actor] = await Promise.all([
@@ -29,12 +30,12 @@ export default async function PurchaseOrdersPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-xl font-semibold">Purchase Orders</h1><p className="text-sm text-muted-foreground">{pos.length} PO(s)</p></div>
-        <PurchaseOrderFormDialog customers={customers} projects={projects} trigger={<Button><Plus className="h-4 w-4" /> New PO</Button>} />
+        <div><h1 className="text-xl font-semibold">PO Pelanggan</h1><p className="text-sm text-muted-foreground">{pos.length} PO tercatat</p></div>
+        <PurchaseOrderFormDialog customers={customers} projects={projects} trigger={<Button><Plus className="h-4 w-4" /> Tambah PO</Button>} />
       </div>
-      {pos.length === 0 ? <EmptyState title="No purchase orders yet" /> : (
+      {pos.length === 0 ? <EmptyState title="Belum ada PO pelanggan" description="Catat PO asli yang diterima dari pelanggan dan kaitkan ke proyek terkait." /> : (
         <Table>
-          <TableHeader><TableRow><TableHead>Number</TableHead><TableHead>Customer</TableHead><TableHead>Project</TableHead><TableHead>Value</TableHead><TableHead>PO Date</TableHead><TableHead>Status</TableHead>{(canEdit || canDelete) && <TableHead>Actions</TableHead>}</TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Nomor</TableHead><TableHead>Pelanggan</TableHead><TableHead>Proyek</TableHead><TableHead>Nilai</TableHead><TableHead>Tanggal PO</TableHead><TableHead>Status</TableHead>{(canEdit || canDelete) && <TableHead>Aksi</TableHead>}</TableRow></TableHeader>
           <TableBody>
             {pos.map((po) => (
               <TableRow key={po.id}>
@@ -43,7 +44,7 @@ export default async function PurchaseOrdersPage() {
                 <TableCell>{po.project?.number ?? "-"}</TableCell>
                 <TableCell>{formatCurrency(Number(po.poValue))}</TableCell>
                 <TableCell>{formatDate(po.poDate)}</TableCell>
-                <TableCell><Badge variant="outline">{po.status}</Badge></TableCell>
+                <TableCell><Badge variant="outline">{displayLabel(po.status)}</Badge></TableCell>
                 {(canEdit || canDelete) && (
                   <TableCell>
                     <div className="flex items-center gap-1">

@@ -14,6 +14,7 @@ import { formatCurrency, formatDate, formatDateTime, formatRevisedNumber } from 
 import Link from "next/link";
 import { Eye, Download, Pencil } from "lucide-react";
 import type { CommercialTermItem } from "@/lib/validation/sales";
+import { displayLabel } from "@/lib/display-labels";
 
 export default async function QuotationDetailPage({ params }: { params: { id: string } }) {
   const [q, actor, pms] = await Promise.all([
@@ -40,27 +41,27 @@ export default async function QuotationDetailPage({ params }: { params: { id: st
         <div>
           {q.opportunity && (
             <Link href={`/sales/opportunities/${q.opportunity.id}`} className="text-xs text-primary hover:underline">
-              ← Back to Opportunity {q.opportunity.number}
+              ← Kembali ke prospek {q.opportunity.number}
             </Link>
           )}
           <p className="font-mono text-xs text-muted-foreground">{formatRevisedNumber(q.number, q.revision)}</p>
           <h1 className="text-xl font-semibold">{q.customer.companyName}</h1>
           <div className="mt-1 flex items-center gap-2">
-            <Badge>{q.status}</Badge>
-            {q.isLocked && <Badge variant="outline">Locked</Badge>}
+            <Badge>{displayLabel(q.status)}</Badge>
+            {q.isLocked && <Badge variant="outline">Terkunci</Badge>}
           </div>
         </div>
         <div className="flex items-center gap-2">
           {q.status === "DRAFT" && (actor.role === "ADMIN" || actor.role === "SALES" || actor.role === "IT") && (
             <Link href={`/sales/quotations/${q.id}/edit`}>
-              <Button variant="outline"><Pencil className="h-4 w-4" /> Edit</Button>
+              <Button variant="outline"><Pencil className="h-4 w-4" /> Ubah</Button>
             </Link>
           )}
           <a href={`/api/quotations/${q.id}/pdf?view=1`} target="_blank" rel="noreferrer">
-            <Button variant="outline"><Eye className="h-4 w-4" /> View / Print PDF</Button>
+            <Button variant="outline"><Eye className="h-4 w-4" /> Pratinjau PDF</Button>
           </a>
           <a href={`/api/quotations/${q.id}/pdf`} target="_blank" rel="noreferrer">
-            <Button variant="outline" size="icon" title="Download PDF"><Download className="h-4 w-4" /></Button>
+            <Button variant="outline" size="icon" title="Unduh PDF"><Download className="h-4 w-4" /></Button>
           </a>
           <QuotationActions id={q.id} status={q.status} role={actor.role} projectManagers={pms} opportunityId={q.opportunity?.id} hasUploadedPo={poStatus.hasUploadedDocument} />
         </div>
@@ -73,7 +74,7 @@ export default async function QuotationDetailPage({ params }: { params: { id: st
           explicitly so this banner doesn't keep claiming Won after that. */}
       {q.project && !q.project.deletedAt && (
         <div className="rounded-md border border-success/30 bg-success/10 px-3 py-2 text-sm">
-          Won — Project <Link href={`/projects/${q.project.id}`} className="font-medium underline">{q.project.number}</Link> was created automatically.
+          Penawaran dimenangkan. Proyek <Link href={`/projects/${q.project.id}`} className="font-medium underline">{q.project.number}</Link> sudah dibuat otomatis.
         </div>
       )}
 
@@ -90,41 +91,41 @@ export default async function QuotationDetailPage({ params }: { params: { id: st
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Card>
-          <CardHeader><CardTitle>Details</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Informasi penawaran</CardTitle></CardHeader>
           <CardContent className="space-y-1 text-sm">
             <div className="flex justify-between"><span className="text-muted-foreground">Sales PIC</span><span>{q.salesPic.name}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Quotation Date</span><span>{formatDate(q.quotationDate)}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Valid Until</span><span>{formatDate(q.validUntil)}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Created By</span><span>{q.createdBy.name}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Tanggal penawaran</span><span>{formatDate(q.quotationDate)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Berlaku sampai</span><span>{formatDate(q.validUntil)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Dibuat oleh</span><span>{q.createdBy.name}</span></div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>Audit Trail</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Riwayat persetujuan</CardTitle></CardHeader>
           <CardContent className="space-y-1 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">Submitted</span><span>{formatDateTime(q.submittedAt)}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Approved by</span><span>{q.approvedBy?.name ?? "-"}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Approved at</span><span>{formatDateTime(q.approvedAt)}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Won at</span><span>{formatDateTime(q.wonAt)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Diajukan</span><span>{formatDateTime(q.submittedAt)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Disetujui oleh</span><span>{q.approvedBy?.name ?? "-"}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Waktu persetujuan</span><span>{formatDateTime(q.approvedAt)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Dinyatakan menang</span><span>{formatDateTime(q.wonAt)}</span></div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>Totals</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Nilai penawaran</CardTitle></CardHeader>
           <CardContent className="space-y-1 text-sm">
             <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatCurrency(Number(q.subtotal))}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Discount</span><span>-{formatCurrency(Number(q.discount))}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Tax</span><span>{formatCurrency(Number(q.tax))}</span></div>
-            <div className="flex justify-between border-t border-border pt-1 font-semibold"><span>Grand Total</span><span>{formatCurrency(Number(q.grandTotal))}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Potongan</span><span>-{formatCurrency(Number(q.discount))}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Pajak</span><span>{formatCurrency(Number(q.tax))}</span></div>
+            <div className="flex justify-between border-t border-border pt-1 font-semibold"><span>Total penawaran</span><span>{formatCurrency(Number(q.grandTotal))}</span></div>
           </CardContent>
         </Card>
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Items</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Rincian penawaran</CardTitle></CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Item</TableHead><TableHead>Qty</TableHead><TableHead>Unit Price</TableHead><TableHead>Disc %</TableHead><TableHead>Tax %</TableHead><TableHead>Total</TableHead>
+                <TableHead>Uraian</TableHead><TableHead>Jumlah</TableHead><TableHead>Harga satuan</TableHead><TableHead>Potongan %</TableHead><TableHead>Pajak %</TableHead><TableHead>Total</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -144,7 +145,7 @@ export default async function QuotationDetailPage({ params }: { params: { id: st
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Commercial Provisions</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Ketentuan komersial</CardTitle></CardHeader>
         <CardContent>
           {commercialTerms.length === 0 ? (
             <p className="text-sm text-muted-foreground">Belum diisi.</p>

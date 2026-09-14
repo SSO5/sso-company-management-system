@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { PoExtractUploadDialog } from "@/components/projects/po-extract-upload-dialog";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { CheckCircle2, TriangleAlert } from "lucide-react";
+import { displayLabel } from "@/lib/display-labels";
 
 type PoRow = { id: string; number: string; poDate: string; poValue: string; status: string; hasDocument: boolean };
 
@@ -32,20 +33,20 @@ export function CustomerPoPanel({
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-2">
-        <CardTitle>Customer PO</CardTitle>
+        <CardTitle>PO pelanggan</CardTitle>
         {canUpload && folderId && (
-          <PoExtractUploadDialog folderId={folderId} customerId={customerId} quotationId={quotationId} buttonLabel="Upload PO" />
+          <PoExtractUploadDialog folderId={folderId} customerId={customerId} quotationId={quotationId} buttonLabel="Unggah PO" />
         )}
       </CardHeader>
       <CardContent className="space-y-2">
         {hasUploadedDocument ? (
           <p className="flex items-center gap-1.5 text-xs text-success">
-            <CheckCircle2 className="h-3.5 w-3.5" /> File PO asli sudah ter-upload — syarat Mark Won terpenuhi.
+            <CheckCircle2 className="h-3.5 w-3.5" /> File PO asli sudah diunggah. Penawaran dapat dinyatakan menang.
           </p>
         ) : (
           <p className="flex items-center gap-1.5 text-xs text-warning">
             <TriangleAlert className="h-3.5 w-3.5" />
-            Belum ada file PO asli yang ter-upload{purchaseOrders.length > 0 ? " (PO di bawah baru data ketikan, belum ada filenya)" : ""} — wajib diupload dulu sebelum Mark Won.
+            Belum ada file PO asli yang diunggah{purchaseOrders.length > 0 ? " (data PO sudah dicatat, tetapi filenya belum ada)" : ""}. Unggah file sebelum menyatakan penawaran menang.
           </p>
         )}
         {purchaseOrders.length === 0 ? (
@@ -59,7 +60,7 @@ export function CustomerPoPanel({
                   <p className="text-xs text-muted-foreground">{formatDate(po.poDate)} — {formatCurrency(po.poValue)}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline">{po.status}</Badge>
+                  <Badge variant="outline">{displayLabel(po.status)}</Badge>
                   {po.hasDocument ? (
                     <Badge variant="success">File ada</Badge>
                   ) : (
