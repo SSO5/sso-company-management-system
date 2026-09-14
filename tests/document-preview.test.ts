@@ -37,3 +37,17 @@ test("Excel merged empty cells do not break the actual workbook preview", async 
   assert.deepEqual(result.sheets?.[0].rows[0],["","",""]);
   assert.equal(result.sheets?.[0].rows[1][1],"2");
 });
+test("ZIP opens in the same preview surface as a safe file list", async () => {
+  const zip = new JSZip();
+  zip.file("Laporan Vendor/Progress 020.pdf", Buffer.from("test"));
+  const result = await readOfficePreview(
+    await zip.generateAsync({ type: "nodebuffer" }),
+    "laporan.zip",
+  );
+  assert.equal(result.kind, "text");
+  assert.match(result.text ?? "", /Progress 020\.pdf/);
+});
+test("legacy Office formats stay in the drawer with a safe file fallback", async () => {
+  const result = await readOfficePreview(Buffer.from("legacy"), "laporan.xls");
+  assert.equal(result.kind, "file");
+});

@@ -33,14 +33,20 @@ import {
   Upload,
   History,
   FileCheck2,
-  AlertCircle,
   Sparkles,
+  Eye,
+  Check,
+  Clock3,
+  Send,
+  UserRound,
+  CalendarDays,
 } from "lucide-react";
 
 export type WeeklyData = Awaited<ReturnType<typeof getWeeklyProject>>;
 export interface WeeklyDocument {
   id: string;
   originalName: string;
+  mimeType?: string;
   progressFormat?: string;
   uploadedAt?: Date;
   processingState?: string;
@@ -95,7 +101,7 @@ export function WeeklyWorkspace({
     (r) => day(r.inspectionDate) === latestDate,
   );
   const [selectedId, setSelectedId] = useState(
-    linked?.id ?? (candidates.length === 1 ? candidates[0].id : ""),
+    linked?.id ?? candidates[0]?.id ?? data.reports[0]?.id ?? "",
   );
   const selected = data.reports.find((r) => r.id === selectedId);
   const prior = data.reports.filter(
@@ -110,7 +116,7 @@ export function WeeklyWorkspace({
   const [previousChoice, setPreviousChoice] = useState<string | null>(null);
   const previousId =
     previousChoice ??
-    (previousCandidates.length === 1 ? previousCandidates[0].id : "");
+    previousCandidates[0]?.id ?? "";
   const previous = data.reports.find((r) => r.id === previousId);
   const comparisons = useMemo(
     () =>
@@ -119,7 +125,7 @@ export function WeeklyWorkspace({
         : [],
     [previous, selected],
   );
-  const [filter, setFilter] = useState("all");
+  const [filter, setFilter] = useState("action");
   const [busy, setBusy] = useState("");
   const [modal, setModal] = useState<
     "upload" | "settings" | "send" | "reject" | "followup" | "details" | null
@@ -133,6 +139,24 @@ export function WeeklyWorkspace({
     selected?.reviews[0];
   const pending = Boolean(busy);
   const owner = assignees.find((a) => a.id === data.settings?.ownerId)?.name;
+  const actionFindings = comparisons.filter((item) => item.kind !== "unchanged");
+  const clearChanges = comparisons.filter((item) =>
+    ["changed", "new"].includes(item.kind),
+  ).length;
+  const needsClarification = comparisons.filter((item) =>
+    ["ambiguous", "missing"].includes(item.kind),
+  ).length;
+  const unchanged = comparisons.filter((item) => item.kind === "unchanged").length;
+  const approved = Boolean(
+    review?.status === "APPROVED" && review.isCurrent,
+  );
+  const dispatched = Boolean(review?.dispatch && review.isCurrent);
+  const workflowSteps = [
+    { label: "Laporan masuk", done: Boolean(selected), icon: Upload },
+    { label: "Draf SSO", done: Boolean(selected), icon: FileCheck2 },
+    { label: "Persetujuan", done: approved || dispatched, icon: Check },
+    { label: "Terkirim", done: dispatched, icon: Send },
+  ];
   async function action(
     label: string,
     job: () => Promise<{ ok: boolean; error?: string }>,
@@ -158,6 +182,11 @@ export function WeeklyWorkspace({
     e.preventDefault();
     if (!folderId) return;
     const fd = new FormData(e.currentTarget);
+    const incoming = fd.get("file");
+    const canPrepareDraft =
+      uploadId ||
+      (incoming instanceof File &&
+        (incoming.type === "application/pdf" || incoming.type.startsWith("image/")));
     setBusy("Mengunggah dokumen…");
     try {
       let id = uploadId;
@@ -171,6 +200,18 @@ export function WeeklyWorkspace({
           fd.get("format") === "SSO" ? "SSO" : "VENDOR",
         );
         if (!classified.ok) throw new Error(classified.error);
+      }
+      if (!canPrepareDraft) {
+        setUploadId(null);
+        setModal(null);
+        router.refresh();
+        toast({
+          title: "File laporan tersimpan",
+          description:
+            "File dapat dibuka di panel samping. Pembuatan draf otomatis saat ini tersedia untuk PDF dan gambar.",
+          variant: "success",
+        });
+        return;
       }
       setBusy("Membaca dokumen dan menyiapkan draf SSO…");
       const result = await generateProgressReportFromDocument(id, projectId);
@@ -202,7 +243,12 @@ export function WeeklyWorkspace({
   }
   const sourceList = (
     <div className="space-y-3">
-      {documents.map((d) => (
+      {documents.map((d) => {
+        const canGenerate =
+          d.mimeType === "application/pdf" ||
+          Boolean(d.mimeType?.startsWith("image/")) ||
+          /\.(pdf|jpe?g|png|webp)$/i.test(d.originalName);
+        return (
         <div
           key={d.id}
           className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4"
@@ -234,14 +280,17 @@ export function WeeklyWorkspace({
             )}
           </div>
           <div className="flex flex-wrap gap-2">
-            <a
-              className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm"
-              href={`/api/files/${d.id}?view=1`}
-              target="_blank"
-              rel="noreferrer"
+            <Button
+              variant="outline"
+              onClick={() =>
+                previewDocument({
+                  title: d.originalName,
+                  url: `/api/files/${d.id}?view=1`,
+                })
+              }
             >
-              Buka asli ↗
-            </a>
+              <Eye size={15} /> Lihat di samping
+            </Button>
             {canWrite && (
               <>
                 <Select
@@ -264,29 +313,32 @@ export function WeeklyWorkspace({
                   <option value="VENDOR">Vendor</option>
                   <option value="SSO">SSO</option>
                 </Select>
-                <Button
-                  variant="outline"
-                  disabled={pending}
-                  onClick={() =>
-                    action("Draf siap", async () => {
-                      const result = await generateProgressReportFromDocument(d.id, projectId);
-                      if (result.ok) {
-                        setSelectedId(result.data.progressReportId);
-                        setPreviousChoice(null);
-                      }
-                      return result;
-                    })
-                  }
-                >
-                  {d.processingState === "FAILED"
-                    ? "Coba lagi"
-                    : "Buka / buat draf"}
-                </Button>
+                {canGenerate && (
+                  <Button
+                    variant="outline"
+                    disabled={pending}
+                    onClick={() =>
+                      action("Draf siap", async () => {
+                        const result = await generateProgressReportFromDocument(d.id, projectId);
+                        if (result.ok) {
+                          setSelectedId(result.data.progressReportId);
+                          setPreviousChoice(null);
+                        }
+                        return result;
+                      })
+                    }
+                  >
+                    {d.processingState === "FAILED"
+                      ? "Coba proses lagi"
+                      : "Buat draf SSO"}
+                  </Button>
+                )}
               </>
             )}
           </div>
         </div>
-      ))}
+        );
+      })}
       {!documents.length && (
         <p className="rounded-xl border border-dashed p-8 text-sm text-muted-foreground">
           Belum ada sumber laporan. Unggah dokumen pertama untuk mulai membangun
@@ -297,121 +349,54 @@ export function WeeklyWorkspace({
   );
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-primary">
-            {historyOnly
-              ? "Bukti & jejak keputusan"
-              : "Pantauan berbasis laporan"}
-          </p>
-          <h2 className="mt-2 text-2xl font-semibold tracking-tight">
-            {historyOnly
-              ? "Dokumen dan riwayat yang bisa ditelusuri"
-              : "Apa yang berubah sejak laporan terakhir?"}
-          </h2>
-          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            File vendor tetap asli. Draf SSO, keputusan direktur, dan catatan
-            kirim tersimpan terpisah.
-          </p>
-        </div>
-        {canWrite && folderId && (
-          <Button
-            disabled={pending}
-            onClick={() => {
-              setUploadId(null);
-              setModal("upload");
-            }}
-          >
-            <Upload size={16} /> Unggah laporan
-          </Button>
-        )}
-      </div>
-      {!historyOnly && (
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-xl border bg-white p-4">
-            <p className="text-xs text-muted-foreground">PIC laporan</p>
-            <p className="mt-1 font-semibold">{owner || "Belum ditetapkan"}</p>
-          </div>
-          <div className="rounded-xl border bg-white p-4">
-            <p className="text-xs text-muted-foreground">
-              Target menerima dari vendor
-            </p>
-            <p className="mt-1 font-semibold">
-              {data.settings?.vendorDueAt
-                ? formatDate(data.settings.vendorDueAt)
-                : "Belum ditetapkan"}
-            </p>
-          </div>
-          <div className="rounded-xl border bg-white p-4">
-            <p className="text-xs text-muted-foreground">
-              Target mengirim ke customer
-            </p>
-            <p className="mt-1 font-semibold">
-              {data.settings?.customerDueAt
-                ? formatDate(data.settings.customerDueAt)
-                : "Belum ditetapkan"}
-            </p>
-          </div>
-          {canAssign && (
-            <Button
-              variant="outline"
-              className="sm:col-span-3 sm:justify-self-end"
-              onClick={() => setModal("settings")}
-            >
-              Atur PIC dan target
-            </Button>
-          )}
-        </div>
-      )}
       {historyOnly ? (
         <>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-primary">
+              Arsip proyek
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight">
+              Dokumen dan jejak pengiriman
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Pilih dokumen untuk membukanya di panel kanan tanpa meninggalkan proyek.
+            </p>
+          </div>
           {sourceList}
           <div className="space-y-3">
             {data.reports.map((r) => (
               <details key={r.id} className="rounded-xl border bg-white p-4">
                 <summary className="cursor-pointer text-sm font-semibold">
-                  SSO · {r.number} · {formatDate(r.inspectionDate)}{" "}
-                  {r.dateVerified ? "" : "· tanggal perlu diperiksa"}
+                  SSO · {r.number} · {formatDate(r.inspectionDate)}
                 </summary>
                 <div className="mt-3 space-y-3">
-                  <a
-                    className="text-sm text-primary underline"
-                    href={`/api/progress-reports/${r.id}/pdf?view=1`}
-                    target="_blank"
-                    rel="noreferrer"
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      previewDocument({
+                        title: r.number,
+                        url: `/api/progress-reports/${r.id}/pdf?view=1`,
+                      })
+                    }
                   >
-                    Lihat draf kerja
-                  </a>
+                    <Eye size={15} /> Lihat di samping
+                  </Button>
                   {!r.reviews.length && (
                     <p className="text-xs text-muted-foreground">
-                      Belum ada persetujuan atau catatan kirim di aplikasi.
-                      Status pengiriman lama tidak diasumsikan.
+                      Belum ada persetujuan atau catatan pengiriman.
                     </p>
                   )}
                   {r.reviews.map((v) => (
-                    <div
-                      key={v.id}
-                      className="rounded-lg bg-slate-50 p-3 text-sm"
-                    >
-                      <b>
-                        Versi {v.version} · {reviewLabels[v.status]}
-                      </b>
+                    <div key={v.id} className="rounded-lg bg-slate-50 p-3 text-sm">
+                      <b>Versi {v.version} · {reviewLabels[v.status]}</b>
                       <p className="text-xs text-muted-foreground">
                         Diajukan {formatDate(v.requestedAt)}
-                        {v.decidedAt
-                          ? ` · Diputuskan ${formatDate(v.decidedAt)}`
-                          : ""}
+                        {v.decidedAt ? ` · Diputuskan ${formatDate(v.decidedAt)}` : ""}
                       </p>
-                      {v.decisionNote && <p>{v.decisionNote}</p>}
+                      {v.decisionNote && <p className="mt-2">{v.decisionNote}</p>}
                       {v.dispatch && (
                         <p className="mt-2">
-                          Dikonfirmasi {v.dispatch.recordedByName} ·{" "}
-                          {v.dispatch.channel} → {v.dispatch.recipient} ·{" "}
-                          {formatDate(v.dispatch.sentAt)}
-                          <span className="block text-xs text-muted-foreground">
-                            Catatan manual, bukan konfirmasi penerimaan
-                            customer.
-                          </span>
+                          {v.dispatch.channel} → {v.dispatch.recipient} · {formatDate(v.dispatch.sentAt)}
                         </p>
                       )}
                     </div>
@@ -423,47 +408,31 @@ export function WeeklyWorkspace({
         </>
       ) : (
         <>
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
-            <section className="min-w-0 space-y-4 rounded-2xl border bg-white p-4 sm:p-6">
-              <div className="grid gap-3 md:grid-cols-2">
-                <label className="text-xs font-medium">
-                  Laporan sebelumnya
-                  <Select
-                    className="mt-2"
-                    aria-label="Laporan sebelumnya"
-                    value={previousId}
-                    onChange={(e) => setPreviousChoice(e.target.value)}
-                  >
-                    <option value="">
-                      {previousCandidates.length > 1
-                        ? "Ada beberapa versi — pilih pembanding"
-                        : "Pilih pembanding / laporan pertama"}
-                    </option>
-                    {prior.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {formatDate(r.inspectionDate)} · {r.number}
-                      </option>
-                    ))}
-                  </Select>
-                </label>
-                <label className="text-xs font-medium">
+          <section className="overflow-hidden rounded-2xl border bg-white">
+            <div className="flex flex-col gap-4 border-b p-4 sm:flex-row sm:items-end sm:justify-between sm:p-5">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold uppercase tracking-widest text-primary">
+                  Siklus laporan mingguan
+                </p>
+                <label className="mt-2 block max-w-2xl text-sm font-medium">
                   Laporan yang dipantau
                   <Select
                     className="mt-2"
                     aria-label="Laporan yang dipantau"
                     value={selectedId}
                     onChange={(e) => {
-                      setSelectedId(e.target.value);
-                      const report = data.reports.find(r => r.id === e.target.value);
-                      if (report) previewDocument({ title: report.number, url: `/api/progress-reports/${report.id}/pdf?view=1` });
+                      const nextId = e.target.value;
+                      setSelectedId(nextId);
                       setPreviousChoice(null);
+                      const report = data.reports.find((item) => item.id === nextId);
+                      if (report)
+                        previewDocument({
+                          title: report.number,
+                          url: `/api/progress-reports/${report.id}/pdf?view=1`,
+                        });
                     }}
                   >
-                    <option value="">
-                      {candidates.length > 1
-                        ? "Beberapa versi pada tanggal terbaru — pilih"
-                        : "Pilih laporan"}
-                    </option>
+                    <option value="">Belum ada laporan</option>
                     {data.reports.map((r) => (
                       <option key={r.id} value={r.id}>
                         {formatDate(r.inspectionDate)} · {r.number}
@@ -472,292 +441,355 @@ export function WeeklyWorkspace({
                   </Select>
                 </label>
               </div>
-              {!selected ? (
-                <div className="rounded-xl bg-slate-50 p-6 text-sm">
-                  {data.reports.length
-                    ? "Pilih versi laporan yang benar. Tanggal sama atau nama file sama belum membuktikan isinya sama."
-                    : "Unggah laporan vendor. Aplikasi akan menyiapkan draf SSO dan menyimpan sumbernya."}
-                </div>
-              ) : (
-                <>
-                  <div className="rounded-xl bg-emerald-50/70 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">
-                      Ringkasan laporan · {formatDate(selected.inspectionDate)}
+              {canWrite && folderId && (
+                <Button
+                  disabled={pending}
+                  onClick={() => {
+                    setUploadId(null);
+                    setModal("upload");
+                  }}
+                >
+                  <Upload size={16} /> Unggah laporan baru
+                </Button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 border-b sm:grid-cols-4">
+              {workflowSteps.map((step, index) => {
+                const Icon = step.icon;
+                const active = !step.done && workflowSteps.slice(0, index).every((item) => item.done);
+                return (
+                  <div
+                    key={step.label}
+                    className={`flex min-h-20 items-center gap-3 border-r p-3 last:border-r-0 ${step.done ? "bg-emerald-50/70 text-emerald-900" : active ? "bg-amber-50 text-amber-950" : "text-muted-foreground"}`}
+                  >
+                    <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${step.done ? "bg-emerald-700 text-white" : active ? "bg-amber-400 text-amber-950" : "bg-slate-100"}`}>
+                      {step.done ? <Check size={16} /> : <Icon size={15} />}
+                    </span>
+                    <div>
+                      <p className="text-[11px] font-medium uppercase tracking-wide">Tahap {index + 1}</p>
+                      <p className="text-sm font-semibold">{step.label}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3 p-4 text-sm sm:p-5">
+              <span className="inline-flex items-center gap-2">
+                <UserRound size={15} className="text-primary" />
+                <span className="text-muted-foreground">PIC</span>
+                <b>{owner || "Belum ditetapkan"}</b>
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <CalendarDays size={15} className="text-primary" />
+                <span className="text-muted-foreground">Vendor</span>
+                <b>{data.settings?.vendorDueAt ? formatDate(data.settings.vendorDueAt) : "Belum diatur"}</b>
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <Send size={15} className="text-primary" />
+                <span className="text-muted-foreground">Customer</span>
+                <b>{data.settings?.customerDueAt ? formatDate(data.settings.customerDueAt) : "Belum diatur"}</b>
+              </span>
+              {canAssign && (
+                <Button variant="ghost" className="ml-auto" onClick={() => setModal("settings")}>
+                  Atur PIC & tanggal
+                </Button>
+              )}
+            </div>
+          </section>
+
+          {!selected ? (
+            <div className="rounded-2xl border border-dashed bg-white p-8 text-center">
+              <h3 className="font-semibold">Belum ada laporan untuk dipantau</h3>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Unggah file vendor untuk menyimpan bukti dan menyiapkan draf SSO.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+              <section className="min-w-0 space-y-5 rounded-2xl border bg-white p-4 sm:p-6">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-widest text-primary">
+                      Perubahan terbaru
                     </p>
-                    <p className="mt-2 text-sm leading-relaxed">
-                      {selected.summary ||
-                        "Ringkasan belum tersedia. Periksa rincian dan sumber laporan."}
-                    </p>
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      {selected.dateVerified
-                        ? "Tanggal dibaca dari dokumen; periksa kesesuaiannya."
-                        : "Tanggal belum terverifikasi; dapat berasal dari tanggal unggah atau nama file."}{" "}
-                      Ini isi laporan pada tanggal tersebut, bukan pembaruan
-                      otomatis kondisi hari ini.
+                    <h2 className="mt-2 text-xl font-semibold">
+                      {previous
+                        ? `${formatDate(previous.inspectionDate)} → ${formatDate(selected.inspectionDate)}`
+                        : formatDate(selected.inspectionDate)}
+                    </h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {previous
+                        ? `${previous.number} dibandingkan dengan ${selected.number}`
+                        : `${selected.number} menjadi awal riwayat proyek.`}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {selected.source && !selected.source.deletedAt && (
-                      <a
-                        className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm"
-                        href={`/api/files/${selected.source.id}?view=1`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {selected.source.progressFormat === "VENDOR"
-                          ? "Vendor · asli"
-                          : selected.source.progressFormat === "SSO"
-                            ? "SSO · unggahan"
-                            : "Sumber · format belum ditetapkan"}{" "}
-                        ↗
-                      </a>
-                    )}
-                    <a
-                      className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm"
-                      href={`/api/progress-reports/${selected.id}/pdf?view=1`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      SSO · draf kerja ↗
-                    </a>
-                    {canWrite && (
                       <Button
                         variant="outline"
-                        onClick={() => setModal("details")}
+                        onClick={() =>
+                          previewDocument({
+                            title: selected.source!.originalName,
+                            url: `/api/files/${selected.source!.id}?view=1`,
+                          })
+                        }
                       >
-                        Periksa draf
+                        <Eye size={15} /> {selected.source.progressFormat === "VENDOR" ? "Vendor asli" : "Sumber unggahan"}
                       </Button>
                     )}
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        previewDocument({
+                          title: `Draf SSO · ${selected.number}`,
+                          url: `/api/progress-reports/${selected.id}/pdf?view=1`,
+                        })
+                      }
+                    >
+                      <Eye size={15} /> Draf SSO
+                    </Button>
                   </div>
-                  {previous ? (
-                    <>
-                      <div className="flex flex-wrap gap-2">
-                        {["all", "changed", "unchanged", "ambiguous"].map(
-                          (f) => (
-                            <button
-                              key={f}
-                              onClick={() => setFilter(f)}
-                              className={`min-h-11 rounded-full border px-3 text-xs ${filter === f ? "bg-primary text-white" : "bg-white"}`}
-                            >
-                              {f === "all"
-                                ? "Semua temuan"
-                                : f === "ambiguous"
-                                  ? "Perlu klarifikasi"
-                                  : CHANGE_LABELS[f as "changed" | "unchanged"]}
-                            </button>
-                          ),
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Keterangan sama tidak membuktikan pekerjaan macet. Item
-                        hilang tidak dianggap selesai. Cocokkan hasil dengan
-                        sumber asli.
-                      </p>
-                      <div className="space-y-3">
-                        {comparisons
-                          .filter(
-                            (c) =>
-                              filter === "all" ||
-                              (filter === "ambiguous"
-                                ? ["ambiguous", "missing", "new"].includes(
-                                    c.kind,
-                                  )
-                                : c.kind === filter),
-                          )
-                          .map((c) => (
-                            <div key={c.key} className="rounded-xl border p-4">
-                              <p className="text-xs text-muted-foreground">
-                                {(c.after ?? c.before)?.sectionName ||
-                                  "Unit belum jelas"}{" "}
-                                · {CHANGE_LABELS[c.kind]}
-                              </p>
-                              <h3 className="mt-1 text-sm font-semibold">
-                                {(c.after ?? c.before)?.partName}{" "}
-                                <span className="font-normal text-muted-foreground">
-                                  {(c.after ?? c.before)?.quantity}
-                                </span>
-                              </h3>
-                              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                                <div className="rounded-lg bg-slate-50 p-3 text-sm">
-                                  <p className="mb-1 text-xs text-muted-foreground">
-                                    Sebelumnya
-                                  </p>
-                                  {c.before?.notes ||
-                                    (c.before
-                                      ? "Tanpa keterangan"
-                                      : "Belum ditemukan padanan")}
-                                  <p className="mt-1 text-xs">
-                                    {c.before?.isDone ? "Tercatat selesai" : ""}
-                                  </p>
-                                </div>
-                                <div className="rounded-lg bg-emerald-50/60 p-3 text-sm">
-                                  <p className="mb-1 text-xs text-muted-foreground">
-                                    Laporan dipilih
-                                  </p>
-                                  {c.after?.notes ||
-                                    (c.after
-                                      ? "Tanpa keterangan"
-                                      : "Tidak ditemukan padanan")}
-                                  <p className="mt-1 text-xs">
-                                    {c.after?.isDone ? "Tercatat selesai" : ""}
-                                  </p>
-                                </div>
+                </div>
+
+                <div className="rounded-xl bg-emerald-50/70 p-4">
+                  <p className="text-sm leading-relaxed">
+                    {selected.summary || "Ringkasan belum tersedia. Periksa isi draf dan dokumen sumber."}
+                  </p>
+                  {!selected.dateVerified && (
+                    <button
+                      className="mt-3 text-xs font-semibold text-amber-800 underline"
+                      onClick={() => setModal("details")}
+                    >
+                      Tanggal perlu diperiksa
+                    </button>
+                  )}
+                </div>
+
+                {previous ? (
+                  <>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button onClick={() => setFilter("action")} className={`rounded-xl border p-3 text-left ${filter === "action" ? "border-primary bg-primary/5" : ""}`}>
+                        <span className="block text-2xl font-semibold">{actionFindings.length}</span>
+                        <span className="text-xs text-muted-foreground">Perlu dilihat</span>
+                      </button>
+                      <button onClick={() => setFilter("changed")} className={`rounded-xl border p-3 text-left ${filter === "changed" ? "border-primary bg-primary/5" : ""}`}>
+                        <span className="block text-2xl font-semibold">{clearChanges}</span>
+                        <span className="text-xs text-muted-foreground">Ada perubahan</span>
+                      </button>
+                      <button onClick={() => setFilter("ambiguous")} className={`rounded-xl border p-3 text-left ${filter === "ambiguous" ? "border-primary bg-primary/5" : ""}`}>
+                        <span className="block text-2xl font-semibold">{needsClarification}</span>
+                        <span className="text-xs text-muted-foreground">Perlu klarifikasi</span>
+                      </button>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button onClick={() => setFilter("action")} className={`min-h-10 rounded-full border px-3 text-xs ${filter === "action" ? "bg-primary text-white" : ""}`}>Prioritas</button>
+                      <button onClick={() => setFilter("all")} className={`min-h-10 rounded-full border px-3 text-xs ${filter === "all" ? "bg-primary text-white" : ""}`}>Semua ({comparisons.length})</button>
+                      <button onClick={() => setFilter("unchanged")} className={`min-h-10 rounded-full border px-3 text-xs ${filter === "unchanged" ? "bg-primary text-white" : ""}`}>Tetap ({unchanged})</button>
+                      <details className="ml-auto text-xs">
+                        <summary className="cursor-pointer py-2 text-primary">Ganti pembanding</summary>
+                        <Select
+                          className="mt-2 min-w-64"
+                          aria-label="Ganti laporan pembanding"
+                          value={previousId}
+                          onChange={(e) => setPreviousChoice(e.target.value)}
+                        >
+                          {prior.map((r) => (
+                            <option key={r.id} value={r.id}>
+                              {formatDate(r.inspectionDate)} · {r.number}
+                            </option>
+                          ))}
+                        </Select>
+                      </details>
+                    </div>
+
+                    <div className="space-y-3">
+                      {comparisons
+                        .filter((item) =>
+                          filter === "all"
+                            ? true
+                            : filter === "action"
+                              ? item.kind !== "unchanged"
+                              : filter === "ambiguous"
+                                ? ["ambiguous", "missing"].includes(item.kind)
+                                : item.kind === filter,
+                        )
+                        .map((item) => (
+                          <article key={item.key} className="rounded-xl border p-4">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div>
+                                <p className="text-xs font-medium text-primary">
+                                  {(item.after ?? item.before)?.sectionName || "Unit perlu dipastikan"} · {CHANGE_LABELS[item.kind]}
+                                </p>
+                                <h3 className="mt-1 text-sm font-semibold">
+                                  {(item.after ?? item.before)?.partName}{" "}
+                                  <span className="font-normal text-muted-foreground">{(item.after ?? item.before)?.quantity}</span>
+                                </h3>
                               </div>
-                              {canAssign && (
+                              {canAssign && item.kind !== "unchanged" && (
                                 <Button
                                   variant="outline"
-                                  className="mt-3"
                                   onClick={() => {
-                                    setFinding(c);
+                                    setFinding(item);
                                     setModal("followup");
                                   }}
                                 >
-                                  Buat tindak lanjut <ArrowRight size={14} />
+                                  Tindak lanjuti <ArrowRight size={14} />
                                 </Button>
                               )}
                             </div>
-                          ))}
-                      </div>
-                    </>
-                  ) : (
-                    <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
-                      {prior.length
-                        ? "Pilih satu laporan sebelumnya untuk melihat perubahan."
-                        : "Belum ada laporan lebih awal. Laporan ini menjadi titik awal riwayat; belum ada perubahan yang dapat disimpulkan."}
-                    </div>
-                  )}
-                </>
-              )}
-            </section>
-            <section className="space-y-4">
-              <div className="rounded-2xl border bg-white p-5">
-                <FileCheck2 className="text-primary" size={22} />
-                <h3 className="mt-3 font-semibold">Persetujuan & pengiriman</h3>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Direktur: {data.approverName || "Akun belum tersedia"}.
-                  Persetujuan terikat salinan versi yang diperiksa.
-                </p>
-                {selected && (
-                  <div className="mt-4 space-y-3">
-                    <p className="rounded-lg bg-slate-50 p-3 text-sm font-semibold">
-                      {review
-                        ? `Versi ${review.version} · ${reviewLabels[review.status]}${review.isCurrent ? "" : " · Draf sudah berubah"}`
-                        : "Draf · belum diajukan"}
-                    </p>
-                    {review && (
-                      <>
-                        <a
-                          className="inline-flex min-h-11 items-center text-sm text-primary underline"
-                          href={`/api/report-reviews/${review.id}/pdf`}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          Buka salinan versi {review.version} ↗
-                        </a>
-                        <p className="text-xs text-muted-foreground">
-                          {notificationLabels[review.notificationStatus]}
+                            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                              <div className="rounded-lg bg-slate-50 p-3 text-sm">
+                                <p className="mb-1 text-xs text-muted-foreground">Sebelumnya</p>
+                                {item.before?.notes || (item.before ? "Tanpa keterangan" : "Belum tercantum")}
+                              </div>
+                              <div className="rounded-lg bg-emerald-50/70 p-3 text-sm">
+                                <p className="mb-1 text-xs text-muted-foreground">Terbaru</p>
+                                {item.after?.notes || (item.after ? "Tanpa keterangan" : "Tidak tercantum lagi")}
+                              </div>
+                            </div>
+                          </article>
+                        ))}
+                      {!comparisons.some((item) =>
+                        filter === "all"
+                          ? true
+                          : filter === "action"
+                            ? item.kind !== "unchanged"
+                            : filter === "ambiguous"
+                              ? ["ambiguous", "missing"].includes(item.kind)
+                              : item.kind === filter,
+                      ) && (
+                        <p className="rounded-xl border border-dashed p-5 text-sm text-muted-foreground">
+                          Tidak ada item pada kelompok ini.
                         </p>
-                        {review.decisionNote && (
-                          <p className="rounded-lg bg-amber-50 p-3 text-sm">
-                            {review.decisionNote}
-                          </p>
-                        )}
-                      </>
-                    )}
-                    {canWrite && (
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <p className="rounded-xl border border-dashed p-5 text-sm text-muted-foreground">
+                    Ini laporan pertama. Perbandingan akan muncul setelah laporan berikutnya masuk.
+                  </p>
+                )}
+              </section>
+
+              <aside className="space-y-4">
+                <section className="rounded-2xl border bg-white p-5">
+                  <div className="flex items-center gap-3">
+                    <span className="grid h-10 w-10 place-items-center rounded-full bg-primary/10 text-primary">
+                      {dispatched ? <Check size={19} /> : <Clock3 size={19} />}
+                    </span>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Tindakan berikutnya</p>
+                      <h3 className="font-semibold">
+                        {dispatched
+                          ? "Siklus selesai"
+                          : approved
+                            ? "Catat pengiriman"
+                            : review?.status === "PENDING" && review.isCurrent
+                              ? "Menunggu direktur"
+                              : review?.status === "REJECTED" && review.isCurrent
+                                ? "Perbaiki draf"
+                                : "Periksa lalu ajukan"}
+                      </h3>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 space-y-3">
+                    <Button variant="outline" className="w-full" onClick={() => setModal("details")}>
+                      Periksa isi draf
+                    </Button>
+                    {review && (
                       <Button
+                        variant="outline"
                         className="w-full"
-                        disabled={pending || !data.approverName}
                         onClick={() =>
-                          action("Permintaan persetujuan tersimpan", () =>
-                            requestReportReview(selected.id),
-                          )
+                          previewDocument({
+                            title: `Salinan persetujuan · versi ${review.version}`,
+                            url: `/api/report-reviews/${review.id}/pdf?view=1`,
+                          })
                         }
                       >
-                        {review ? "Ajukan versi terkini" : "Ajukan ke direktur"}
+                        <Eye size={15} /> Lihat versi {review.version}
                       </Button>
                     )}
-                    {data.isApprover &&
-                      review?.status === "PENDING" &&
-                      review.isCurrent && (
-                        <>
-                          <p className="text-xs">
-                            Periksa salinan PDF, tanggal, isi, dan foto sebelum
-                            memutuskan.
-                          </p>
-                          <Button
-                            disabled={pending}
-                            className="w-full"
-                            onClick={() =>
-                              action("Laporan disetujui", () =>
-                                decideReportReview(review.id, "APPROVED", ""),
-                              )
-                            }
-                          >
-                            Setujui versi {review.version}
-                          </Button>
-                          <Button
-                            disabled={pending}
-                            variant="outline"
-                            className="w-full"
-                            onClick={() => setModal("reject")}
-                          >
-                            Minta revisi
-                          </Button>
-                        </>
-                      )}
-                    {review?.status === "APPROVED" && review.isCurrent && (
-                      <>
-                        {!review.dispatch && canWrite ? (
-                          <Button
-                            disabled={pending}
-                            variant="outline"
-                            className="w-full"
-                            onClick={() => setModal("send")}
-                          >
-                            Tandai sudah dikirim
-                          </Button>
-                        ) : (
-                          review.dispatch && (
-                            <div className="rounded-xl bg-emerald-50 p-3 text-sm">
-                              <b>Pengiriman dicatat</b>
-                              <p>
-                                {review.dispatch.channel} →{" "}
-                                {review.dispatch.recipient}
-                              </p>
-                              <p className="text-xs">
-                                Oleh {review.dispatch.recordedByName} ·{" "}
-                                {formatDate(review.dispatch.sentAt)}
-                              </p>
-                              <p className="mt-2 text-xs text-muted-foreground">
-                                Konfirmasi manual, bukan tanda diterima atau
-                                dibaca customer.
-                              </p>
-                            </div>
-                          )
-                        )}
-                      </>
+
+                    {canWrite && !approved && !(review?.status === "PENDING" && review.isCurrent) && (
+                      <Button
+                        className="w-full"
+                        disabled={pending || !data.approverName || !selected.dateVerified}
+                        onClick={() =>
+                          action("Permintaan persetujuan tersimpan", () => requestReportReview(selected.id))
+                        }
+                      >
+                        Ajukan ke direktur
+                      </Button>
                     )}
-                    <p className="text-xs text-muted-foreground">
-                      Perubahan draf memerlukan persetujuan baru. Membuka
-                      WhatsApp atau mengunduh PDF tidak dianggap sebagai
-                      pengiriman.
-                    </p>
+
+                    {review?.status === "PENDING" && review.isCurrent && (
+                      <p className="rounded-xl bg-amber-50 p-3 text-sm">
+                        Menunggu keputusan {data.approverName || "direktur"}.
+                      </p>
+                    )}
+
+                    {data.isApprover && review?.status === "PENDING" && review.isCurrent && (
+                      <div className="grid gap-2">
+                        <Button
+                          disabled={pending}
+                          onClick={() => action("Laporan disetujui", () => decideReportReview(review.id, "APPROVED", ""))}
+                        >
+                          Setujui versi {review.version}
+                        </Button>
+                        <Button disabled={pending} variant="outline" onClick={() => setModal("reject")}>
+                          Minta revisi
+                        </Button>
+                      </div>
+                    )}
+
+                    {review?.status === "REJECTED" && review.isCurrent && review.decisionNote && (
+                      <p className="rounded-xl bg-amber-50 p-3 text-sm">{review.decisionNote}</p>
+                    )}
+
+                    {approved && !review?.dispatch && canWrite && (
+                      <Button className="w-full" onClick={() => setModal("send")}>
+                        Tandai sudah dikirim
+                      </Button>
+                    )}
+
+                    {review?.dispatch && review.isCurrent && (
+                      <div className="rounded-xl bg-emerald-50 p-3 text-sm">
+                        <b>Terkirim via {review.dispatch.channel}</b>
+                        <p>{review.dispatch.recipient}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {review.dispatch.recordedByName} · {formatDate(review.dispatch.sentAt)}
+                        </p>
+                      </div>
+                    )}
+
+                    {review && (
+                      <p className="text-xs text-muted-foreground">
+                        {notificationLabels[review.notificationStatus]}
+                      </p>
+                    )}
                   </div>
-                )}
-              </div>
-              <div className="rounded-xl bg-slate-100 p-4 text-xs leading-relaxed text-slate-600">
-                <AlertCircle size={16} className="mb-2" />
-                Progres mengikuti bukti laporan. Pembayaran dan jumlah centang
-                tidak diubah menjadi persentase pekerjaan.
-              </div>
-            </section>
-          </div>
+                </section>
+              </aside>
+            </div>
+          )}
+
           <details className="rounded-xl border bg-white p-4">
             <summary className="flex cursor-pointer items-center gap-2 text-sm font-semibold">
-              <History size={16} /> Semua sumber laporan ({documents.length})
+              <History size={16} /> File sumber & riwayat ({documents.length})
             </summary>
             <div className="mt-4">{sourceList}</div>
+          </details>
+
+          <details className="rounded-xl border bg-slate-50 p-4 text-xs text-muted-foreground">
+            <summary className="cursor-pointer font-semibold text-foreground">Cara aplikasi membaca progres</summary>
+            <p className="mt-3 leading-relaxed">
+              Perbandingan mengikuti isi laporan. Item yang tidak muncul lagi ditandai untuk klarifikasi, bukan dianggap selesai. Status pembayaran tidak dipakai sebagai ukuran progres fisik.
+            </p>
           </details>
         </>
       )}
@@ -765,7 +797,7 @@ export function WeeklyWorkspace({
         open={modal === "upload"}
         onOpenChange={(open) => !open && !pending && setModal(null)}
         title="Unggah laporan"
-        description="File asli disimpan, kemudian draf SSO disiapkan otomatis."
+        description="File langsung tersimpan dan dapat dilihat di panel samping. PDF atau gambar juga diproses menjadi draf SSO."
       >
         <form onSubmit={upload} className="space-y-4">
           <label className="block text-sm">
@@ -780,19 +812,19 @@ export function WeeklyWorkspace({
             </Select>
           </label>
           <label className="block text-sm">
-            Dokumen PDF / gambar
+            File laporan
             <Input
               name="file"
               type="file"
-              accept=".pdf,.jpg,.jpeg,.png,.webp"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.tsv,.txt,.jpg,.jpeg,.png,.webp,.zip,.mp3,.m4a,.wav,.ogg,.mp4,.mov,.webm"
               required={!uploadId}
               disabled={pending || Boolean(uploadId)}
             />
           </label>
           <p className="text-xs text-muted-foreground">
-            Akun pengunggah dan waktu masuk otomatis dicatat. Pemrosesan AI
-            dapat memerlukan beberapa menit. Dokumen tidak otomatis dikirim ke
-            customer.
+            Akun dan waktu masuk dicatat otomatis. PDF serta gambar dapat
+            dibuat menjadi draf SSO; format lain tetap tersimpan dan bisa
+            dibuka dari ruang proyek ini.
           </p>
           <Button type="submit" disabled={pending}>
             <Sparkles size={16} />

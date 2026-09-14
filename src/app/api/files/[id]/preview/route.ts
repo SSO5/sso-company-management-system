@@ -24,7 +24,7 @@ export async function GET(
     if (doc.fileSize > 12 * 1024 * 1024)
       return NextResponse.json(
         {
-          kind: "unsupported",
+          kind: "file",
           note: "File terlalu besar untuk pratinjau isi. Unduh file asli.",
         },
         { headers },
@@ -37,7 +37,7 @@ export async function GET(
   } catch {
     return NextResponse.json(
       {
-        kind: "unsupported",
+        kind: "file",
         note: "Dokumen tidak dapat dirender dengan aman atau terlindungi sandi. Gunakan unduhan file asli.",
       },
       { headers },

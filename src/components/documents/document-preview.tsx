@@ -10,6 +10,7 @@ type Content =
   | { kind: "audio"; url: string }
   | { kind: "video"; url: string }
   | { kind: "text"; text: string; note?: string }
+  | { kind: "file"; note: string }
   | {
       kind: "sheets";
       sheets: { name: string; rows: string[][] }[];
@@ -107,11 +108,10 @@ export function DocumentPreviewProvider({
         );
       if (isFile) {
         const data = await response.json();
-        if (data.kind === "text" || data.kind === "sheets") {
+        if (["text", "sheets", "file"].includes(data.kind)) {
           setContent(data);
           return;
         }
-        if (data.kind === "unsupported") throw new Error(data.note);
         const bytes = await fetch(url.href, {
           signal: controller.signal,
           cache: "no-store",
@@ -225,6 +225,22 @@ export function DocumentPreviewProvider({
             />
           ) : content.kind === "audio" ? (
             <audio controls src={content.url} className="m-6 max-w-full" />
+          ) : content.kind === "file" ? (
+            <div className="grid flex-1 place-content-center p-6 text-center">
+              <FileText className="mx-auto h-12 w-12 text-primary/70" />
+              <h3 className="mt-4 font-semibold">File tersedia di ruang ini</h3>
+              <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+                {content.note}
+              </p>
+              <a
+                href={download}
+                download
+                data-preview="off"
+                className="mx-auto mt-5 inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-4 text-sm text-primary-foreground"
+              >
+                <Download className="h-4 w-4" /> Buka file asli
+              </a>
+            </div>
           ) : content.kind === "text" ? (
             <div className="flex-1 overflow-auto p-5">
               <p className="mb-4 text-xs text-muted-foreground">

@@ -1,8 +1,9 @@
 .document-drawer {
   position: fixed;
+  z-index: 80;
   inset: 12px 12px 12px auto;
   margin: 0;
-  width: min(880px, calc(100vw - 24px));
+  width: min(760px, calc(100vw - 24px));
   max-width: none;
   height: calc(100dvh - 24px);
   max-height: none;
@@ -17,12 +18,12 @@
 .document-drawer[open] {
   animation: document-in 0.28s cubic-bezier(0.2, 0.85, 0.2, 1) both;
 }
-.document-drawer::backdrop {
-  background: #101c3038;
-  backdrop-filter: blur(2px);
-}
 .document-drawer.is-closing {
   animation: document-out 0.18s ease-in both;
+}
+.document-drawer::backdrop {
+  background: #102a4324;
+  backdrop-filter: blur(1px);
 }
 @keyframes document-in {
   from {

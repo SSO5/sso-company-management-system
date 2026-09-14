@@ -7,9 +7,9 @@ export function nativePreview(mime: string) {
   if (mime === "application/pdf") return "pdf";
   if (["image/jpeg", "image/png", "image/gif", "image/webp"].includes(mime))
     return "image";
-  if (["audio/mpeg", "audio/mp4", "audio/ogg", "audio/wav"].includes(mime))
+  if (["audio/mpeg", "audio/mp4", "audio/x-m4a", "audio/ogg", "audio/wav"].includes(mime))
     return "audio";
-  if (["video/mp4", "video/webm"].includes(mime)) return "video";
+  if (["video/mp4", "video/quicktime", "video/webm"].includes(mime)) return "video";
   return null;
 }
 export async function readOfficePreview(buffer: Buffer, name: string) {
@@ -38,10 +38,22 @@ export async function readOfficePreview(buffer: Buffer, name: string) {
       note: "Pratinjau maksimal 100 baris dan 30 kolom.",
     };
   }
+  if (ext === "zip") {
+    const zip = await JSZip.loadAsync(buffer);
+    const entries = Object.values(zip.files)
+      .filter((file) => !file.dir)
+      .slice(0, 250)
+      .map((file) => file.name);
+    return {
+      kind: "text",
+      text: entries.length ? entries.join("\n") : "Arsip tidak berisi file.",
+      note: `Daftar isi arsip${Object.keys(zip.files).length > 250 ? " (250 file pertama)" : ""}. File di dalam arsip tidak dijalankan.`,
+    };
+  }
   if (!["xlsx", "docx", "pptx"].includes(ext || ""))
     return {
-      kind: "unsupported",
-      note: "Format ini belum mendukung pratinjau. PDF, gambar, XLSX, CSV, DOCX, PPTX, teks, serta audio/video umum dapat ditampilkan.",
+      kind: "file",
+      note: "Format lama atau khusus ini tidak dapat dirender persis oleh browser. File tetap aman di proyek dan dapat dibuka dari tombol file asli tanpa berpindah halaman aplikasi.",
     };
   const zip = await JSZip.loadAsync(buffer);
   const files = Object.values(zip.files).filter((f) => !f.dir);
