@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ReportItemEditor } from "./report-item-editor";
+import { useDocumentPreview } from "@/components/documents/document-preview";
 import { useToast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/utils";
 import {
@@ -81,6 +82,7 @@ export function WeeklyWorkspace({
   const router = useRouter(),
     params = useSearchParams(),
     { toast } = useToast();
+  const previewDocument = useDocumentPreview();
   const requestedReview = params.get("review"),
     requestedReport = params.get("report");
   const linked = data.reports.find(
@@ -452,6 +454,8 @@ export function WeeklyWorkspace({
                     value={selectedId}
                     onChange={(e) => {
                       setSelectedId(e.target.value);
+                      const report = data.reports.find(r => r.id === e.target.value);
+                      if (report) previewDocument({ title: report.number, url: `/api/progress-reports/${report.id}/pdf?view=1` });
                       setPreviousChoice(null);
                     }}
                   >

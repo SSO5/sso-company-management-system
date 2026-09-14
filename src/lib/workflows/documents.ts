@@ -84,6 +84,8 @@ export async function moveDocumentToTrash(
   actor: SessionPayload,
 ) {
   return prisma.$transaction(async (tx) => {
+    const source = await tx.document.findUniqueOrThrow({where:{id:documentId}});
+    if (source.processingState === "PROCESSING" || await tx.progressReport.count({where:{OR:[{sourceDocumentId:documentId},{originalSourceDocumentId:documentId}]}}) || await tx.financeBankBalance.count({where:{sourceDocumentId:documentId}})) throw new Error("Dokumen masih digunakan sebagai bukti laporan atau saldo. Pertahankan sumbernya.");
     const doc = await tx.document.update({
       where: { id: documentId },
       data: { deletedAt: new Date(), deletedById: actor.userId },
@@ -132,7 +134,7 @@ export async function permanentlyDeleteDocument(
     );
   }
   const retainedEvidence = await prisma.progressReport.findFirst({ where: { OR: [{ sourceDocumentId: documentId }, { originalSourceDocumentId: documentId }] }, select: { id: true } });
-  if (retainedEvidence) throw new Error("Dokumen merupakan bukti laporan proyek. File sumber tidak boleh dihapus permanen.");
+  if (retainedEvidence || await prisma.financeBankBalance.count({where:{sourceDocumentId:documentId}})) throw new Error("Dokumen merupakan bukti laporan proyek. File sumber tidak boleh dihapus permanen.");
   const driver = getStorageDriver();
   await driver.delete(doc.storagePath);
   await prisma.$transaction(async (tx) => {

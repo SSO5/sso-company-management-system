@@ -120,7 +120,7 @@ export async function generateProgressReportForActor(documentId: string, project
   if (doc.folder?.projectId !== projectId) throw new Error("Dokumen tidak berada di proyek ini.");
   if (doc.progressReport && !doc.progressReport.deletedAt && !force) return { progressReportId: doc.progressReport.id };
   const started = new Date();
-  const claim = await prisma.document.updateMany({ where: { id: documentId, OR: [{ processingState: { not: "PROCESSING" } }, { processingStartedAt: { lt: new Date(Date.now() - 10 * 60000) } }] },
+  const claim = await prisma.document.updateMany({ where: { id: documentId, deletedAt: null, OR: [{ processingState: { not: "PROCESSING" } }, { processingStartedAt: { lt: new Date(Date.now() - 10 * 60000) } }] },
     data: { processingState: "PROCESSING", processingStartedAt: started, processingError: null } });
   if (!claim.count) throw new Error("Dokumen sedang diproses. Muat ulang sebentar lagi; jangan unggah ulang.");
   try {

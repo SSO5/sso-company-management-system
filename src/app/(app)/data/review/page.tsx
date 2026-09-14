@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CleanupButton } from "@/components/documents/cleanup-button";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth/current-user";
 import { requirePermission } from "@/lib/permissions";
@@ -24,11 +25,12 @@ export default async function DataReviewPage({ searchParams }: { searchParams: {
   return <div className="space-y-5">
     <Link href="/data" className="inline-block py-2 text-sm text-primary">← Data & Dokumen</Link>
     <div className="workspace-heading"><div><p className="workspace-eyebrow">Pemeriksaan data sumber</p><h1>Tinjau kemiripan dokumen</h1><p className="workspace-muted mt-2">Bandingkan file dan keterkaitannya sebelum memutuskan koreksi.</p></div></div>
-    <div className="rounded-2xl border bg-amber-50 p-4 text-sm text-amber-950 leading-relaxed">Daftar ini mencocokkan nama persis, ukuran, dan folder. Isi file belum dibandingkan. File mirip dapat memiliki checklist atau transaksi berbeda. Tidak ada penggabungan, penghapusan, maupun pemilihan versi yang dianggap benar secara otomatis.</div>
+    <div className="rounded-2xl border bg-amber-50 p-4 text-sm text-amber-950 leading-relaxed">Daftar ini mencocokkan nama persis, ukuran, dan folder. Isi file belum dibandingkan. File mirip dapat memiliki checklist atau transaksi berbeda. Tombol pembersihan membandingkan isi file. Hanya salinan identik yang tidak menjadi bukti laporan atau transaksi yang dapat dipindahkan ke Sampah.</div>
     {rows.length === 0 && <p className="rounded-2xl border p-6">Tidak ada kelompok kemiripan pada halaman ini.</p>}
     {rows.map(({group, documents})=><section key={JSON.stringify([group.folderId,group.originalName,group.fileSize])} className="rounded-2xl border overflow-hidden">
       <div className="p-5 bg-slate-50"><h2 className="font-semibold break-words">{group.originalName}</h2><p className="text-xs text-muted-foreground mt-2 break-words">{documents[0]?.folder?.path || "Tanpa folder"}</p><p className="text-sm mt-2">{group._count.id} file · {(group.fileSize / 1024 / 1024).toFixed(2)} MB per file</p></div>
       <div className="divide-y">{documents.map(d=><article key={d.id} className="p-5 space-y-2"><p className="text-sm font-medium">{d.uploadedBy.name} · {formatDate(d.uploadedAt)} · versi {d.version}</p><p className="text-xs text-muted-foreground break-all">ID dokumen: {d.id}</p><p className="text-sm">{d.progressReport ? `Terhubung ke laporan ${d.progressReport.number} dengan ${d.progressReport._count.items} butir checklist.` : "Tidak memiliki checklist laporan terkait."}</p>{d.relatedEntityType && <p className="text-xs break-words">Keterkaitan tersimpan: {d.relatedEntityType}{d.relatedEntityId ? ` · ${d.relatedEntityId}` : " · tanpa ID catatan"}</p>}<div className="flex flex-wrap gap-3"><a className="inline-block rounded-lg border px-3 py-3 text-sm text-primary" href={`/api/files/${d.id}?view=1`} target="_blank" rel="noopener noreferrer">Buka file asli ↗</a>{d.progressReport && <a className="inline-block rounded-lg border px-3 py-3 text-sm text-primary" href={`/api/progress-reports/${d.progressReport.id}/pdf?view=1`} target="_blank" rel="noopener noreferrer">Buka checklist ↗</a>}</div></article>)}</div>
+      {["ADMIN","IT"].includes(actor.role) && <CleanupButton ids={documents.map(d=>d.id)} />}
       {group._count.id > 20 && <p className="p-4 text-sm">20 file pertama ditampilkan. Buka folder untuk versi lainnya.</p>}
       {group.folderId && <Link className="block border-t p-4 text-sm text-primary" href={`/documents/${group.folderId}`}>Buka folder terkait →</Link>}
     </section>)}

@@ -4535,10 +4535,10 @@ export async function executeAssistantTool(
       const r = await getFinanceReport();
       return {
         resultText:
-          `Revenue (tertagih): ${formatCurrency(r.revenue)}\n` +
+          `Tagihan diterbitkan (bukan pengakuan pendapatan): ${formatCurrency(r.revenue)}\n` +
           `Sudah dibayar: ${formatCurrency(r.paid)} — PPh dipotong: ${formatCurrency(r.withholdingTax)}\n` +
           `Outstanding: ${formatCurrency(r.outstanding)} — Overdue: ${formatCurrency(r.overdue)}\n` +
-          `Total expense: ${formatCurrency(r.totalExpenses)} — Gross profit: ${formatCurrency(r.grossProfit)}`,
+          `Total expense: ${formatCurrency(r.totalExpenses)} — Laba aktual: ${r.profitStatus}`,
       };
     }
 
@@ -4573,7 +4573,7 @@ export async function executeAssistantTool(
           .slice(0, clampLimit(input.limit, 10, 30))
           .map(
             (r) =>
-              `- ${r.number} (${r.customer}) — Revenue: ${formatCurrency(r.revenue)} — Cost: ${formatCurrency(r.cost)} — Margin: ${r.grossMargin}%`,
+              `- ${r.number} (${r.customer}) — ${r.revenue===null ? "Belum ada estimasi lengkap; jangan simpulkan laba" : `Proyeksi saja: penjualan neto ${formatCurrency(r.revenue)}, estimasi seluruh biaya ${formatCurrency(r.cost??0)}, margin ${r.grossMargin}%. Dasar: ${r.basis}`}`,
           )
           .join("\n"),
       };
@@ -4586,7 +4586,7 @@ export async function executeAssistantTool(
         resultText:
           `RINGKASAN EKSEKUTIF\n\n` +
           `Sales: ${r.sales.totalOpportunities} opportunity, Won ${formatCurrency(r.sales.wonValue)}, win rate ${r.sales.winRate}%\n` +
-          `Finance: Revenue ${formatCurrency(r.finance.revenue)}, Outstanding ${formatCurrency(r.finance.outstanding)}, Gross profit ${formatCurrency(r.finance.grossProfit)}\n` +
+          `Finance: Tagihan diterbitkan ${formatCurrency(r.finance.revenue)}, Outstanding ${formatCurrency(r.finance.outstanding)}, ${r.finance.profitStatus}\n` +
           `Project: ${r.project.total} total (${r.project.active} active, ${r.project.completed} selesai, ${r.project.atRisk} at risk), rata-rata progress ${r.project.avgProgress}%`,
       };
     }

@@ -7,12 +7,12 @@ export default async function ExecutiveReportPage() {
   const { sales, finance, project } = await getExecutiveReport();
 
   const kpis = [
-    { label: "Total Revenue", value: formatCurrency(finance.revenue) },
+    { label: "Tagihan diterbitkan", value: formatCurrency(finance.revenue) },
     { label: "Outstanding Receivables", value: formatCurrency(finance.outstanding) },
     { label: "Active Projects", value: project.active },
     { label: "Projects At Risk", value: project.atRisk },
     { label: "Completed Projects", value: project.completed },
-    { label: "Gross Profit", value: formatCurrency(finance.grossProfit) },
+    { label: "Laba aktual", value: "Belum tersedia" },
   ];
 
   return (
@@ -24,7 +24,7 @@ export default async function ExecutiveReportPage() {
         ))}
       </div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card><CardHeader><CardTitle>Revenue vs Expense</CardTitle></CardHeader><CardContent><MultiLineChart data={finance.monthly} lines={[{ key: "revenue", color: "#1e293b", label: "Revenue" }, { key: "expense", color: "#ef4444", label: "Expense" }]} /></CardContent></Card>
+        <Card><CardHeader><CardTitle>Tagihan dan biaya tercatat (bukan laba)</CardTitle></CardHeader><CardContent><MultiLineChart data={finance.monthly} lines={[{ key: "revenue", color: "#1e293b", label: "Tagihan" }, { key: "expense", color: "#ef4444", label: "Expense" }]} /></CardContent></Card>
         <Card><CardHeader><CardTitle>Project Status</CardTitle></CardHeader><CardContent><SimplePieChart data={project.statusBreakdown} /></CardContent></Card>
         <Card><CardHeader><CardTitle>Sales Pipeline (Quotation Value / Month)</CardTitle></CardHeader><CardContent><MultiLineChart data={sales.monthlySales} lines={[{ key: "value", color: "#3b82f6", label: "Quotation Value" }]} /></CardContent></Card>
         <Card><CardHeader><CardTitle>Win Rate</CardTitle></CardHeader><CardContent className="flex h-[260px] items-center justify-center"><p className="text-4xl font-semibold">{sales.winRate}%</p></CardContent></Card>

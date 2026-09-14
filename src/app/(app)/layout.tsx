@@ -6,6 +6,7 @@ import { getThemePreset } from "@/lib/theme-presets";
 import { AppShell } from "@/components/layout/app-shell";
 import { ToastProvider } from "@/components/ui/toast";
 import { AssistantWidget } from "@/components/assistant/assistant-widget";
+import { DocumentPreviewProvider } from "@/components/documents/document-preview";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,7 @@ export default async function AppLayout({
 
   return (
     <ToastProvider>
+      <DocumentPreviewProvider>
       {/* Settings > Tema (CompanySettings.themePreset): overrides globals.css's
           --primary/--ring for the whole authenticated app. Only the brand
           color moves — success/warning/destructive stay put on purpose, see
@@ -45,6 +47,7 @@ export default async function AppLayout({
         {children}
       </AppShell>
       <AssistantWidget />
+      </DocumentPreviewProvider>
     </ToastProvider>
   );
 }

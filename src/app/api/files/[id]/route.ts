@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getStorageDriver } from "@/lib/storage";
+import { nativePreview } from "@/lib/document-preview";
 
 /**
  * The ONLY way to read a file's bytes (spec section 39). Changing the [id]
@@ -40,7 +41,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       },
     });
 
-    const safeInline = ["application/pdf", "image/jpeg", "image/png", "image/webp", "image/gif"].includes(doc.mimeType);
+    const safeInline = nativePreview(doc.mimeType) !== null;
     const disposition = isInlineView && safeInline ? "inline" : "attachment";
     return new NextResponse(buffer, {
       headers: {

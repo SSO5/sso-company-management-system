@@ -55,7 +55,7 @@ export interface StorageDriver {
 const ALLOWED_EXTENSIONS = new Set([
   "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
   "jpg", "jpeg", "png", "webp", "zip", "txt",
-  "mp4", "mov", "webm",
+  "mp4", "mov", "webm", "csv", "tsv", "mp3", "m4a", "wav", "ogg",
 ]);
 
 // Note this is the STORAGE ceiling. Uploads made through the browser are

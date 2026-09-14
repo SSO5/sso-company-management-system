@@ -1820,6 +1820,44 @@ model ChartOfAccount {
   @@index([type])
 }
 
+model FinanceWorkItem {
+  id String @id @default(cuid())
+  title String
+  kind String @default("BILLING")
+  projectId String?
+  reference String?
+  ownerId String?
+  dueAt DateTime?
+  status String @default("OPEN")
+  checks Json
+  notes String?
+  createdById String
+  updatedById String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([status, dueAt])
+}
+
+model FinanceBankBalance {
+  id String @id @default(cuid())
+  bankName String
+  asOf DateTime
+  amount Decimal @db.Decimal(18,2)
+  sourceDocumentId String
+  createdById String
+  createdAt DateTime @default(now())
+  @@index([bankName, asOf])
+}
+
+model FinanceProjectEstimate {
+  projectId String @id
+  netSales Decimal @db.Decimal(18,2)
+  totalForecastCost Decimal @db.Decimal(18,2)
+  basis String
+  updatedById String
+  updatedAt DateTime @updatedAt
+}
+
 model CompanyExpense {
   id        String @id @default(cuid())
   number    String @unique // OPX-2026-0001
