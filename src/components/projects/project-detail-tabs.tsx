@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Tabs } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ProjectFinancialView, type ProjectFinancials } from "@/components/projects/financial-view";
 import { TaskPanel } from "@/components/projects/followup-panel";
 import { MilestonePanel } from "@/components/projects/milestone-panel";
 import {
@@ -28,17 +29,7 @@ interface Props {
   status: string;
   canManage: boolean;
   role: UserRole;
-  profitability: {
-    contractValue: number;
-    budget: number;
-    actualCost: number;
-    budgetRemaining: number;
-    totalInvoiced: number;
-    totalPaid: number;
-    outstanding: number;
-    grossProfit: number;
-    grossMargin: number;
-  };
+  profitability: ProjectFinancials;
   tasks: {
     id: string;
     title: string;
@@ -163,6 +154,7 @@ const TABS = [
   { value: "progress", label: "Progres Mingguan" },
   { value: "tasks", label: "Tindak Lanjut" },
   { value: "documents", label: "Dokumen & Riwayat" },
+  { value: "finance", label: "Keuangan" },
 ];
 
 export function ProjectDetailTabs(props: Props) {
@@ -205,6 +197,7 @@ export function ProjectDetailTabs(props: Props) {
           actorId={props.weekly.actorId}
         />
       )}
+      {active === "finance" && <ProjectFinancialView data={props.profitability} />}
       {active === "documents" && (
         <div className="space-y-5">
           {weeklyView(true)}

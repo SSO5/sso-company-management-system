@@ -1,4 +1,5 @@
 import { summarizeIssuedInvoices } from "@/lib/invoice-summary";
+import { summarizeProjectCost } from "@/lib/project-cost";
 import { isUntouchedTemplateTask } from "@/lib/weekly-policy";
 import type { Prisma, Quotation, Customer, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
@@ -142,15 +143,47 @@ export async function convertQuotationToProject(
   return { project, pendingNotifications };
 }
 
-/** Revenue - Cost = Gross Profit; Gross Profit / Revenue = Gross Margin (section 28). */
+/**
+ * Revenue - Cost = Gross Profit; Gross Profit / Revenue = Gross Margin (section 28).
+ *
+ * WHAT COUNTS AS ACTUAL COST
+ * --------------------------
+ * Only APPROVED expenses. This used to sum every ProjectExpense row with no
+ * status filter at all, which meant a DRAFT someone was still typing — and,
+ * worse, an expense the director had explicitly REJECTED — still ate into the
+ * project's margin. A rejected cost is not a cost.
+ *
+ * The same filter is what makes "committed" meaningful: a Vendor PO marked
+ * Sent auto-creates its ProjectExpense (see markVendorPOSent in
+ * workflows/vendor-po.ts), so without the filter money that has merely been
+ * PROMISED was being reported as money already SPENT. Now it lands in
+ * `committedCost` instead, where it belongs.
+ */
 export async function calculateProjectProfitability(projectId: string) {
   const project = await prisma.project.findUniqueOrThrow({
     where: { id: projectId },
   });
-  const expenseAgg = await prisma.projectExpense.aggregate({
+
+  // Fetched, not aggregated: the same rows have to be split three ways
+  // (approved / unpaid-but-approved / everything), and three aggregates would
+  // be three round trips for data that fits in one.
+  const expenses = await prisma.projectExpense.findMany({
     where: { projectId, deletedAt: null },
-    _sum: { total: true },
+    select: { total: true, approvalStatus: true, paymentStatus: true },
   });
+
+  // A Vendor PO that is out the door is money no longer cancellable, even
+  // before its expense is approved — summarizeProjectCost decides where it
+  // lands.
+  const vendorPos = await prisma.vendorPurchaseOrder.findMany({
+    where: { projectId, deletedAt: null, status: { in: ["SENT", "CONFIRMED"] } },
+    select: { grandTotal: true, expense: { select: { approvalStatus: true } } },
+  });
+
+  const budget = Number(project.budget);
+  const { actualCost, payable, pendingCost, committedCost, forecastCost } =
+    summarizeProjectCost(expenses, vendorPos, budget);
+
   // Fetched (not aggregated) because a staged/DP invoice's actually-billed
   // amount is grandTotal * dpPercent/100, a per-row calc _sum can't do. See
   // invoiceDueAmount().
@@ -170,7 +203,6 @@ export async function calculateProjectProfitability(projectId: string) {
   });
 
   const revenue = Number(project.contractValue);
-  const actualCost = Number(expenseAgg._sum.total ?? 0);
   const { totalInvoiced, totalPaid, totalWithheld, outstanding } = summarizeIssuedInvoices(projectInvoices);
   const { grossProfit, grossMargin } = calcProfitability({
     revenue,
@@ -179,9 +211,13 @@ export async function calculateProjectProfitability(projectId: string) {
 
   return {
     contractValue: revenue,
-    budget: Number(project.budget),
+    budget,
     actualCost,
-    budgetRemaining: Number(project.budget) - actualCost,
+    budgetRemaining: budget - actualCost,
+    committedCost,
+    pendingCost,
+    forecastCost,
+    payable,
     totalInvoiced,
     totalPaid,
     totalWithheld,
