@@ -550,7 +550,9 @@ export interface ProjectRiskSignal {
     | "MILESTONE_DELAYED"
     | "SCHEDULE_DEVIATION"
     | "BUDGET_OVERRUN"
-    | "BUDGET_NEAR_LIMIT";
+    | "BUDGET_NEAR_LIMIT"
+    | "INVOICE_OVERDUE"
+    | "MARGIN_EROSION";
   severity: "warning" | "critical";
   message: string;
 }
@@ -560,8 +562,15 @@ export interface ProjectRiskInput {
   budget: number;
   approvedExpenseTotal: number;
   sCurveAsOfToday: { planned: number; actual: number };
+  /** Invoices already issued to the customer, for the overdue signal. */
+  invoices?: { number: string; dueDate: Date; outstanding: number; status: string }[];
+  /** Contract value and forecast cost, for the margin-erosion signal. */
+  contractValue?: number;
+  forecastCost?: number;
 }
 const SCHEDULE_DEVIATION_THRESHOLD_PERCENT = 15;
+/** Below this many percentage points, a margin slip is noise, not news. */
+const MARGIN_EROSION_THRESHOLD_POINTS = 3;
 
 export function computeProjectRiskSignals(
   input: ProjectRiskInput,
@@ -605,6 +614,42 @@ export function computeProjectRiskSignals(
         type: "BUDGET_NEAR_LIMIT",
         severity: "warning",
         message: `Biaya sudah mencapai ${round2((input.approvedExpenseTotal / input.budget) * 100)}% dari budget`,
+      });
+    }
+  }
+
+  // Uang yang sudah ditagih tapi lewat tempo. Dimasukkan ke sinyal PROYEK,
+  // bukan cuma laporan keuangan, karena yang paling mungkin bisa menagihnya
+  // adalah orang yang sedang mengerjakan proyeknya — bukan Finance yang
+  // hanya melihat nomor invoice.
+  const today = new Date();
+  const overdue = (input.invoices ?? []).filter(
+    (i) => i.outstanding > 0 && (i.status === "OVERDUE" || i.dueDate < today),
+  );
+  if (overdue.length > 0) {
+    const total = round2(overdue.reduce((sum, i) => sum + i.outstanding, 0));
+    const oldest = overdue.reduce((a, b) => (a.dueDate < b.dueDate ? a : b));
+    const days = Math.floor((today.getTime() - oldest.dueDate.getTime()) / 86_400_000);
+    signals.push({
+      type: "INVOICE_OVERDUE",
+      severity: days > 30 ? "critical" : "warning",
+      message: `${overdue.length} invoice lewat tempo, total Rp ${total.toLocaleString("id-ID")} — terlama ${oldest.number} sudah ${days} hari`,
+    });
+  }
+
+  // Margin yang akan MENDARAT, bukan margin hari ini. Membandingkan rencana
+  // dengan perkiraan akhir adalah satu-satunya cara memperingatkan selagi
+  // masih ada yang bisa diperbuat; margin berjalan selalu terlihat bagus
+  // justru karena biayanya belum semua masuk.
+  if (input.contractValue && input.contractValue > 0 && input.forecastCost != null && input.budget > 0) {
+    const planned = ((input.contractValue - input.budget) / input.contractValue) * 100;
+    const forecast = ((input.contractValue - input.forecastCost) / input.contractValue) * 100;
+    const drop = round2(planned - forecast);
+    if (drop >= MARGIN_EROSION_THRESHOLD_POINTS) {
+      signals.push({
+        type: "MARGIN_EROSION",
+        severity: drop >= 10 ? "critical" : "warning",
+        message: `Perkiraan margin turun ${drop} poin dari rencana (${round2(planned)}% menjadi ${round2(forecast)}%)`,
       });
     }
   }
