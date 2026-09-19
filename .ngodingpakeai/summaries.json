@@ -1,0 +1,1163 @@
+{
+  ".claude/skills/ngodingpakeai/SKILL.md": {
+    "summary": "Skill Claude Code yang dipasang oleh CLI NgodingPakeAI. Berisi instruksi bagi agen untuk menjalankan perintah login, bootstrap, init, sync, dan status. Bukan kode aplikasi SSO Connect."
+  },
+  ".eslintrc.json": {
+    "summary": "Berkas konfigurasi/proyek: `.eslintrc.json`. Panjang 4 baris."
+  },
+  ".github/workflows/backup-daily.yml": {
+    "summary": "Workflow GitHub Actions: `.github/workflows/backup-daily.yml`. Nama workflow \"Backup - Daily database dump\", dipicu oleh schedule, workflow_dispatch. Mengambil cadangan basis data harian."
+  },
+  ".github/workflows/ci.yml": {
+    "summary": "Workflow GitHub Actions: `.github/workflows/ci.yml`. Nama workflow \"CI\", dipicu oleh pull_request, push. Menjalankan lint, typecheck, dan uji pada setiap perubahan."
+  },
+  ".github/workflows/cron-daily.yml": {
+    "summary": "Workflow GitHub Actions: `.github/workflows/cron-daily.yml`. Nama workflow \"Cron - Daily automation (overdue, risk, approvals, digest)\", dipicu oleh schedule, workflow_dispatch. Memicu endpoint cron aplikasi untuk pekerjaan terjadwal harian (notifikasi, sinyal risiko proyek, direktif)."
+  },
+  ".github/workflows/cron-directives.yml": {
+    "summary": "Workflow GitHub Actions: `.github/workflows/cron-directives.yml`. Nama workflow \"Cron - Directive notification queue (Tugas dari Direktur)\", dipicu oleh schedule, workflow_dispatch. Memicu endpoint cron aplikasi untuk pekerjaan terjadwal harian (notifikasi, sinyal risiko proyek, direktif)."
+  },
+  ".github/workflows/db-diagnose-dwiki-login.yml": {
+    "summary": "Workflow GitHub Actions: `.github/workflows/db-diagnose-dwiki-login.yml`. Nama workflow \"DB Diagnose - Dwiki login issue (read-only, one-off)\", dipicu oleh workflow_dispatch. Menjalankan kueri diagnostik hanya-baca untuk menelusuri anomali data."
+  },
+  ".github/workflows/db-diagnose-invoice-withholding.yml": {
+    "summary": "Workflow GitHub Actions: `.github/workflows/db-diagnose-invoice-withholding.yml`. Nama workflow \"DB Diagnose - Invoices stuck OVERDUE despite near-full payment (one-off, read-only)\", dipicu oleh workflow_dispatch. Menjalankan kueri diagnostik hanya-baca untuk menelusuri anomali data."
+  },
+  ".github/workflows/db-diagnose-revision-history.yml": {
+    "summary": "Workflow GitHub Actions: `.github/workflows/db-diagnose-revision-history.yml`. Nama workflow \"DB Diagnose - Check revision history capture (read-only, one-off)\", dipicu oleh workflow_dispatch. Menjalankan kueri diagnostik hanya-baca untuk menelusuri anomali data."
+  },
+  ".github/workflows/db-diagnose-usage-audit.yml": {
+    "summary": "Workflow GitHub Actions: `.github/workflows/db-diagnose-usage-audit.yml`. Nama workflow \"DB Diagnose - Real usage audit (read-only, one-off)\", dipicu oleh workflow_dispatch. Menjalankan kueri diagnostik hanya-baca untuk menelusuri anomali data."
+  },
+  ".github/workflows/db-repair-dangling-quotation-link.yml": {
+    "summary": "Workflow GitHub Actions: `.github/workflows/db-repair-dangling-quotation-link.yml`. Nama workflow \"DB Repair - Unlink Costing Sheet from deleted Quotation 003/QUO/MKT/VIII/2026 (one-off)\", dipicu oleh workflow_dispatch. Menjalankan perubahan/perbaikan skema atau data pada basis data produksi Neon secara terkendali lewat dispatch manual."
+  },
+  ".github/workflows/db-repair-invoice-stuck-overdue.yml": {
+    "summary": "Workflow GitHub Actions: `.github/workflows/db-repair-invoice-stuck-overdue.yml`. Nama workflow \"DB Repair - Flip 3 already-settled invoices from OVERDUE to PAID (one-off)\", dipicu oleh workflow_dispatch. Menjalankan perubahan/perbaikan skema atau data pada basis data produksi Neon secara terkendali lewat dispatch manual."
+  },
+  ".github/workflows/db-repair-reset-dwiki-password.yml": {
+    "summary": "Workflow GitHub Actions: `.github/workflows/db-repair-reset-dwiki-password.yml`. Nama workflow \"DB Repair - Reset Dwiki's password and unlock (one-off)\", dipicu oleh workflow_dispatch. Menjalankan perubahan/perbaikan skema atau data pada basis data produksi Neon secara terkendali lewat dispatch manual."
+  },
+  ".github/workflows/db-repair-unlock-dwiki.yml": {
+    "summary": "Workflow GitHub Actions: `.github/workflows/db-repair-unlock-dwiki.yml`. Nama workflow \"DB Repair - Unlock Dwiki's account (one-off)\", dipicu oleh workflow_dispatch. Menjalankan perubahan/perbaikan skema atau data pada basis data produksi Neon secara terkendali lewat dispatch manual."
+  },
+  ".github/workflows/db-schema-assistant-pending-action.yml": {
+    "summary": "Workflow GitHub Actions: `.github/workflows/db-schema-assistant-pending-action.yml`. Nama workflow \"DB Schema - Add AssistantPendingAction table (one-off)\", dipicu oleh workflow_dispatch. Menjalankan perubahan/perbaikan skema atau data pada basis data produksi Neon secara terkendali lewat dispatch manual."
+  },
+  ".github/workflows/db-schema-directive-notified-at.yml": {
+    "summary": "Workflow GitHub Actions: `.github/workflows/db-schema-directive-notified-at.yml`. Nama workflow \"DB Schema - Add Directive.notifiedAt column (one-off)\", dipicu oleh workflow_dispatch. Menjalankan perubahan/perbaikan skema atau data pada basis data produksi Neon secara terkendali lewat dispatch manual."
+  },
+  ".github/workflows/db-schema-directive.yml": {
+    "summary": "Workflow GitHub Actions: `.github/workflows/db-schema-directive.yml`. Nama workflow \"DB Schema - Add Directive table (one-off)\", dipicu oleh workflow_dispatch. Menjalankan perubahan/perbaikan skema atau data pada basis data produksi Neon secara terkendali lewat dispatch manual."
+  },
+  ".github/workflows/db-schema-general-ledger-phase1.yml": {
+    "summary": "Workflow GitHub Actions: `.github/workflows/db-schema-general-ledger-phase1.yml`. Nama workflow \"DB Schema - General Ledger Phase 1 (ChartOfAccount + CompanyExpense) (one-off)\", dipicu oleh workflow_dispatch. Menjalankan perubahan/perbaikan skema atau data pada basis data produksi Neon secara terkendali lewat dispatch manual."
+  },
+  ".github/workflows/db-schema-login-lockout.yml": {
+    "summary": "Workflow GitHub Actions: `.github/workflows/db-schema-login-lockout.yml`. Nama workflow \"DB Schema - Add User login-lockout columns (one-off)\", dipicu oleh workflow_dispatch. Menjalankan perubahan/perbaikan skema atau data pada basis data produksi Neon secara terkendali lewat dispatch manual."
+  },
+  ".github/workflows/db-schema-progress-report-item-quantity.yml": {
+    "summary": "Workflow GitHub Actions: `.github/workflows/db-schema-progress-report-item-quantity.yml`. Nama workflow \"DB Schema - Add ProgressReportItem.quantity column (one-off)\", dipicu oleh workflow_dispatch. Menjalankan perubahan/perbaikan skema atau data pada basis data produksi Neon secara terkendali lewat dispatch manual."
+  },
+  ".github/workflows/db-schema-revision-history.yml": {
+    "summary": "Workflow GitHub Actions: `.github/workflows/db-schema-revision-history.yml`. Nama workflow \"DB Schema - Add revision history tables (one-off)\", dipicu oleh workflow_dispatch. Menjalankan perubahan/perbaikan skema atau data pada basis data produksi Neon secara terkendali lewat dispatch manual."
+  },
+  ".github/workflows/db-schema-telegram-automation.yml": {
+    "summary": "Workflow GitHub Actions: `.github/workflows/db-schema-telegram-automation.yml`. Nama workflow \"DB Schema - Add Telegram automation fields (one-off)\", dipicu oleh workflow_dispatch. Menjalankan perubahan/perbaikan skema atau data pada basis data produksi Neon secara terkendali lewat dispatch manual."
+  },
+  ".github/workflows/db-schema-telegram-costing-draft.yml": {
+    "summary": "Workflow GitHub Actions: `.github/workflows/db-schema-telegram-costing-draft.yml`. Nama workflow \"DB Schema - Add TelegramCostingDraft table (one-off)\", dipicu oleh workflow_dispatch. Menjalankan perubahan/perbaikan skema atau data pada basis data produksi Neon secara terkendali lewat dispatch manual."
+  },
+  ".github/workflows/db-schema-telegram-pending-invoice.yml": {
+    "summary": "Workflow GitHub Actions: `.github/workflows/db-schema-telegram-pending-invoice.yml`. Nama workflow \"DB Schema - Add TelegramPendingInvoice table (one-off)\", dipicu oleh workflow_dispatch. Menjalankan perubahan/perbaikan skema atau data pada basis data produksi Neon secara terkendali lewat dispatch manual."
+  },
+  ".github/workflows/db-schema-telegram-pending-progress-report.yml": {
+    "summary": "Workflow GitHub Actions: `.github/workflows/db-schema-telegram-pending-progress-report.yml`. Nama workflow \"DB Schema - Add TelegramPendingProgressReport table (one-off)\", dipicu oleh workflow_dispatch. Menjalankan perubahan/perbaikan skema atau data pada basis data produksi Neon secara terkendali lewat dispatch manual."
+  },
+  ".github/workflows/db-schema-theme-avatar.yml": {
+    "summary": "Workflow GitHub Actions: `.github/workflows/db-schema-theme-avatar.yml`. Nama workflow \"DB Schema - Add avatarUrl and theme settings (one-off)\", dipicu oleh workflow_dispatch. Menjalankan perubahan/perbaikan skema atau data pada basis data produksi Neon secara terkendali lewat dispatch manual."
+  },
+  ".github/workflows/db-schema-ui-mood.yml": {
+    "summary": "Workflow GitHub Actions: `.github/workflows/db-schema-ui-mood.yml`. Nama workflow \"DB Schema - Add User.uiMood column (one-off)\", dipicu oleh workflow_dispatch. Menjalankan perubahan/perbaikan skema atau data pada basis data produksi Neon secara terkendali lewat dispatch manual."
+  },
+  ".github/workflows/db-schema-vendor-po-expense-link.yml": {
+    "summary": "Workflow GitHub Actions: `.github/workflows/db-schema-vendor-po-expense-link.yml`. Nama workflow \"DB Schema - Link VendorPurchaseOrder to ProjectExpense (one-off)\", dipicu oleh workflow_dispatch. Menjalankan perubahan/perbaikan skema atau data pada basis data produksi Neon secara terkendali lewat dispatch manual."
+  },
+  ".github/workflows/db-seed-chart-of-accounts.yml": {
+    "summary": "Workflow GitHub Actions: `.github/workflows/db-seed-chart-of-accounts.yml`. Nama workflow \"DB Seed - Chart of Accounts from PT SSO's real bookkeeping (one-off)\", dipicu oleh workflow_dispatch. Menjalankan perubahan/perbaikan skema atau data pada basis data produksi Neon secara terkendali lewat dispatch manual."
+  },
+  ".github/workflows/neon-migration.yml": {
+    "summary": "Workflow GitHub Actions: `.github/workflows/neon-migration.yml`. Nama workflow \"Neon DB Migration (one-off)\", dipicu oleh workflow_dispatch. Menjalankan perubahan/perbaikan skema atau data pada basis data produksi Neon secara terkendali lewat dispatch manual."
+  },
+  ".gitignore": {
+    "summary": "Berkas konfigurasi/proyek: `.gitignore`. Panjang 28 baris."
+  },
+  ".ngodingpakeaiignore": {
+    "summary": "Berkas konfigurasi/proyek: `.ngodingpakeaiignore`. Panjang 9 baris."
+  },
+  ".vercelignore": {
+    "summary": "Berkas konfigurasi/proyek: `.vercelignore`. Panjang 21 baris."
+  },
+  "AGENTS.md": {
+    "summary": "Berkas aturan untuk agen AI di repositori ini, ditulis oleh CLI NgodingPakeAI ketika init dijalankan. Menjelaskan cara menghubungkan, mengindeks, dan menyinkronkan konteks kode ke workspace NgodingPakeAI. Bukan kode aplikasi."
+  },
+  "README.md": {
+    "summary": "Berkas konfigurasi/proyek: `README.md`. Judul: \"SSO Company Management System\". Bagian utama: Honest status: what to expect before you run this; Quick start; Architecture; What's fully implemented vs. what's a foundation for the next phase; Numbering engine; Security notes; Environment variables; Roadmap (matches the founder's phased build philosophy). Catatan tertulis, bukan kode yang dieksekusi."
+  },
+  "delete-registry.sql": {
+    "summary": "Berkas konfigurasi/proyek: `delete-registry.sql`. Panjang 2 baris."
+  },
+  "docs/AUDIT-ALUR-PEMANTAUAN-PROYEK-2026-09-14.md": {
+    "summary": "Dokumen internal (bahasa Indonesia): `docs/AUDIT-ALUR-PEMANTAUAN-PROYEK-2026-09-14.md`. Judul: \"Audit ruang proyek dan arah perombakan — 14 September 2026\". Bagian utama: Kesimpulan; Temuan berdasarkan kode dan gambar pengguna; Rancangan awal yang perlu diuji dengan pengguna; Interaksi yang diusulkan; Perlakuan data lama; Wawancara yang sudah diminta; Kriteria uji prototipe. Catatan tertulis, bukan kode yang dieksekusi."
+  },
+  "docs/AUDIT-LANJUTAN-2026-09-14.md": {
+    "summary": "Dokumen internal (bahasa Indonesia): `docs/AUDIT-LANJUTAN-2026-09-14.md`. Judul: \"Audit lanjutan SSO Connect — 14 September 2026\". Bagian utama: Temuan dan koreksi; Halaman yang ditambahkan; Verifikasi; Keputusan bisnis yang belum boleh ditebak; Referensi teknis. Catatan tertulis, bukan kode yang dieksekusi."
+  },
+  "docs/COMMAND-FLOW-RELEASE.md": {
+    "summary": "Dokumen internal (bahasa Indonesia): `docs/COMMAND-FLOW-RELEASE.md`. Judul: \"SSO Command Flow — 14 September 2026\". Bagian utama: Perubahan; Data perusahaan; Verifikasi dan rollback. Catatan tertulis, bukan kode yang dieksekusi."
+  },
+  "docs/KEBUTUHAN-PANTAUAN-PROYEK-WAWANCARA-2026-09-14.md": {
+    "summary": "Dokumen internal (bahasa Indonesia): `docs/KEBUTUHAN-PANTAUAN-PROYEK-WAWANCARA-2026-09-14.md`. Judul: \"Hasil wawancara alur pemantauan proyek SSO\". Bagian utama: Kebutuhan utama; Alur nyata; Identitas dan kewenangan; Jadwal dan notifikasi; Implikasi rancangan; Tahap selanjutnya; Koreksi batas ruang kerja dari pengguna; Otomatisasi setelah unggah yang dikonfirmasi pengguna; Beranda perusahaan dan kondisi keuangan. Catatan tertulis, bukan kode yang dieksekusi."
+  },
+  "docs/RILIS-FINANCE-DAN-PRATINJAU-2026-09-14.md": {
+    "summary": "Dokumen internal (bahasa Indonesia): `docs/RILIS-FINANCE-DAN-PRATINJAU-2026-09-14.md`. Judul: \"Rilis Finance dan pratinjau dokumen — 14 September 2026\". Bagian utama: Rilis aktif; Perubahan yang sudah berjalan; Bukti sumber dan temuan yang harus ditindaklanjuti; Validasi dan batasnya; Pekerjaan yang belum dapat dinyatakan tuntas; Pemulihan. Catatan tertulis, bukan kode yang dieksekusi."
+  },
+  "docs/RILIS-PANTAUAN-MINGGUAN-2026-09-14.md": {
+    "summary": "Dokumen internal (bahasa Indonesia): `docs/RILIS-PANTAUAN-MINGGUAN-2026-09-14.md`. Judul: \"Rilis pantauan proyek berbasis laporan\". Bagian utama: Tujuan dan batas; Perubahan; Validasi sebelum deployment; Migrasi dan rollback; Yang belum boleh diklaim. Catatan tertulis, bukan kode yang dieksekusi."
+  },
+  "docs/UX-AUDIT-2026-09-14.md": {
+    "summary": "Dokumen internal (bahasa Indonesia): `docs/UX-AUDIT-2026-09-14.md`. Judul: \"Audit UX SSO Connect — 14 September 2026\". Bagian utama: Kesimpulan; Sumber aktual yang diperiksa; Akar masalah dan keputusan; Alur yang direkomendasikan; Batas validasi. Catatan tertulis, bukan kode yang dieksekusi."
+  },
+  "docs/application-blueprint/00-AUDIT-STATE.md": {
+    "summary": "Dokumen internal (bahasa Indonesia): `docs/application-blueprint/00-AUDIT-STATE.md`. Judul: \"Audit State — SSO Connect Application Blueprint\". Catatan tertulis, bukan kode yang dieksekusi."
+  },
+  "docs/application-blueprint/01-EVIDENCE-NOTES.md": {
+    "summary": "Dokumen internal (bahasa Indonesia): `docs/application-blueprint/01-EVIDENCE-NOTES.md`. Judul: \"Evidence Notes — SSO Connect\". Bagian utama: EVIDENCE-001; EVIDENCE-002; EVIDENCE-003; EVIDENCE-004; EVIDENCE-005; EVIDENCE-006; EVIDENCE-007; EVIDENCE-008; EVIDENCE-009; EVIDENCE-010; EVIDENCE-011; EVIDENCE-012. Catatan tertulis, bukan kode yang dieksekusi."
+  },
+  "docs/application-blueprint/10-PAGE-APPLICATION-BLUEPRINT.md": {
+    "summary": "Dokumen internal (bahasa Indonesia): `docs/application-blueprint/10-PAGE-APPLICATION-BLUEPRINT.md`. Judul: \"SSO CONNECT — 10-PAGE APPLICATION BLUEPRINT\". Bagian utama: Tujuan Halaman; Visual Utama; Yang Harus Saya Pahami; Evidence Penting; Confidence; Tujuan Halaman; Visual Utama; Yang Harus Saya Pahami; Evidence Penting; Confidence; Tujuan Halaman; Visual Utama. Catatan tertulis, bukan kode yang dieksekusi."
+  },
+  "next.config.mjs": {
+    "summary": "Berkas konfigurasi/proyek: `next.config.mjs`. Ekspor default: `(anonim)`. Panjang 12 baris."
+  },
+  "package-lock.json": {
+    "summary": "Berkas konfigurasi/proyek: `package-lock.json`. Panjang 11424 baris."
+  },
+  "package.json": {
+    "summary": "Berkas konfigurasi/proyek: `package.json`. Panjang 93 baris."
+  },
+  "postcss.config.mjs": {
+    "summary": "Berkas konfigurasi/proyek: `postcss.config.mjs`. Ekspor default: `(anonim)`. Panjang 7 baris."
+  },
+  "prisma/backfill-customer-po.ts": {
+    "summary": "Skrip operasional basis data (dijalankan manual via tsx): `prisma/backfill-customer-po.ts`. Menyentuh tabel Prisma: project, user, purchaseOrder. Panjang 157 baris."
+  },
+  "prisma/backfill-milestones.ts": {
+    "summary": "Skrip operasional basis data (dijalankan manual via tsx): `prisma/backfill-milestones.ts`. Menyentuh tabel Prisma: project, projectMilestone. Panjang 203 baris."
+  },
+  "prisma/backfill-withholding-tax.ts": {
+    "summary": "Skrip operasional basis data (dijalankan manual via tsx): `prisma/backfill-withholding-tax.ts`. Menyentuh tabel Prisma: invoice, payment. Panjang 83 baris."
+  },
+  "prisma/cleanup-placeholder-milestones.ts": {
+    "summary": "Skrip operasional basis data (dijalankan manual via tsx): `prisma/cleanup-placeholder-milestones.ts`. Menyentuh tabel Prisma: projectMilestone. Panjang 79 baris."
+  },
+  "prisma/delete-company-folders.ts": {
+    "summary": "Skrip operasional basis data (dijalankan manual via tsx): `prisma/delete-company-folders.ts`. Menyentuh tabel Prisma: folder, document. Panjang 109 baris."
+  },
+  "prisma/delete-customer.ts": {
+    "summary": "Skrip operasional basis data (dijalankan manual via tsx): `prisma/delete-customer.ts`. Menyentuh tabel Prisma: customer, opportunity, project, quotation, costingSheet, contact, purchaseOrder, contract, invoice, payment, folder, document. Panjang 146 baris."
+  },
+  "prisma/delete-opportunity.ts": {
+    "summary": "Skrip operasional basis data (dijalankan manual via tsx): `prisma/delete-opportunity.ts`. Menyentuh tabel Prisma: opportunity, quotation, costingSheet, project, purchaseOrder, contract, invoice, folder, payment, document. Panjang 142 baris."
+  },
+  "prisma/delete-user-by-email.ts": {
+    "summary": "Skrip operasional basis data (dijalankan manual via tsx): `prisma/delete-user-by-email.ts`. Menyentuh tabel Prisma: user. Panjang 34 baris."
+  },
+  "prisma/deploy/20260914-finance.sql": {
+    "summary": "Skrip operasional basis data (dijalankan manual via tsx): `prisma/deploy/20260914-finance.sql`. Panjang 12 baris."
+  },
+  "prisma/deploy/20260914-weekly.sql": {
+    "summary": "Skrip operasional basis data (dijalankan manual via tsx): `prisma/deploy/20260914-weekly.sql`. Panjang 78 baris."
+  },
+  "prisma/diagnose-import.ts": {
+    "summary": "Skrip operasional basis data (dijalankan manual via tsx): `prisma/diagnose-import.ts`. Menyentuh tabel Prisma: project, opportunity, document. Panjang 161 baris."
+  },
+  "prisma/fix-deal-stage.ts": {
+    "summary": "Skrip operasional basis data (dijalankan manual via tsx): `prisma/fix-deal-stage.ts`. Menyentuh tabel Prisma: opportunity, quotation, costingSheet, project. Panjang 149 baris."
+  },
+  "prisma/fix-login.ts": {
+    "summary": "Skrip operasional basis data (dijalankan manual via tsx): `prisma/fix-login.ts`. Menyentuh tabel Prisma: user. Panjang 100 baris."
+  },
+  "prisma/go.ts": {
+    "summary": "Skrip operasional basis data (dijalankan manual via tsx): `prisma/go.ts`. Panjang 134 baris."
+  },
+  "prisma/import-documents.ts": {
+    "summary": "Skrip operasional basis data (dijalankan manual via tsx): `prisma/import-documents.ts`. Menyentuh tabel Prisma: user, project, opportunity, document. Panjang 387 baris."
+  },
+  "prisma/list-users.ts": {
+    "summary": "Skrip operasional basis data (dijalankan manual via tsx): `prisma/list-users.ts`. Menyentuh tabel Prisma: user. Panjang 37 baris."
+  },
+  "prisma/merge-users.ts": {
+    "summary": "Skrip operasional basis data (dijalankan manual via tsx): `prisma/merge-users.ts`. Menyentuh tabel Prisma: user. Panjang 143 baris."
+  },
+  "prisma/operational-followups.ts": {
+    "summary": "Skrip operasional basis data (dijalankan manual via tsx): `prisma/operational-followups.ts`. Menyentuh tabel Prisma: project, user, projectTask. Panjang 181 baris."
+  },
+  "prisma/reconcile-invoices-dp.ts": {
+    "summary": "Skrip operasional basis data (dijalankan manual via tsx): `prisma/reconcile-invoices-dp.ts`. Menyentuh tabel Prisma: project, user, invoice, invoiceItem. Panjang 250 baris."
+  },
+  "prisma/reconcile-jpc.ts": {
+    "summary": "Skrip operasional basis data (dijalankan manual via tsx): `prisma/reconcile-jpc.ts`. Menyentuh tabel Prisma: project, user, quotation, vendorPurchaseOrder, vendorPurchaseOrderItem, projectExpense, progressReport. Bergantung pada status alur kerja seperti WON, LOST, SENT, PAID, APPROVED. Panjang 281 baris."
+  },
+  "prisma/report-orphan-customers.ts": {
+    "summary": "Skrip operasional basis data (dijalankan manual via tsx): `prisma/report-orphan-customers.ts`. Menyentuh tabel Prisma: customer. Panjang 65 baris."
+  },
+  "prisma/reset-data.ts": {
+    "summary": "Skrip operasional basis data (dijalankan manual via tsx): `prisma/reset-data.ts`. Ekspor: `resetTransactionalData`. Menyentuh tabel Prisma: payment, invoice, projectExpense, document, folder, purchaseOrder, contract, costingSheet, vendorPurchaseOrder, progressReport, project, quotation. Panjang 42 baris."
+  },
+  "prisma/reset-financials.ts": {
+    "summary": "Skrip operasional basis data (dijalankan manual via tsx): `prisma/reset-financials.ts`. Menyentuh tabel Prisma: invoice, payment, projectExpense. Panjang 80 baris."
+  },
+  "prisma/reset.ts": {
+    "summary": "Skrip operasional basis data (dijalankan manual via tsx): `prisma/reset.ts`. Panjang 44 baris."
+  },
+  "prisma/schema.prisma": {
+    "summary": "Skema Prisma (PostgreSQL) untuk SSO Connect: 47 model dan 24 enum. Model inti mencakup User, Customer, Contact, Lead, Opportunity, Quotation, QuotationRevisionHistory, QuotationItem, CostingSheet, CostingSheetRevisionHistory, TelegramPendingRevision, TelegramCostingDraft, TelegramPendingInvoice, TelegramPendingProgressReport, CostingSection, AssistantPendingAction, CostingLineItem, PurchaseOrder, Contract, VendorPurchaseOrder, VendorPurchaseOrderItem, Project, ProjectTask, ProjectMilestone, ProjectExpense, ProgressReport, ProjectWeeklySettings, ProgressReportReview, ProgressReportDispatch, ProgressReportItem. Enum status alur kerja antara lain UserRole, CustomerType, CustomerStatus, LeadStatus, OpportunityStatus, QuotationStatus, PurchaseOrderStatus, ContractStatus, ProjectStatus, TaskStatus, TaskPriority, MilestoneStatus, ExpenseCategory, ExpensePaymentStatus, ExpenseApprovalStatus, InvoiceStatus, PaymentMethod, NumberEntityType, VendorPurchaseOrderStatus, CostingStatus. Ini sumber kebenaran struktur data untuk seluruh alur bisnis: peluang (opportunity) -> penawaran (quotation) + costing -> proyek -> pengadaan vendor -> biaya aktual -> invoice -> keuangan perusahaan."
+  },
+  "prisma/seed.ts": {
+    "summary": "Skrip seed basis data. Mengisi pengguna, pengaturan perusahaan, dan data awal alur bisnis. Dijalankan manual, bukan bagian dari runtime aplikasi."
+  },
+  "prisma/split-bpn-payment.ts": {
+    "summary": "Skrip operasional basis data (dijalankan manual via tsx): `prisma/split-bpn-payment.ts`. Menyentuh tabel Prisma: invoice, payment. Panjang 122 baris."
+  },
+  "prisma/sync-number-sequences.ts": {
+    "summary": "Skrip operasional basis data (dijalankan manual via tsx): `prisma/sync-number-sequences.ts`. Menyentuh tabel Prisma: customer, lead, opportunity, quotation, contract, project, invoice, payment, projectExpense, costingSheet, vendorPurchaseOrder, numberSequence. Panjang 132 baris."
+  },
+  "prisma/update-user.ts": {
+    "summary": "Skrip operasional basis data (dijalankan manual via tsx): `prisma/update-user.ts`. Menyentuh tabel Prisma: user. Panjang 37 baris."
+  },
+  "private-storage/.gitkeep": {
+    "summary": "Berkas konfigurasi/proyek: `private-storage/.gitkeep`. Panjang 1 baris."
+  },
+  "scripts/apply-weekly-schema.mjs": {
+    "summary": "Berkas konfigurasi/proyek: `scripts/apply-weekly-schema.mjs`. Panjang 58 baris."
+  },
+  "scripts/check-weekly-pdf.tsx": {
+    "summary": "Berkas konfigurasi/proyek: `scripts/check-weekly-pdf.tsx`. Panjang 18 baris."
+  },
+  "src/app/(app)/activity-log/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/activity-log/page.tsx`. Melayani rute `/activity-log`. Panjang 24 baris."
+  },
+  "src/app/(app)/dashboard/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/dashboard/page.tsx`. Melayani rute `/dashboard`. Panjang 104 baris."
+  },
+  "src/app/(app)/data/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/data/page.tsx`. Melayani rute `/data`. Menyentuh tabel Prisma: document, opportunity, project. Panjang 296 baris."
+  },
+  "src/app/(app)/data/review/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/data/review/page.tsx`. Melayani rute `/data/review`. Menyentuh tabel Prisma: document. Panjang 41 baris."
+  },
+  "src/app/(app)/documents/[folderId]/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/documents/[folderId]/page.tsx`. Melayani rute `/documents/[folderId]`. Bergantung pada status alur kerja seperti DRAFT, SUBMITTED, APPROVED, REJECTED, SENT, WON, LOST, CANCELLED. Panjang 181 baris."
+  },
+  "src/app/(app)/documents/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/documents/page.tsx`. Melayani rute `/documents`. Panjang 11 baris."
+  },
+  "src/app/(app)/documents/trash/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/documents/trash/page.tsx`. Melayani rute `/documents/trash`. Panjang 64 baris."
+  },
+  "src/app/(app)/error.tsx": {
+    "summary": "Berkas konfigurasi/proyek: `src/app/(app)/error.tsx`. Ekspor default: `AppError`. Panjang 33 baris."
+  },
+  "src/app/(app)/finance/company-expenses/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/finance/company-expenses/page.tsx`. Melayani rute `/finance/company-expenses`. Panjang 26 baris."
+  },
+  "src/app/(app)/finance/expenses/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/finance/expenses/page.tsx`. Melayani rute `/finance/expenses`. Menyentuh tabel Prisma: project. Panjang 60 baris."
+  },
+  "src/app/(app)/finance/invoices/[id]/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/finance/invoices/[id]/page.tsx`. Melayani rute `/finance/invoices/[id]`. Panjang 122 baris."
+  },
+  "src/app/(app)/finance/invoices/new/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/finance/invoices/new/page.tsx`. Melayani rute `/finance/invoices/new`. Menyentuh tabel Prisma: customer, project, contact. Panjang 67 baris."
+  },
+  "src/app/(app)/finance/invoices/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/finance/invoices/page.tsx`. Melayani rute `/finance/invoices`. Bergantung pada status alur kerja seperti DRAFT, SUBMITTED, APPROVED, REJECTED, PAID, OVERDUE, CANCELLED. Panjang 68 baris."
+  },
+  "src/app/(app)/finance/layout.tsx": {
+    "summary": "Layout Next.js App Router: `src/app/(app)/finance/layout.tsx`. Melayani rute `/finance`. Panjang 19 baris."
+  },
+  "src/app/(app)/finance/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/finance/page.tsx`. Melayani rute `/finance`. Panjang 6 baris."
+  },
+  "src/app/(app)/finance/payments/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/finance/payments/page.tsx`. Melayani rute `/finance/payments`. Panjang 41 baris."
+  },
+  "src/app/(app)/finance/receivables/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/finance/receivables/page.tsx`. Melayani rute `/finance/receivables`. Panjang 73 baris."
+  },
+  "src/app/(app)/layout.tsx": {
+    "summary": "Layout Next.js App Router: `src/app/(app)/layout.tsx`. Melayani rute `/`. Ekspor: `dynamic`. Menyentuh tabel Prisma: user. Panjang 54 baris."
+  },
+  "src/app/(app)/loading.tsx": {
+    "summary": "Berkas konfigurasi/proyek: `src/app/(app)/loading.tsx`. Ekspor default: `AppLoading`. Panjang 30 baris."
+  },
+  "src/app/(app)/notifications/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/notifications/page.tsx`. Melayani rute `/notifications`. Panjang 21 baris."
+  },
+  "src/app/(app)/numbering/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/numbering/page.tsx`. Melayani rute `/numbering`. Panjang 45 baris."
+  },
+  "src/app/(app)/procurement/vendor-po/[id]/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/procurement/vendor-po/[id]/page.tsx`. Melayani rute `/procurement/vendor-po/[id]`. Bergantung pada status alur kerja seperti DRAFT, SUBMITTED, APPROVED, REJECTED, SENT, CANCELLED, PAID. Panjang 167 baris."
+  },
+  "src/app/(app)/procurement/vendor-po/new/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/procurement/vendor-po/new/page.tsx`. Melayani rute `/procurement/vendor-po/new`. Menyentuh tabel Prisma: customer, project. Panjang 85 baris."
+  },
+  "src/app/(app)/procurement/vendor-po/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/procurement/vendor-po/page.tsx`. Melayani rute `/procurement/vendor-po`. Bergantung pada status alur kerja seperti DRAFT, SUBMITTED, APPROVED, REJECTED, SENT, CANCELLED. Panjang 114 baris."
+  },
+  "src/app/(app)/projects/[id]/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/projects/[id]/page.tsx`. Melayani rute `/projects/[id]`. Panjang 158 baris."
+  },
+  "src/app/(app)/projects/folders/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/projects/folders/page.tsx`. Melayani rute `/projects/folders`. Panjang 49 baris."
+  },
+  "src/app/(app)/projects/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/projects/page.tsx`. Melayani rute `/projects`. Bergantung pada status alur kerja seperti ACTIVE, COMPLETED, CANCELLED. Panjang 124 baris."
+  },
+  "src/app/(app)/reports/executive/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/reports/executive/page.tsx`. Melayani rute `/reports/executive`. Panjang 35 baris."
+  },
+  "src/app/(app)/reports/finance/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/reports/finance/page.tsx`. Melayani rute `/reports/finance`. Panjang 3 baris."
+  },
+  "src/app/(app)/reports/profitability/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/reports/profitability/page.tsx`. Melayani rute `/reports/profitability`. Panjang 3 baris."
+  },
+  "src/app/(app)/reports/project/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/reports/project/page.tsx`. Melayani rute `/reports/project`. Panjang 81 baris."
+  },
+  "src/app/(app)/reports/sales/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/reports/sales/page.tsx`. Melayani rute `/reports/sales`. Panjang 32 baris."
+  },
+  "src/app/(app)/sales/contacts/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/sales/contacts/page.tsx`. Melayani rute `/sales/contacts`. Panjang 55 baris."
+  },
+  "src/app/(app)/sales/contracts/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/sales/contracts/page.tsx`. Melayani rute `/sales/contracts`. Menyentuh tabel Prisma: project. Panjang 51 baris."
+  },
+  "src/app/(app)/sales/costing/[id]/edit/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/sales/costing/[id]/edit/page.tsx`. Melayani rute `/sales/costing/[id]/edit`. Menyentuh tabel Prisma: customer, opportunity. Panjang 59 baris."
+  },
+  "src/app/(app)/sales/costing/[id]/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/sales/costing/[id]/page.tsx`. Melayani rute `/sales/costing/[id]`. Menyentuh tabel Prisma: contact. Bergantung pada status alur kerja seperti DRAFT, FINAL, CONVERTED, WON, LOST. Panjang 193 baris."
+  },
+  "src/app/(app)/sales/costing/new/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/sales/costing/new/page.tsx`. Melayani rute `/sales/costing/new`. Menyentuh tabel Prisma: customer, opportunity. Panjang 45 baris."
+  },
+  "src/app/(app)/sales/costing/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/sales/costing/page.tsx`. Melayani rute `/sales/costing`. Bergantung pada status alur kerja seperti DRAFT, FINAL, CONVERTED. Panjang 63 baris."
+  },
+  "src/app/(app)/sales/customers/[id]/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/sales/customers/[id]/page.tsx`. Melayani rute `/sales/customers/[id]`. Panjang 116 baris."
+  },
+  "src/app/(app)/sales/customers/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/sales/customers/page.tsx`. Melayani rute `/sales/customers`. Panjang 64 baris."
+  },
+  "src/app/(app)/sales/opportunities/[id]/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/sales/opportunities/[id]/page.tsx`. Melayani rute `/sales/opportunities/[id]`. Bergantung pada status alur kerja seperti DRAFT, SUBMITTED, APPROVED, REJECTED, SENT, WON, LOST, CANCELLED. Panjang 257 baris."
+  },
+  "src/app/(app)/sales/opportunities/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/sales/opportunities/page.tsx`. Melayani rute `/sales/opportunities`. Menyentuh tabel Prisma: contact. Panjang 156 baris."
+  },
+  "src/app/(app)/sales/purchase-orders/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/sales/purchase-orders/page.tsx`. Melayani rute `/sales/purchase-orders`. Menyentuh tabel Prisma: project. Panjang 64 baris."
+  },
+  "src/app/(app)/sales/quotations/[id]/edit/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/sales/quotations/[id]/edit/page.tsx`. Melayani rute `/sales/quotations/[id]/edit`. Menyentuh tabel Prisma: customer, contact, opportunity. Panjang 73 baris."
+  },
+  "src/app/(app)/sales/quotations/[id]/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/sales/quotations/[id]/page.tsx`. Melayani rute `/sales/quotations/[id]`. Menyentuh tabel Prisma: folder. Bergantung pada status alur kerja seperti DRAFT, WON, LOST. Panjang 172 baris."
+  },
+  "src/app/(app)/sales/quotations/new/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/sales/quotations/new/page.tsx`. Melayani rute `/sales/quotations/new`. Menyentuh tabel Prisma: customer, contact, opportunity. Panjang 63 baris."
+  },
+  "src/app/(app)/sales/quotations/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/sales/quotations/page.tsx`. Melayani rute `/sales/quotations`. Bergantung pada status alur kerja seperti DRAFT, SUBMITTED, APPROVED, REJECTED, SENT, WON, LOST, CANCELLED. Panjang 62 baris."
+  },
+  "src/app/(app)/search/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/search/page.tsx`. Melayani rute `/search`. Panjang 28 baris."
+  },
+  "src/app/(app)/settings/chart-of-accounts/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/settings/chart-of-accounts/page.tsx`. Melayani rute `/settings/chart-of-accounts`. Panjang 54 baris."
+  },
+  "src/app/(app)/settings/company/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/settings/company/page.tsx`. Melayani rute `/settings/company`. Panjang 13 baris."
+  },
+  "src/app/(app)/settings/document-correction/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/settings/document-correction/page.tsx`. Melayani rute `/settings/document-correction`. Panjang 64 baris."
+  },
+  "src/app/(app)/settings/integrations/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/settings/integrations/page.tsx`. Melayani rute `/settings/integrations`. Menyentuh tabel Prisma: user, notification. Panjang 30 baris."
+  },
+  "src/app/(app)/settings/manual/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/settings/manual/page.tsx`. Melayani rute `/settings/manual`. Panjang 18 baris."
+  },
+  "src/app/(app)/settings/numbering/page.tsx.removed": {
+    "summary": "Berkas konfigurasi/proyek: `src/app/(app)/settings/numbering/page.tsx.removed`. Ekspor default: `NumberingSettingsPage`. Panjang 13 baris."
+  },
+  "src/app/(app)/settings/profile/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/settings/profile/page.tsx`. Melayani rute `/settings/profile`. Panjang 16 baris."
+  },
+  "src/app/(app)/settings/storage/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/settings/storage/page.tsx`. Melayani rute `/settings/storage`. Panjang 21 baris."
+  },
+  "src/app/(app)/settings/theme/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/settings/theme/page.tsx`. Melayani rute `/settings/theme`. Panjang 21 baris."
+  },
+  "src/app/(app)/settings/users/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/settings/users/page.tsx`. Melayani rute `/settings/users`. Panjang 46 baris."
+  },
+  "src/app/(app)/tasks/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/tasks/page.tsx`. Melayani rute `/tasks`. Panjang 44 baris."
+  },
+  "src/app/(app)/work/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(app)/work/page.tsx`. Melayani rute `/work`. Panjang 62 baris."
+  },
+  "src/app/(auth)/login/actions.ts": {
+    "summary": "Kumpulan server action Next.js: `src/app/(auth)/login/actions.ts`. Ekspor: `loginAction`. Menyentuh tabel Prisma: user, activityLog. Berisi server action (\"use server\"). Panjang 98 baris."
+  },
+  "src/app/(auth)/login/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/(auth)/login/page.tsx`. Melayani rute `/login`. Panjang 138 baris."
+  },
+  "src/app/(auth)/login/types.ts": {
+    "summary": "Berkas konfigurasi/proyek: `src/app/(auth)/login/types.ts`. Tipe/antarmuka: `LoginFormState`. Panjang 4 baris."
+  },
+  "src/app/api/auth/logout/route.ts": {
+    "summary": "Route handler API Next.js: `src/app/api/auth/logout/route.ts`. Endpoint `/api/auth/logout` dengan metode POST. Ekspor: `POST`. Menyentuh tabel Prisma: activityLog. Panjang 21 baris."
+  },
+  "src/app/api/branding/[...key]/route.ts": {
+    "summary": "Route handler API Next.js: `src/app/api/branding/[...key]/route.ts`. Endpoint `/api/branding/[...key]` dengan metode GET. Ekspor: `GET`. Panjang 33 baris."
+  },
+  "src/app/api/costing/[id]/excel/route.ts": {
+    "summary": "Route handler API Next.js: `src/app/api/costing/[id]/excel/route.ts`. Endpoint `/api/costing/[id]/excel` dengan metode GET. Ekspor: `GET`. Menyentuh tabel Prisma: costingSheet, companySettings, activityLog. Panjang 307 baris."
+  },
+  "src/app/api/costing/[id]/pdf/route.tsx": {
+    "summary": "Route handler API Next.js: `src/app/api/costing/[id]/pdf/route.tsx`. Endpoint `/api/costing/[id]/pdf` dengan metode GET. Ekspor: `GET`. Menyentuh tabel Prisma: costingSheet, costingSheetRevisionHistory, companySettings, activityLog. Panjang 142 baris."
+  },
+  "src/app/api/cron/daily/route.ts": {
+    "summary": "Route handler API Next.js: `src/app/api/cron/daily/route.ts`. Endpoint `/api/cron/daily` dengan metode GET. Ekspor: `dynamic`, `GET`. Panjang 75 baris."
+  },
+  "src/app/api/cron/directives/route.ts": {
+    "summary": "Route handler API Next.js: `src/app/api/cron/directives/route.ts`. Endpoint `/api/cron/directives` dengan metode GET. Ekspor: `dynamic`, `GET`. Panjang 32 baris."
+  },
+  "src/app/api/files/[id]/preview/route.ts": {
+    "summary": "Route handler API Next.js: `src/app/api/files/[id]/preview/route.ts`. Endpoint `/api/files/[id]/preview` dengan metode GET. Ekspor: `maxDuration`, `GET`. Menyentuh tabel Prisma: document. Panjang 47 baris."
+  },
+  "src/app/api/files/[id]/route.ts": {
+    "summary": "Route handler API Next.js: `src/app/api/files/[id]/route.ts`. Endpoint `/api/files/[id]` dengan metode GET. Ekspor: `GET`. Menyentuh tabel Prisma: document, activityLog. Panjang 59 baris."
+  },
+  "src/app/api/invoices/[id]/pdf/route.tsx": {
+    "summary": "Route handler API Next.js: `src/app/api/invoices/[id]/pdf/route.tsx`. Endpoint `/api/invoices/[id]/pdf` dengan metode GET. Ekspor: `GET`. Menyentuh tabel Prisma: invoice, companySettings, activityLog. Panjang 104 baris."
+  },
+  "src/app/api/procurement/vendor-po/[id]/pdf/route.tsx": {
+    "summary": "Route handler API Next.js: `src/app/api/procurement/vendor-po/[id]/pdf/route.tsx`. Endpoint `/api/procurement/vendor-po/[id]/pdf` dengan metode GET. Ekspor: `GET`. Menyentuh tabel Prisma: vendorPurchaseOrder, companySettings, activityLog. Panjang 101 baris."
+  },
+  "src/app/api/progress-reports/[id]/pdf/route.tsx": {
+    "summary": "Route handler API Next.js: `src/app/api/progress-reports/[id]/pdf/route.tsx`. Endpoint `/api/progress-reports/[id]/pdf` dengan metode GET. Ekspor: `GET`. Menyentuh tabel Prisma: activityLog. Panjang 35 baris."
+  },
+  "src/app/api/progress-reports/photo/[...key]/route.ts": {
+    "summary": "Route handler API Next.js: `src/app/api/progress-reports/photo/[...key]/route.ts`. Endpoint `/api/progress-reports/photo/[...key]` dengan metode GET. Ekspor: `GET`. Menyentuh tabel Prisma: progressReportItem. Panjang 42 baris."
+  },
+  "src/app/api/quotations/[id]/pdf/route.tsx": {
+    "summary": "Route handler API Next.js: `src/app/api/quotations/[id]/pdf/route.tsx`. Endpoint `/api/quotations/[id]/pdf` dengan metode GET. Ekspor: `GET`. Menyentuh tabel Prisma: activityLog. Panjang 49 baris."
+  },
+  "src/app/api/report-reviews/[id]/pdf/route.ts": {
+    "summary": "Route handler API Next.js: `src/app/api/report-reviews/[id]/pdf/route.ts`. Endpoint `/api/report-reviews/[id]/pdf` dengan metode GET. Ekspor: `runtime`, `GET`. Menyentuh tabel Prisma: progressReportReview. Panjang 48 baris."
+  },
+  "src/app/api/telegram/webhook/route.ts": {
+    "summary": "Route handler API Next.js: `src/app/api/telegram/webhook/route.ts`. Endpoint `/api/telegram/webhook` dengan metode POST. Ekspor: `POST`. Menyentuh tabel Prisma: telegramPendingProgressReport, folder, telegramPendingInvoice, telegramPendingRevision. Panjang 617 baris."
+  },
+  "src/app/globals.css": {
+    "summary": "Berkas konfigurasi/proyek: `src/app/globals.css`. Panjang 199 baris."
+  },
+  "src/app/layout.tsx": {
+    "summary": "Layout Next.js App Router: `src/app/layout.tsx`. Melayani rute `/`. Ekspor: `metadata`, `viewport`. Panjang 46 baris."
+  },
+  "src/app/manifest.ts": {
+    "summary": "Berkas konfigurasi/proyek: `src/app/manifest.ts`. Ekspor default: `manifest`. Panjang 27 baris."
+  },
+  "src/app/not-found.tsx": {
+    "summary": "Berkas konfigurasi/proyek: `src/app/not-found.tsx`. Ekspor default: `NotFound`. Panjang 18 baris."
+  },
+  "src/app/page.tsx": {
+    "summary": "Halaman (Server Component) Next.js App Router: `src/app/page.tsx`. Melayani rute `/`. Panjang 8 baris."
+  },
+  "src/components/assistant/assistant-widget.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/assistant/assistant-widget.tsx`. Ekspor: `AssistantWidget`. Panjang 368 baris."
+  },
+  "src/components/dashboard/action-items-panel.tsx": {
+    "summary": "Komponen UI React (Server Component): `src/components/dashboard/action-items-panel.tsx`. Ekspor: `ActionItemsPanel`. Panjang 73 baris."
+  },
+  "src/components/dashboard/ai-smart-upload-card.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/dashboard/ai-smart-upload-card.tsx`. Ekspor: `AiSmartUploadCard`. Panjang 283 baris."
+  },
+  "src/components/dashboard/document-checklist-panel.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/dashboard/document-checklist-panel.tsx`. Ekspor: `DocumentChecklistPanel`. Panjang 150 baris."
+  },
+  "src/components/dashboard/notifications-panel.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/dashboard/notifications-panel.tsx`. Ekspor: `NotificationsPanel`. Panjang 130 baris."
+  },
+  "src/components/dashboard/profile-hub.tsx": {
+    "summary": "Komponen UI React (Server Component): `src/components/dashboard/profile-hub.tsx`. Ekspor: `ProfileHub`. Panjang 211 baris."
+  },
+  "src/components/dashboard/weekly-overview.tsx": {
+    "summary": "Komponen UI React (Server Component): `src/components/dashboard/weekly-overview.tsx`. Ekspor: `WeeklyOverview`. Menyentuh tabel Prisma: project. Panjang 126 baris."
+  },
+  "src/components/documents/checklist-upload-dialog.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/documents/checklist-upload-dialog.tsx`. Ekspor: `ChecklistUploadDialog`. Panjang 206 baris."
+  },
+  "src/components/documents/cleanup-button.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/documents/cleanup-button.tsx`. Ekspor: `CleanupButton`. Panjang 44 baris."
+  },
+  "src/components/documents/document-preview.css": {
+    "summary": "Komponen UI React (Server Component): `src/components/documents/document-preview.css`. Panjang 59 baris."
+  },
+  "src/components/documents/document-preview.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/documents/document-preview.tsx`. Ekspor: `useDocumentPreview`, `DocumentPreviewProvider`. Panjang 303 baris."
+  },
+  "src/components/documents/document-row-actions.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/documents/document-row-actions.tsx`. Ekspor: `DocumentRowActions`. Panjang 33 baris."
+  },
+  "src/components/documents/documents-list-with-panel.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/documents/documents-list-with-panel.tsx`. Ekspor: `DocumentsListWithPanel`. Panjang 121 baris."
+  },
+  "src/components/documents/upload-dialog.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/documents/upload-dialog.tsx`. Ekspor: `UploadDialog`. Panjang 50 baris."
+  },
+  "src/components/finance/billing-schedule-card.tsx": {
+    "summary": "Komponen UI React (Server Component): `src/components/finance/billing-schedule-card.tsx`. Ekspor: `BillingScheduleCard`. Panjang 88 baris."
+  },
+  "src/components/finance/company-expense-panel.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/finance/company-expense-panel.tsx`. Ekspor: `CompanyExpensePanel`. Bergantung pada status alur kerja seperti DRAFT, SUBMITTED, APPROVED, REJECTED, PAID. Panjang 168 baris."
+  },
+  "src/components/finance/finance-workspace.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/finance/finance-workspace.tsx`. Ekspor: `FinanceWorkspace`. Bergantung pada status alur kerja seperti DRAFT, SUBMITTED, APPROVED, REJECTED, PAID, OVERDUE, CANCELLED, SENT. Panjang 1468 baris."
+  },
+  "src/components/finance/invoice-actions.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/finance/invoice-actions.tsx`. Ekspor: `InvoiceActions`. Bergantung pada status alur kerja seperti DRAFT, SUBMITTED, APPROVED. Panjang 64 baris."
+  },
+  "src/components/finance/invoice-form.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/finance/invoice-form.tsx`. Ekspor: `InvoiceForm`. Panjang 268 baris."
+  },
+  "src/components/finance/record-payment-dialog.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/finance/record-payment-dialog.tsx`. Ekspor: `RecordPaymentDialog`. Panjang 140 baris."
+  },
+  "src/components/layout/app-shell.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/layout/app-shell.tsx`. Ekspor: `AppShell`. Panjang 64 baris."
+  },
+  "src/components/layout/mood-switcher.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/layout/mood-switcher.tsx`. Ekspor: `MoodSwitcher`. Panjang 102 baris."
+  },
+  "src/components/layout/route-motion.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/layout/route-motion.tsx`. Ekspor: `RouteMotion`. Panjang 16 baris."
+  },
+  "src/components/layout/sidebar.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/layout/sidebar.tsx`. Ekspor: `Sidebar`. Panjang 426 baris."
+  },
+  "src/components/layout/topbar.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/layout/topbar.tsx`. Ekspor: `Topbar`. Panjang 130 baris."
+  },
+  "src/components/layout/workspace.css": {
+    "summary": "Komponen UI React (Server Component): `src/components/layout/workspace.css`. Panjang 348 baris."
+  },
+  "src/components/numbering/number-registry-panel.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/numbering/number-registry-panel.tsx`. Ekspor: `NumberRegistryPanel`. Panjang 263 baris."
+  },
+  "src/components/projects/closing-panel.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/projects/closing-panel.tsx`. Ekspor: `ClosingPanel`. Panjang 73 baris."
+  },
+  "src/components/projects/documents-panel.tsx": {
+    "summary": "Komponen UI React (Server Component): `src/components/projects/documents-panel.tsx`. Ekspor: `DocumentsPanel`. Bergantung pada status alur kerja seperti CANCELLED, DRAFT, SENT, PAID, OVERDUE. Panjang 488 baris."
+  },
+  "src/components/projects/expense-panel.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/projects/expense-panel.tsx`. Ekspor: `ExpensePanel`. Bergantung pada status alur kerja seperti DRAFT, SUBMITTED, APPROVED, REJECTED, PAID. Panjang 410 baris."
+  },
+  "src/components/projects/financial-view.tsx": {
+    "summary": "Komponen tampilan keuangan proyek. Menyajikan tiga kartu — untung rugi, arus kas, dan kendali biaya — beserta batang perbandingan anggaran terhadap realisasi. Angkanya berasal dari summarizeProjectCost dan calculateProjectProfitability, jadi hanya biaya yang sudah disetujui yang tampil sebagai realisasi, sedangkan PO vendor tampil sebagai komitmen."
+  },
+  "src/components/projects/followup-panel.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/projects/followup-panel.tsx`. Ekspor: `TaskPanel`. Panjang 290 baris."
+  },
+  "src/components/projects/job-number-field.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/projects/job-number-field.tsx`. Ekspor: `JobNumberField`. Panjang 57 baris."
+  },
+  "src/components/projects/milestone-panel.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/projects/milestone-panel.tsx`. Ekspor: `MilestonePanel`. Panjang 477 baris."
+  },
+  "src/components/projects/po-edit-dialog.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/projects/po-edit-dialog.tsx`. Ekspor: `PoEditDialog`. Panjang 116 baris."
+  },
+  "src/components/projects/po-extract-upload-dialog.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/projects/po-extract-upload-dialog.tsx`. Ekspor: `PoExtractUploadDialog`. Panjang 202 baris."
+  },
+  "src/components/projects/po-row-actions.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/projects/po-row-actions.tsx`. Ekspor: `PoRowActions`. Panjang 36 baris."
+  },
+  "src/components/projects/progress-report-documents-panel.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/projects/progress-report-documents-panel.tsx`. Ekspor: `ProgressReportDocumentsPanel`. Panjang 350 baris."
+  },
+  "src/components/projects/project-detail-tabs.tsx": {
+    "summary": "Kerangka tab pada halaman detail proyek, termasuk tab Keuangan yang merender FinancialView. Sebelumnya prop profitability dihitung dan dikirim ke komponen ini tetapi tidak pernah ditampilkan."
+  },
+  "src/components/projects/project-status-select.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/projects/project-status-select.tsx`. Ekspor: `ProjectStatusSelect`. Bergantung pada status alur kerja seperti COMPLETED, ACTIVE, CANCELLED. Panjang 47 baris."
+  },
+  "src/components/projects/report-item-editor.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/projects/report-item-editor.tsx`. Ekspor: `ReportItemEditor`. Panjang 14 baris."
+  },
+  "src/components/projects/s-curve-panel.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/projects/s-curve-panel.tsx`. Ekspor: `SCurvePanel`. Panjang 95 baris."
+  },
+  "src/components/projects/task-panel.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/projects/task-panel.tsx`. Ekspor: `TaskPanel`. Panjang 188 baris."
+  },
+  "src/components/projects/weekly-workspace.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/projects/weekly-workspace.tsx`. Ekspor: `WeeklyWorkspace`. Tipe/antarmuka: `WeeklyData`, `WeeklyDocument`. Panjang 1111 baris."
+  },
+  "src/components/reports/charts.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/reports/charts.tsx`. Ekspor: `SimpleBarChart`, `MultiLineChart`, `GroupedBarChart`, `SimplePieChart`. Panjang 65 baris."
+  },
+  "src/components/sales/activate-contract-dialog.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/sales/activate-contract-dialog.tsx`. Ekspor: `ActivateContractDialog`. Panjang 62 baris."
+  },
+  "src/components/sales/contact-form-dialog.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/sales/contact-form-dialog.tsx`. Ekspor: `ContactFormDialog`. Panjang 87 baris."
+  },
+  "src/components/sales/contract-form-dialog.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/sales/contract-form-dialog.tsx`. Ekspor: `ContractFormDialog`. Panjang 91 baris."
+  },
+  "src/components/sales/convert-costing-dialog.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/sales/convert-costing-dialog.tsx`. Ekspor: `ConvertCostingDialog`. Panjang 156 baris."
+  },
+  "src/components/sales/convert-revised-costing-button.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/sales/convert-revised-costing-button.tsx`. Ekspor: `ConvertRevisedCostingButton`. Panjang 39 baris."
+  },
+  "src/components/sales/costing-form.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/sales/costing-form.tsx`. Ekspor: `CostingForm`. Panjang 186 baris."
+  },
+  "src/components/sales/costing-revision-history.tsx": {
+    "summary": "Komponen UI React (Server Component): `src/components/sales/costing-revision-history.tsx`. Ekspor: `CostingRevisionHistory`. Panjang 78 baris."
+  },
+  "src/components/sales/costing-section-card.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/sales/costing-section-card.tsx`. Ekspor: `CostingSectionCard`. Panjang 115 baris."
+  },
+  "src/components/sales/customer-form-dialog.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/sales/customer-form-dialog.tsx`. Ekspor: `CustomerFormDialog`. Panjang 96 baris."
+  },
+  "src/components/sales/customer-po-panel.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/sales/customer-po-panel.tsx`. Ekspor: `CustomerPoPanel`. Panjang 78 baris."
+  },
+  "src/components/sales/opportunity-delete-button.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/sales/opportunity-delete-button.tsx`. Ekspor: `OpportunityDeleteButton`. Panjang 80 baris."
+  },
+  "src/components/sales/opportunity-form-dialog.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/sales/opportunity-form-dialog.tsx`. Ekspor: `OpportunityFormDialog`. Panjang 136 baris."
+  },
+  "src/components/sales/opportunity-stage-select.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/sales/opportunity-stage-select.tsx`. Ekspor: `OpportunityStageSelect`. Panjang 43 baris."
+  },
+  "src/components/sales/po-form-dialog.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/sales/po-form-dialog.tsx`. Ekspor: `PurchaseOrderFormDialog`. Panjang 97 baris."
+  },
+  "src/components/sales/quotation-actions.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/sales/quotation-actions.tsx`. Ekspor: `QuotationActions`. Bergantung pada status alur kerja seperti DRAFT, SUBMITTED, APPROVED, REJECTED, SENT. Panjang 180 baris."
+  },
+  "src/components/sales/quotation-form.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/sales/quotation-form.tsx`. Ekspor: `QuotationForm`. Panjang 223 baris."
+  },
+  "src/components/sales/quotation-revision-history.tsx": {
+    "summary": "Komponen UI React (Server Component): `src/components/sales/quotation-revision-history.tsx`. Ekspor: `QuotationRevisionHistory`. Panjang 72 baris."
+  },
+  "src/components/sales/revise-costing-button.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/sales/revise-costing-button.tsx`. Ekspor: `ReviseCostingButton`. Panjang 36 baris."
+  },
+  "src/components/sales/vendor-po-actions.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/sales/vendor-po-actions.tsx`. Ekspor: `VendorPOActions`. Bergantung pada status alur kerja seperti DRAFT, SUBMITTED, APPROVED, SENT. Panjang 95 baris."
+  },
+  "src/components/sales/vendor-po-form.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/sales/vendor-po-form.tsx`. Ekspor: `VendorPoForm`. Panjang 258 baris."
+  },
+  "src/components/settings/chart-of-account-form-dialog.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/settings/chart-of-account-form-dialog.tsx`. Ekspor: `ChartOfAccountFormDialog`. Panjang 112 baris."
+  },
+  "src/components/settings/company-form.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/settings/company-form.tsx`. Ekspor: `CompanyForm`. Panjang 83 baris."
+  },
+  "src/components/settings/create-user-dialog.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/settings/create-user-dialog.tsx`. Ekspor: `CreateUserDialog`. Panjang 67 baris."
+  },
+  "src/components/settings/document-correction-panel.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/settings/document-correction-panel.tsx`. Ekspor: `DocumentCorrectionPanel`. Panjang 930 baris."
+  },
+  "src/components/settings/edit-user-dialog.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/settings/edit-user-dialog.tsx`. Ekspor: `EditUserDialog`. Panjang 161 baris."
+  },
+  "src/components/settings/numbering-form.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/settings/numbering-form.tsx`. Ekspor: `NumberingForm`. Panjang 67 baris."
+  },
+  "src/components/settings/profile-form.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/settings/profile-form.tsx`. Ekspor: `ProfileForm`. Panjang 101 baris."
+  },
+  "src/components/settings/storage-health-card.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/settings/storage-health-card.tsx`. Ekspor: `StorageHealthCard`. Panjang 101 baris."
+  },
+  "src/components/settings/system-manual-tabs.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/settings/system-manual-tabs.tsx`. Ekspor: `SystemManualTabs`. Bergantung pada status alur kerja seperti WON, DRAFT, SUBMITTED. Panjang 442 baris."
+  },
+  "src/components/settings/theme-form.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/settings/theme-form.tsx`. Ekspor: `ThemeForm`. Panjang 94 baris."
+  },
+  "src/components/settings/user-active-toggle.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/settings/user-active-toggle.tsx`. Ekspor: `UserActiveToggle`. Panjang 20 baris."
+  },
+  "src/components/tasks/directive-giver-panel.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/tasks/directive-giver-panel.tsx`. Ekspor: `DirectiveGiverPanel`. Panjang 232 baris."
+  },
+  "src/components/tasks/my-directives-panel.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/tasks/my-directives-panel.tsx`. Ekspor: `MyDirectivesPanel`. Panjang 188 baris."
+  },
+  "src/components/ui/badge.tsx": {
+    "summary": "Komponen UI React (Server Component): `src/components/ui/badge.tsx`. Ekspor: `Badge`. Tipe/antarmuka: `BadgeProps`. Panjang 27 baris."
+  },
+  "src/components/ui/button.tsx": {
+    "summary": "Komponen UI React (Server Component): `src/components/ui/button.tsx`. Ekspor: `Button`. Tipe/antarmuka: `ButtonProps`. Panjang 45 baris."
+  },
+  "src/components/ui/card.tsx": {
+    "summary": "Komponen UI React (Server Component): `src/components/ui/card.tsx`. Ekspor: `Card`, `CardHeader`, `CardTitle`, `CardDescription`, `CardContent`, `CardFooter`. Panjang 41 baris."
+  },
+  "src/components/ui/currency-input.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/ui/currency-input.tsx`. Ekspor: `CurrencyInput`. Panjang 74 baris."
+  },
+  "src/components/ui/dialog.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/ui/dialog.tsx`. Ekspor: `Dialog`, `DialogTrigger`. Panjang 147 baris."
+  },
+  "src/components/ui/empty-state.tsx": {
+    "summary": "Komponen UI React (Server Component): `src/components/ui/empty-state.tsx`. Ekspor: `EmptyState`. Panjang 20 baris."
+  },
+  "src/components/ui/input.tsx": {
+    "summary": "Komponen UI React (Server Component): `src/components/ui/input.tsx`. Ekspor: `Input`. Panjang 18 baris."
+  },
+  "src/components/ui/label.tsx": {
+    "summary": "Komponen UI React (Server Component): `src/components/ui/label.tsx`. Ekspor: `Label`. Panjang 10 baris."
+  },
+  "src/components/ui/select.tsx": {
+    "summary": "Komponen UI React (Server Component): `src/components/ui/select.tsx`. Ekspor: `Select`. Panjang 19 baris."
+  },
+  "src/components/ui/skeleton.tsx": {
+    "summary": "Komponen UI React (Server Component): `src/components/ui/skeleton.tsx`. Ekspor: `Skeleton`. Panjang 6 baris."
+  },
+  "src/components/ui/table.tsx": {
+    "summary": "Komponen UI React (Server Component): `src/components/ui/table.tsx`. Ekspor: `Table`, `TableHeader`, `TableBody`, `TableRow`, `TableHead`, `TableCell`. Panjang 26 baris."
+  },
+  "src/components/ui/tabs.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/ui/tabs.tsx`. Ekspor: `Tabs`. Panjang 35 baris."
+  },
+  "src/components/ui/textarea.tsx": {
+    "summary": "Komponen UI React (Server Component): `src/components/ui/textarea.tsx`. Ekspor: `Textarea`. Panjang 17 baris."
+  },
+  "src/components/ui/toast.tsx": {
+    "summary": "Komponen UI React (Client Component): `src/components/ui/toast.tsx`. Ekspor: `ToastProvider`, `useToast`. Panjang 80 baris."
+  },
+  "src/lib/action-helpers.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/action-helpers.ts`. Ekspor: `runAction`. Tipe/antarmuka: `ActionResult`. Panjang 49 baris."
+  },
+  "src/lib/ai/assistant-tools.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/ai/assistant-tools.ts`. Ekspor: `WRITE_TOOLS`, `ASSISTANT_TOOLS`, `executeAssistantTool`, `runConfirmedAssistantAction`. Tipe/antarmuka: `AssistantAttachmentInput`, `ToolExecutionResult`. Menyentuh tabel Prisma: quotation, invoice, vendorPurchaseOrder, project, document, costingSheet, contact, opportunity, user, projectTask, projectMilestone, projectExpense. Bergantung pada status alur kerja seperti ACTIVE, COMPLETED, CANCELLED, DRAFT, SUBMITTED, APPROVED, REJECTED, PAID. Panjang 5086 baris."
+  },
+  "src/lib/ai/classify-document.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/ai/classify-document.ts`. Ekspor: `classifyDocument`. Tipe/antarmuka: `DocumentClassification`, `CandidateProject`. Panjang 104 baris."
+  },
+  "src/lib/ai/client.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/ai/client.ts`. Ekspor: `getAnthropicClient`, `extractionModel`, `assistantModel`, `isExtractableMimeType`, `fileContentBlock`, `extractJsonObject`. Panjang 73 baris."
+  },
+  "src/lib/ai/extract-progress-report.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/ai/extract-progress-report.ts`. Ekspor: `extractProgressReport`. Tipe/antarmuka: `ExtractedProgressItem`, `ExtractedProgressReport`. Panjang 96 baris."
+  },
+  "src/lib/ai/extract-purchase-order.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/ai/extract-purchase-order.ts`. Ekspor: `extractPurchaseOrder`. Tipe/antarmuka: `ExtractedPurchaseOrder`. Panjang 76 baris."
+  },
+  "src/lib/ai/parse-costing-draft.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/ai/parse-costing-draft.ts`. Ekspor: `parseCostingDraftMessage`. Tipe/antarmuka: `CostingDraftItemExtraction`, `CostingDraftExtraction`. Panjang 97 baris."
+  },
+  "src/lib/ai/parse-invoice-command.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/ai/parse-invoice-command.ts`. Ekspor: `parseInvoiceCommand`. Tipe/antarmuka: `ParsedInvoiceCommand`. Panjang 58 baris."
+  },
+  "src/lib/ai/parse-progress-report-command.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/ai/parse-progress-report-command.ts`. Ekspor: `parseProgressReportCommand`. Tipe/antarmuka: `ParsedProgressReportCommand`. Panjang 39 baris."
+  },
+  "src/lib/ai/parse-revision-command.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/ai/parse-revision-command.ts`. Ekspor: `parseRevisionCommand`. Tipe/antarmuka: `RevisionAction`, `ParsedRevisionCommand`. Panjang 78 baris."
+  },
+  "src/lib/auth/current-user.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/auth/current-user.ts`. Ekspor: `getCurrentUser`, `requireUser`, `requireUserOrThrow`. Menyentuh tabel Prisma: user. Panjang 34 baris."
+  },
+  "src/lib/auth/password.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/auth/password.ts`. Ekspor: `hashPassword`, `verifyPassword`. Panjang 12 baris."
+  },
+  "src/lib/auth/session.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/auth/session.ts`. Ekspor: `createSession`, `destroySession`, `readSessionFromCookieValue`, `getSession`, `SESSION_COOKIE_NAME`. Tipe/antarmuka: `SessionPayload`. Panjang 76 baris."
+  },
+  "src/lib/db.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/db.ts`. Ekspor: `prisma`. Panjang 34 baris."
+  },
+  "src/lib/display-labels.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/display-labels.ts`. Ekspor: `displayLabel`. Bergantung pada status alur kerja seperti COMPLETED, DRAFT, SUBMITTED, APPROVED, REJECTED, CANCELLED, FINAL, CONVERTED. Panjang 13 baris."
+  },
+  "src/lib/document-folder-options.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/document-folder-options.ts`. Ekspor: `DOCUMENT_FOLDER_OPTIONS`. Tipe/antarmuka: `DocumentFolderOption`. Panjang 43 baris."
+  },
+  "src/lib/document-preview.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/document-preview.ts`. Ekspor: `nativePreview`, `readOfficePreview`. Panjang 136 baris."
+  },
+  "src/lib/finance-overview.ts": {
+    "summary": "Ringkasan keuangan tingkat perusahaan, termasuk `summarizeIssuedInvoices`. Menjadi dasar laporan finance; grossProfit sengaja dibiarkan null karena invoice dan biaya saja belum cukup untuk menyusun laporan laba rugi sebelum kebijakan pengakuan pendapatan ditetapkan."
+  },
+  "src/lib/image/remove-signature-background.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/image/remove-signature-background.ts`. Ekspor: `removeSignatureBackground`. Panjang 33 baris."
+  },
+  "src/lib/invoice-summary.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/invoice-summary.ts`. Ekspor: `summarizeIssuedInvoices`. Panjang 14 baris."
+  },
+  "src/lib/nav.ts": {
+    "summary": "Definisi struktur navigasi aplikasi: daftar menu, ikon, dan pembatasan berdasarkan izin peran. Sumber kebenaran untuk sidebar dan menu seluler."
+  },
+  "src/lib/notifications/config.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/notifications/config.ts`. Ekspor: `notificationConfig`, `smtpConnectionOptions`, `notificationLink`, `escapeHtml`, `summarizeChannel`. Panjang 51 baris."
+  },
+  "src/lib/notifications/dispatch.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/notifications/dispatch.ts`. Ekspor: `dispatchOutbound`. Tipe/antarmuka: `OutboundTarget`, `OutboundPayload`. Menyentuh tabel Prisma: notification, user. Panjang 59 baris."
+  },
+  "src/lib/notifications/email.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/notifications/email.ts`. Ekspor: `sendEmail`. Tipe/antarmuka: `SendEmailInput`. Panjang 75 baris."
+  },
+  "src/lib/notifications/notify-and-send.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/notifications/notify-and-send.ts`. Ekspor: `notifyAndSend`. Menyentuh tabel Prisma: user, notification. Panjang 58 baris."
+  },
+  "src/lib/notifications/telegram.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/notifications/telegram.ts`. Ekspor: `sendTelegramMessage`, `getTelegramFileBuffer`, `sendTelegramDocument`. Panjang 101 baris."
+  },
+  "src/lib/notifications/whatsapp-cloud.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/notifications/whatsapp-cloud.ts`. Ekspor: `isCloudApiConfigured`, `testWhatsAppConnectionCloud`, `sendWhatsAppCloud`. Panjang 122 baris."
+  },
+  "src/lib/notifications/whatsapp-fonnte.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/notifications/whatsapp-fonnte.ts`. Ekspor: `testWhatsAppConnectionFonnte`, `sendWhatsAppFonnte`. Panjang 24 baris."
+  },
+  "src/lib/notifications/whatsapp-types.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/notifications/whatsapp-types.ts`. Tipe/antarmuka: `SendWhatsAppInput`, `WhatsAppSendResult`. Panjang 21 baris."
+  },
+  "src/lib/notifications/whatsapp.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/notifications/whatsapp.ts`. Ekspor: `testWhatsAppConnection`, `sendWhatsApp`. Panjang 41 baris."
+  },
+  "src/lib/numbering.ts": {
+    "summary": "Pembentuk nomor dokumen resmi. Format `<urut berpadding>/<prefiks>/<bulan romawi>/<tahun>`, contoh 004/QUO/MKT/VII/2026. Prefiks per jenis dokumen diambil dari tabel CompanySettings (quotationPrefix, invoicePrefix, dan sejenisnya) dan urutan dijaga lewat tabel NumberSequence agar tidak bentrok."
+  },
+  "src/lib/pdf/branding.ts": {
+    "summary": "Generator dokumen PDF: `src/lib/pdf/branding.ts`. Ekspor: `loadPdfImage`. Tipe/antarmuka: `PdfImageSrc`. Panjang 20 baris."
+  },
+  "src/lib/pdf/costing-document.tsx": {
+    "summary": "Generator dokumen PDF: `src/lib/pdf/costing-document.tsx`. Ekspor: `CostingPdfDocument`. Panjang 203 baris."
+  },
+  "src/lib/pdf/extract-embedded-images.ts": {
+    "summary": "Generator dokumen PDF: `src/lib/pdf/extract-embedded-images.ts`. Ekspor: `extractEmbeddedPhotos`. Panjang 59 baris."
+  },
+  "src/lib/pdf/format.ts": {
+    "summary": "Generator dokumen PDF: `src/lib/pdf/format.ts`. Ekspor: `formatMoneyForPdf`, `formatPdfDate`, `imageFormatFromKey`. Panjang 32 baris."
+  },
+  "src/lib/pdf/invoice-document.tsx": {
+    "summary": "Generator dokumen PDF: `src/lib/pdf/invoice-document.tsx`. Ekspor: `InvoicePdfDocument`. Panjang 286 baris."
+  },
+  "src/lib/pdf/progress-report-document.tsx": {
+    "summary": "Generator dokumen PDF: `src/lib/pdf/progress-report-document.tsx`. Ekspor: `ProgressReportPdfDocument`. Tipe/antarmuka: `ProgressReportPdfItem`, `ProgressReportPdfProps`. Panjang 309 baris."
+  },
+  "src/lib/pdf/quotation-document.tsx": {
+    "summary": "Generator dokumen PDF: `src/lib/pdf/quotation-document.tsx`. Ekspor: `QuotationPdfDocument`. Panjang 305 baris."
+  },
+  "src/lib/pdf/render-progress-report-pdf.tsx": {
+    "summary": "Generator dokumen PDF: `src/lib/pdf/render-progress-report-pdf.tsx`. Ekspor: `ProgressReportPdfNotFoundError`, `renderProgressReportPdf`. Menyentuh tabel Prisma: progressReport, companySettings. Panjang 105 baris."
+  },
+  "src/lib/pdf/render-quotation-pdf.tsx": {
+    "summary": "Generator dokumen PDF: `src/lib/pdf/render-quotation-pdf.tsx`. Ekspor: `QuotationPdfNotFoundError`, `renderQuotationPdf`. Menyentuh tabel Prisma: quotation, quotationRevisionHistory, companySettings. Panjang 111 baris."
+  },
+  "src/lib/pdf/vendor-po-document.tsx": {
+    "summary": "Generator dokumen PDF: `src/lib/pdf/vendor-po-document.tsx`. Ekspor: `VendorPoPdfDocument`. Panjang 299 baris."
+  },
+  "src/lib/permissions.ts": {
+    "summary": "Matriks izin berbasis peran untuk seluruh aplikasi. Memetakan setiap Role ke daftar aksi per modul (sales, projects, finance, documents, settings, dan lainnya). Catatan penting: seluruh peran memiliki finance: [\"view\"], sehingga angka keuangan perusahaan terlihat oleh semua pengguna."
+  },
+  "src/lib/project-cost.ts": {
+    "summary": "Modul logika murni (tanpa I/O, mudah diuji) yang meringkas biaya sebuah proyek. Ekspor `summarizeProjectCost(expenses, vendorPos, budget)` dengan tipe `ExpenseRow`, `VendorPoRow`, `ProjectCostSummary`. Aturan bisnis yang dikunci di sini: hanya ProjectExpense ber-approvalStatus APPROVED yang menjadi actualCost; DRAFT dan SUBMITTED masuk pendingCost; REJECTED tidak dihitung sama sekali. payable = APPROVED namun paymentStatus UNPAID. committedCost = total grandTotal VendorPurchaseOrder yang biayanya belum APPROVED, supaya PO yang sudah jadi biaya tidak terhitung dua kali. forecastCost = max(budget, actualCost + committedCost). Semua nilai Prisma Decimal dikonversi ke angka sebelum dijumlahkan. Dipakai oleh halaman proyek dan tab Keuangan proyek."
+  },
+  "src/lib/storage.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/storage.ts`. Ekspor: `MAX_FILE_SIZE_BYTES`, `assertFileAllowed`, `sanitizeFileName`, `getStorageDriver`, `brandingAssetKey`, `saveBrandingAsset`, `readBrandingAsset`. Tipe/antarmuka: `StoredFile`, `StorageDriver`. Panjang 261 baris."
+  },
+  "src/lib/theme-presets.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/theme-presets.ts`. Ekspor: `THEME_PRESETS`, `getThemePreset`. Tipe/antarmuka: `ThemePreset`. Panjang 29 baris."
+  },
+  "src/lib/ui-moods.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/ui-moods.ts`. Ekspor: `UI_MOODS`, `getUiMood`. Tipe/antarmuka: `UiMood`. Panjang 26 baris."
+  },
+  "src/lib/utils.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/utils.ts`. Ekspor: `cn`, `brandingUrl`, `formatCurrency`, `formatDate`, `formatDateTime`, `daysBetween`, `formatRevisedNumber`. Panjang 55 baris."
+  },
+  "src/lib/validation/auth.ts": {
+    "summary": "Skema validasi Zod: `src/lib/validation/auth.ts`. Ekspor: `loginSchema`, `TITLE_OPTIONS`, `whatsappNumberSchema`, `createUserSchema`, `updateUserSchema`. Tipe/antarmuka: `LoginInput`, `CreateUserInput`, `UpdateUserInput`. Skema validasi: `loginSchema`, `createUserSchema`, `updateUserSchema`. Panjang 81 baris."
+  },
+  "src/lib/validation/costing.ts": {
+    "summary": "Skema validasi Zod: `src/lib/validation/costing.ts`. Ekspor: `costingLineItemSchema`, `costingSectionSchema`, `costingSheetSchema`, `DEFAULT_COSTING_SECTIONS`. Tipe/antarmuka: `CostingLineItemInput`, `CostingSectionInput`, `CostingSheetInput`. Skema validasi: `costingLineItemSchema`, `costingSectionSchema`, `costingSheetSchema`. Panjang 55 baris."
+  },
+  "src/lib/validation/finance.ts": {
+    "summary": "Skema validasi Zod: `src/lib/validation/finance.ts`. Ekspor: `invoiceItemSchema`, `invoiceSchema`, `paymentSchema`, `chartOfAccountSchema`, `companyExpenseSchema`. Tipe/antarmuka: `InvoiceItemInput`, `InvoiceInput`, `PaymentInput`, `ChartOfAccountInput`, `CompanyExpenseInput`. Skema validasi: `invoiceItemSchema`, `invoiceSchema`, `paymentSchema`, `chartOfAccountSchema`, `companyExpenseSchema`. Panjang 86 baris."
+  },
+  "src/lib/validation/numbering.ts": {
+    "summary": "Skema validasi Zod: `src/lib/validation/numbering.ts`. Ekspor: `DOCUMENT_TYPE_CODES`, `DEPARTMENT_CODES`, `numberRegistrySchema`, `quotationIntakeSchema`. Tipe/antarmuka: `NumberRegistryInput`, `QuotationIntakeInput`. Skema validasi: `numberRegistrySchema`, `quotationIntakeSchema`. Panjang 66 baris."
+  },
+  "src/lib/validation/project.ts": {
+    "summary": "Skema validasi Zod: `src/lib/validation/project.ts`. Ekspor: `projectUpdateSchema`, `taskSchema`, `milestoneSchema`, `milestoneUpdateSchema`, `expenseSchema`, `progressReportSchema`, `progressReportItemSchema`. Tipe/antarmuka: `ProjectUpdateInput`, `TaskInput`, `MilestoneInput`, `MilestoneUpdateInput`, `ExpenseInput`, `ProgressReportInput`, `ProgressReportItemInput`. Skema validasi: `projectUpdateSchema`, `taskSchema`, `milestoneSchema`, `milestoneUpdateSchema`, `expenseSchema`, `progressReportSchema`, `progressReportItemSchema`. Bergantung pada status alur kerja seperti ACTIVE, COMPLETED, CANCELLED, UNPAID, PAID. Panjang 100 baris."
+  },
+  "src/lib/validation/sales.ts": {
+    "summary": "Skema validasi Zod: `src/lib/validation/sales.ts`. Ekspor: `customerSchema`, `contactSchema`, `opportunitySchema`, `quotationItemSchema`, `commercialTermItemSchema`, `DEFAULT_COMMERCIAL_TERMS`, `quotationSchema`, `purchaseOrderSchema`, `purchaseOrderUpdateSchema`, `vendorPoItemSchema`, `vendorPurchaseOrderSchema`, `contractSchema`. Tipe/antarmuka: `CustomerInput`, `ContactInput`, `OpportunityInput`, `QuotationItemInput`, `CommercialTermItem`, `QuotationInput`, `PurchaseOrderInput`, `PurchaseOrderUpdateInput`. Skema validasi: `customerSchema`, `contactSchema`, `opportunitySchema`, `quotationItemSchema`, `commercialTermItemSchema`, `quotationSchema`, `purchaseOrderSchema`, `purchaseOrderUpdateSchema`. Bergantung pada status alur kerja seperti ACTIVE, WON, LOST, CANCELLED, DRAFT, COMPLETED. Panjang 196 baris."
+  },
+  "src/lib/weekly-comparison.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/weekly-comparison.ts`. Ekspor: `compareWeeklyItems`, `CHANGE_LABELS`. Tipe/antarmuka: `WeeklyItem`, `ChangeKind`, `WeeklyChange`. Panjang 87 baris."
+  },
+  "src/lib/weekly-policy.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/weekly-policy.ts`. Ekspor: `isUntouchedTemplateTask`, `canDecideWeeklyReport`, `canDispatchWeeklyReport`, `parseReportDate`. Panjang 54 baris."
+  },
+  "src/lib/workflows/audit.ts": {
+    "summary": "Modul alur kerja/bisnis: `src/lib/workflows/audit.ts`. Ekspor: `logActivity`. Panjang 30 baris."
+  },
+  "src/lib/workflows/calculations.ts": {
+    "summary": "Kumpulan perhitungan bisnis murni. Mencakup `calcCostingLine()` (harga jual = biaya setelah diskon dibagi (1 - margin), dibulatkan KE ATAS ke kelipatan Rp 1.000) dan `computeProjectRiskSignals()` yang menghasilkan sinyal risiko proyek: MILESTONE_DELAYED, SCHEDULE_DEVIATION, BUDGET_OVERRUN, BUDGET_NEAR_LIMIT, ditambah INVOICE_OVERDUE dan MARGIN_EROSION dengan ambang MARGIN_EROSION_THRESHOLD_POINTS. Input opsional invoices, contractValue, forecastCost."
+  },
+  "src/lib/workflows/company-expense.ts": {
+    "summary": "Modul alur kerja/bisnis: `src/lib/workflows/company-expense.ts`. Ekspor: `submitCompanyExpenseForApproval`, `approveCompanyExpense`, `rejectCompanyExpense`, `markCompanyExpensePaid`. Bergantung pada status alur kerja seperti DRAFT, SUBMITTED, APPROVED, REJECTED, PAID. Panjang 140 baris."
+  },
+  "src/lib/workflows/corrections.ts": {
+    "summary": "Modul alur kerja/bisnis: `src/lib/workflows/corrections.ts`. Ekspor: `correctDocumentNumber`, `correctProgressReportDetails`, `renameDocumentFile`, `correctOpportunityStage`, `reassignProjectCustomer`, `archiveWonArtifacts`, `revertContractToDraft`, `revertMilestoneToPending`, `attachPaymentEvidence`, `relocateDocument`. Menyentuh tabel Prisma: quotation, vendorPurchaseOrder, invoice, progressReport, payment. Bergantung pada status alur kerja seperti DRAFT, WON, LOST, SENT, ACTIVE, COMPLETED. Panjang 520 baris."
+  },
+  "src/lib/workflows/costing-adjustment.ts": {
+    "summary": "Modul alur kerja/bisnis: `src/lib/workflows/costing-adjustment.ts`. Ekspor: `UnsupportedRevisionError`, `applyCostingAdjustment`. Panjang 64 baris."
+  },
+  "src/lib/workflows/costing.ts": {
+    "summary": "Alur kerja lembar costing (CostingSheet dan CostingLineItem). Mencakup pembuatan, pembaruan, penguncian FINAL, revisi, penghapusan, serta konversi costing menjadi Quotation (termasuk sebagai revisi). Status mengikuti enum CostingStatus DRAFT, FINAL, CONVERTED. Costing final menjadi dasar anggaran untuk pembandingan biaya aktual proyek."
+  },
+  "src/lib/workflows/cron-jobs.ts": {
+    "summary": "Modul alur kerja/bisnis: `src/lib/workflows/cron-jobs.ts`. Ekspor: `escalateStaleApprovals`, `remindInvoicesDueSoon`, `remindMilestonesDueSoon`, `remindContractsExpiringSoon`, `remindQuotationsExpiringSoon`, `sendDailyDigest`, `dispatchPendingDirectiveNotifications`. Menyentuh tabel Prisma: quotation, invoice, vendorPurchaseOrder, projectExpense, notification, projectMilestone, contract, project, document, directive. Bergantung pada status alur kerja seperti SUBMITTED, ACTIVE, WON, LOST, CANCELLED, DRAFT, OVERDUE. Panjang 314 baris."
+  },
+  "src/lib/workflows/documents.ts": {
+    "summary": "Modul alur kerja/bisnis: `src/lib/workflows/documents.ts`. Ekspor: `uploadDocument`, `moveDocumentToTrash`, `restoreDocumentFromTrash`, `permanentlyDeleteDocument`. Tipe/antarmuka: `UploadDocumentParams`. Menyentuh tabel Prisma: document, progressReport, financeBankBalance. Panjang 151 baris."
+  },
+  "src/lib/workflows/expense.ts": {
+    "summary": "Modul alur kerja/bisnis: `src/lib/workflows/expense.ts`. Ekspor: `submitExpenseForApproval`, `approveExpense`, `rejectExpense`, `markExpensePaid`. Bergantung pada status alur kerja seperti DRAFT, SUBMITTED, APPROVED, REJECTED, PAID. Panjang 149 baris."
+  },
+  "src/lib/workflows/finance.ts": {
+    "summary": "Modul alur kerja/bisnis: `src/lib/workflows/finance.ts`. Ekspor: `createInvoice`, `recordPayment`, `submitInvoiceForApproval`, `approveInvoice`, `rejectInvoice`, `markInvoiceIssued`, `refreshOverdueInvoices`, `refreshBillingSchedule`. Menyentuh tabel Prisma: invoice, project, notification. Bergantung pada status alur kerja seperti DRAFT, PAID, OVERDUE, SUBMITTED, APPROVED, REJECTED. Panjang 370 baris."
+  },
+  "src/lib/workflows/folders.ts": {
+    "summary": "Modul alur kerja/bisnis: `src/lib/workflows/folders.ts`. Ekspor: `PROJECT_FOLDER_TEMPLATE`, `OPPORTUNITY_FOLDER_TEMPLATE`, `createProjectFolders`, `createOpportunityFolders`, `mergeOpportunityFoldersIntoProject`, `resolveDestinationFolder`, `restoreOpportunityFoldersFromProject`, `entityTypeForRouteKey`. Panjang 384 baris."
+  },
+  "src/lib/workflows/generate-progress-report.ts": {
+    "summary": "Modul alur kerja/bisnis: `src/lib/workflows/generate-progress-report.ts`. Ekspor: `generateProgressReportForActor`. Menyentuh tabel Prisma: document, progressReport. Melakukan revalidatePath pada /projects/${projectId}. Panjang 142 baris."
+  },
+  "src/lib/workflows/notify.ts": {
+    "summary": "Modul alur kerja/bisnis: `src/lib/workflows/notify.ts`. Ekspor: `notifyUser`, `notifyRole`, `dispatchPendingNotifications`. Panjang 68 baris."
+  },
+  "src/lib/workflows/numbering-registry.ts": {
+    "summary": "Modul alur kerja/bisnis: `src/lib/workflows/numbering-registry.ts`. Ekspor: `createNumberRegistryEntry`, `voidNumberRegistryEntry`. Panjang 65 baris."
+  },
+  "src/lib/workflows/progress-report.ts": {
+    "summary": "Modul alur kerja/bisnis: `src/lib/workflows/progress-report.ts`. Ekspor: `createProgressReport`, `deleteProgressReport`, `addProgressReportItem`, `updateProgressReportItem`, `deleteProgressReportItem`. Tipe/antarmuka: `ProgressReportItemPhotos`. Panjang 120 baris."
+  },
+  "src/lib/workflows/project.ts": {
+    "summary": "Modul alur kerja proyek. Berisi antara lain `calculateProjectProfitability()` yang menghitung untung-rugi proyek dari invoice terbit dan biaya proyek. Setelah perbaikan, fungsi ini hanya menjumlahkan ProjectExpense dengan approvalStatus APPROVED dan mengembalikan committedCost, pendingCost, forecastCost, dan payable di samping pendapatan, biaya, dan margin. Menyentuh tabel Project, ProjectExpense, VendorPurchaseOrder, Invoice, Milestone."
+  },
+  "src/lib/workflows/quotation-intake.ts": {
+    "summary": "Modul alur kerja/bisnis: `src/lib/workflows/quotation-intake.ts`. Ekspor: `createQuotationIntake`. Panjang 81 baris."
+  },
+  "src/lib/workflows/quotation.ts": {
+    "summary": "Modul alur kerja/bisnis: `src/lib/workflows/quotation.ts`. Ekspor: `hasUploadedCustomerPoDocument`, `createQuotation`, `updateQuotation`, `submitQuotationForApproval`, `approveQuotation`, `rejectQuotation`, `markQuotationSent`, `markQuotationWon`, `reviseQuotation`, `deleteQuotation`, `markQuotationLost`. Bergantung pada status alur kerja seperti WON, LOST, DRAFT, SUBMITTED, APPROVED, REJECTED, SENT, CONVERTED. Panjang 609 baris."
+  },
+  "src/lib/workflows/report-review.ts": {
+    "summary": "Modul alur kerja/bisnis: `src/lib/workflows/report-review.ts`. Ekspor: `lockReport`, `reviewSource`, `reportApprover`. Menyentuh tabel Prisma: user. Panjang 65 baris."
+  },
+  "src/lib/workflows/revision-history.ts": {
+    "summary": "Modul alur kerja/bisnis: `src/lib/workflows/revision-history.ts`. Ekspor: `snapshotCostingSheetRevision`, `snapshotQuotationRevision`. Tipe/antarmuka: `CostingSheetSnapshot`, `QuotationSnapshot`. Panjang 151 baris."
+  },
+  "src/lib/workflows/telegram-automation.ts": {
+    "summary": "Modul alur kerja/bisnis: `src/lib/workflows/telegram-automation.ts`. Ekspor: `resolveActorByTelegramChatId`, `simulateQuotationRevision`, `commitQuotationRevision`. Tipe/antarmuka: `RevisionSimulation`, `RevisionCommitResult`. Menyentuh tabel Prisma: user, costingSheet, quotation. Bergantung pada status alur kerja seperti SUBMITTED, APPROVED, REJECTED, SENT, DRAFT. Panjang 130 baris."
+  },
+  "src/lib/workflows/telegram-costing-draft.ts": {
+    "summary": "Modul alur kerja/bisnis: `src/lib/workflows/telegram-costing-draft.ts`. Ekspor: `COSTING_DRAFT_TTL_MINUTES`, `getActiveCostingDraft`, `startCostingDraft`, `cancelCostingDraft`, `searchCustomerCandidates`, `mergeExtractionIntoDraft`, `saveDraftMerge`, `whatsMissing`, `buildDraftPreview`, `commitCostingDraft`. Tipe/antarmuka: `DraftItem`, `CostingDraftRow`, `MergeResult`, `CommitResult`. Menyentuh tabel Prisma: telegramCostingDraft, customer. Panjang 213 baris."
+  },
+  "src/lib/workflows/telegram-invoice.ts": {
+    "summary": "Modul alur kerja/bisnis: `src/lib/workflows/telegram-invoice.ts`. Ekspor: `simulateInvoice`, `commitInvoice`. Tipe/antarmuka: `InvoiceSimulation`, `InvoiceCommitInput`. Menyentuh tabel Prisma: project, invoice. Panjang 112 baris."
+  },
+  "src/lib/workflows/telegram-progress-report.ts": {
+    "summary": "Modul alur kerja/bisnis: `src/lib/workflows/telegram-progress-report.ts`. Ekspor: `simulateProgressReportFromDocument`. Tipe/antarmuka: `ProgressReportSimulation`. Menyentuh tabel Prisma: project. Panjang 49 baris."
+  },
+  "src/lib/workflows/vendor-po.ts": {
+    "summary": "Modul alur kerja/bisnis: `src/lib/workflows/vendor-po.ts`. Ekspor: `createVendorPurchaseOrder`, `submitVendorPOForApproval`, `approveVendorPO`, `rejectVendorPO`, `markVendorPOSent`. Bergantung pada status alur kerja seperti DRAFT, SUBMITTED, APPROVED, REJECTED, SENT. Panjang 240 baris."
+  },
+  "src/lib/workspace.ts": {
+    "summary": "Modul utilitas/logika murni: `src/lib/workspace.ts`. Ekspor: `ISSUED_INVOICE_STATUSES`, `isIssuedInvoice`, `safeNextPath`, `latestReportsPerProject`, `duplicateDocumentKey`, `ROLE_LABELS`. Panjang 50 baris."
+  },
+  "src/middleware.ts": {
+    "summary": "Berkas konfigurasi/proyek: `src/middleware.ts`. Ekspor: `middleware`, `config`. Panjang 65 baris."
+  },
+  "src/server/action-items.ts": {
+    "summary": "Modul server (query + server action): `src/server/action-items.ts`. Ekspor: `getMyActionItems`. Tipe/antarmuka: `ActionItemSeverity`, `ActionItemModule`, `ActionItem`. Menyentuh tabel Prisma: quotation, vendorPurchaseOrder, projectExpense, invoice, projectMilestone, progressReport, project, financeWorkItem, progressReportReview, projectTask, projectWeeklySettings. Berisi server action (\"use server\"). Bergantung pada status alur kerja seperti SUBMITTED, OVERDUE, SENT, COMPLETED, ACTIVE, CANCELLED. Panjang 450 baris."
+  },
+  "src/server/activity-log.ts": {
+    "summary": "Modul server (query + server action): `src/server/activity-log.ts`. Ekspor: `listActivityLog`. Menyentuh tabel Prisma: activityLog. Berisi server action (\"use server\"). Panjang 15 baris."
+  },
+  "src/server/assistant.ts": {
+    "summary": "Modul server (query + server action): `src/server/assistant.ts`. Ekspor: `sendAssistantMessage`, `confirmAssistantAction`, `cancelAssistantAction`. Tipe/antarmuka: `AssistantAttachment`, `AssistantReply`. Menyentuh tabel Prisma: assistantPendingAction. Berisi server action (\"use server\"). Panjang 200 baris."
+  },
+  "src/server/corrections.ts": {
+    "summary": "Modul server (query + server action): `src/server/corrections.ts`. Ekspor: `listQuotationsForCorrection`, `listVendorPOsForCorrection`, `listInvoicesForCorrection`, `listProgressReportsForCorrection`, `listWonLostOpportunitiesForCorrection`, `listProjectsForCorrection`, `listCustomersForCorrection`, `reassignProjectCustomerAction`, `correctOpportunityStageAction`, `listMissingEvidenceForCorrection`, `revertContractToDraftAction`, `revertMilestoneToPendingAction`, dan lainnya. Menyentuh tabel Prisma: quotation, vendorPurchaseOrder, invoice, progressReport, opportunity, project, customer, contract, projectMilestone, payment, document, purchaseOrder. Berisi server action (\"use server\"). Melakukan revalidatePath pada /settings/document-correction, /projects, /projects/${projectId}, /reports, /activity-log, /sales/opportunities. Bergantung pada status alur kerja seperti DRAFT, WON, LOST, PAID, ACTIVE, COMPLETED. Panjang 438 baris."
+  },
+  "src/server/dashboard.ts": {
+    "summary": "Modul server (query + server action): `src/server/dashboard.ts`. Ekspor: `getDashboardData`. Menyentuh tabel Prisma: invoice, project, opportunity, financeBankBalance, projectExpense, companyExpense, financeWorkItem. Berisi server action (\"use server\"). Bergantung pada status alur kerja seperti ACTIVE, APPROVED, WON, LOST, UNPAID, PAID. Panjang 153 baris."
+  },
+  "src/server/directives.ts": {
+    "summary": "Modul server (query + server action): `src/server/directives.ts`. Ekspor: `listAssignableUsersAction`, `createDirectiveAction`, `listMyDirectivesAction`, `completeDirectiveAction`, `respondToDirectiveAction`, `listGivenDirectivesAction`. Skema validasi: `directiveTargetSchema`, `createDirectiveSchema`, `respondSchema`. Menyentuh tabel Prisma: user, directive. Berisi server action (\"use server\"). Melakukan revalidatePath pada /tasks. Panjang 234 baris."
+  },
+  "src/server/document-checklist.ts": {
+    "summary": "Modul server (query + server action): `src/server/document-checklist.ts`. Ekspor: `getJobChecklists`, `getJobChecklistFor`. Tipe/antarmuka: `ChecklistSeverity`, `ChecklistItem`, `JobChecklist`. Menyentuh tabel Prisma: opportunity, project, document. Berisi server action (\"use server\"). Bergantung pada status alur kerja seperti WON, LOST, CANCELLED, ACTIVE, COMPLETED, PAID, DRAFT. Panjang 292 baris."
+  },
+  "src/server/documents/cleanup.ts": {
+    "summary": "Modul server (query + server action): `src/server/documents/cleanup.ts`. Ekspor: `cleanExactDuplicates`. Menyentuh tabel Prisma: document. Berisi server action (\"use server\"). Melakukan revalidatePath pada /data, /data/review, /documents/trash, /documents/${first.folderId}. Panjang 146 baris."
+  },
+  "src/server/documents/documents.ts": {
+    "summary": "Modul server (query + server action): `src/server/documents/documents.ts`. Ekspor: `getFolderView`, `getProjectFolders`, `uploadDocumentToFolder`, `trashDocument`, `listTrash`, `restoreDocument`, `permanentDelete`. Menyentuh tabel Prisma: folder, document, costingSheet, quotation. Berisi server action (\"use server\"). Melakukan revalidatePath pada /documents/${folderId}, /documents/trash. Panjang 201 baris."
+  },
+  "src/server/documents/smart-upload.ts": {
+    "summary": "Modul server (query + server action): `src/server/documents/smart-upload.ts`. Ekspor: `listUploadCandidateProjects`, `classifyUploadWithAI`, `confirmSmartUpload`. Menyentuh tabel Prisma: project, folder. Berisi server action (\"use server\"). Melakukan revalidatePath pada /projects/${project.id}, /dashboard, /data. Panjang 193 baris."
+  },
+  "src/server/finance/billing-schedule.ts": {
+    "summary": "Modul server (query + server action): `src/server/finance/billing-schedule.ts`. Ekspor: `getBillingSchedule`. Menyentuh tabel Prisma: project. Berisi server action (\"use server\"). Panjang 47 baris."
+  },
+  "src/server/finance/chart-of-accounts.ts": {
+    "summary": "Modul server (query + server action): `src/server/finance/chart-of-accounts.ts`. Ekspor: `listChartOfAccounts`, `createChartOfAccountAction`, `updateChartOfAccountAction`. Menyentuh tabel Prisma: chartOfAccount. Berisi server action (\"use server\"). Melakukan revalidatePath pada /settings/chart-of-accounts. Panjang 64 baris."
+  },
+  "src/server/finance/company-expenses.ts": {
+    "summary": "Modul server (query + server action): `src/server/finance/company-expenses.ts`. Ekspor: `listCompanyExpenses`, `createCompanyExpenseAction`, `submitCompanyExpenseAction`, `approveCompanyExpenseAction`, `rejectCompanyExpenseAction`, `markCompanyExpensePaidAction`. Menyentuh tabel Prisma: companyExpense. Berisi server action (\"use server\"). Melakukan revalidatePath pada /finance/company-expenses. Panjang 94 baris."
+  },
+  "src/server/finance/invoices.ts": {
+    "summary": "Modul server (query + server action): `src/server/finance/invoices.ts`. Ekspor: `listInvoices`, `getInvoice`, `createInvoiceAction`, `submitInvoiceAction`, `approveInvoiceAction`, `rejectInvoiceAction`, `markInvoiceIssuedAction`. Menyentuh tabel Prisma: invoice. Berisi server action (\"use server\"). Melakukan revalidatePath pada /finance/invoices, /finance/invoices/${id}. Panjang 92 baris."
+  },
+  "src/server/finance/payments.ts": {
+    "summary": "Modul server (query + server action): `src/server/finance/payments.ts`. Ekspor: `listPayments`, `recordPaymentAction`. Menyentuh tabel Prisma: payment, invoice. Berisi server action (\"use server\"). Melakukan revalidatePath pada /finance/invoices, /finance/invoices/${data.invoiceId}, /finance/receivables, /finance/payments, /projects/${invoice.projectId}. Panjang 63 baris."
+  },
+  "src/server/finance/receivables.ts": {
+    "summary": "Modul server (query + server action): `src/server/finance/receivables.ts`. Ekspor: `getReceivables`, `listProjectExpenses`. Menyentuh tabel Prisma: invoice, projectExpense. Berisi server action (\"use server\"). Panjang 44 baris."
+  },
+  "src/server/finance/workspace.ts": {
+    "summary": "Modul server (query + server action): `src/server/finance/workspace.ts`. Ekspor: `getFinanceWorkspace`, `saveFinanceWork`, `saveBankBalance`, `saveProjectEstimate`. Skema validasi: `workSchema`. Menyentuh tabel Prisma: purchaseOrder, invoice, vendorPurchaseOrder, projectExpense, companyExpense, payment, project, financeWorkItem, user, financeBankBalance, financeProjectEstimate, document. Berisi server action (\"use server\"). Melakukan revalidatePath pada /finance. Bergantung pada status alur kerja seperti CANCELLED, PAID, OVERDUE. Panjang 399 baris."
+  },
+  "src/server/notifications.ts": {
+    "summary": "Modul server (query + server action): `src/server/notifications.ts`. Ekspor: `getMyNotifications`, `getUnreadNotificationCount`, `markAllNotificationsRead`, `markNotificationRead`. Menyentuh tabel Prisma: notification. Berisi server action (\"use server\"). Melakukan revalidatePath pada /dashboard, /notifications. Panjang 78 baris."
+  },
+  "src/server/numbering/registry.ts": {
+    "summary": "Modul server (query + server action): `src/server/numbering/registry.ts`. Ekspor: `listNumberRegistryEntries`, `createNumberRegistryEntryAction`, `voidNumberRegistryEntryAction`, `createQuotationIntakeAction`. Menyentuh tabel Prisma: numberRegistryEntry. Berisi server action (\"use server\"). Melakukan revalidatePath pada /numbering, /sales/opportunities, /documents. Panjang 59 baris."
+  },
+  "src/server/projects/progress-reports.ts": {
+    "summary": "Modul server (query + server action): `src/server/projects/progress-reports.ts`. Ekspor: `getProgressReports`, `getProgressReportDocuments`, `createProgressReportAction`, `deleteProgressReportAction`, `addProgressReportItemAction`, `updateProgressReportItemAction`, `deleteProgressReportItemAction`, `generateProgressReportFromDocument`. Menyentuh tabel Prisma: progressReport, folder, document. Berisi server action (\"use server\"). Melakukan revalidatePath pada /projects/${data.projectId}, /projects/${projectId}, /projects/${report.projectId}. Panjang 269 baris."
+  },
+  "src/server/projects/projects.ts": {
+    "summary": "Modul server (query + server action): `src/server/projects/projects.ts`. Ekspor: `listProjects`, `getProjectDetail`, `updateProject`, `markCompletedAction`, `closeProjectAction`. Menyentuh tabel Prisma: project, folder. Berisi server action (\"use server\"). Melakukan revalidatePath pada /projects/${id}, /projects. Bergantung pada status alur kerja seperti APPROVED, COMPLETED, ACTIVE, CANCELLED. Panjang 367 baris."
+  },
+  "src/server/projects/tasks.ts": {
+    "summary": "Modul server (query + server action): `src/server/projects/tasks.ts`. Ekspor: `createTask`, `updateTaskStatus`, `createMilestone`, `updateMilestoneStatus`, `completeDeliveryMilestoneAction`, `updateMilestone`, `deleteMilestone`, `createExpense`, `submitExpenseAction`, `approveExpenseAction`, `rejectExpenseAction`, `markExpensePaidAction`. Menyentuh tabel Prisma: project, user, projectTask, projectMilestone, projectExpense. Berisi server action (\"use server\"). Melakukan revalidatePath pada /projects/${data.projectId}, /dashboard, /projects/${projectId}, /finance/expenses. Panjang 309 baris."
+  },
+  "src/server/projects/weekly.ts": {
+    "summary": "Modul server (query + server action): `src/server/projects/weekly.ts`. Ekspor: `getWeeklyProject`, `requestReportReview`, `decideReportReview`, `recordReportDispatch`, `saveWeeklySettings`, `classifyProgressDocument`, `updateWeeklyReportDetails`. Menyentuh tabel Prisma: progressReport, projectWeeklySettings, progressReportReview, project, user, document. Berisi server action (\"use server\"). Melakukan revalidatePath pada /projects/${before.report.projectId}, /dashboard, /projects/${result}, /projects/${projectId}, /projects/${doc.folder.projectId}. Panjang 504 baris."
+  },
+  "src/server/reports/reports.ts": {
+    "summary": "Modul server (query + server action): `src/server/reports/reports.ts`. Ekspor: `getSalesReport`, `getFinanceReport`, `getProjectReport`, `getProfitabilityReport`, `getExecutiveReport`. Menyentuh tabel Prisma: quotation, opportunity, invoice, projectExpense, companyExpense, project, financeProjectEstimate. Berisi server action (\"use server\"). Bergantung pada status alur kerja seperti WON, LOST, APPROVED, COMPLETED, CANCELLED, ACTIVE. Panjang 333 baris."
+  },
+  "src/server/sales/contacts.ts": {
+    "summary": "Modul server (query + server action): `src/server/sales/contacts.ts`. Ekspor: `listContacts`, `createContact`, `deleteContact`. Menyentuh tabel Prisma: contact. Berisi server action (\"use server\"). Melakukan revalidatePath pada /sales/contacts, /sales/customers/${data.customerId}, /sales/customers/${customerId}. Panjang 57 baris."
+  },
+  "src/server/sales/costing.ts": {
+    "summary": "Modul server (query + server action): `src/server/sales/costing.ts`. Ekspor: `listCostingSheets`, `getCostingSheet`, `getCostingSheetRevisionHistory`, `getOpportunityActiveQuotation`, `createCostingSheetAction`, `updateCostingSheetAction`, `markCostingFinalAction`, `reviseCostingSheetAction`, `deleteCostingSheetAction`, `convertCostingToQuotationAction`, `convertCostingToQuotationAsRevisionAction`, `convertRevisedCostingToQuotationAction`. Menyentuh tabel Prisma: costingSheet, costingSheetRevisionHistory. Berisi server action (\"use server\"). Melakukan revalidatePath pada /sales/costing, /sales/costing/${id}, /sales/quotations, /sales/quotations/${targetQuotationId}, /sales/quotations/${quotation.id}. Panjang 176 baris."
+  },
+  "src/server/sales/customers.ts": {
+    "summary": "Modul server (query + server action): `src/server/sales/customers.ts`. Ekspor: `listCustomers`, `getCustomer360`, `createCustomer`, `updateCustomer`, `deleteCustomer`. Menyentuh tabel Prisma: customer. Berisi server action (\"use server\"). Melakukan revalidatePath pada /sales/customers, /sales/customers/${id}. Panjang 115 baris."
+  },
+  "src/server/sales/opportunities.ts": {
+    "summary": "Modul server (query + server action): `src/server/sales/opportunities.ts`. Ekspor: `listOpportunities`, `getOpportunityDetail`, `createOpportunity`, `deleteOpportunityAction`, `updateOpportunityStage`. Menyentuh tabel Prisma: opportunity, folder. Berisi server action (\"use server\"). Melakukan revalidatePath pada /sales/opportunities, /documents. Panjang 310 baris."
+  },
+  "src/server/sales/purchase-orders.ts": {
+    "summary": "Modul server (query + server action): `src/server/sales/purchase-orders.ts`. Ekspor: `getCustomerPoStatusForQuotation`, `listPurchaseOrders`, `createPurchaseOrder`, `updatePurchaseOrder`, `deletePurchaseOrder`, `uploadAndExtractPurchaseOrder`, `listContracts`, `createContract`, `activateContractAction`. Menyentuh tabel Prisma: purchaseOrder, document, contract. Berisi server action (\"use server\"). Melakukan revalidatePath pada /sales/purchase-orders, /projects/${data.projectId}, /projects, /dashboard, /finance/receivables, /finance/invoices. Bergantung pada status alur kerja seperti ACTIVE, COMPLETED, DRAFT. Panjang 385 baris."
+  },
+  "src/server/sales/quotations.ts": {
+    "summary": "Modul server (query + server action): `src/server/sales/quotations.ts`. Ekspor: `listQuotations`, `getQuotation`, `getQuotationRevisionHistory`, `createQuotationAction`, `updateQuotationAction`, `reviseQuotationAction`, `submitQuotationAction`, `approveQuotationAction`, `rejectQuotationAction`, `sendQuotationAction`, `markWonAction`, `deleteQuotationAction`, dan lainnya. Menyentuh tabel Prisma: quotation, quotationRevisionHistory. Berisi server action (\"use server\"). Melakukan revalidatePath pada /sales/quotations, /sales/quotations/${id}, /projects, /sales/opportunities, /documents. Panjang 161 baris."
+  },
+  "src/server/sales/vendor-purchase-orders.ts": {
+    "summary": "Modul server (query + server action): `src/server/sales/vendor-purchase-orders.ts`. Ekspor: `listVendorPurchaseOrders`, `getVendorPurchaseOrder`, `createVendorPurchaseOrderAction`, `submitVendorPOAction`, `approveVendorPOAction`, `rejectVendorPOAction`, `markVendorPOSentAction`, `confirmVendorPOAction`. Menyentuh tabel Prisma: vendorPurchaseOrder, document. Berisi server action (\"use server\"). Melakukan revalidatePath pada /procurement/vendor-po, /procurement/vendor-po/${id}, /finance/expenses, /projects/${updated.projectId}, /projects/${po.projectId}. Panjang 142 baris."
+  },
+  "src/server/search.ts": {
+    "summary": "Modul server (query + server action): `src/server/search.ts`. Ekspor: `globalSearch`. Menyentuh tabel Prisma: customer, quotation, project, invoice, opportunity. Berisi server action (\"use server\"). Panjang 38 baris."
+  },
+  "src/server/settings/company.ts": {
+    "summary": "Modul server (query + server action): `src/server/settings/company.ts`. Ekspor: `getCompanySettings`, `updateCompanySettings`, `updateNumberingSettings`. Skema validasi: `companySettingsSchema`, `numberingSchema`. Menyentuh tabel Prisma: companySettings. Berisi server action (\"use server\"). Melakukan revalidatePath pada /settings/company, /settings/numbering. Panjang 130 baris."
+  },
+  "src/server/settings/mood.ts": {
+    "summary": "Modul server (query + server action): `src/server/settings/mood.ts`. Ekspor: `updateMyMoodAction`. Skema validasi: `moodSchema`. Menyentuh tabel Prisma: user. Berisi server action (\"use server\"). Melakukan revalidatePath pada /. Panjang 35 baris."
+  },
+  "src/server/settings/profile.ts": {
+    "summary": "Modul server (query + server action): `src/server/settings/profile.ts`. Ekspor: `getOwnProfile`, `updateOwnProfileAction`, `sendTestWhatsAppNotificationAction`. Skema validasi: `ownProfileSchema`. Menyentuh tabel Prisma: user. Berisi server action (\"use server\"). Melakukan revalidatePath pada /settings/profile, /dashboard, /. Panjang 105 baris."
+  },
+  "src/server/settings/storage-health.ts": {
+    "summary": "Modul server (query + server action): `src/server/settings/storage-health.ts`. Ekspor: `checkStorageHealth`. Tipe/antarmuka: `StorageHealth`. Menyentuh tabel Prisma: document. Berisi server action (\"use server\"). Panjang 101 baris."
+  },
+  "src/server/settings/theme.ts": {
+    "summary": "Modul server (query + server action): `src/server/settings/theme.ts`. Ekspor: `getThemeSettings`, `updateThemeSettings`. Skema validasi: `themeSchema`. Menyentuh tabel Prisma: companySettings. Berisi server action (\"use server\"). Melakukan revalidatePath pada /settings/theme, /dashboard. Panjang 72 baris."
+  },
+  "src/server/settings/users.ts": {
+    "summary": "Modul server (query + server action): `src/server/settings/users.ts`. Ekspor: `listUsersForPicker`, `listUsers`, `createUser`, `toggleUserActive`, `updateUserAction`, `deleteUser`. Menyentuh tabel Prisma: user. Berisi server action (\"use server\"). Melakukan revalidatePath pada /settings/users. Panjang 176 baris."
+  },
+  "src/types/search.ts": {
+    "summary": "Berkas konfigurasi/proyek: `src/types/search.ts`. Tipe/antarmuka: `SearchResult`. Panjang 7 baris."
+  },
+  "tailwind.config.ts": {
+    "summary": "Berkas konfigurasi/proyek: `tailwind.config.ts`. Ekspor default: `(anonim)`. Panjang 59 baris."
+  },
+  "tests/document-preview.test.ts": {
+    "summary": "Uji otomatis (node:test): `tests/document-preview.test.ts`. Panjang 54 baris."
+  },
+  "tests/finance-overview.test.ts": {
+    "summary": "Uji otomatis (node:test): `tests/finance-overview.test.ts`. Bergantung pada status alur kerja seperti DRAFT, APPROVED, CANCELLED. Panjang 39 baris."
+  },
+  "tests/notification-integrity.test.ts": {
+    "summary": "Uji otomatis (node:test): `tests/notification-integrity.test.ts`. Panjang 67 baris."
+  },
+  "tests/project-cost.test.ts": {
+    "summary": "Uji otomatis node:test untuk `summarizeProjectCost` di src/lib/project-cost.ts. Enam kasus: hanya biaya APPROVED menjadi actualCost (biaya REJECTED sebelumnya diam-diam memakan margin proyek), payable hanya APPROVED+UNPAID, PO vendor terhitung committed bukan actual sampai biayanya disetujui, forecast bertahan di budget sampai realisasi melewatinya, konversi Prisma Decimal agar tidak terjadi penggabungan string, dan proyek kosong menghasilkan nol bukan NaN."
+  },
+  "tests/weekly-workflow.test.ts": {
+    "summary": "Uji otomatis (node:test): `tests/weekly-workflow.test.ts`. Panjang 45 baris."
+  },
+  "tests/workspace.test.ts": {
+    "summary": "Uji otomatis (node:test): `tests/workspace.test.ts`. Bergantung pada status alur kerja seperti DRAFT, SUBMITTED, REJECTED, CANCELLED, PAID, OVERDUE, ACTIVE, COMPLETED. Panjang 164 baris."
+  },
+  "tsconfig.json": {
+    "summary": "Berkas konfigurasi/proyek: `tsconfig.json`. Panjang 26 baris."
+  },
+  "tsconfig.tsbuildinfo": {
+    "summary": "Berkas konfigurasi/proyek: `tsconfig.tsbuildinfo`. Panjang 1 baris."
+  }
+}
