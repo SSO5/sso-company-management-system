@@ -1,6 +1,6 @@
 {
   "repo": "SSO5/sso-company-management-system",
-  "generatedForCommit": "36dca7959647f54840fe5057f8af8ea907fa15b0",
+  "generatedForCommit": "8b9ee28b98776495c00ced3f2d70ee683c6c6881",
   "files": [
     {
       "path": ".claude/skills/ngodingpakeai/SKILL.md",
@@ -646,13 +646,13 @@
     },
     {
       "path": "src/app/(app)/projects/[id]/command/page.tsx",
-      "reason": "changed",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 1115
     },
     {
       "path": "src/app/(app)/projects/[id]/cost-board/actions.ts",
-      "reason": "new",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 1589
     },
@@ -664,7 +664,7 @@
     },
     {
       "path": "src/app/(app)/projects/[id]/cost-board/page.tsx",
-      "reason": "changed",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 1177
     },
@@ -1198,13 +1198,13 @@
     },
     {
       "path": "src/components/projects/cost-board-refresh.tsx",
-      "reason": "new",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 2562
     },
     {
       "path": "src/components/projects/cost-board.tsx",
-      "reason": "changed",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 2311
     },
@@ -1312,9 +1312,9 @@
     },
     {
       "path": "src/components/projects/project-snapshot.tsx",
-      "reason": "needs_summary",
+      "reason": "changed",
       "language": "typescript",
-      "size": 4528
+      "size": 5664
     },
     {
       "path": "src/components/projects/project-status-select.tsx",
@@ -1890,11 +1890,11 @@
       "path": "src/lib/project-command.ts",
       "reason": "changed",
       "language": "typescript",
-      "size": 21136
+      "size": 21373
     },
     {
       "path": "src/lib/project-cost-board.ts",
-      "reason": "changed",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 9340
     },
@@ -1903,6 +1903,12 @@
       "reason": "needs_summary",
       "language": "typescript",
       "size": 2615
+    },
+    {
+      "path": "src/lib/project-progress.ts",
+      "reason": "new",
+      "language": "typescript",
+      "size": 6188
     },
     {
       "path": "src/lib/storage.ts",
@@ -2254,9 +2260,9 @@
     },
     {
       "path": "src/server/projects/command-center.ts",
-      "reason": "new",
+      "reason": "changed",
       "language": "typescript",
-      "size": 7606
+      "size": 7665
     },
     {
       "path": "src/server/projects/progress-reports.ts",
@@ -2406,7 +2412,7 @@
       "path": "tests/project-command.test.ts",
       "reason": "changed",
       "language": "typescript",
-      "size": 7323
+      "size": 6510
     },
     {
       "path": "tests/project-cost-board.test.ts",
@@ -2419,6 +2425,12 @@
       "reason": "needs_summary",
       "language": "typescript",
       "size": 2908
+    },
+    {
+      "path": "tests/project-progress.test.ts",
+      "reason": "new",
+      "language": "typescript",
+      "size": 4740
     },
     {
       "path": "tests/weekly-workflow.test.ts",
@@ -2442,7 +2454,7 @@
       "path": "tsconfig.tsbuildinfo",
       "reason": "changed",
       "language": null,
-      "size": 273457
+      "size": 274007
     }
   ]
 }
