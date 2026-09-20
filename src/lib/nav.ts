@@ -96,6 +96,9 @@ export const NAV: NavGroup[] = [
       { label: "Pusat Finance", href: "/finance" },
       { label: "Invoice & penerimaan", href: "/finance/invoices" },
       { label: "Biaya proyek", href: "/finance/expenses" },
+      // Antrean tinjauan berdiri sendiri dari daftar biaya: daftar menjawab
+      // "apa saja yang ada", antrean menjawab "apa yang harus diputuskan".
+      { label: "Tinjauan Biaya", href: "/finance/expense-review" },
       // General Ledger Phase 1 (Aug 2026) — Beban Operasional is company-wide
       // cost (gaji, sewa kantor, dll) that isn't tied to a Project, so it's
       // its own item rather than folded into "Pengeluaran" (ProjectExpense).
