@@ -418,3 +418,103 @@ export function rejectReasonProblem(reason: string): string | null {
   }
   return null;
 }
+
+/* ------------------------------------------------------------------ *
+ * Koreksi sebelum disetujui
+ * ------------------------------------------------------------------ */
+
+export interface CorrectionValues {
+  description: string;
+  vendor: string;
+  date: string;
+  costTypeCode: string;
+  amount: number;
+  tax: number;
+}
+
+export function correctionFrom(item: ReviewItem): CorrectionValues {
+  return {
+    description: item.description,
+    vendor: item.vendor ?? "",
+    date: item.date,
+    costTypeCode: item.costTypeCode ?? "",
+    amount: item.amount,
+    tax: item.tax,
+  };
+}
+
+export interface CorrectionChange {
+  field: keyof CorrectionValues;
+  label: string;
+  before: string;
+  after: string;
+}
+
+const CORRECTION_LABEL: Record<keyof CorrectionValues, string> = {
+  description: "Keterangan",
+  vendor: "Vendor",
+  date: "Tanggal",
+  costTypeCode: "Jenis biaya",
+  amount: "Nilai",
+  tax: "Pajak",
+};
+
+/** Apa saja yang benar-benar berubah dari draf yang diajukan. */
+export function correctionChanges(
+  item: ReviewItem,
+  next: CorrectionValues,
+): CorrectionChange[] {
+  const awal = correctionFrom(item);
+  return (Object.keys(CORRECTION_LABEL) as (keyof CorrectionValues)[])
+    .filter((f) => String(awal[f]) !== String(next[f]))
+    .map((field) => ({
+      field,
+      label: CORRECTION_LABEL[field],
+      before: String(awal[field] || "—"),
+      after: String(next[field] || "—"),
+    }));
+}
+
+export const CORRECTION_NOTE_MIN_LENGTH = 10;
+
+/**
+ * Memeriksa koreksi sebelum disimpan.
+ *
+ * Catatan WAJIB, dan itu bukan formalitas. Mengoreksi biaya yang sudah
+ * diajukan berarti mengubah angka yang bukan milik Anda: pengajunya mencatat
+ * satu hal, dan yang tersimpan menjadi hal lain. Catatan adalah satu-satunya
+ * cara dia tahu apa yang terjadi tanpa harus bertanya.
+ *
+ * Koreksi yang tidak mengubah apa pun ditolak — menyimpan "koreksi" kosong
+ * hanya menambah baris riwayat yang tidak menceritakan apa-apa.
+ */
+export function correctionProblems(
+  item: ReviewItem,
+  next: CorrectionValues,
+  note: string,
+  actor: { role: string; userId: string },
+): string[] {
+  const p: string[] = [];
+
+  // Yang boleh mengoreksi sama dengan yang boleh memutuskan. Mengizinkan
+  // orang lain mengubah angka lalu menyerahkannya ke Admin untuk disetujui
+  // akan membuat maker-checker kehilangan artinya.
+  const terhalang = decisionBlockedReason(item, actor);
+  if (terhalang) p.push(terhalang);
+
+  const changes = correctionChanges(item, next);
+  if (changes.length === 0) p.push("Belum ada yang diubah.");
+
+  if (!next.description.trim()) p.push("Keterangan tidak boleh kosong.");
+  if (!next.date) p.push("Tanggal tidak boleh kosong.");
+  if (!(next.amount > 0)) p.push("Nilai harus lebih dari nol.");
+  if (next.tax < 0) p.push("Pajak tidak boleh negatif.");
+
+  if (changes.length > 0 && note.trim().length < CORRECTION_NOTE_MIN_LENGTH) {
+    p.push(
+      `Tulis catatan koreksi, minimal ${CORRECTION_NOTE_MIN_LENGTH} karakter. Pengajunya mencatat satu hal dan yang tersimpan menjadi hal lain — catatan adalah satu-satunya cara dia tahu apa yang terjadi.`,
+    );
+  }
+
+  return p;
+}

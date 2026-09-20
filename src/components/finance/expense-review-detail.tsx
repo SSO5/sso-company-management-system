@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ExpenseCorrectionForm } from "@/components/finance/expense-correction-form";
 import { ExpenseDecisionActions } from "@/components/finance/expense-decision-actions";
 import { displayLabel } from "@/lib/display-labels";
 import {
@@ -169,6 +170,7 @@ export function ExpenseReviewDetail({
         <div className="space-y-1 border-t pt-3">
           <p className="text-sm font-medium">Keputusan</p>
           <ExpenseDecisionActions item={item} actor={actor} onDone={onClose} />
+          <ExpenseCorrectionForm item={item} actor={actor} />
         </div>
       </div>
     </Dialog>

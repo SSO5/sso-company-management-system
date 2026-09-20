@@ -2,6 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   ageBucket,
+  correctionChanges,
+  correctionFrom,
+  correctionProblems,
   decisionBlockedReason,
   fieldComparisons,
   rejectReasonProblem,
@@ -307,5 +310,71 @@ test("penolakan menuntut alasan yang bisa ditindak", () => {
   assert.equal(
     rejectReasonProblem("Nota tidak mencantumkan nama toko, minta ulang."),
     null,
+  );
+});
+
+/* --- koreksi sebelum disetujui --- */
+
+const diajukan = baris({ approvalStatus: "SUBMITTED", submittedById: "user-budi" });
+
+test("koreksi yang tidak mengubah apa pun ditolak", () => {
+  // Menyimpan "koreksi" kosong hanya menambah baris riwayat yang tidak
+  // menceritakan apa-apa.
+  const sama = correctionFrom(diajukan);
+  assert.deepEqual(correctionChanges(diajukan, sama), []);
+  assert.ok(
+    correctionProblems(diajukan, sama, "catatan yang cukup panjang", admin).includes(
+      "Belum ada yang diubah.",
+    ),
+  );
+});
+
+test("perubahan dilaporkan dari berapa ke berapa", () => {
+  const next = { ...correctionFrom(diajukan), amount: 250_000, vendor: "Toko B" };
+  const c = correctionChanges(diajukan, next);
+  assert.deepEqual(c.map((x) => x.field).sort(), ["amount", "vendor"]);
+  const amount = c.find((x) => x.field === "amount")!;
+  assert.equal(amount.before, "100000");
+  assert.equal(amount.after, "250000");
+});
+
+test("catatan koreksi wajib, dan tidak boleh sekadar sepatah kata", () => {
+  // Pengajunya mencatat satu hal dan yang tersimpan menjadi hal lain;
+  // catatan adalah satu-satunya cara dia tahu apa yang terjadi.
+  const next = { ...correctionFrom(diajukan), amount: 250_000 };
+  assert.ok(correctionProblems(diajukan, next, "", admin).length > 0);
+  assert.ok(correctionProblems(diajukan, next, "salah", admin).length > 0);
+  assert.deepEqual(
+    correctionProblems(diajukan, next, "Nilai di struk 250.000, bukan 100.000.", admin),
+    [],
+  );
+});
+
+test("yang boleh mengoreksi sama dengan yang boleh memutuskan", () => {
+  // Mengizinkan orang lain mengubah angka lalu menyerahkannya ke Admin untuk
+  // disetujui akan membuat maker-checker kehilangan artinya.
+  const next = { ...correctionFrom(diajukan), amount: 250_000 };
+  const catatan = "Nilai di struk berbeda dari yang diketik.";
+  for (const role of ["FINANCE", "PROJECT_MANAGER", "VIEWER"]) {
+    const p = correctionProblems(diajukan, next, catatan, { role, userId: "u" });
+    assert.ok(p.some((x) => /Hanya Admin/.test(x)), role);
+  }
+  // Termasuk Admin yang mengajukan sendiri.
+  const p = correctionProblems(diajukan, next, catatan, {
+    role: "ADMIN",
+    userId: "user-budi",
+  });
+  assert.ok(p.some((x) => /Anda sendiri yang mengajukan/.test(x)));
+});
+
+test("koreksi tidak boleh menghasilkan angka yang mustahil", () => {
+  const catatan = "Memperbaiki angka sesuai struk.";
+  const nol = { ...correctionFrom(diajukan), amount: 0 };
+  assert.ok(correctionProblems(diajukan, nol, catatan, admin).some((p) => /lebih dari nol/.test(p)));
+  const pajakNegatif = { ...correctionFrom(diajukan), tax: -1 };
+  assert.ok(
+    correctionProblems(diajukan, pajakNegatif, catatan, admin).some((p) =>
+      /Pajak tidak boleh negatif/.test(p),
+    ),
   );
 });
