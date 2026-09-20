@@ -194,3 +194,67 @@ export async function loadExpenseCapture(
   if (!looksLikeProjectId(projectId)) return null;
   return mockExpenseCapture(projectId);
 }
+
+/* ------------------------------------------------------------------ *
+ * Pemeriksaan berkas struk sebelum diunggah
+ * ------------------------------------------------------------------ */
+
+/**
+ * Jenis berkas yang masuk akal untuk sebuah struk.
+ *
+ * Lebih sempit daripada ALLOWED_EXTENSIONS di storage.ts, dan itu disengaja:
+ * daftar lebar di sana melayani seluruh dokumen proyek, sementara di sini
+ * menawarkan .xlsx atau .zip hanya akan membuat orang mengunggah berkas yang
+ * pasti tidak bisa dibaca sebagai struk.
+ */
+export const RECEIPT_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "heic", "pdf"];
+
+export const RECEIPT_ACCEPT = RECEIPT_EXTENSIONS.map((e) => `.${e}`).join(",");
+
+/**
+ * Batas ukuran unggahan struk.
+ *
+ * Bukan 50MB seperti batas penyimpanan, melainkan 20MB — di bawah
+ * serverActions.bodySizeLimit (25MB) di next.config.mjs, karena berkas naik
+ * lewat badan permintaan Server Action. Menolaknya di browser jauh lebih
+ * baik daripada membiarkan orang menunggu unggahan besar lalu gagal di
+ * server dengan galat yang tidak menyebut ukuran.
+ */
+export const MAX_RECEIPT_BYTES = 20 * 1024 * 1024;
+
+export type ReceiptFileProblem =
+  | "JENIS_TIDAK_DIDUKUNG"
+  | "TERLALU_BESAR"
+  | "KOSONG";
+
+export function receiptFileProblem(file: {
+  name: string;
+  size: number;
+}): ReceiptFileProblem | null {
+  if (file.size === 0) return "KOSONG";
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  if (!RECEIPT_EXTENSIONS.includes(ext)) return "JENIS_TIDAK_DIDUKUNG";
+  if (file.size > MAX_RECEIPT_BYTES) return "TERLALU_BESAR";
+  return null;
+}
+
+export const RECEIPT_FILE_MESSAGE: Record<ReceiptFileProblem, string> = {
+  JENIS_TIDAK_DIDUKUNG: `Hanya foto (${RECEIPT_EXTENSIONS.filter((e) => e !== "pdf").join(", ")}) atau PDF yang bisa dibaca sebagai struk.`,
+  TERLALU_BESAR: `Berkas lebih dari ${Math.round(MAX_RECEIPT_BYTES / 1024 / 1024)}MB. Foto dari kamera ponsel biasanya jauh di bawah itu — coba kirim ulang tanpa diperbesar.`,
+  KOSONG: "Berkasnya kosong. Coba ambil ulang fotonya.",
+};
+
+/** Ukuran berkas dalam satuan yang bisa dibaca orang. */
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+/** Benar kalau berkasnya bisa ditampilkan sebagai gambar di browser. */
+export function isPreviewableImage(fileName: string): boolean {
+  const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
+  // HEIC tidak dirender browser mana pun tanpa konversi, jadi ia sengaja
+  // TIDAK dianggap bisa dipratinjau walau boleh diunggah.
+  return ["jpg", "jpeg", "png", "webp"].includes(ext);
+}

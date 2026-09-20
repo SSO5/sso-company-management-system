@@ -18,6 +18,7 @@ import {
   sumItems,
   type ExpenseCaptureDraft,
 } from "@/lib/expense-capture";
+import { ReceiptUploadArea } from "@/components/projects/receipt-upload-area";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 
 /**
@@ -57,6 +58,8 @@ export function ExpenseCapture({ data }: { data: ExpenseCaptureDraft }) {
           </p>
         </CardHeader>
         <CardContent className="space-y-3">
+          <ReceiptUploadArea />
+
           {data.fileName ? (
             <p className="flex items-center gap-2 text-sm">
               <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -65,7 +68,8 @@ export function ExpenseCapture({ data }: { data: ExpenseCaptureDraft }) {
             </p>
           ) : (
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Upload className="h-4 w-4 shrink-0" /> Belum ada struk yang diunggah.
+              <Upload className="h-4 w-4 shrink-0" /> Belum ada struk yang tersimpan
+              untuk proyek ini.
             </p>
           )}
 

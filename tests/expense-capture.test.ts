@@ -3,9 +3,14 @@ import assert from "node:assert/strict";
 import {
   CAPTURE_WARNING_MESSAGE,
   captureWarnings,
+  formatFileSize,
+  isPreviewableImage,
   lineDrift,
   loadExpenseCapture,
   mockExpenseCapture,
+  MAX_RECEIPT_BYTES,
+  RECEIPT_FILE_MESSAGE,
+  receiptFileProblem,
   RECONCILE_TOLERANCE,
   suggestVendors,
   suggestedAmount,
@@ -129,4 +134,61 @@ test("tiap peringatan punya kalimat penjelasnya sendiri", () => {
 test("alamat yang bukan id proyek tidak menghasilkan halaman unggah", async () => {
   assert.equal(await loadExpenseCapture("bukan-id"), null);
   assert.notEqual(await loadExpenseCapture(id), null);
+});
+
+/* --- pemeriksaan berkas struk --- */
+
+test("hanya foto dan PDF yang diterima sebagai struk", () => {
+  // Daftar sengaja lebih sempit daripada ALLOWED_EXTENSIONS di storage.ts:
+  // menawarkan .xlsx hanya membuat orang mengunggah berkas yang pasti tidak
+  // bisa dibaca sebagai struk.
+  for (const name of ["struk.jpg", "struk.JPEG", "struk.png", "a.webp", "b.heic", "c.pdf"]) {
+    assert.equal(receiptFileProblem({ name, size: 1_000 }), null, name);
+  }
+  for (const name of ["data.xlsx", "arsip.zip", "catatan.docx", "tanpaekstensi"]) {
+    assert.equal(
+      receiptFileProblem({ name, size: 1_000 }),
+      "JENIS_TIDAK_DIDUKUNG",
+      name,
+    );
+  }
+});
+
+test("batas ukuran di bawah bodySizeLimit Server Action", () => {
+  // Kalau batasnya sama atau lebih besar dari 25MB, berkas akan lolos di
+  // browser lalu gagal di server dengan galat yang tidak menyebut ukuran.
+  assert.ok(MAX_RECEIPT_BYTES < 25 * 1024 * 1024);
+  assert.equal(receiptFileProblem({ name: "a.jpg", size: MAX_RECEIPT_BYTES }), null);
+  assert.equal(
+    receiptFileProblem({ name: "a.jpg", size: MAX_RECEIPT_BYTES + 1 }),
+    "TERLALU_BESAR",
+  );
+});
+
+test("berkas kosong ditolak lebih dulu daripada jenisnya", () => {
+  // Foto gagal ambil menghasilkan berkas 0 byte, dan pesan "jenis tidak
+  // didukung" akan menyesatkan.
+  assert.equal(receiptFileProblem({ name: "a.jpg", size: 0 }), "KOSONG");
+  assert.equal(receiptFileProblem({ name: "a.zip", size: 0 }), "KOSONG");
+});
+
+test("HEIC boleh diunggah tapi tidak dijanjikan bisa dipratinjau", () => {
+  // Tidak ada browser yang merender HEIC tanpa konversi; menampilkannya
+  // sebagai gambar hanya menghasilkan kotak rusak.
+  assert.equal(receiptFileProblem({ name: "struk.heic", size: 1_000 }), null);
+  assert.equal(isPreviewableImage("struk.heic"), false);
+  assert.equal(isPreviewableImage("struk.jpg"), true);
+  assert.equal(isPreviewableImage("struk.pdf"), false);
+});
+
+test("ukuran berkas ditulis dalam satuan yang dibaca orang", () => {
+  assert.equal(formatFileSize(512), "512 B");
+  assert.equal(formatFileSize(2048), "2 KB");
+  assert.equal(formatFileSize(3 * 1024 * 1024), "3.0 MB");
+});
+
+test("tiap penolakan berkas punya kalimat penjelasnya sendiri", () => {
+  for (const key of Object.keys(RECEIPT_FILE_MESSAGE) as (keyof typeof RECEIPT_FILE_MESSAGE)[]) {
+    assert.ok(RECEIPT_FILE_MESSAGE[key].length > 20, key);
+  }
 });
