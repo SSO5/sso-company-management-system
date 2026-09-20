@@ -1,7 +1,6 @@
-import Link from "next/link";
 import { TriangleAlert } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProjectFlowOverview } from "@/components/projects/project-flow-overview";
+import { ProjectQuickLinks } from "@/components/projects/project-quick-links";
 import { ProjectSnapshotCard } from "@/components/projects/project-snapshot";
 import type { ProjectCommandData } from "@/lib/project-command";
 
@@ -52,30 +51,7 @@ export function ProjectCommandCenter({ data }: { data: ProjectCommandData }) {
 
       {/* Tautan cepat modul — semuanya menuju modul yang sudah ada, tidak
           ada layar baru yang perlu dipelajari ulang. */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Buka modul</CardTitle>
-          <p className="text-[11px] text-muted-foreground">
-            Semua tautan menuju modul yang sudah dipakai selama ini, disaring untuk
-            proyek ini.
-          </p>
-        </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-          {quickLinks.map((link) => (
-            <Link
-              key={link.label}
-              href={link.href}
-              className="rounded-lg border px-3 py-2.5 transition-colors hover:bg-muted"
-            >
-              <p className="text-sm font-medium">{link.label}</p>
-              <p className="text-[11px] text-muted-foreground">
-                {link.count !== undefined ? `${link.count} dokumen` : "Buka"}
-                {link.hint ? ` · ${link.hint}` : ""}
-              </p>
-            </Link>
-          ))}
-        </CardContent>
-      </Card>
+      <ProjectQuickLinks links={quickLinks} />
     </div>
   );
 }
