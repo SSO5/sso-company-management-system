@@ -83,10 +83,12 @@ export async function getProjectCommandSummary(
         where: { deletedAt: null },
         select: { number: true, status: true, grandTotal: true },
       },
+      opportunityId: true,
       _count: {
         select: {
           invoices: { where: { deletedAt: null } },
           progressReports: { where: { deletedAt: null } },
+          expenses: { where: { deletedAt: null } },
         },
       },
     },
@@ -94,7 +96,8 @@ export async function getProjectCommandSummary(
 
   if (!project) return null;
 
-  const [profitability, documentCount, invoices] = await Promise.all([
+  const [profitability, documentCount, invoices, expensePending, costingCount] =
+    await Promise.all([
     calculateProjectProfitability(projectId),
     prisma.document.count({
       where: { deletedAt: null, folder: { projectId } },
@@ -115,6 +118,23 @@ export async function getProjectCommandSummary(
         withholdingTax: true,
       },
     }),
+    // Biaya yang belum diputuskan — DRAFT masih di pengaju, SUBMITTED sudah
+    // di meja finance. Keduanya sama-sama menahan angka proyek.
+    prisma.projectExpense.count({
+      where: {
+        projectId,
+        deletedAt: null,
+        approvalStatus: { in: ["DRAFT", "SUBMITTED"] },
+      },
+    }),
+    // Costing dihitung lewat peluang, bukan lewat proyek: CostingSheet tidak
+    // punya projectId sama sekali, ia menggantung pada Opportunity dan
+    // Quotation.
+    project.opportunityId
+      ? prisma.costingSheet.count({
+          where: { opportunityId: project.opportunityId },
+        })
+      : Promise.resolve(project.quotation ? 1 : 0),
   ]);
 
   const milestones = project.milestones.map((m) => ({
@@ -225,7 +245,21 @@ export async function getProjectCommandSummary(
       totalPaid: profitability.totalPaid,
       invoiceCount: project._count.invoices,
     },
-    documentCount,
+    counts: {
+      costing: costingCount,
+      quotation: project.quotation ? 1 : 0,
+      vendorPo: project.vendorPurchaseOrders.length,
+      vendorPoPending: project.vendorPurchaseOrders.filter(
+        (v) => !["SENT", "CONFIRMED", "CANCELLED"].includes(v.status),
+      ).length,
+      expense: project._count.expenses,
+      expensePending,
+      invoice: project._count.invoices,
+      invoiceOutstanding: invoices.filter(
+        (i) => isIssuedInvoice(i.status) && invoiceOutstanding(i) > 0,
+      ).length,
+      document: documentCount,
+    },
     riskMessages: riskSignals.map((s) => s.message),
     weeklyReportCount: project._count.progressReports,
     now: new Date(),

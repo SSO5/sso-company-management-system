@@ -253,6 +253,7 @@ export async function loadProjectCommand(
   return mockProjectCommand(projectId);
 }
 
+import { buildQuickLinks, type QuickLinkCounts } from "./project-quick-links";
 import { buildProjectStages } from "./project-stages";
 import {
   computeProjectHealth,
@@ -310,7 +311,8 @@ export interface ProjectCommandInput {
    * termudah membuat dua halaman menampilkan angka berbeda.
    */
   billing: { totalInvoiced: number; totalPaid: number; invoiceCount: number };
-  documentCount: number;
+  /** Jumlah dokumen per modul untuk tautan cepat. */
+  counts: QuickLinkCounts;
   /** Pesan dari computeProjectRiskSignals(), dipakai apa adanya. */
   riskMessages: string[];
   weeklyReportCount: number;
@@ -369,37 +371,7 @@ export function buildProjectCommand(input: ProjectCommandInput): ProjectCommandD
     now,
   });
 
-  const quickLinks: CommandQuickLink[] = [
-    { label: "Costing", href: "/sales/costing", hint: input.costing?.status },
-    { label: "Penawaran", href: "/sales/quotations", hint: input.quotation?.status },
-    {
-      label: "PO vendor",
-      href: "/procurement/vendor-po",
-      count: input.vendorPurchaseOrders.length,
-      hint: draftVendorPos.length > 0 ? `${draftVendorPos.length} belum dikirim` : undefined,
-    },
-    {
-      label: "Papan biaya",
-      href: `/projects/${id}/cost-board`,
-      hint: "Baseline vs aktual",
-    },
-    {
-      label: "Biaya proyek",
-      href: `/finance/expenses?project=${id}`,
-      hint: cost.pendingCost > 0 ? "ada yang menunggu" : undefined,
-    },
-    {
-      label: "Invoice",
-      href: "/finance/invoices",
-      count: input.billing.invoiceCount,
-      hint: billed - paid > 0 ? "ada piutang" : undefined,
-    },
-    {
-      label: "Dokumen",
-      href: `/projects/${id}?tab=documents`,
-      count: input.documentCount,
-    },
-  ];
+  const quickLinks = buildQuickLinks(id, input.counts);
 
   return {
     projectId: id,

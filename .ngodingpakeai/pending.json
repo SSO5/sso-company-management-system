@@ -1,6 +1,6 @@
 {
   "repo": "SSO5/sso-company-management-system",
-  "generatedForCommit": "8b9ee28b98776495c00ced3f2d70ee683c6c6881",
+  "generatedForCommit": "e707d308357cc257dee7e9047f54b2cf574785e3",
   "files": [
     {
       "path": ".claude/skills/ngodingpakeai/SKILL.md",
@@ -1312,7 +1312,7 @@
     },
     {
       "path": "src/components/projects/project-snapshot.tsx",
-      "reason": "changed",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 5664
     },
@@ -1890,7 +1890,7 @@
       "path": "src/lib/project-command.ts",
       "reason": "changed",
       "language": "typescript",
-      "size": 21373
+      "size": 15676
     },
     {
       "path": "src/lib/project-cost-board.ts",
@@ -1906,9 +1906,15 @@
     },
     {
       "path": "src/lib/project-progress.ts",
-      "reason": "new",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 6188
+    },
+    {
+      "path": "src/lib/project-stages.ts",
+      "reason": "new",
+      "language": "typescript",
+      "size": 8718
     },
     {
       "path": "src/lib/storage.ts",
@@ -2260,7 +2266,7 @@
     },
     {
       "path": "src/server/projects/command-center.ts",
-      "reason": "changed",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 7665
     },
@@ -2410,7 +2416,7 @@
     },
     {
       "path": "tests/project-command.test.ts",
-      "reason": "changed",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 6510
     },
@@ -2428,9 +2434,15 @@
     },
     {
       "path": "tests/project-progress.test.ts",
-      "reason": "new",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 4740
+    },
+    {
+      "path": "tests/project-stages.test.ts",
+      "reason": "new",
+      "language": "typescript",
+      "size": 4309
     },
     {
       "path": "tests/weekly-workflow.test.ts",
@@ -2454,7 +2466,7 @@
       "path": "tsconfig.tsbuildinfo",
       "reason": "changed",
       "language": null,
-      "size": 274007
+      "size": 274223
     }
   ]
 }
