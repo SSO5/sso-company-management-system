@@ -283,3 +283,47 @@ export function validateUnlockBaseline(input: {
   }
   return null;
 }
+
+export interface BaselineHistoryRow {
+  version: BaselineVersion;
+  /** Selisih terhadap versi SEBELUMNYA; null untuk versi pertama. */
+  delta: number | null;
+  isCurrent: boolean;
+}
+
+/**
+ * Menyusun riwayat baseline beserta perubahan antarversi.
+ *
+ * Yang dicari orang di riwayat bukan daftar angka, melainkan BERAPA yang
+ * berubah dan kenapa. Nilai tiap versi saja memaksa pembacanya mengurangkan
+ * sendiri dua baris yang berjauhan di layar.
+ *
+ * Diurutkan versi terbaru lebih dulu — itu yang paling sering ditanyakan —
+ * tapi selisihnya tetap dihitung terhadap versi yang lebih lama, bukan
+ * terhadap baris di atasnya.
+ */
+export function baselineHistoryRows(
+  history: BaselineVersion[],
+  currentId: string | null,
+): BaselineHistoryRow[] {
+  const menurutVersi = [...history].sort((a, b) => a.version - b.version);
+  const deltas = new Map<string, number | null>();
+  menurutVersi.forEach((v, i) => {
+    deltas.set(v.id, i === 0 ? null : v.amount - menurutVersi[i - 1].amount);
+  });
+
+  return [...menurutVersi].reverse().map((version) => ({
+    version,
+    delta: deltas.get(version.id) ?? null,
+    isCurrent: version.id === currentId,
+  }));
+}
+
+/** Total perubahan dari baseline pertama ke yang berlaku sekarang. */
+export function totalBaselineChange(history: BaselineVersion[]): number | null {
+  if (history.length < 2) return null;
+  const menurutVersi = [...history].sort((a, b) => a.version - b.version);
+  return (
+    menurutVersi[menurutVersi.length - 1].amount - menurutVersi[0].amount
+  );
+}

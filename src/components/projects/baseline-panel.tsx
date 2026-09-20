@@ -15,8 +15,9 @@ import {
   type ProjectBaselineData,
 } from "@/lib/project-baseline";
 import { ActiveBaselineCard } from "@/components/projects/active-baseline-card";
+import { BaselineHistory } from "@/components/projects/baseline-history";
 import { SetBaselinePanel } from "@/components/projects/set-baseline-panel";
-import { cn, formatCurrency, formatDateTime } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 
 /**
  * Panel Budget Baseline Proyek.
@@ -71,68 +72,7 @@ export function ProjectBaselinePanel({
 
       <SetBaselinePanel data={data} />
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Riwayat baseline</CardTitle>
-          <p className="text-[11px] text-muted-foreground">
-            Perubahan lingkup pekerjaan memang terjadi. Yang tidak boleh terjadi
-            adalah perubahan itu menghapus jejak angka sebelumnya.
-          </p>
-        </CardHeader>
-        <CardContent className="px-0 sm:px-6">
-          {history.length === 0 ? (
-            <p className="px-6 pb-2 text-xs text-muted-foreground sm:px-0">
-              Belum ada versi baseline yang tercatat.
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Versi</TableHead>
-                    <TableHead>Costing</TableHead>
-                    <TableHead className="text-right">Nilai</TableHead>
-                    <TableHead>Ditetapkan</TableHead>
-                    <TableHead>Alasan</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {history.map((v) => (
-                    <TableRow
-                      key={v.id}
-                      className={cn(v.id !== current?.id && "opacity-70")}
-                    >
-                      <TableCell className="whitespace-nowrap">
-                        v{v.version}
-                        {v.id === current?.id && (
-                          <Badge variant="default" className="ml-1.5">
-                            berlaku
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap font-mono text-xs">
-                        {v.costingNumber}
-                        {v.costingRevision > 0 ? `.R${v.costingRevision}` : ""}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap text-right tabular-nums">
-                        {formatCurrency(v.amount)}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                        {v.setBy}
-                        <br />
-                        {formatDateTime(v.setAt)}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {v.reason ?? "—"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <BaselineHistory history={history} currentId={current?.id ?? null} />
     </div>
   );
 }

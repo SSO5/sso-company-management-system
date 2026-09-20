@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  baselineHistoryRows,
   budgetDrift,
   canBecomeBaseline,
   canUnlockBaseline,
@@ -10,6 +11,7 @@ import {
   reasonRequired,
   SET_BASELINE_MESSAGE,
   sumBaselineLines,
+  totalBaselineChange,
   unmappedBaselineLines,
   UNLOCK_REASON_MIN_LENGTH,
   validateSetBaseline,
@@ -221,4 +223,56 @@ test("membuka kunci menuntut alasan yang berarti, bukan satu huruf", () => {
     }),
     null,
   );
+});
+
+/* --- riwayat versi --- */
+
+test("perubahan dihitung terhadap versi lebih lama, bukan baris di atasnya", () => {
+  // Tabelnya diurutkan dari yang terbaru, tapi selisihnya tetap harus
+  // bermakna: v2 dibandingkan dengan v1, bukan sebaliknya.
+  const d = mockProjectBaseline(id);
+  const rows = baselineHistoryRows(d.history, d.current!.id);
+  assert.deepEqual(
+    rows.map((r) => r.version.version),
+    [2, 1],
+  );
+  const v1 = d.history.find((v) => v.version === 1)!;
+  const v2 = d.history.find((v) => v.version === 2)!;
+  assert.equal(rows[0].delta, v2.amount - v1.amount);
+  // Versi pertama tidak punya pembanding.
+  assert.equal(rows[1].delta, null);
+});
+
+test("versi yang berlaku ditandai, sisanya tidak", () => {
+  const d = mockProjectBaseline(id);
+  const rows = baselineHistoryRows(d.history, d.current!.id);
+  assert.equal(rows.filter((r) => r.isCurrent).length, 1);
+  assert.equal(rows[0].isCurrent, true);
+});
+
+test("riwayat satu versi tidak melaporkan perubahan total", () => {
+  const d = mockProjectBaseline(id);
+  const satu = [d.current!];
+  assert.equal(totalBaselineChange(satu), null);
+  assert.equal(totalBaselineChange([]), null);
+});
+
+test("perubahan total dihitung dari baseline pertama ke yang berlaku", () => {
+  const d = mockProjectBaseline(id);
+  const v1 = d.history.find((v) => v.version === 1)!;
+  const v2 = d.history.find((v) => v.version === 2)!;
+  assert.equal(totalBaselineChange(d.history), v2.amount - v1.amount);
+  // Urutan masukan tidak boleh mengubah hasilnya.
+  assert.equal(
+    totalBaselineChange([...d.history].reverse()),
+    v2.amount - v1.amount,
+  );
+});
+
+test("menyusun riwayat tidak mengubah daftar aslinya", () => {
+  const d = mockProjectBaseline(id);
+  const salinan = d.history.map((v) => v.id);
+  baselineHistoryRows(d.history, d.current!.id);
+  totalBaselineChange(d.history);
+  assert.deepEqual(d.history.map((v) => v.id), salinan);
 });
