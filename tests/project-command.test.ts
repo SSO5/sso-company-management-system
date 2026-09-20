@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildProjectCommand,
+  daysRemaining,
   loadProjectCommand,
   looksLikeProjectId,
   remainingBudget,
@@ -8,7 +10,9 @@ import {
   stageState,
   mockProjectCommand,
   type CommandStage,
+  workProgressPercent,
   type CommandStepState,
+  type ProjectCommandInput,
 } from "../src/lib/project-command";
 
 const stage = (...states: CommandStepState[]): CommandStage => ({
@@ -83,4 +87,114 @@ test("loadProjectCommand mengembalikan null untuk proyek yang tidak ada", async 
   const ada = await loadProjectCommand("clx8n2k4p0001qw3f7yz9abcd");
   assert.notEqual(ada, null);
   assert.equal(ada?.projectId, "clx8n2k4p0001qw3f7yz9abcd");
+});
+
+/* --- penyusun data nyata --- */
+
+const hariLalu = (n: number) => new Date(Date.now() - n * 86_400_000);
+const hariDepan = (n: number) => new Date(Date.now() + n * 86_400_000);
+
+const inputDasar = (): ProjectCommandInput => ({
+  project: {
+    id: "clx8n2k4p0001qw3f7yz9abcd",
+    number: "012/PRJ/OPS/IX/2026",
+    name: "Proyek Uji",
+    jobNumber: "JOB-1",
+    status: "ACTIVE",
+    endDate: hariDepan(30),
+    contractValue: 1_000_000_000,
+    budget: 800_000_000,
+    progressPercent: 0,
+    customerName: "PT Uji",
+    projectManagerName: "Budi",
+  },
+  milestones: [],
+  cost: { actualCost: 0, committedCost: 0, pendingCost: 0, forecastCost: 800_000_000 },
+  opportunity: null,
+  costing: null,
+  quotation: null,
+  customerPurchaseOrders: [],
+  vendorPurchaseOrders: [],
+  billing: { totalInvoiced: 0, totalPaid: 0, invoiceCount: 0 },
+  documentCount: 0,
+  riskMessages: [],
+  weeklyReportCount: 0,
+  now: new Date(),
+});
+
+test("progres memakai bobot milestone, bukan sekadar jumlahnya", () => {
+  // Proyek dengan lima milestone tidak berarti tiap milestone bernilai 20%.
+  const percent = workProgressPercent({
+    milestones: [
+      { completedAt: hariLalu(5), weightPercent: 70 },
+      { completedAt: null, weightPercent: 10 },
+      { completedAt: null, weightPercent: 20 },
+    ],
+    fallbackPercent: 0,
+  });
+  assert.equal(percent, 70);
+});
+
+test("tanpa bobot, progres jatuh ke angka manual dan bukan dikarang", () => {
+  assert.equal(
+    workProgressPercent({
+      milestones: [
+        { completedAt: hariLalu(1), weightPercent: 0 },
+        { completedAt: null, weightPercent: 0 },
+      ],
+      fallbackPercent: 35,
+    }),
+    35,
+  );
+  assert.equal(workProgressPercent({ milestones: [], fallbackPercent: 12 }), 12);
+});
+
+test("sisa hari null saat tanggal selesai belum diisi", () => {
+  const now = new Date("2026-09-20T00:00:00Z");
+  assert.equal(daysRemaining(null, now), null);
+  assert.equal(daysRemaining(new Date("2026-09-30T00:00:00Z"), now), 10);
+  assert.equal(daysRemaining(new Date("2026-09-10T00:00:00Z"), now), -10);
+});
+
+test("milestone lewat tanggal menjadi langkah tertahan, bukan sekadar catatan", () => {
+  const input = inputDasar();
+  input.milestones = [
+    { name: "Uji fungsi", status: "IN_PROGRESS", dueDate: hariLalu(8), completedAt: null, weightPercent: 50 },
+    { name: "Kirim material", status: "COMPLETED", dueDate: hariLalu(20), completedAt: hariLalu(19), weightPercent: 50 },
+  ];
+  const data = buildProjectCommand(input);
+  const eksekusi = data.stages.find((s) => s.key === "EXECUTION")!;
+  assert.equal(stageState(eksekusi), "BLOCKED");
+  assert.ok(eksekusi.steps.some((s) => s.detail?.includes("Uji fungsi")));
+});
+
+test("tanpa PO pelanggan, tahap komersial ditandai tertahan", () => {
+  // Tanpa PO pelanggan dasar penagihan belum lengkap — itu bukan detail
+  // administratif, itu yang menahan uang masuk.
+  const data = buildProjectCommand(inputDasar());
+  const komersial = data.stages.find((s) => s.key === "COMMERCIAL")!;
+  assert.equal(stageState(komersial), "BLOCKED");
+});
+
+test("biaya menunggu persetujuan menahan tahap kendali", () => {
+  const input = inputDasar();
+  input.cost.pendingCost = 46_500_000;
+  const data = buildProjectCommand(input);
+  const kendali = data.stages.find((s) => s.key === "CONTROL")!;
+  assert.equal(stageState(kendali), "BLOCKED");
+  assert.equal(data.snapshot.pendingCost, 46_500_000);
+});
+
+test("data nyata tidak pernah menandai dirinya tiruan", () => {
+  const data = buildProjectCommand(inputDasar());
+  assert.equal(data.isMock, false);
+  assert.equal(data.projectId, "clx8n2k4p0001qw3f7yz9abcd");
+});
+
+test("pesan risiko dipakai apa adanya, tidak ditulis ulang", () => {
+  // Kalau Command Center mengarang kalimatnya sendiri, ia akan berbeda dari
+  // peringatan di halaman detail proyek untuk proyek yang sama.
+  const input = inputDasar();
+  input.riskMessages = ["Perkiraan margin turun 7 poin dari rencana"];
+  assert.deepEqual(buildProjectCommand(input).attention, input.riskMessages);
 });

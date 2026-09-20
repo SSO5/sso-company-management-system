@@ -233,15 +233,358 @@ export function looksLikeProjectId(value: string | undefined | null): boolean {
  * Memuat data Command Center untuk satu proyek, atau null kalau proyeknya
  * tidak ada.
  *
- * Selama tahap tiruan, "tidak ada" ditentukan dari bentuk id saja — id yang
- * tidak berbentuk cuid pasti bukan proyek. Saat kueri aslinya ditulis, hanya
- * isi fungsi ini yang berubah: halaman sudah menangani null dengan notFound()
- * sejak sekarang, jadi alamat proyek yang salah tidak pernah menampilkan
- * layar berisi angka tiruan seolah-olah itu data nyata.
+ * Dipertahankan untuk pratinjau tampilan tanpa basis data. Halaman memakai
+ * getProjectCommandSummary() dari src/server/projects/command-center.ts;
+ * fungsi ini tinggal dipakai saat seseorang ingin melihat bentuk layarnya
+ * tanpa data nyata.
  */
 export async function loadProjectCommand(
   projectId: string,
 ): Promise<ProjectCommandData | null> {
   if (!looksLikeProjectId(projectId)) return null;
   return mockProjectCommand(projectId);
+}
+
+/* ------------------------------------------------------------------ *
+ * Penyusun data nyata
+ *
+ * Dipisah dari kueri supaya bisa diuji tanpa basis data. Server hanya
+ * mengambil baris; SELURUH keputusan bentuk ada di sini.
+ * ------------------------------------------------------------------ */
+
+export interface ProjectCommandInput {
+  project: {
+    id: string;
+    number: string;
+    name: string;
+    jobNumber: string | null;
+    status: string;
+    endDate: Date | null;
+    contractValue: number;
+    budget: number;
+    progressPercent: number;
+    customerName: string;
+    projectManagerName: string | null;
+  };
+  milestones: {
+    name: string;
+    status: string;
+    dueDate: Date | null;
+    completedAt: Date | null;
+    weightPercent: number;
+  }[];
+  /** Hasil summarizeProjectCost(), tidak dihitung ulang di sini. */
+  cost: {
+    actualCost: number;
+    committedCost: number;
+    pendingCost: number;
+    forecastCost: number;
+  };
+  opportunity: { number: string; status: string } | null;
+  costing: { number: string; status: string } | null;
+  quotation: { number: string; status: string; grandTotal: number } | null;
+  customerPurchaseOrders: { number: string; poValue: number }[];
+  vendorPurchaseOrders: { number: string; status: string; grandTotal: number }[];
+  /**
+   * Angka penagihan diambil jadi dari calculateProjectProfitability(), bukan
+   * dihitung ulang di sini: nilai tertagih sebuah invoice DP adalah
+   * grandTotal * dpPercent/100, dan menduplikasi aturan itu adalah cara
+   * termudah membuat dua halaman menampilkan angka berbeda.
+   */
+  billing: { totalInvoiced: number; totalPaid: number; invoiceCount: number };
+  documentCount: number;
+  /** Pesan dari computeProjectRiskSignals(), dipakai apa adanya. */
+  riskMessages: string[];
+  weeklyReportCount: number;
+  now: Date;
+}
+
+/**
+ * Persen progres pekerjaan.
+ *
+ * Kalau milestone punya bobot, bobot itulah yang dipakai — sebuah proyek
+ * dengan lima milestone tidak berarti tiap milestone bernilai 20%. Kalau
+ * bobotnya belum diisi sama sekali, kita jatuh ke Project.progressPercent
+ * yang diisi manual, bukan mengarang persentase dari jumlah milestone.
+ */
+export function workProgressPercent(input: {
+  milestones: { completedAt: Date | null; weightPercent: number }[];
+  fallbackPercent: number;
+}): number {
+  const totalWeight = input.milestones.reduce((t, m) => t + m.weightPercent, 0);
+  if (totalWeight <= 0) return input.fallbackPercent;
+  const done = input.milestones
+    .filter((m) => m.completedAt !== null)
+    .reduce((t, m) => t + m.weightPercent, 0);
+  return Math.round((done / totalWeight) * 100);
+}
+
+/** Sisa hari sampai tanggal selesai; null kalau tanggalnya belum diisi. */
+export function daysRemaining(endDate: Date | null, now: Date): number | null {
+  if (!endDate) return null;
+  return Math.ceil((endDate.getTime() - now.getTime()) / 86_400_000);
+}
+
+const DONE_QUOTATION = new Set(["WON", "SENT", "APPROVED"]);
+const SENT_VENDOR_PO = new Set(["SENT", "CONFIRMED"]);
+
+function money(n: number): string {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(n);
+}
+
+export function buildProjectCommand(input: ProjectCommandInput): ProjectCommandData {
+  const { project, milestones, cost, now } = input;
+
+  const milestonesDone = milestones.filter((m) => m.completedAt !== null).length;
+  const overdue = milestones.filter(
+    (m) => m.completedAt === null && m.dueDate !== null && m.dueDate < now,
+  );
+
+  const billed = input.billing.totalInvoiced;
+  const paid = input.billing.totalPaid;
+
+  const sentVendorPos = input.vendorPurchaseOrders.filter((v) =>
+    SENT_VENDOR_PO.has(v.status),
+  );
+  const draftVendorPos = input.vendorPurchaseOrders.filter(
+    (v) => !SENT_VENDOR_PO.has(v.status) && v.status !== "CANCELLED",
+  );
+  const poValue = input.customerPurchaseOrders.reduce((t, p) => t + p.poValue, 0);
+
+  const id = project.id;
+
+  const stages: CommandStage[] = [
+    {
+      key: "COMMERCIAL",
+      title: "Komersial",
+      caption: "Dari mana pekerjaan ini datang dan berapa nilainya.",
+      steps: [
+        {
+          label: "Peluang",
+          state: input.opportunity ? "DONE" : "TODO",
+          detail: input.opportunity
+            ? `${input.opportunity.number} · ${input.opportunity.status}`
+            : "Proyek ini tidak berasal dari peluang tercatat",
+          href: input.opportunity ? "/sales/opportunities" : undefined,
+        },
+        {
+          label: "Costing final",
+          state: input.costing
+            ? input.costing.status === "DRAFT"
+              ? "ACTIVE"
+              : "DONE"
+            : "TODO",
+          detail: input.costing
+            ? `${input.costing.number} · pagu ${money(project.budget)}`
+            : "Belum ada costing yang tertaut",
+          href: "/sales/costing",
+        },
+        {
+          label: "Penawaran",
+          state: input.quotation
+            ? DONE_QUOTATION.has(input.quotation.status)
+              ? "DONE"
+              : "ACTIVE"
+            : "TODO",
+          detail: input.quotation
+            ? `${input.quotation.number} · ${input.quotation.status}`
+            : "Belum ada penawaran yang tertaut",
+          href: "/sales/quotations",
+        },
+        {
+          label: "PO pelanggan",
+          state: input.customerPurchaseOrders.length > 0 ? "DONE" : "BLOCKED",
+          detail:
+            input.customerPurchaseOrders.length > 0
+              ? `${input.customerPurchaseOrders.length} PO · ${money(poValue)}`
+              : "Belum ada PO pelanggan — dasar penagihan belum lengkap",
+          href: "/sales/purchase-orders",
+        },
+      ],
+    },
+    {
+      key: "PROCUREMENT",
+      title: "Pengadaan",
+      caption: "Apa yang sudah dipesan ke vendor dan berapa yang terikat.",
+      steps: [
+        {
+          label: "PO vendor terkirim",
+          state: sentVendorPos.length > 0 ? "DONE" : "TODO",
+          detail:
+            sentVendorPos.length > 0
+              ? `${sentVendorPos.length} PO · ${money(
+                  sentVendorPos.reduce((t, v) => t + v.grandTotal, 0),
+                )}`
+              : "Belum ada PO vendor yang dikirim",
+          href: "/procurement/vendor-po",
+        },
+        {
+          label: "PO vendor belum dikirim",
+          state: draftVendorPos.length > 0 ? "ACTIVE" : "DONE",
+          detail:
+            draftVendorPos.length > 0
+              ? `${draftVendorPos.length} PO masih draf atau menunggu persetujuan`
+              : "Tidak ada yang tertahan",
+          href: "/procurement/vendor-po",
+        },
+        {
+          label: "Nilai terikat",
+          state: cost.committedCost > 0 ? "ACTIVE" : "DONE",
+          detail:
+            cost.committedCost > 0
+              ? `${money(cost.committedCost)} sudah terikat, belum jadi biaya`
+              : "Tidak ada komitmen yang menggantung",
+          href: `/projects/${id}/cost-board`,
+        },
+      ],
+    },
+    {
+      key: "EXECUTION",
+      title: "Pelaksanaan",
+      caption: "Sudah sampai mana pekerjaannya di lapangan.",
+      steps: [
+        {
+          label: "Milestone selesai",
+          state:
+            milestones.length === 0
+              ? "TODO"
+              : milestonesDone === milestones.length
+                ? "DONE"
+                : "ACTIVE",
+          detail:
+            milestones.length === 0
+              ? "Milestone belum disusun"
+              : `${milestonesDone} dari ${milestones.length}`,
+          href: `/projects/${id}?tab=progress`,
+        },
+        {
+          label: "Milestone lewat tanggal",
+          state: overdue.length > 0 ? "BLOCKED" : "DONE",
+          detail:
+            overdue.length > 0
+              ? overdue.map((m) => m.name).join(", ")
+              : "Tidak ada yang lewat tanggal rencana",
+          href: `/projects/${id}?tab=progress`,
+        },
+        {
+          label: "Laporan mingguan",
+          state: input.weeklyReportCount > 0 ? "DONE" : "TODO",
+          detail:
+            input.weeklyReportCount > 0
+              ? `${input.weeklyReportCount} laporan tercatat`
+              : "Belum ada laporan progres",
+          href: `/projects/${id}?tab=progress`,
+        },
+      ],
+    },
+    {
+      key: "CONTROL",
+      title: "Kendali",
+      caption: "Apakah uangnya masih sesuai rencana.",
+      steps: [
+        {
+          label: "Biaya disetujui",
+          state: cost.actualCost > 0 ? "ACTIVE" : "TODO",
+          detail:
+            project.budget > 0
+              ? `${money(cost.actualCost)} dari pagu ${money(project.budget)}`
+              : `${money(cost.actualCost)} · pagu belum ditetapkan`,
+          href: `/projects/${id}/cost-board`,
+        },
+        {
+          label: "Menunggu persetujuan",
+          state: cost.pendingCost > 0 ? "BLOCKED" : "DONE",
+          detail:
+            cost.pendingCost > 0
+              ? `${money(cost.pendingCost)} belum diputuskan`
+              : "Tidak ada biaya yang menggantung",
+          href: `/finance/expenses?project=${id}`,
+        },
+        {
+          label: "Invoice terbit",
+          state: billed > 0 ? "ACTIVE" : "TODO",
+          detail:
+            billed > 0
+              ? `${money(billed)} dari nilai kontrak ${money(project.contractValue)}`
+              : "Belum ada invoice terbit",
+          href: "/finance/invoices",
+        },
+        {
+          label: "Kas diterima",
+          state: paid > 0 ? "ACTIVE" : "TODO",
+          detail:
+            billed > 0
+              ? `${money(paid)} · piutang ${money(billed - paid)}`
+              : "Belum ada penerimaan",
+          href: "/finance/invoices",
+        },
+      ],
+    },
+  ];
+
+  const quickLinks: CommandQuickLink[] = [
+    { label: "Costing", href: "/sales/costing", hint: input.costing?.status },
+    { label: "Penawaran", href: "/sales/quotations", hint: input.quotation?.status },
+    {
+      label: "PO vendor",
+      href: "/procurement/vendor-po",
+      count: input.vendorPurchaseOrders.length,
+      hint: draftVendorPos.length > 0 ? `${draftVendorPos.length} belum dikirim` : undefined,
+    },
+    {
+      label: "Papan biaya",
+      href: `/projects/${id}/cost-board`,
+      hint: "Baseline vs aktual",
+    },
+    {
+      label: "Biaya proyek",
+      href: `/finance/expenses?project=${id}`,
+      hint: cost.pendingCost > 0 ? "ada yang menunggu" : undefined,
+    },
+    {
+      label: "Invoice",
+      href: "/finance/invoices",
+      count: input.billing.invoiceCount,
+      hint: billed - paid > 0 ? "ada piutang" : undefined,
+    },
+    {
+      label: "Dokumen",
+      href: `/projects/${id}?tab=documents`,
+      count: input.documentCount,
+    },
+  ];
+
+  return {
+    projectId: id,
+    projectName: project.name,
+    isMock: false,
+    snapshot: {
+      status: project.status,
+      statusLabel: project.status,
+      customerName: project.customerName,
+      projectManager: project.projectManagerName,
+      number: project.number,
+      jobNumber: project.jobNumber,
+      progressPercent: workProgressPercent({
+        milestones,
+        fallbackPercent: project.progressPercent,
+      }),
+      milestonesDone,
+      milestonesTotal: milestones.length,
+      daysRemaining: daysRemaining(project.endDate, now),
+      contractValue: project.contractValue,
+      budget: project.budget,
+      actualCost: cost.actualCost,
+      committedCost: cost.committedCost,
+      pendingCost: cost.pendingCost,
+    },
+    stages,
+    quickLinks,
+    attention: input.riskMessages,
+  };
 }

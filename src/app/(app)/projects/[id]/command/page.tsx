@@ -1,28 +1,26 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ProjectCommandCenter } from "@/components/projects/command-center";
-import { loadProjectCommand } from "@/lib/project-command";
-import { requireUser } from "@/lib/auth/current-user";
+import { getProjectCommandSummary } from "@/server/projects/command-center";
 
 /**
  * Rute Command Center per proyek.
  *
- * Tahap ini sengaja masih memakai data tiruan: bentuk layarnya perlu diuji
- * dengan diklik-klik lebih dulu sebelum kueri aslinya ditulis. Saat tugas
- * backend dikerjakan, hanya isi loadProjectCommand() yang berubah — halaman,
- * komponen, dan tipe di bawahnya tidak perlu ikut berubah.
+ * Kini membaca data nyata lewat getProjectCommandSummary(). Kontrak tipenya
+ * tidak berubah sejak tahap tiruan, jadi tidak ada satu pun komponen yang
+ * perlu disentuh — persis itu gunanya menulis tipenya lebih dulu.
  *
- * Proyek yang tidak ada ditangani sejak sekarang, bukan nanti: tanpa ini,
- * alamat proyek yang salah akan menampilkan layar penuh angka tiruan seolah
- * itu data nyata.
+ * Pemeriksaan hak akses ada di dalam getProjectCommandSummary(), bukan di
+ * sini, supaya tidak ada jalan masuk yang melewatinya.
  */
+export const dynamic = "force-dynamic";
+
 export default async function ProjectCommandPage({
   params,
 }: {
   params: { id: string };
 }) {
-  await requireUser();
-  const data = await loadProjectCommand(params.id);
+  const data = await getProjectCommandSummary(params.id);
   if (!data) notFound();
 
   return (
