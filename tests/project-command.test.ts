@@ -10,7 +10,6 @@ import {
   stageState,
   mockProjectCommand,
   type CommandStage,
-  workProgressPercent,
   type CommandStepState,
   type ProjectCommandInput,
 } from "../src/lib/project-command";
@@ -101,6 +100,7 @@ const inputDasar = (): ProjectCommandInput => ({
     name: "Proyek Uji",
     jobNumber: "JOB-1",
     status: "ACTIVE",
+    startDate: hariLalu(60),
     endDate: hariDepan(30),
     contractValue: 1_000_000_000,
     budget: 800_000_000,
@@ -120,33 +120,6 @@ const inputDasar = (): ProjectCommandInput => ({
   riskMessages: [],
   weeklyReportCount: 0,
   now: new Date(),
-});
-
-test("progres memakai bobot milestone, bukan sekadar jumlahnya", () => {
-  // Proyek dengan lima milestone tidak berarti tiap milestone bernilai 20%.
-  const percent = workProgressPercent({
-    milestones: [
-      { completedAt: hariLalu(5), weightPercent: 70 },
-      { completedAt: null, weightPercent: 10 },
-      { completedAt: null, weightPercent: 20 },
-    ],
-    fallbackPercent: 0,
-  });
-  assert.equal(percent, 70);
-});
-
-test("tanpa bobot, progres jatuh ke angka manual dan bukan dikarang", () => {
-  assert.equal(
-    workProgressPercent({
-      milestones: [
-        { completedAt: hariLalu(1), weightPercent: 0 },
-        { completedAt: null, weightPercent: 0 },
-      ],
-      fallbackPercent: 35,
-    }),
-    35,
-  );
-  assert.equal(workProgressPercent({ milestones: [], fallbackPercent: 12 }), 12);
 });
 
 test("sisa hari null saat tanggal selesai belum diisi", () => {

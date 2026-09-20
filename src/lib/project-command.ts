@@ -54,6 +54,11 @@ export interface CommandSnapshot {
   jobNumber: string | null;
   /** Persen progres pekerjaan dari milestone, 0–100. */
   progressPercent: number;
+  /** Dari mana progres itu berasal — bobot milestone atau angka manual. */
+  progressSource: ProgressSource;
+  /** Apakah progres itu wajar untuk waktu yang sudah terpakai. */
+  health: ProjectHealth;
+  healthReason: string;
   milestonesDone: number;
   milestonesTotal: number;
   daysRemaining: number | null;
@@ -100,6 +105,9 @@ export function mockProjectCommand(projectId: string): ProjectCommandData {
       number: "012/PRJ/OPS/IX/2026",
       jobNumber: "JOB-2026-012",
       progressPercent: 68,
+      progressSource: "MILESTONE_WEIGHT",
+      health: "TERTINGGAL",
+      healthReason: "1 milestone lewat tanggal rencana",
       milestonesDone: 4,
       milestonesTotal: 6,
       daysRemaining: 27,
@@ -245,6 +253,14 @@ export async function loadProjectCommand(
   return mockProjectCommand(projectId);
 }
 
+import {
+  computeProjectHealth,
+  computeProjectProgress,
+  projectStatusLabel,
+  type ProgressSource,
+  type ProjectHealth,
+} from "./project-progress";
+
 /* ------------------------------------------------------------------ *
  * Penyusun data nyata
  *
@@ -259,6 +275,7 @@ export interface ProjectCommandInput {
     name: string;
     jobNumber: string | null;
     status: string;
+    startDate: Date | null;
     endDate: Date | null;
     contractValue: number;
     budget: number;
@@ -299,26 +316,6 @@ export interface ProjectCommandInput {
   now: Date;
 }
 
-/**
- * Persen progres pekerjaan.
- *
- * Kalau milestone punya bobot, bobot itulah yang dipakai — sebuah proyek
- * dengan lima milestone tidak berarti tiap milestone bernilai 20%. Kalau
- * bobotnya belum diisi sama sekali, kita jatuh ke Project.progressPercent
- * yang diisi manual, bukan mengarang persentase dari jumlah milestone.
- */
-export function workProgressPercent(input: {
-  milestones: { completedAt: Date | null; weightPercent: number }[];
-  fallbackPercent: number;
-}): number {
-  const totalWeight = input.milestones.reduce((t, m) => t + m.weightPercent, 0);
-  if (totalWeight <= 0) return input.fallbackPercent;
-  const done = input.milestones
-    .filter((m) => m.completedAt !== null)
-    .reduce((t, m) => t + m.weightPercent, 0);
-  return Math.round((done / totalWeight) * 100);
-}
-
 /** Sisa hari sampai tanggal selesai; null kalau tanggalnya belum diisi. */
 export function daysRemaining(endDate: Date | null, now: Date): number | null {
   if (!endDate) return null;
@@ -340,7 +337,23 @@ function money(n: number): string {
 export function buildProjectCommand(input: ProjectCommandInput): ProjectCommandData {
   const { project, milestones, cost, now } = input;
 
-  const milestonesDone = milestones.filter((m) => m.completedAt !== null).length;
+  // Progres dan kesehatan tidak dihitung di sini: keduanya milik
+  // computeProjectProgress() dan computeProjectHealth(), yang diuji sendiri.
+  const progress = computeProjectProgress({
+    milestones,
+    manualPercent: project.progressPercent,
+    now,
+  });
+  const health = computeProjectHealth({
+    progressPercent: progress.percent,
+    startDate: project.startDate,
+    endDate: project.endDate,
+    status: project.status,
+    overdueCount: progress.overdueCount,
+    now,
+  });
+
+  const milestonesDone = progress.milestonesDone;
   const overdue = milestones.filter(
     (m) => m.completedAt === null && m.dueDate !== null && m.dueDate < now,
   );
@@ -565,15 +578,15 @@ export function buildProjectCommand(input: ProjectCommandInput): ProjectCommandD
     isMock: false,
     snapshot: {
       status: project.status,
-      statusLabel: project.status,
+      statusLabel: projectStatusLabel(project.status),
       customerName: project.customerName,
       projectManager: project.projectManagerName,
       number: project.number,
       jobNumber: project.jobNumber,
-      progressPercent: workProgressPercent({
-        milestones,
-        fallbackPercent: project.progressPercent,
-      }),
+      progressPercent: progress.percent,
+      progressSource: progress.source,
+      health: health.health,
+      healthReason: health.reason,
       milestonesDone,
       milestonesTotal: milestones.length,
       daysRemaining: daysRemaining(project.endDate, now),

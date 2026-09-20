@@ -6,6 +6,7 @@ import {
   remainingBudget,
   type CommandSnapshot,
 } from "@/lib/project-command";
+import { HEALTH_LABEL, type ProjectHealth } from "@/lib/project-progress";
 
 /**
  * Status dan Progres Sekilas.
@@ -18,6 +19,18 @@ import {
  * penyerapan biaya — dua hal yang sering tertukar dan menghasilkan kesimpulan
  * yang berlawanan. Perbandingan biaya ada di papan biaya, bukan di sini.
  */
+/**
+ * Kesehatan hanya ditandai saat ia mengatakan sesuatu. "Sesuai rencana" dan
+ * "belum bisa dinilai" tidak diberi badge: penanda yang selalu muncul akan
+ * berhenti dibaca, dan yang perlu terlihat justru yang tertinggal.
+ */
+const healthBadge: Partial<
+  Record<ProjectHealth, { label: string; variant: "warning" | "destructive" }>
+> = {
+  TERTINGGAL: { label: HEALTH_LABEL.TERTINGGAL, variant: "warning" },
+  KRITIS: { label: HEALTH_LABEL.KRITIS, variant: "destructive" },
+};
+
 export function ProjectSnapshotCard({
   projectName,
   snapshot,
@@ -27,6 +40,7 @@ export function ProjectSnapshotCard({
 }) {
   const sisaPagu = remainingBudget(snapshot);
   const progress = Math.min(100, Math.max(0, snapshot.progressPercent));
+  const sehat = healthBadge[snapshot.health];
   const waktuMepet =
     snapshot.daysRemaining !== null && snapshot.daysRemaining < DAYS_REMAINING_WARNING;
 
@@ -38,6 +52,11 @@ export function ProjectSnapshotCard({
           <Badge variant={snapshot.status === "ACTIVE" ? "default" : "secondary"}>
             {snapshot.statusLabel}
           </Badge>
+          {/* Status dan kesehatan sengaja berdiri berdampingan. Status adalah
+              apa yang DIKATAKAN orang tentang proyek ini; kesehatan adalah
+              apakah progresnya wajar untuk waktu yang sudah terpakai. Justru
+              selisih keduanya yang berguna. */}
+          {sehat && <Badge variant={sehat.variant}>{sehat.label}</Badge>}
         </div>
         <p className="break-words font-mono text-[11px] text-muted-foreground">
           {snapshot.number}
@@ -51,7 +70,11 @@ export function ProjectSnapshotCard({
           <SnapshotFigure
             label="Progres pekerjaan"
             value={`${snapshot.progressPercent}%`}
-            hint={`${snapshot.milestonesDone} dari ${snapshot.milestonesTotal} milestone`}
+            hint={
+              snapshot.progressSource === "MILESTONE_WEIGHT"
+                ? `${snapshot.milestonesDone} dari ${snapshot.milestonesTotal} milestone`
+                : "Diisi manual — bobot milestone belum ditetapkan"
+            }
           />
           <SnapshotFigure
             label="Sisa waktu"
@@ -86,7 +109,7 @@ export function ProjectSnapshotCard({
             <div className="h-full bg-primary" style={{ width: `${progress}%` }} />
           </div>
           <p className="text-[11px] text-muted-foreground">
-            Progres pekerjaan dari milestone, bukan penyerapan biaya.
+            {snapshot.healthReason}. Ini progres pekerjaan, bukan penyerapan biaya.
           </p>
         </div>
 
