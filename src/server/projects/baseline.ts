@@ -364,10 +364,14 @@ export async function setProjectBaselineAction(
 }
 
 /**
- * Mengunci baseline yang sedang berlaku.
+ * Mengunci sebuah baseline.
  *
- * Mengunci membuat angka lebih sulit digeser, jadi haknya sama dengan hak
- * mengubah proyek. Belum menulis ke basis data pada tahap ini.
+ * Mengunci membuat angka lebih sulit digeser, bukan lebih mudah, jadi haknya
+ * sama dengan hak mengubah proyek dan tidak perlu alasan.
+ *
+ * Hanya baseline yang BERLAKU yang boleh dikunci. Mengunci versi lama tidak
+ * berarti apa-apa — ia sudah digantikan — dan membiarkannya hanya membuat
+ * riwayat penuh peristiwa yang tidak menjelaskan apa pun.
  */
 export async function lockProjectBaselineAction(
   baselineId: string,
@@ -377,10 +381,53 @@ export async function lockProjectBaselineAction(
     requirePermission(actor.role, "project", "update");
     if (!baselineId) throw new Error("Baseline tidak dikenal.");
 
-    throw new Error(
-      "Permintaan mengunci baseline sudah benar, tapi penyimpanan belum " +
-        "tersambung. Tabel baseline dibuat pada tahap backend.",
-    );
+    const saved = await prisma.$transaction(async (tx) => {
+      const baseline = await tx.projectBudgetBaseline.findUnique({
+        where: { id: baselineId },
+        select: {
+          id: true,
+          version: true,
+          projectId: true,
+          isCurrent: true,
+          lockedAt: true,
+        },
+      });
+      if (!baseline) {
+        throw new Error("Baseline ini sudah tidak ada. Muat ulang halaman.");
+      }
+      if (!baseline.isCurrent) {
+        throw new Error(
+          "Hanya baseline yang sedang berlaku yang bisa dikunci. Versi lama sudah digantikan.",
+        );
+      }
+      // Mengunci yang sudah terkunci bukan galat, tapi juga bukan peristiwa.
+      if (baseline.lockedAt) return baseline;
+
+      const updated = await tx.projectBudgetBaseline.update({
+        where: { id: baselineId },
+        data: { lockedAt: new Date(), lockedById: actor.userId },
+        select: {
+          id: true,
+          version: true,
+          projectId: true,
+          isCurrent: true,
+          lockedAt: true,
+        },
+      });
+
+      await logActivity(tx, {
+        userId: actor.userId,
+        action: "UPDATE",
+        entityType: "PROJECT_BUDGET_BASELINE",
+        entityId: updated.id,
+        description: `Mengunci baseline v${updated.version}`,
+      });
+
+      return updated;
+    });
+
+    revalidateProjectCost(saved.projectId);
+    return { id: saved.id };
   });
 }
 
@@ -392,6 +439,10 @@ export async function lockProjectBaselineAction(
  * lalu bisa berubah arti tanpa jejak. Pemeriksaannya dikerjakan
  * validateUnlockBaseline() yang diuji terpisah, lalu diulang di sini karena
  * pemeriksaan di klien saja bukan pemeriksaan.
+ *
+ * Alasannya disimpan di log aktivitas, bukan di kolom baseline: kolom itu
+ * menyimpan alasan PENETAPAN versi, dan menimpanya dengan alasan pembukaan
+ * kunci akan menghapus keterangan kenapa versi ini ada.
  */
 export async function unlockProjectBaselineAction(
   baselineId: string,
@@ -405,9 +456,37 @@ export async function unlockProjectBaselineAction(
     const problem = validateUnlockBaseline({ role: actor.role, reason });
     if (problem) throw new Error(problem);
 
-    throw new Error(
-      "Permintaan membuka kunci sudah benar, tapi penyimpanan belum " +
-        "tersambung. Tabel baseline dibuat pada tahap backend.",
-    );
+    const saved = await prisma.$transaction(async (tx) => {
+      const baseline = await tx.projectBudgetBaseline.findUnique({
+        where: { id: baselineId },
+        select: { id: true, version: true, projectId: true, lockedAt: true },
+      });
+      if (!baseline) {
+        throw new Error("Baseline ini sudah tidak ada. Muat ulang halaman.");
+      }
+      if (!baseline.lockedAt) {
+        throw new Error("Baseline ini memang belum terkunci.");
+      }
+
+      const updated = await tx.projectBudgetBaseline.update({
+        where: { id: baselineId },
+        data: { lockedAt: null, lockedById: null },
+        select: { id: true, version: true, projectId: true },
+      });
+
+      await logActivity(tx, {
+        userId: actor.userId,
+        action: "UPDATE",
+        entityType: "PROJECT_BUDGET_BASELINE",
+        entityId: updated.id,
+        description: `Membuka kunci baseline v${updated.version}: ${reason.trim()}`,
+        metadata: { terkunciSejak: baseline.lockedAt.toISOString() },
+      });
+
+      return updated;
+    });
+
+    revalidateProjectCost(saved.projectId);
+    return { id: saved.id };
   });
 }
