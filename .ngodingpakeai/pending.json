@@ -1,6 +1,6 @@
 {
   "repo": "SSO5/sso-company-management-system",
-  "generatedForCommit": "57820bb8273e2ff5d4e07ec0ab70322df8b5b49e",
+  "generatedForCommit": "4b070eab1712573b667e46ba66d866f84593eabe",
   "files": [
     {
       "path": ".claude/skills/ngodingpakeai/SKILL.md",
@@ -651,6 +651,18 @@
       "size": 1239
     },
     {
+      "path": "src/app/(app)/projects/[id]/cost-board/not-found.tsx",
+      "reason": "new",
+      "language": "typescript",
+      "size": 941
+    },
+    {
+      "path": "src/app/(app)/projects/[id]/cost-board/page.tsx",
+      "reason": "new",
+      "language": "typescript",
+      "size": 1022
+    },
+    {
       "path": "src/app/(app)/projects/[id]/page.tsx",
       "reason": "needs_summary",
       "language": "typescript",
@@ -1179,6 +1191,12 @@
       "size": 2458
     },
     {
+      "path": "src/components/projects/cost-board.tsx",
+      "reason": "new",
+      "language": "typescript",
+      "size": 8587
+    },
+    {
       "path": "src/components/projects/documents-panel.tsx",
       "reason": "needs_summary",
       "language": "typescript",
@@ -1246,7 +1264,7 @@
     },
     {
       "path": "src/components/projects/project-flow-overview.tsx",
-      "reason": "changed",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 5833
     },
@@ -1254,11 +1272,11 @@
       "path": "src/components/projects/project-quick-links.tsx",
       "reason": "changed",
       "language": "typescript",
-      "size": 2955
+      "size": 2988
     },
     {
       "path": "src/components/projects/project-snapshot.tsx",
-      "reason": "changed",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 4528
     },
@@ -1834,9 +1852,15 @@
     },
     {
       "path": "src/lib/project-command.ts",
-      "reason": "needs_summary",
+      "reason": "changed",
       "language": "typescript",
-      "size": 9620
+      "size": 9723
+    },
+    {
+      "path": "src/lib/project-cost-board.ts",
+      "reason": "new",
+      "language": "typescript",
+      "size": 4184
     },
     {
       "path": "src/lib/project-cost.ts",
@@ -2343,6 +2367,12 @@
       "size": 3218
     },
     {
+      "path": "tests/project-cost-board.test.ts",
+      "reason": "new",
+      "language": "typescript",
+      "size": 2107
+    },
+    {
       "path": "tests/project-cost.test.ts",
       "reason": "needs_summary",
       "language": "typescript",
@@ -2370,7 +2400,7 @@
       "path": "tsconfig.tsbuildinfo",
       "reason": "changed",
       "language": null,
-      "size": 271344
+      "size": 272287
     }
   ]
 }
