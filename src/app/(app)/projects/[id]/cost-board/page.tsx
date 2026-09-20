@@ -12,6 +12,10 @@ import { requireUser } from "@/lib/auth/current-user";
  * sekarang supaya alamat yang salah tidak pernah menampilkan angka tiruan
  * seolah-olah itu biaya proyek yang sebenarnya.
  */
+/* Angka biaya tidak boleh datang dari cache statis: papan ini menjanjikan
+   perubahan begitu ada input baru. */
+export const dynamic = "force-dynamic";
+
 export default async function ProjectCostBoardPage({
   params,
 }: {

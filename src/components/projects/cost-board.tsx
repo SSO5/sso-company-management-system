@@ -1,3 +1,4 @@
+import { CostBoardRefresh } from "@/components/projects/cost-board-refresh";
 import { CostComparisonCard } from "@/components/projects/cost-comparison-card";
 import { CostCategoryShares } from "@/components/projects/cost-category-shares";
 import { CostCategoryTable } from "@/components/projects/cost-category-table";
@@ -29,13 +30,14 @@ export function ProjectCostBoard({ data }: { data: CostBoardData }) {
         </p>
       )}
 
+      <CostBoardRefresh projectId={data.projectId} updatedAt={data.updatedAt} />
+
       <CostComparisonCard
         data={{
           baseline,
           actual,
           committed,
           baselineSource: data.baselineSource,
-          updatedAt: data.updatedAt,
         }}
       />
 

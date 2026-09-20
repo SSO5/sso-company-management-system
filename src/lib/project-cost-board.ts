@@ -124,7 +124,10 @@ export function mockCostBoard(projectId: string): CostBoardData {
       { id: "exp-3", description: "Mobilisasi material ke site", category: "TRANSPORTATION", amount: 9_000_000, approvalStatus: "DRAFT", submittedBy: "Budi Santoso", ageDays: 2 },
       { id: "exp-4", description: "Penginapan tim uji fungsi", category: "ACCOMMODATION", amount: 7_000_000, approvalStatus: "DRAFT", submittedBy: "Rina Wijaya", ageDays: 1 },
     ],
-    updatedAt: "2026-09-20T09:15:00+07:00",
+    // Waktu hitung sengaja diambil saat dipanggil, bukan nilai tetap: itulah
+    // satu-satunya cara membuktikan bahwa penyegaran benar-benar menjalankan
+    // ulang pemuatan data, bukan hanya menampilkan ulang halaman yang sama.
+    updatedAt: new Date().toISOString(),
     isMock: true,
   };
 }
