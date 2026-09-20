@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   canDeleteCostType,
+  filterCostTypes,
+  parseCostTypeFilter,
   mockCostTypes,
   selectableCostTypes,
   sortCostTypes,
@@ -103,4 +105,50 @@ test("jenis nonaktif hilang dari pilihan, bukan dari daftar master", () => {
   // Daftar masternya tetap utuh — pengelola masih harus bisa melihat dan
   // mengaktifkannya kembali.
   assert.equal(sortCostTypes(types).length, 2);
+});
+
+test("pencarian menyentuh kode akun, bukan hanya nama", () => {
+  // Pertanyaan yang sering muncul bukan "mana jenis bernama X" melainkan
+  // "jenis apa saja yang masuk ke akun 5-101".
+  const hasil = filterCostTypes(mockCostTypes(), { q: "5-101" });
+  assert.ok(hasil.length > 0);
+  assert.ok(hasil.every((t) => t.accountCode === "5-101"));
+});
+
+test("pencarian tidak peduli besar kecil huruf dan spasi berlebih", () => {
+  const types = [jenis({ id: "a", code: "MAT-PANEL", name: "Material panel" })];
+  for (const q of ["mat-panel", "  MAT-PANEL ", "material"]) {
+    assert.equal(filterCostTypes(types, { q }).length, 1, q);
+  }
+});
+
+test("saringan belum dipetakan berdiri sendiri dari status aktif", () => {
+  // Belum dipetakan adalah pekerjaan tertunda, bukan keadaan hidup-mati.
+  const types = [
+    jenis({ id: "belum", accountCode: null, accountName: null }),
+    jenis({ id: "nonaktif-belum", accountCode: null, accountName: null, isActive: false }),
+    jenis({ id: "aktif" }),
+  ];
+  assert.deepEqual(
+    filterCostTypes(types, { status: "UNMAPPED" }).map((t) => t.id),
+    ["belum"],
+  );
+  assert.deepEqual(
+    filterCostTypes(types, { status: "INACTIVE" }).map((t) => t.id),
+    ["nonaktif-belum"],
+  );
+});
+
+test("saringan kosong mengembalikan seluruh daftar", () => {
+  const types = mockCostTypes();
+  assert.equal(filterCostTypes(types, {}).length, types.length);
+  assert.equal(filterCostTypes(types, { q: "   ", status: "ALL" }).length, types.length);
+});
+
+test("status yang tidak dikenal di URL jatuh ke ALL, bukan menyaring habis", () => {
+  // URL bisa diketik orang atau basi setelah rilis; menyaring habis akan
+  // terlihat seperti daftar kosong.
+  assert.equal(parseCostTypeFilter({ status: "ENTAH" }).status, "ALL");
+  assert.equal(parseCostTypeFilter({}).status, "ALL");
+  assert.equal(parseCostTypeFilter({ status: "UNMAPPED" }).status, "UNMAPPED");
 });

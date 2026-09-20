@@ -1,6 +1,11 @@
 import { CostTypeTable } from "@/components/settings/cost-type-table";
+import { CostTypeFilterBar } from "@/components/settings/cost-type-filter-bar";
 import { CostTypeFormDialog } from "@/components/settings/cost-type-form-dialog";
-import { loadCostTypes } from "@/lib/cost-type";
+import {
+  filterCostTypes,
+  loadCostTypes,
+  parseCostTypeFilter,
+} from "@/lib/cost-type";
 import { listChartOfAccounts } from "@/server/finance/chart-of-accounts";
 import { requireUser } from "@/lib/auth/current-user";
 
@@ -14,7 +19,11 @@ import { requireUser } from "@/lib/auth/current-user";
  * Masih memakai data tiruan; saat tabelnya ada, hanya isi loadCostTypes()
  * yang berubah.
  */
-export default async function CostTypesPage() {
+export default async function CostTypesPage({
+  searchParams,
+}: {
+  searchParams: { q?: string; status?: string };
+}) {
   await requireUser();
   const [types, accounts] = await Promise.all([
     loadCostTypes(),
@@ -22,6 +31,12 @@ export default async function CostTypesPage() {
     // masih tiruan: memetakan ke akun karangan tidak akan menguji apa pun.
     listChartOfAccounts(),
   ]);
+  // Penyaringan dikerjakan di server dari query URL, bukan di dalam tabel:
+  // keadaannya jadi bertahan setelah halaman disegarkan dan bisa dikirim ke
+  // orang lain apa adanya.
+  const filter = parseCostTypeFilter(searchParams);
+  const terlihat = filterCostTypes(types, filter);
+
   const accountOptions = accounts
     .filter((a) => a.isActive)
     .map((a) => ({ id: a.id, code: a.code, name: a.name, type: a.type }));
@@ -45,7 +60,16 @@ export default async function CostTypesPage() {
         bukan daftar yang sebenarnya — tampilannya dulu yang sedang diuji.
       </p>
 
-      <CostTypeTable types={types} accounts={accountOptions} />
+      <CostTypeFilterBar />
+
+      {terlihat.length === 0 && types.length > 0 ? (
+        <p className="rounded-md border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">
+          Tidak ada jenis biaya yang cocok dengan pencarian ini. Coba kata kunci lain
+          atau bersihkan saringannya.
+        </p>
+      ) : (
+        <CostTypeTable types={terlihat} accounts={accountOptions} />
+      )}
     </div>
   );
 }

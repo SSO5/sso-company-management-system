@@ -103,3 +103,53 @@ export function mockCostTypes(): CostType[] {
 export async function loadCostTypes(): Promise<CostType[]> {
   return sortCostTypes(mockCostTypes());
 }
+
+export type CostTypeStatusFilter = "ALL" | "ACTIVE" | "INACTIVE" | "UNMAPPED";
+
+export interface CostTypeFilter {
+  /** Kata kunci bebas; kosong berarti tidak menyaring. */
+  q?: string;
+  status?: CostTypeStatusFilter;
+}
+
+/**
+ * Menyaring daftar jenis biaya.
+ *
+ * Pencarian menyentuh kode, nama, keterangan, DAN kode akun. Kode akun ikut
+ * karena pertanyaan yang sering muncul bukan "mana jenis bernama X" melainkan
+ * "jenis apa saja yang masuk ke akun 5-101" — dan tanpa itu orang harus
+ * memindai kolom akun satu per satu.
+ *
+ * Saringan "UNMAPPED" berdiri sendiri, bukan digabung ke status aktif, karena
+ * belum dipetakan adalah pekerjaan yang tertunda, bukan keadaan hidup-mati.
+ */
+export function filterCostTypes(
+  types: CostType[],
+  filter: CostTypeFilter,
+): CostType[] {
+  const q = (filter.q ?? "").trim().toLowerCase();
+  const status = filter.status ?? "ALL";
+
+  return types.filter((t) => {
+    if (status === "ACTIVE" && !t.isActive) return false;
+    if (status === "INACTIVE" && t.isActive) return false;
+    if (status === "UNMAPPED" && !(t.isActive && t.accountCode === null)) {
+      return false;
+    }
+    if (!q) return true;
+    return [t.code, t.name, t.description ?? "", t.accountCode ?? ""]
+      .join(" ")
+      .toLowerCase()
+      .includes(q);
+  });
+}
+
+/** Membaca saringan dari query URL, menolak nilai yang tidak dikenal. */
+export function parseCostTypeFilter(params: {
+  q?: string;
+  status?: string;
+}): CostTypeFilter {
+  const allowed: CostTypeStatusFilter[] = ["ALL", "ACTIVE", "INACTIVE", "UNMAPPED"];
+  const status = allowed.find((s) => s === params.status) ?? "ALL";
+  return { q: params.q ?? "", status };
+}
