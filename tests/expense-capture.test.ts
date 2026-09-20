@@ -5,6 +5,9 @@ import {
   CAPTURE_WARNING_MESSAGE,
   changedFromExtraction,
   initialFormValues,
+  isKnownVendor,
+  nearMatches,
+  normalizeVendor,
   captureWarnings,
   formatFileSize,
   isPreviewableImage,
@@ -285,4 +288,54 @@ test("tiap kekurangan formulir punya kalimat penjelasnya sendiri", () => {
   for (const key of Object.keys(CAPTURE_FORM_MESSAGE) as (keyof typeof CAPTURE_FORM_MESSAGE)[]) {
     assert.ok(CAPTURE_FORM_MESSAGE[key].length > 15, key);
   }
+});
+
+/* --- nama vendor --- */
+
+test("ejaan berbeda untuk toko yang sama dianggap sama saat dibandingkan", () => {
+  // "PT Kabel Metal", "pt kabel metal", "PT. Kabel Metal" adalah satu toko.
+  // Tanpa penormalan, laporan belanja per vendor menghitungnya tiga.
+  const bentuk = ["PT Kabel Metal", "pt kabel metal", "PT. Kabel Metal", "Kabel Metal"];
+  const normal = bentuk.map(normalizeVendor);
+  assert.equal(new Set(normal).size, 1, `masih terpecah: ${JSON.stringify(normal)}`);
+});
+
+test("awalan badan usaha dibuang, bukan dipakai membedakan", () => {
+  // Di situlah ejaannya paling sering berbeda, dan ia hampir tidak pernah
+  // membedakan dua toko yang benar-benar berlainan.
+  assert.equal(normalizeVendor("CV Elektrindo"), normalizeVendor("Elektrindo"));
+  assert.equal(normalizeVendor("Toko Sinar Jaya"), normalizeVendor("sinar jaya"));
+});
+
+test("toko yang benar-benar berbeda tetap terpisah", () => {
+  assert.notEqual(
+    normalizeVendor("Toko Sinar Jaya"),
+    normalizeVendor("Toko Sinar Abadi"),
+  );
+});
+
+test("nama yang hampir sama ditanyakan sebelum kembarannya terbentuk", () => {
+  const riwayat = ["PT Kabel Metal Indonesia", "Toko Sinar Jaya"];
+  assert.deepEqual(nearMatches(riwayat, "Kabel Metal"), [
+    "PT Kabel Metal Indonesia",
+  ]);
+  // Nama yang sudah sama setelah dinormalkan bukan kembaran baru.
+  assert.deepEqual(nearMatches(riwayat, "pt kabel metal indonesia"), []);
+  // Nama yang benar-benar baru tidak memunculkan pertanyaan palsu.
+  assert.deepEqual(nearMatches(riwayat, "Bengkel Las Mandiri"), []);
+});
+
+test("ketikan terlalu pendek tidak memicu pertanyaan", () => {
+  // Dua huruf pertama cocok dengan hampir apa pun; bertanya di situ hanya
+  // membuat peringatannya diabaikan.
+  assert.deepEqual(nearMatches(["Toko Sinar Jaya"], "To"), []);
+  assert.deepEqual(nearMatches(["Toko Sinar Jaya"], ""), []);
+});
+
+test("vendor yang sudah dikenal ditandai apa adanya", () => {
+  const riwayat = ["Toko Sinar Jaya"];
+  assert.equal(isKnownVendor(riwayat, "toko sinar jaya"), true);
+  assert.equal(isKnownVendor(riwayat, "Sinar Jaya"), true);
+  assert.equal(isKnownVendor(riwayat, "Sinar Abadi"), false);
+  assert.equal(isKnownVendor(riwayat, ""), false);
 });

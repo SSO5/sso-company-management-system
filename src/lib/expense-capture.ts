@@ -362,3 +362,54 @@ export const CAPTURE_FORM_MESSAGE: Record<CaptureFormProblem, string> = {
   NILAI_NOL: "Nilai harus lebih dari nol.",
   PAJAK_NEGATIF: "Pajak tidak boleh negatif.",
 };
+
+/* ------------------------------------------------------------------ *
+ * Nama vendor
+ * ------------------------------------------------------------------ */
+
+/**
+ * Menormalkan nama vendor untuk PEMBANDINGAN saja — bukan untuk disimpan.
+ *
+ * Vendor pada ProjectExpense adalah teks bebas, dan teks bebas selalu
+ * melahirkan kembaran: "PT Kabel Metal", "pt kabel metal", "PT. Kabel
+ * Metal", "Kabel Metal". Keempatnya satu toko yang sama, tapi laporan
+ * belanja per vendor akan menghitungnya sebagai empat.
+ *
+ * Awalan badan usaha dibuang karena justru di situ ejaannya paling sering
+ * berbeda, dan ia hampir tidak pernah membedakan dua toko yang benar-benar
+ * berlainan.
+ */
+export function normalizeVendor(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[.,]/g, " ")
+    .replace(/\b(pt|cv|ud|toko|koperasi)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Nama di riwayat yang tampaknya vendor yang SAMA dengan yang diketik,
+ * tapi ejaannya berbeda.
+ *
+ * Dikembalikan supaya layar bisa bertanya "maksudnya ini?" sebelum kembaran
+ * baru terbentuk. Nama yang persis sama tidak ikut — tidak ada yang perlu
+ * dikonfirmasi di situ.
+ */
+export function nearMatches(history: string[], typed: string): string[] {
+  const q = normalizeVendor(typed);
+  if (q.length < 3) return [];
+  const hasil = history.filter((h) => {
+    const n = normalizeVendor(h);
+    if (n === q) return false; // sudah sama setelah dinormalkan? bukan kembaran baru
+    return n.includes(q) || q.includes(n);
+  });
+  // Nama yang benar-benar identik huruf per huruf jelas bukan kembaran.
+  return [...new Set(hasil)].filter((h) => h.trim() !== typed.trim()).slice(0, 3);
+}
+
+/** Benar kalau nama yang diketik persis sama dengan salah satu di riwayat. */
+export function isKnownVendor(history: string[], typed: string): boolean {
+  const q = normalizeVendor(typed);
+  return q.length > 0 && history.some((h) => normalizeVendor(h) === q);
+}

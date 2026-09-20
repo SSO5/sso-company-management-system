@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { VendorInput } from "@/components/projects/vendor-input";
 import { saveCaptureDraftAction } from "@/server/projects/expense-capture";
 import {
   CAPTURE_FORM_MESSAGE,
@@ -97,20 +98,12 @@ export function CaptureDraftForm({ data }: { data: ExpenseCaptureDraft }) {
       <CardContent className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1">
-            <Label>Vendor</Label>
-            <Input
+            <Label htmlFor="vendor">Vendor</Label>
+            <VendorInput
               value={form.vendor}
-              onChange={(e) => set("vendor", e.target.value)}
-              placeholder="Nama toko atau vendor"
-              list="riwayat-vendor"
+              onChange={(next) => set("vendor", next)}
+              history={data.vendorHistory}
             />
-            {/* Saran dari riwayat proyek ini: nama vendor yang diketik ulang
-                dengan ejaan berbeda akan terbaca sebagai dua vendor. */}
-            <datalist id="riwayat-vendor">
-              {data.vendorHistory.map((v) => (
-                <option key={v} value={v} />
-              ))}
-            </datalist>
           </div>
 
           <div className="space-y-1">
