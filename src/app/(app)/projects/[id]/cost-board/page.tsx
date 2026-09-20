@@ -1,16 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ProjectCostBoard } from "@/components/projects/cost-board";
-import { loadCostBoard } from "@/lib/project-cost-board";
-import { requireUser } from "@/lib/auth/current-user";
+import { getProjectCostBoard } from "@/server/projects/cost-board";
 
 /**
  * Rute Papan Biaya Proyek.
  *
- * Masih memakai data tiruan; saat kueri aslinya ditulis, hanya isi
- * loadCostBoard() yang berubah. Proyek yang tidak ada ditangani sejak
- * sekarang supaya alamat yang salah tidak pernah menampilkan angka tiruan
- * seolah-olah itu biaya proyek yang sebenarnya.
+ * Kini membaca data nyata lewat getProjectCostBoard(). Pemeriksaan hak akses
+ * ada di dalam fungsi itu, bukan di sini, supaya tidak ada jalan masuk yang
+ * melewatinya.
  */
 /* Angka biaya tidak boleh datang dari cache statis: papan ini menjanjikan
    perubahan begitu ada input baru. */
@@ -21,8 +19,7 @@ export default async function ProjectCostBoardPage({
 }: {
   params: { id: string };
 }) {
-  await requireUser();
-  const data = await loadCostBoard(params.id);
+  const data = await getProjectCostBoard(params.id);
   if (!data) notFound();
 
   return (

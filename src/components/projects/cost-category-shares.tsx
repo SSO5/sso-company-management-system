@@ -4,6 +4,7 @@ import {
   categoryShares,
   topCategoriesCovering,
   varianceStatus,
+  withBaselineNumber,
   type CostCategoryRow,
 } from "@/lib/project-cost-board";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -48,7 +49,7 @@ export function CostCategoryShares({ rows }: { rows: CostCategoryRow[] }) {
 
         <div className="space-y-2">
           {shares.map((share) => {
-            const status = varianceStatus(share.row);
+            const status = varianceStatus(withBaselineNumber(share.row));
             // Batang diskalakan terhadap jenis biaya TERBESAR, bukan terhadap
             // 100%, supaya perbedaan antar jenis biaya tetap terbaca saat
             // satu jenis mendominasi.

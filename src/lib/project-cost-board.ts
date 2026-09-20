@@ -21,7 +21,16 @@ import type { ExpenseCategory } from "@prisma/client";
 
 export interface CostCategoryRow {
   category: ExpenseCategory;
-  baseline: number;
+  /**
+   * Pagu untuk jenis biaya ini, atau null kalau belum bisa diketahui.
+   *
+   * null BUKAN nol. CostingLineItem tidak punya ExpenseCategory sama sekali —
+   * ia hanya punya nama barang dan seksi — sehingga pagu per jenis biaya
+   * belum bisa diturunkan dari costing final. Memakai nol di sini akan
+   * membuat setiap jenis biaya terbaca "lewat baseline" sejak rupiah
+   * pertama. Pemetaannya baru ada setelah Master Jenis Biaya (Fase 2).
+   */
+  baseline: number | null;
   actual: number;
   committed: number;
   pending: number;
@@ -84,6 +93,19 @@ export function varianceToBaseline(d: {
   return d.baseline - forecastAtCompletion(d);
 }
 
+/**
+ * Menyiapkan satu baris untuk fungsi hitung yang menuntut baseline berupa
+ * angka. Baris tanpa baseline diberi nol, yang oleh varianceStatus() dibaca
+ * sebagai NO_BASELINE — bukan sebagai "pagunya habis".
+ */
+export function withBaselineNumber(row: {
+  baseline: number | null;
+  actual: number;
+  committed: number;
+}): { baseline: number; actual: number; committed: number } {
+  return { ...row, baseline: row.baseline ?? 0 };
+}
+
 /** Porsi baseline yang sudah terpakai dan terikat, 0–100+ (boleh lewat 100). */
 export function consumedPercent(d: {
   baseline: number;
@@ -106,7 +128,7 @@ export function mockCostBoard(projectId: string): CostBoardData {
     { category: "OTHER", baseline: 25_000_000, actual: 3_000_000, committed: 0, pending: 0 },
   ];
   const sum = (k: keyof Omit<CostCategoryRow, "category">) =>
-    categories.reduce((t, c) => t + c[k], 0);
+    categories.reduce((t, c) => t + (c[k] ?? 0), 0);
 
   return {
     projectId,
@@ -251,4 +273,86 @@ export function topCategoriesCovering(
     if (acc >= targetPercent) break;
   }
   return out;
+}
+
+/* ------------------------------------------------------------------ *
+ * Agregasi dari baris nyata
+ * ------------------------------------------------------------------ */
+
+export interface CostAggregationInput {
+  expenses: {
+    category: ExpenseCategory;
+    total: number;
+    approvalStatus: string;
+    paymentStatus: string;
+  }[];
+  /** PO vendor yang sudah keluar kantor, beserta status biaya tertautnya. */
+  vendorPos: {
+    category: ExpenseCategory | null;
+    grandTotal: number;
+    expenseApprovalStatus: string | null;
+  }[];
+  /** Pagu per jenis biaya, kalau sudah bisa dipetakan. Kosong berarti belum. */
+  baselinePerCategory?: Partial<Record<ExpenseCategory, number>>;
+}
+
+/**
+ * Meringkas biaya proyek per jenis biaya.
+ *
+ * Aturannya identik dengan summarizeProjectCost() dan sengaja diulang di
+ * sini HANYA pada sumbu yang berbeda (per jenis biaya, bukan total):
+ *
+ *   - hanya APPROVED yang menjadi aktual
+ *   - DRAFT dan SUBMITTED masuk menunggu, bukan aktual
+ *   - REJECTED tidak dihitung sama sekali
+ *   - PO vendor yang biayanya sudah APPROVED TIDAK dihitung lagi sebagai
+ *     komitmen, karena ia sudah masuk lewat barisnya sendiri
+ *
+ * Jenis biaya yang tidak punya satu baris pun dibuang: menampilkan delapan
+ * baris nol hanya menyembunyikan yang benar-benar terpakai.
+ */
+export function aggregateCostByCategory(
+  input: CostAggregationInput,
+): CostCategoryRow[] {
+  const rows = new Map<ExpenseCategory, CostCategoryRow>();
+  const baselines = input.baselinePerCategory ?? {};
+
+  const rowFor = (category: ExpenseCategory): CostCategoryRow => {
+    let row = rows.get(category);
+    if (!row) {
+      row = {
+        category,
+        baseline: baselines[category] ?? null,
+        actual: 0,
+        committed: 0,
+        pending: 0,
+      };
+      rows.set(category, row);
+    }
+    return row;
+  };
+
+  for (const e of input.expenses) {
+    const row = rowFor(e.category);
+    if (e.approvalStatus === "APPROVED") row.actual += e.total;
+    else if (e.approvalStatus === "DRAFT" || e.approvalStatus === "SUBMITTED") {
+      row.pending += e.total;
+    }
+    // REJECTED sengaja tidak masuk ke mana pun.
+  }
+
+  for (const v of input.vendorPos) {
+    if (v.expenseApprovalStatus === "APPROVED") continue;
+    // PO vendor tanpa jenis biaya jatuh ke OTHER, bukan dibuang: uang yang
+    // terikat harus tetap kelihatan walau pengelompokannya belum rapi.
+    rowFor(v.category ?? "OTHER").committed += v.grandTotal;
+  }
+
+  // Jenis biaya yang punya pagu tapi belum terpakai tetap ditampilkan —
+  // anggaran yang belum tersentuh adalah informasi, bukan baris kosong.
+  for (const key of Object.keys(baselines) as ExpenseCategory[]) {
+    if (baselines[key] != null) rowFor(key);
+  }
+
+  return [...rows.values()];
 }

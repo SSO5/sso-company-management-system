@@ -1,6 +1,6 @@
 {
   "repo": "SSO5/sso-company-management-system",
-  "generatedForCommit": "e707d308357cc257dee7e9047f54b2cf574785e3",
+  "generatedForCommit": "906ef86e2d063b3e63f21f0d35f6d55e0320d749",
   "files": [
     {
       "path": ".claude/skills/ngodingpakeai/SKILL.md",
@@ -1890,7 +1890,7 @@
       "path": "src/lib/project-command.ts",
       "reason": "changed",
       "language": "typescript",
-      "size": 15676
+      "size": 14875
     },
     {
       "path": "src/lib/project-cost-board.ts",
@@ -1911,8 +1911,14 @@
       "size": 6188
     },
     {
-      "path": "src/lib/project-stages.ts",
+      "path": "src/lib/project-quick-links.ts",
       "reason": "new",
+      "language": "typescript",
+      "size": 2548
+    },
+    {
+      "path": "src/lib/project-stages.ts",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 8718
     },
@@ -2266,9 +2272,9 @@
     },
     {
       "path": "src/server/projects/command-center.ts",
-      "reason": "needs_summary",
+      "reason": "changed",
       "language": "typescript",
-      "size": 7665
+      "size": 8978
     },
     {
       "path": "src/server/projects/progress-reports.ts",
@@ -2416,9 +2422,9 @@
     },
     {
       "path": "tests/project-command.test.ts",
-      "reason": "needs_summary",
+      "reason": "changed",
       "language": "typescript",
-      "size": 6510
+      "size": 6681
     },
     {
       "path": "tests/project-cost-board.test.ts",
@@ -2439,8 +2445,14 @@
       "size": 4740
     },
     {
-      "path": "tests/project-stages.test.ts",
+      "path": "tests/project-quick-links.test.ts",
       "reason": "new",
+      "language": "typescript",
+      "size": 2552
+    },
+    {
+      "path": "tests/project-stages.test.ts",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 4309
     },
@@ -2466,7 +2478,7 @@
       "path": "tsconfig.tsbuildinfo",
       "reason": "changed",
       "language": null,
-      "size": 274223
+      "size": 274481
     }
   ]
 }

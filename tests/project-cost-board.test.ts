@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  aggregateCostByCategory,
   BASELINE_NEAR_LIMIT_PERCENT,
   categoryShares,
   consumedPercent,
@@ -14,6 +15,7 @@ import {
   topCategoriesCovering,
   varianceStatus,
   varianceToBaseline,
+  withBaselineNumber,
 } from "../src/lib/project-cost-board";
 
 test("perkiraan bertahan di baseline sampai belanja melewatinya", () => {
@@ -43,7 +45,7 @@ test("total papan sama dengan jumlah rincian per jenis biaya", () => {
   // Kalau total dan rincian bisa berbeda, papan ini kehilangan gunanya.
   const d = mockCostBoard("clx8n2k4p0001qw3f7yz9abcd");
   const sum = (k: "baseline" | "actual" | "committed" | "pending") =>
-    d.categories.reduce((t, c) => t + c[k], 0);
+    d.categories.reduce((t, c) => t + (c[k] ?? 0), 0);
   assert.equal(d.baseline, sum("baseline"));
   assert.equal(d.actual, sum("actual"));
   assert.equal(d.committed, sum("committed"));
@@ -128,7 +130,7 @@ test("total tabel rincian selalu cocok dengan kartu perbandingan", () => {
   const d = mockCostBoard("clx8n2k4p0001qw3f7yz9abcd");
   const total = d.categories.reduce(
     (t, r) => ({
-      baseline: t.baseline + r.baseline,
+      baseline: t.baseline + (r.baseline ?? 0),
       actual: t.actual + r.actual,
       committed: t.committed + r.committed,
     }),
@@ -179,4 +181,82 @@ test("topCategoriesCovering berhenti begitu ambang tercapai", () => {
   // Tidak mengambil lebih banyak daripada yang dibutuhkan.
   const tanpaTerakhir = acc - top[top.length - 1].sharePercent;
   assert.ok(tanpaTerakhir < 80);
+});
+
+/* --- agregasi dari baris nyata --- */
+
+test("hanya biaya APPROVED yang menjadi aktual per jenis biaya", () => {
+  const rows = aggregateCostByCategory({
+    expenses: [
+      { category: "LABOR", total: 1_000, approvalStatus: "APPROVED", paymentStatus: "PAID" },
+      { category: "LABOR", total: 500, approvalStatus: "SUBMITTED", paymentStatus: "UNPAID" },
+      { category: "LABOR", total: 9_000, approvalStatus: "REJECTED", paymentStatus: "UNPAID" },
+    ],
+    vendorPos: [],
+  });
+  const labor = rows.find((r) => r.category === "LABOR")!;
+  assert.equal(labor.actual, 1_000);
+  assert.equal(labor.pending, 500);
+  // Yang ditolak tidak boleh muncul di mana pun.
+  assert.equal(labor.actual + labor.pending + labor.committed, 1_500);
+});
+
+test("PO vendor yang biayanya sudah disetujui tidak dihitung dua kali", () => {
+  const rows = aggregateCostByCategory({
+    expenses: [
+      { category: "VENDOR", total: 25_000, approvalStatus: "APPROVED", paymentStatus: "UNPAID" },
+    ],
+    vendorPos: [
+      { category: "VENDOR", grandTotal: 25_000, expenseApprovalStatus: "APPROVED" },
+      { category: "VENDOR", grandTotal: 40_000, expenseApprovalStatus: null },
+    ],
+  });
+  const vendor = rows.find((r) => r.category === "VENDOR")!;
+  assert.equal(vendor.actual, 25_000);
+  assert.equal(vendor.committed, 40_000);
+});
+
+test("PO vendor tanpa jenis biaya jatuh ke Lainnya, tidak hilang", () => {
+  // Uang yang terikat harus tetap kelihatan walau pengelompokannya belum rapi.
+  const rows = aggregateCostByCategory({
+    expenses: [],
+    vendorPos: [{ category: null, grandTotal: 7_000, expenseApprovalStatus: null }],
+  });
+  assert.equal(rows.find((r) => r.category === "OTHER")!.committed, 7_000);
+});
+
+test("jenis biaya tanpa satu baris pun tidak ditampilkan", () => {
+  // Delapan baris nol hanya menyembunyikan yang benar-benar terpakai.
+  const rows = aggregateCostByCategory({
+    expenses: [
+      { category: "LABOR", total: 1, approvalStatus: "APPROVED", paymentStatus: "PAID" },
+    ],
+    vendorPos: [],
+  });
+  assert.equal(rows.length, 1);
+});
+
+test("baseline yang belum bisa dipetakan bernilai null, bukan nol", () => {
+  // Nol akan membuat jenis biaya itu terbaca "lewat baseline" sejak rupiah
+  // pertama, padahal pagunya memang belum diketahui.
+  const rows = aggregateCostByCategory({
+    expenses: [
+      { category: "LABOR", total: 1_000, approvalStatus: "APPROVED", paymentStatus: "PAID" },
+    ],
+    vendorPos: [],
+  });
+  assert.equal(rows[0].baseline, null);
+  assert.equal(varianceStatus(withBaselineNumber(rows[0])), "NO_BASELINE");
+});
+
+test("jenis biaya yang dianggarkan tapi belum terpakai tetap muncul", () => {
+  const rows = aggregateCostByCategory({
+    expenses: [],
+    vendorPos: [],
+    baselinePerCategory: { EQUIPMENT: 60_000_000 },
+  });
+  const eq = rows.find((r) => r.category === "EQUIPMENT")!;
+  assert.equal(eq.baseline, 60_000_000);
+  assert.equal(eq.actual, 0);
+  assert.equal(varianceStatus(withBaselineNumber(eq)), "SAFE");
 });

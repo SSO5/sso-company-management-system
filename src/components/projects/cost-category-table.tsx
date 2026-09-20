@@ -13,6 +13,7 @@ import {
   consumedPercent,
   varianceStatus,
   varianceToBaseline,
+  withBaselineNumber,
   type CostCategoryRow,
 } from "@/lib/project-cost-board";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -35,14 +36,15 @@ import { cn, formatCurrency } from "@/lib/utils";
 /** Paling bermasalah lebih dulu: lewat baseline, lalu hampir mentok, lalu sisanya. */
 function byUrgency(a: CostCategoryRow, b: CostCategoryRow): number {
   const rank = (r: CostCategoryRow) => {
-    const s = varianceStatus(r);
+    const s = varianceStatus(withBaselineNumber(r));
     return s === "OVER" ? 0 : s === "NEAR_LIMIT" ? 1 : 2;
   };
   const diff = rank(a) - rank(b);
   if (diff !== 0) return diff;
-  // Dalam peringkat yang sama, yang nilainya terbesar lebih dulu — itu yang
-  // paling menggerakkan angka total.
-  return b.baseline - a.baseline;
+  // Dalam peringkat yang sama, yang belanjanya terbesar lebih dulu — itu yang
+  // paling menggerakkan angka total. Baseline tidak dipakai di sini karena
+  // baris tanpa baseline pun tetap harus terurut masuk akal.
+  return b.actual + b.committed - (a.actual + a.committed);
 }
 
 export function CostCategoryTable({ rows }: { rows: CostCategoryRow[] }) {
@@ -63,9 +65,12 @@ export function CostCategoryTable({ rows }: { rows: CostCategoryRow[] }) {
   }
 
   const sorted = [...rows].sort(byUrgency);
+  // Baris tanpa baseline tidak menambah apa pun ke total baseline. Itulah
+  // sebabnya total di tabel ini bisa lebih kecil daripada pagu proyek selama
+  // pemetaan jenis biaya belum ada — dan itu jujur, bukan bug.
   const total = rows.reduce(
     (t, r) => ({
-      baseline: t.baseline + r.baseline,
+      baseline: t.baseline + (r.baseline ?? 0),
       actual: t.actual + r.actual,
       committed: t.committed + r.committed,
       pending: t.pending + r.pending,
@@ -99,15 +104,22 @@ export function CostCategoryTable({ rows }: { rows: CostCategoryRow[] }) {
             </TableHeader>
             <TableBody>
               {sorted.map((row) => {
-                const rowVariance = varianceToBaseline(row);
-                const rowStatus = varianceStatus(row);
+                const rowStatus = varianceStatus(withBaselineNumber(row));
+                const rowVariance =
+                  rowStatus === "NO_BASELINE"
+                    ? null
+                    : varianceToBaseline(withBaselineNumber(row));
                 return (
                   <TableRow key={row.category}>
                     <TableCell className="whitespace-nowrap font-medium">
                       {displayLabel(row.category)}
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-right tabular-nums">
-                      {formatCurrency(row.baseline)}
+                      {row.baseline === null ? (
+                        <span className="text-muted-foreground">belum dipetakan</span>
+                      ) : (
+                        formatCurrency(row.baseline)
+                      )}
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-right tabular-nums">
                       {formatCurrency(row.actual)}
@@ -128,7 +140,7 @@ export function CostCategoryTable({ rows }: { rows: CostCategoryRow[] }) {
                     >
                       {rowStatus === "NO_BASELINE"
                         ? "—"
-                        : `${consumedPercent(row).toFixed(0)}%`}
+                        : `${consumedPercent(withBaselineNumber(row)).toFixed(0)}%`}
                     </TableCell>
                     <TableCell
                       className={cn(
@@ -138,8 +150,9 @@ export function CostCategoryTable({ rows }: { rows: CostCategoryRow[] }) {
                         rowStatus === "SAFE" && "text-success",
                       )}
                     >
-                      {rowVariance < 0 ? "−" : ""}
-                      {formatCurrency(Math.abs(rowVariance))}
+                      {rowVariance === null
+                        ? "—"
+                        : `${rowVariance < 0 ? "−" : ""}${formatCurrency(Math.abs(rowVariance))}`}
                     </TableCell>
                   </TableRow>
                 );
