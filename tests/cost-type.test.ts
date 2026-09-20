@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { can } from "../src/lib/permissions";
+import type { UserRole } from "@prisma/client";
 import {
   canDeleteCostType,
   filterCostTypes,
@@ -151,4 +153,21 @@ test("status yang tidak dikenal di URL jatuh ke ALL, bukan menyaring habis", () 
   assert.equal(parseCostTypeFilter({ status: "ENTAH" }).status, "ALL");
   assert.equal(parseCostTypeFilter({}).status, "ALL");
   assert.equal(parseCostTypeFilter({ status: "UNMAPPED" }).status, "UNMAPPED");
+});
+
+test("hak jenis biaya mengikuti Bagan Akun, bukan pengaturan", () => {
+  // Peran FINANCE sama sekali tidak punya hak "settings". Memakai kunci itu
+  // akan mengunci akuntan internal dari daftarnya sendiri, padahal dialah
+  // pemiliknya bersama Admin.
+  assert.equal(can("FINANCE", "settings", "view"), false);
+  assert.equal(can("FINANCE", "finance", "view"), true);
+  assert.equal(can("FINANCE", "finance", "manage"), true);
+  assert.equal(can("ADMIN", "finance", "manage"), true);
+
+  // Yang bukan pemilik boleh melihat, tidak boleh mengubah — sama persis
+  // dengan aturan Bagan Akun di sebelahnya.
+  for (const role of ["SALES", "PROJECT_MANAGER", "VIEWER"] as UserRole[]) {
+    assert.equal(can(role, "finance", "view"), true, role);
+    assert.equal(can(role, "finance", "manage"), false, role);
+  }
 });

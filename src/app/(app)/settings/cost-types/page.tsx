@@ -1,11 +1,8 @@
 import { CostTypeTable } from "@/components/settings/cost-type-table";
 import { CostTypeFilterBar } from "@/components/settings/cost-type-filter-bar";
 import { CostTypeFormDialog } from "@/components/settings/cost-type-form-dialog";
-import {
-  filterCostTypes,
-  loadCostTypes,
-  parseCostTypeFilter,
-} from "@/lib/cost-type";
+import { parseCostTypeFilter } from "@/lib/cost-type";
+import { listCostTypes } from "@/server/settings/cost-types";
 import { listChartOfAccounts } from "@/server/finance/chart-of-accounts";
 import { requireUser } from "@/lib/auth/current-user";
 
@@ -16,8 +13,9 @@ import { requireUser } from "@/lib/auth/current-user";
  * perusahaan: satu jenis biaya dipakai oleh semua proyek, dan mengubahnya
  * dari dalam satu proyek akan menyesatkan.
  *
- * Masih memakai data tiruan; saat tabelnya ada, hanya isi loadCostTypes()
- * yang berubah.
+ * Membaca tabel CostType yang sebenarnya. Penyaringan dikerjakan di server
+ * dari query URL, jadi keadaannya bertahan setelah halaman disegarkan dan
+ * bisa dikirim ke orang lain apa adanya.
  */
 export default async function CostTypesPage({
   searchParams,
@@ -25,17 +23,14 @@ export default async function CostTypesPage({
   searchParams: { q?: string; status?: string };
 }) {
   await requireUser();
-  const [types, accounts] = await Promise.all([
-    loadCostTypes(),
-    // Pilihan akun sudah diambil dari data NYATA walau daftar jenis biayanya
-    // masih tiruan: memetakan ke akun karangan tidak akan menguji apa pun.
+  const filter = parseCostTypeFilter(searchParams);
+  const [terlihat, accounts] = await Promise.all([
+    listCostTypes(filter),
     listChartOfAccounts(),
   ]);
-  // Penyaringan dikerjakan di server dari query URL, bukan di dalam tabel:
-  // keadaannya jadi bertahan setelah halaman disegarkan dan bisa dikirim ke
-  // orang lain apa adanya.
-  const filter = parseCostTypeFilter(searchParams);
-  const terlihat = filterCostTypes(types, filter);
+  // Daftar kosong karena disaring berbeda artinya dari daftar yang memang
+  // masih kosong, dan keduanya butuh kalimat yang berbeda.
+  const adaSaringan = Boolean(filter.q) || filter.status !== "ALL";
 
   const accountOptions = accounts
     .filter((a) => a.isActive)
@@ -45,24 +40,19 @@ export default async function CostTypesPage({
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-        <h1 className="text-xl font-semibold">Jenis Biaya Proyek</h1>
-        <p className="text-sm text-muted-foreground">
-          Daftar jenis biaya yang boleh dipilih saat mencatat pengeluaran proyek,
-          beserta akun pembukuannya. Inilah yang menghubungkan costing final dengan
-          biaya aktual, sehingga pagu per jenis biaya bisa dibandingkan.
-        </p>
+          <h1 className="text-xl font-semibold">Jenis Biaya Proyek</h1>
+          <p className="text-sm text-muted-foreground">
+            Daftar jenis biaya yang boleh dipilih saat mencatat pengeluaran proyek,
+            beserta akun pembukuannya. Inilah yang menghubungkan costing final dengan
+            biaya aktual, sehingga pagu per jenis biaya bisa dibandingkan.
+          </p>
         </div>
         <CostTypeFormDialog accounts={accountOptions} />
       </div>
 
-      <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs">
-        Halaman ini masih memakai <strong>data tiruan</strong>. Kode dan akun di bawah
-        bukan daftar yang sebenarnya — tampilannya dulu yang sedang diuji.
-      </p>
-
       <CostTypeFilterBar />
 
-      {terlihat.length === 0 && types.length > 0 ? (
+      {terlihat.length === 0 && adaSaringan ? (
         <p className="rounded-md border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">
           Tidak ada jenis biaya yang cocok dengan pencarian ini. Coba kata kunci lain
           atau bersihkan saringannya.

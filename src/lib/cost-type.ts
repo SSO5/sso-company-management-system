@@ -83,7 +83,13 @@ export function sortCostTypes(types: CostType[]): CostType[] {
   });
 }
 
-/** Data tiruan untuk menguji tampilan sebelum tabelnya ada. */
+/**
+ * Contoh daftar jenis biaya.
+ *
+ * Tidak lagi dipakai halaman — daftarnya kini dibaca dari tabel CostType —
+ * tapi tetap disimpan sebagai data uji: ia memuat keempat keadaan yang harus
+ * ditangani layar (aktif, nonaktif, belum dipetakan, belum pernah dipakai).
+ */
 export function mockCostTypes(): CostType[] {
   return [
     { id: "ct-1", code: "MAT-PANEL", name: "Material panel dan komponen listrik", description: "Panel, busbar, MCCB, kabel daya", category: "MATERIALS", accountCode: "5-101", accountName: "Beban Material Proyek", isActive: true, usageCount: 14 },
@@ -98,10 +104,6 @@ export function mockCostTypes(): CostType[] {
     { id: "ct-10", code: "GARANSI", name: "Cadangan garansi dan perbaikan", description: "Belum pernah dipakai — masih boleh dihapus", category: "OTHER", accountCode: "5-902", accountName: "Beban Garansi Proyek", isActive: true, usageCount: 0 },
     { id: "ct-11", code: "MAT-LAMA", name: "Material (kode lama)", description: "Diganti MAT-PANEL sejak Agustus 2026", category: "MATERIALS", accountCode: "5-101", accountName: "Beban Material Proyek", isActive: false, usageCount: 21 },
   ];
-}
-
-export async function loadCostTypes(): Promise<CostType[]> {
-  return sortCostTypes(mockCostTypes());
 }
 
 export type CostTypeStatusFilter = "ALL" | "ACTIVE" | "INACTIVE" | "UNMAPPED";
