@@ -6,8 +6,11 @@ import {
   isLocked,
   loadProjectBaseline,
   mockProjectBaseline,
+  reasonRequired,
+  SET_BASELINE_MESSAGE,
   sumBaselineLines,
   unmappedBaselineLines,
+  validateSetBaseline,
   type BaselineVersion,
 } from "../src/lib/project-baseline";
 
@@ -70,4 +73,96 @@ test("riwayat diurutkan dari versi terbaru", () => {
 test("alamat yang bukan id proyek tidak menghasilkan baseline", async () => {
   assert.equal(await loadProjectBaseline("bukan-id"), null);
   assert.notEqual(await loadProjectBaseline(id), null);
+});
+
+/* --- penetapan baseline --- */
+
+const berlaku = () => mockProjectBaseline(id).current!;
+
+test("baseline pertama tidak menuntut alasan, penggantian menuntut", () => {
+  // Versi pertama tidak menggantikan apa pun. Mulai versi kedua, baseline
+  // yang berganti tanpa keterangan menghapus satu-satunya penjelasan kenapa
+  // angka pembandingnya bergeser.
+  assert.equal(reasonRequired(null), false);
+  assert.equal(reasonRequired(berlaku()), true);
+
+  assert.deepEqual(
+    validateSetBaseline({
+      costing: { number: "007/CST/MKT/IX/2026", revision: 0, status: "FINAL" },
+      reason: "",
+      current: null,
+    }),
+    [],
+  );
+  assert.deepEqual(
+    validateSetBaseline({
+      costing: { number: "007/CST/MKT/IX/2026", revision: 0, status: "FINAL" },
+      reason: "   ",
+      current: berlaku(),
+    }),
+    ["ALASAN_KOSONG"],
+  );
+});
+
+test("costing draf ditolak sebagai sumber baseline", () => {
+  assert.deepEqual(
+    validateSetBaseline({
+      costing: { number: "009/CST/MKT/IX/2026", revision: 0, status: "DRAFT" },
+      reason: "alasan",
+      current: berlaku(),
+    }),
+    ["COSTING_MASIH_DRAF"],
+  );
+});
+
+test("menetapkan ulang costing yang sama ditolak", () => {
+  // Hanya menambah versi tanpa mengubah angka; riwayat jadi penuh baris yang
+  // tidak berarti.
+  const c = berlaku();
+  assert.deepEqual(
+    validateSetBaseline({
+      costing: { number: c.costingNumber, revision: c.costingRevision, status: "FINAL" },
+      reason: "alasan",
+      current: c,
+    }),
+    ["SAMA_DENGAN_BERLAKU"],
+  );
+});
+
+test("revisi berbeda dari costing yang sama tetap boleh", () => {
+  const c = berlaku();
+  assert.deepEqual(
+    validateSetBaseline({
+      costing: {
+        number: c.costingNumber,
+        revision: c.costingRevision + 1,
+        status: "FINAL",
+      },
+      reason: "revisi lingkup",
+      current: c,
+    }),
+    [],
+  );
+});
+
+test("semua masalah dilaporkan sekaligus, bukan satu per satu", () => {
+  // Form yang menyebut satu kesalahan lalu menyebut kesalahan berikutnya
+  // setelah dikirim ulang membuat orang menebak-nebak.
+  const problems = validateSetBaseline({
+    costing: { number: "009/CST/MKT/IX/2026", revision: 0, status: "DRAFT" },
+    reason: "",
+    current: berlaku(),
+  });
+  assert.deepEqual(problems.sort(), ["ALASAN_KOSONG", "COSTING_MASIH_DRAF"]);
+});
+
+test("tiap masalah punya kalimat penjelasnya sendiri", () => {
+  for (const key of [
+    "COSTING_TIDAK_DIPILIH",
+    "COSTING_MASIH_DRAF",
+    "ALASAN_KOSONG",
+    "SAMA_DENGAN_BERLAKU",
+  ] as const) {
+    assert.ok(SET_BASELINE_MESSAGE[key].length > 10, key);
+  }
 });

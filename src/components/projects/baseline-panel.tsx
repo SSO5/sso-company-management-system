@@ -17,6 +17,7 @@ import {
   unmappedBaselineLines,
   type ProjectBaselineData,
 } from "@/lib/project-baseline";
+import { SetBaselinePanel } from "@/components/projects/set-baseline-panel";
 import { cn, formatCurrency, formatDateTime } from "@/lib/utils";
 
 /**
@@ -121,6 +122,8 @@ export function ProjectBaselinePanel({ data }: { data: ProjectBaselineData }) {
           <BaselineLines current={current} />
         </>
       )}
+
+      <SetBaselinePanel data={data} />
 
       <Card>
         <CardHeader className="pb-2">

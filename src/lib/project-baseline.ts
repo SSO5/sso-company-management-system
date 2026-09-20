@@ -180,3 +180,66 @@ export async function loadProjectBaseline(
   if (!looksLikeProjectId(projectId)) return null;
   return mockProjectBaseline(projectId);
 }
+
+/**
+ * Apakah alasan wajib diisi saat menetapkan baseline.
+ *
+ * Versi pertama tidak perlu alasan — tidak ada yang digantikan. Mulai versi
+ * kedua alasan wajib, karena baseline yang berganti tanpa keterangan
+ * menghapus satu-satunya penjelasan kenapa angka pembandingnya bergeser, dan
+ * enam bulan kemudian tidak ada yang bisa menjawabnya.
+ */
+export function reasonRequired(current: BaselineVersion | null): boolean {
+  return current !== null;
+}
+
+export type SetBaselineProblem =
+  | "COSTING_TIDAK_DIPILIH"
+  | "COSTING_MASIH_DRAF"
+  | "ALASAN_KOSONG"
+  | "SAMA_DENGAN_BERLAKU";
+
+/**
+ * Memeriksa permintaan penetapan baseline sebelum apa pun disimpan.
+ *
+ * Mengembalikan daftar masalah, bukan melempar pada masalah pertama: form
+ * yang menyebut satu kesalahan lalu menyebut kesalahan berikutnya setelah
+ * dikirim ulang membuat orang menebak-nebak.
+ */
+export function validateSetBaseline(input: {
+  costing: { number: string; revision: number; status: string } | null;
+  reason: string;
+  current: BaselineVersion | null;
+}): SetBaselineProblem[] {
+  const problems: SetBaselineProblem[] = [];
+
+  if (!input.costing) {
+    problems.push("COSTING_TIDAK_DIPILIH");
+  } else if (!canBecomeBaseline(input.costing)) {
+    problems.push("COSTING_MASIH_DRAF");
+  } else if (
+    input.current &&
+    input.current.costingNumber === input.costing.number &&
+    input.current.costingRevision === input.costing.revision
+  ) {
+    // Menetapkan ulang costing yang sama hanya menambah versi tanpa
+    // mengubah angka — riwayat jadi penuh baris yang tidak berarti.
+    problems.push("SAMA_DENGAN_BERLAKU");
+  }
+
+  if (reasonRequired(input.current) && input.reason.trim().length === 0) {
+    problems.push("ALASAN_KOSONG");
+  }
+
+  return problems;
+}
+
+export const SET_BASELINE_MESSAGE: Record<SetBaselineProblem, string> = {
+  COSTING_TIDAK_DIPILIH: "Pilih dulu costing yang akan dijadikan baseline.",
+  COSTING_MASIH_DRAF:
+    "Costing berstatus draf masih bisa berubah, jadi belum bisa dibekukan jadi baseline.",
+  ALASAN_KOSONG:
+    "Tulis alasan penggantian baseline — tanpa itu, tidak ada yang bisa menjelaskan kenapa angka pembandingnya bergeser.",
+  SAMA_DENGAN_BERLAKU:
+    "Costing ini sudah menjadi baseline yang berlaku, jadi tidak ada yang berubah.",
+};
