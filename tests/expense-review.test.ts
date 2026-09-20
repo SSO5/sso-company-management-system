@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   ageBucket,
+  fieldComparisons,
   isLargeExpense,
   LARGE_EXPENSE_THRESHOLD,
   mockExpenseReview,
@@ -34,6 +35,10 @@ const baris = (over: Partial<ReviewItem> = {}): ReviewItem => ({
   fromReceipt: false,
   hasEvidence: true,
   editedFields: [],
+  extractedSnapshot: null,
+  date: "2026-09-19",
+  items: [],
+  evidenceDocumentId: "doc-1",
   ...over,
 });
 
@@ -172,5 +177,65 @@ test("setiap penanda punya kalimat penjelas, termasuk yang baru", () => {
     }),
   )) {
     assert.ok(REVIEW_FLAG_MESSAGE[f].length > 20, f);
+  }
+});
+
+/* --- panel detail --- */
+
+test("perubahan ditampilkan dari berapa ke berapa, bukan cuma nama kolomnya", () => {
+  // Tanpa nilai sebelum dan sesudah, penanda "ada angka yang diubah" hanya
+  // tuduhan tanpa isi: peninjau harus membuka struknya sendiri.
+  const item = baris({
+    vendor: "PT Angkutan Jaya",
+    date: "2026-09-18",
+    amount: 9_000_000,
+    tax: 0,
+    editedFields: ["vendor", "date"],
+    extractedSnapshot: {
+      vendor: "PT Angkutan Jaja",
+      date: "2026-09-16",
+      amount: 9_000_000,
+      tax: 0,
+    },
+  });
+  const c = fieldComparisons(item);
+  assert.deepEqual(c.map((x) => x.field), ["vendor", "date"]);
+  assert.equal(c[0].before, "PT Angkutan Jaja");
+  assert.equal(c[0].after, "PT Angkutan Jaya");
+  assert.equal(c[1].before, "2026-09-16");
+  assert.equal(c[1].after, "2026-09-18");
+});
+
+test("biaya yang diketik manual tidak punya perbandingan palsu", () => {
+  // Tidak ada hasil baca untuk dibandingkan, jadi tidak ada yang ditampilkan.
+  assert.deepEqual(fieldComparisons(baris({ extractedSnapshot: null })), []);
+  assert.deepEqual(
+    fieldComparisons(baris({ extractedSnapshot: null, editedFields: ["amount"] })),
+    [],
+  );
+});
+
+test("kolom yang tidak dikenal tidak memaksa baris perbandingan kosong", () => {
+  // editedFields bisa memuat nama kolom yang tidak punya padanan di hasil
+  // baca; menampilkannya sebagai "— → —" hanya jadi derau.
+  const c = fieldComparisons(
+    baris({
+      editedFields: ["amount", "costTypeId"],
+      extractedSnapshot: { vendor: null, date: null, amount: 1, tax: 0 },
+    }),
+  );
+  assert.deepEqual(c.map((x) => x.field), ["amount"]);
+});
+
+test("tiap perbandingan punya label yang bisa dibaca orang", () => {
+  const c = fieldComparisons(
+    baris({
+      editedFields: ["vendor", "amount", "tax"],
+      extractedSnapshot: { vendor: "A", date: null, amount: 1, tax: 2 },
+    }),
+  );
+  for (const x of c) {
+    assert.notEqual(x.label, x.field, x.field);
+    assert.ok(x.label.length > 2);
   }
 });

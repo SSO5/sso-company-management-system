@@ -39,6 +39,74 @@ export interface ReviewItem {
   hasEvidence: boolean;
   /** Nama kolom yang diubah manusia dari hasil baca. */
   editedFields: string[];
+  /**
+   * Nilai APA ADANYA hasil baca mesin, untuk diadu dengan nilai sekarang.
+   *
+   * Tanpa ini, "ada angka yang diubah" hanya sebuah tuduhan tanpa isi:
+   * peninjau tahu sesuatu berubah tapi tidak tahu dari berapa ke berapa,
+   * dan satu-satunya cara memeriksanya adalah membuka struknya sendiri.
+   * null untuk biaya yang memang diketik manual sejak awal.
+   */
+  extractedSnapshot: {
+    vendor: string | null;
+    date: string | null;
+    amount: number;
+    tax: number;
+  } | null;
+  /** Tanggal transaksi pada draf saat ini, ISO. */
+  date: string;
+  /** Rincian barang yang tersimpan bersama draf. */
+  items: { description: string; quantity: number; unit: string; unitPrice: number }[];
+  /** Dokumen bukti, untuk dibuka dari panel detail. */
+  evidenceDocumentId: string | null;
+}
+
+export interface FieldComparison {
+  field: string;
+  label: string;
+  /** Nilai hasil baca mesin. */
+  before: string;
+  /** Nilai pada draf sekarang. */
+  after: string;
+}
+
+const FIELD_LABEL: Record<string, string> = {
+  vendor: "Vendor",
+  date: "Tanggal",
+  amount: "Nilai",
+  tax: "Pajak",
+};
+
+/**
+ * Mengadu nilai hasil baca dengan nilai draf sekarang, kolom per kolom.
+ *
+ * Inilah yang membuat penanda "angka diubah" berguna dan bukan sekadar
+ * tuduhan: peninjau melihat dari berapa ke berapa, dan bisa memutuskan
+ * tanpa membuka struknya.
+ */
+export function fieldComparisons(item: ReviewItem): FieldComparison[] {
+  const snap = item.extractedSnapshot;
+  if (!snap) return [];
+  const sekarang: Record<string, string> = {
+    vendor: item.vendor ?? "—",
+    date: item.date,
+    amount: String(item.amount),
+    tax: String(item.tax),
+  };
+  const sebelum: Record<string, string> = {
+    vendor: snap.vendor ?? "—",
+    date: snap.date ?? "—",
+    amount: String(snap.amount),
+    tax: String(snap.tax),
+  };
+  return item.editedFields
+    .filter((f) => f in sebelum)
+    .map((field) => ({
+      field,
+      label: FIELD_LABEL[field] ?? field,
+      before: sebelum[field],
+      after: sekarang[field],
+    }));
 }
 
 export interface ExpenseReviewData {
@@ -194,6 +262,10 @@ export function mockExpenseReview(): ExpenseReviewData {
         fromReceipt: false,
         hasEvidence: true,
         editedFields: [],
+        extractedSnapshot: null,
+        date: "2026-09-09",
+        items: [],
+        evidenceDocumentId: "doc-1",
       },
       {
         ...p1,
@@ -212,6 +284,19 @@ export function mockExpenseReview(): ExpenseReviewData {
         fromReceipt: true,
         hasEvidence: true,
         editedFields: ["amount"],
+        extractedSnapshot: {
+          vendor: "Toko Sinar Jaya",
+          date: "2026-09-19",
+          amount: 8_960_000,
+          tax: 996_600,
+        },
+        date: "2026-09-19",
+        items: [
+          { description: "Kabel NYY 4x25mm", quantity: 3, unit: "roll", unitPrice: 2_450_000 },
+          { description: "Skun kabel 25mm", quantity: 40, unit: "pcs", unitPrice: 12_500 },
+          { description: "Isolasi 3M tebal", quantity: 6, unit: "pcs", unitPrice: 185_000 },
+        ],
+        evidenceDocumentId: "doc-struk-1",
       },
       {
         ...p1,
@@ -230,6 +315,10 @@ export function mockExpenseReview(): ExpenseReviewData {
         fromReceipt: false,
         hasEvidence: false,
         editedFields: [],
+        extractedSnapshot: null,
+        date: "2026-09-17",
+        items: [],
+        evidenceDocumentId: null,
       },
       {
         ...p1,
@@ -248,6 +337,17 @@ export function mockExpenseReview(): ExpenseReviewData {
         fromReceipt: true,
         hasEvidence: true,
         editedFields: ["vendor", "date"],
+        extractedSnapshot: {
+          vendor: "PT Angkutan Jaja",
+          date: "2026-09-16",
+          amount: 9_000_000,
+          tax: 0,
+        },
+        date: "2026-09-18",
+        items: [
+          { description: "Mobilisasi material", quantity: 1, unit: "lot", unitPrice: 9_000_000 },
+        ],
+        evidenceDocumentId: "doc-2",
       },
     ],
   };

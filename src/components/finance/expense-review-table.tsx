@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import { Receipt } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +25,7 @@ import {
   type AgeBucket,
   type ReviewItem,
 } from "@/lib/expense-review";
+import { ExpenseReviewDetail } from "@/components/finance/expense-review-detail";
 import { cn, formatCurrency } from "@/lib/utils";
 
 /**
@@ -49,6 +53,7 @@ const BUCKET_VARIANT: Record<AgeBucket, "secondary" | "warning" | "destructive">
 };
 
 export function ExpenseReviewTable({ items }: { items: ReviewItem[] }) {
+  const [dibuka, setDibuka] = useState<ReviewItem | null>(null);
   if (items.length === 0) return null;
   const urut = sortReviewQueue(items);
   const besar = urut.filter(isLargeExpense);
@@ -81,7 +86,11 @@ export function ExpenseReviewTable({ items }: { items: ReviewItem[] }) {
               const bucket = ageBucket(item.ageDays);
               const flags = reviewFlags(item).filter((f) => f !== "MENGENDAP");
               return (
-                <TableRow key={item.id}>
+                <TableRow
+                  key={item.id}
+                  className="cursor-pointer"
+                  onClick={() => setDibuka(item)}
+                >
                   <TableCell className="whitespace-nowrap">
                     <Badge variant={BUCKET_VARIANT[bucket]}>
                       {AGE_BUCKET_LABEL[bucket]}
@@ -93,7 +102,18 @@ export function ExpenseReviewTable({ items }: { items: ReviewItem[] }) {
 
                   <TableCell>
                     <p className="flex flex-wrap items-center gap-1.5 text-sm">
-                      <span className="break-words">{item.description}</span>
+                      {/* Tombol, bukan cuma baris yang bisa diklik: baris
+                          tabel tidak bisa dicapai keyboard. */}
+                      <button
+                        type="button"
+                        className="break-words text-left hover:underline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDibuka(item);
+                        }}
+                      >
+                        {item.description}
+                      </button>
                       {item.fromReceipt && (
                         <Receipt
                           className="h-3 w-3 shrink-0 text-muted-foreground"
@@ -155,8 +175,11 @@ export function ExpenseReviewTable({ items }: { items: ReviewItem[] }) {
 
       <p className="text-[11px] text-muted-foreground">
         Penanda di kolom terakhir adalah penunjuk, bukan alasan menolak —
-        menyetujui baris bertanda tetap sah.
+        menyetujui baris bertanda tetap sah. Klik satu baris untuk melihat
+        rincian, bukti, dan angka mana yang diubah dari hasil baca.
       </p>
+
+      <ExpenseReviewDetail item={dibuka} onClose={() => setDibuka(null)} />
     </div>
   );
 }
