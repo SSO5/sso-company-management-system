@@ -11,6 +11,7 @@ import {
   PENDING_STALE_DAYS,
   splitPendingByHolder,
   stalePendingRows,
+  summarizeCostBoard,
   sumPending,
   topCategoriesCovering,
   varianceStatus,
@@ -46,18 +47,18 @@ test("total papan sama dengan jumlah rincian per jenis biaya", () => {
   const d = mockCostBoard("clx8n2k4p0001qw3f7yz9abcd");
   const sum = (k: "baseline" | "actual" | "committed" | "pending") =>
     d.categories.reduce((t, c) => t + (c[k] ?? 0), 0);
-  assert.equal(d.baseline, sum("baseline"));
-  assert.equal(d.actual, sum("actual"));
-  assert.equal(d.committed, sum("committed"));
-  assert.equal(d.pending, sum("pending"));
+  assert.equal(d.summary.baseline, sum("baseline"));
+  assert.equal(d.summary.actual, sum("actual"));
+  assert.equal(d.summary.committed, sum("committed"));
+  assert.equal(d.summary.pending, sum("pending"));
 });
 
 test("menunggu persetujuan tidak pernah ikut terhitung sebagai aktual", () => {
   const d = mockCostBoard("clx8n2k4p0001qw3f7yz9abcd");
-  assert.ok(d.pending > 0);
+  assert.ok(d.summary.pending > 0);
   assert.equal(
-    forecastAtCompletion(d),
-    Math.max(d.baseline, d.actual + d.committed),
+    d.summary.forecast,
+    Math.max(d.summary.baseline, d.summary.actual + d.summary.committed),
   );
 });
 
@@ -98,7 +99,7 @@ test("antrean dipisah menurut siapa yang memegang bolanya", () => {
 
 test("total menunggu sama dengan jumlah baris antreannya", () => {
   const d = mockCostBoard("clx8n2k4p0001qw3f7yz9abcd");
-  assert.equal(sumPending(d.pendingRows), d.pending);
+  assert.equal(sumPending(d.pendingRows), d.summary.pending);
 });
 
 test("baris yang mengendap diurutkan dari yang paling tua", () => {
@@ -136,8 +137,8 @@ test("total tabel rincian selalu cocok dengan kartu perbandingan", () => {
     }),
     { baseline: 0, actual: 0, committed: 0 },
   );
-  assert.equal(varianceToBaseline(total), varianceToBaseline(d));
-  assert.equal(forecastAtCompletion(total), forecastAtCompletion(d));
+  assert.equal(varianceToBaseline(total), d.summary.variance);
+  assert.equal(forecastAtCompletion(total), d.summary.forecast);
 });
 
 test("peringkat jenis biaya memakai belanja nyata, bukan baseline", () => {
@@ -259,4 +260,53 @@ test("jenis biaya yang dianggarkan tapi belum terpakai tetap muncul", () => {
   assert.equal(eq.baseline, 60_000_000);
   assert.equal(eq.actual, 0);
   assert.equal(varianceStatus(withBaselineNumber(eq)), "SAFE");
+});
+
+test("ringkasan menurunkan perkiraan dan selisihnya sendiri", () => {
+  // Tidak ada pemanggil yang boleh menghitung ulang perkiraan atau selisih
+  // dengan caranya sendiri; itulah gunanya summarizeCostBoard().
+  const s = summarizeCostBoard({
+    baseline: 100,
+    actual: 60,
+    committed: 50,
+    pending: 7,
+    payable: 20,
+    baselineSource: "CST-1",
+    updatedAt: "2026-09-20T00:00:00.000Z",
+  });
+  assert.equal(s.forecast, 110);
+  assert.equal(s.variance, -10);
+  assert.equal(s.consumedPercent, 110);
+  assert.equal(s.status, "OVER");
+  // Angka menunggu ikut dibawa, tapi tidak pernah masuk ke perhitungan.
+  assert.equal(s.pending, 7);
+  assert.equal(s.forecast, Math.max(100, 60 + 50));
+});
+
+test("ringkasan tanpa baseline tidak berpura-pura tahu posisinya", () => {
+  const s = summarizeCostBoard({
+    baseline: 0,
+    actual: 5_000_000,
+    committed: 0,
+    pending: 0,
+    payable: 0,
+    baselineSource: null,
+    updatedAt: "2026-09-20T00:00:00.000Z",
+  });
+  assert.equal(s.status, "NO_BASELINE");
+  assert.equal(s.consumedPercent, 0);
+});
+
+test("ringkasan papan identik dengan ringkasan yang berdiri sendiri", () => {
+  const d = mockCostBoard("clx8n2k4p0001qw3f7yz9abcd");
+  const ulang = summarizeCostBoard({
+    baseline: d.summary.baseline,
+    actual: d.summary.actual,
+    committed: d.summary.committed,
+    pending: d.summary.pending,
+    payable: d.summary.payable,
+    baselineSource: d.summary.baselineSource,
+    updatedAt: d.summary.updatedAt,
+  });
+  assert.deepEqual(d.summary, ulang);
 });

@@ -52,18 +52,15 @@ export interface PendingExpenseRow {
 export interface CostBoardData {
   projectId: string;
   projectName: string;
-  /** Nomor costing yang menjadi baseline, supaya angkanya bisa ditelusuri. */
-  baselineSource: string | null;
-  baseline: number;
-  actual: number;
-  committed: number;
-  pending: number;
-  /** Biaya disetujui yang belum dibayar. */
-  payable: number;
+  /**
+   * Angka Baseline/Aktual/Terikat beserta turunannya, dalam bentuk yang sama
+   * persis dengan yang dikembalikan endpoint ringkasan. Disimpan sebagai satu
+   * objek, bukan disebar jadi field terpisah, supaya papan dan ringkasan
+   * tidak bisa berselisih.
+   */
+  summary: CostSummary;
   categories: CostCategoryRow[];
   pendingRows: PendingExpenseRow[];
-  /** Waktu angka ini dihitung, supaya orang tahu sesegar apa yang dibaca. */
-  updatedAt: string;
   isMock: boolean;
 }
 
@@ -106,14 +103,21 @@ export function withBaselineNumber(row: {
   return { ...row, baseline: row.baseline ?? 0 };
 }
 
-/** Porsi baseline yang sudah terpakai dan terikat, 0–100+ (boleh lewat 100). */
+/**
+ * Porsi baseline yang sudah terpakai dan terikat, 0–100+ (boleh lewat 100).
+ *
+ * Dibulatkan ke dua desimal di sumbernya. Pembagian pecahan biner
+ * menghasilkan nilai seperti 110.00000000000001, dan angka itu bukan hanya
+ * jelek di layar — ia juga dibandingkan dengan ambang 90%, tempat derau
+ * sekecil itu bisa membalik keputusan di kasus persis di batas.
+ */
 export function consumedPercent(d: {
   baseline: number;
   actual: number;
   committed: number;
 }): number {
   if (d.baseline <= 0) return 0;
-  return ((d.actual + d.committed) / d.baseline) * 100;
+  return Math.round(((d.actual + d.committed) / d.baseline) * 100 * 100) / 100;
 }
 
 /** Data tiruan: angkanya konsisten dengan Command Center supaya tidak bertabrakan. */
@@ -133,12 +137,18 @@ export function mockCostBoard(projectId: string): CostBoardData {
   return {
     projectId,
     projectName: "Pengadaan dan Instalasi Panel Listrik — Site Cilegon",
-    baselineSource: "003/CST/MKT/VIII/2026",
-    baseline: sum("baseline"),
-    actual: sum("actual"),
-    committed: sum("committed"),
-    pending: sum("pending"),
-    payable: 125_000_000,
+    summary: summarizeCostBoard({
+      baseline: sum("baseline"),
+      actual: sum("actual"),
+      committed: sum("committed"),
+      pending: sum("pending"),
+      payable: 125_000_000,
+      baselineSource: "003/CST/MKT/VIII/2026",
+      // Waktu hitung sengaja diambil saat dipanggil, bukan nilai tetap: itulah
+      // satu-satunya cara membuktikan bahwa penyegaran benar-benar menjalankan
+      // ulang pemuatan data, bukan hanya menampilkan ulang halaman yang sama.
+      updatedAt: new Date().toISOString(),
+    }),
     categories,
     pendingRows: [
       { id: "exp-1", description: "Upah borongan instalasi minggu ke-9", category: "LABOR", amount: 18_000_000, approvalStatus: "SUBMITTED", submittedBy: "Budi Santoso", ageDays: 6 },
@@ -146,10 +156,6 @@ export function mockCostBoard(projectId: string): CostBoardData {
       { id: "exp-3", description: "Mobilisasi material ke site", category: "TRANSPORTATION", amount: 9_000_000, approvalStatus: "DRAFT", submittedBy: "Budi Santoso", ageDays: 2 },
       { id: "exp-4", description: "Penginapan tim uji fungsi", category: "ACCOMMODATION", amount: 7_000_000, approvalStatus: "DRAFT", submittedBy: "Rina Wijaya", ageDays: 1 },
     ],
-    // Waktu hitung sengaja diambil saat dipanggil, bukan nilai tetap: itulah
-    // satu-satunya cara membuktikan bahwa penyegaran benar-benar menjalankan
-    // ulang pemuatan data, bukan hanya menampilkan ulang halaman yang sama.
-    updatedAt: new Date().toISOString(),
     isMock: true,
   };
 }
@@ -273,6 +279,55 @@ export function topCategoriesCovering(
     if (acc >= targetPercent) break;
   }
   return out;
+}
+
+/**
+ * Ringkasan Baseline / Aktual / Terikat beserta angka turunannya.
+ *
+ * Dipisah dari CostBoardData karena dipakai di dua tempat dengan kebutuhan
+ * berbeda: papan biaya memuat seluruh rincian, sedangkan pemanggil lain
+ * (penyegaran, Command Center) hanya butuh empat angka ini. Keduanya harus
+ * memakai perhitungan yang sama, bukan dua salinan.
+ */
+export interface CostSummary {
+  baseline: number;
+  actual: number;
+  committed: number;
+  pending: number;
+  payable: number;
+  /** Biaya saat proyek selesai nanti. */
+  forecast: number;
+  /** Positif berarti hemat, negatif berarti lewat baseline. */
+  variance: number;
+  /** Porsi baseline yang sudah terpakai dan terikat. */
+  consumedPercent: number;
+  status: VarianceStatus;
+  baselineSource: string | null;
+  updatedAt: string;
+}
+
+/**
+ * Melengkapi angka mentah menjadi ringkasan siap pakai.
+ *
+ * Empat angka dasar masuk, angka turunannya keluar — supaya tidak ada
+ * pemanggil yang menghitung perkiraan atau selisih dengan caranya sendiri.
+ */
+export function summarizeCostBoard(input: {
+  baseline: number;
+  actual: number;
+  committed: number;
+  pending: number;
+  payable: number;
+  baselineSource: string | null;
+  updatedAt: string;
+}): CostSummary {
+  return {
+    ...input,
+    forecast: forecastAtCompletion(input),
+    variance: varianceToBaseline(input),
+    consumedPercent: consumedPercent(input),
+    status: varianceStatus(input),
+  };
 }
 
 /* ------------------------------------------------------------------ *

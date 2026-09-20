@@ -2,10 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   BASELINE_NEAR_LIMIT_PERCENT,
-  consumedPercent,
-  forecastAtCompletion,
-  varianceStatus,
-  varianceToBaseline,
+  type CostSummary,
   type VarianceStatus,
 } from "@/lib/project-cost-board";
 import { cn, formatCurrency, formatDateTime } from "@/lib/utils";
@@ -27,15 +24,6 @@ import { cn, formatCurrency, formatDateTime } from "@/lib/utils";
  * batas komponen supaya tidak ada yang bisa diam-diam menjumlahkannya ke
  * aktual di kemudian hari.
  */
-
-export interface CostComparison {
-  baseline: number;
-  actual: number;
-  committed: number;
-  /** Nomor costing sumber baseline, supaya angkanya bisa ditelusuri. */
-  baselineSource?: string | null;
-  updatedAt?: string | null;
-}
 
 function Figure({
   label,
@@ -86,12 +74,12 @@ const varianceBadge: Record<
   NO_BASELINE: { label: "Baseline belum ditetapkan", variant: "outline" },
 };
 
-export function CostComparisonCard({ data }: { data: CostComparison }) {
-  const { baseline, actual, committed } = data;
-  const forecast = forecastAtCompletion(data);
-  const variance = varianceToBaseline(data);
-  const consumed = consumedPercent(data);
-  const status = varianceStatus(data);
+export function CostComparisonCard({ data }: { data: CostSummary }) {
+  // Tidak ada yang dihitung di sini. Perkiraan, selisih, penyerapan, dan
+  // penandanya semua sudah datang jadi dari summarizeCostBoard(), supaya
+  // kartu ini tidak bisa menampilkan angka yang berbeda dari endpoint
+  // ringkasan yang membacanya.
+  const { baseline, actual, committed, forecast, variance, consumedPercent: consumed, status } = data;
   const badge = varianceBadge[status];
 
   // Skala batang: selalu sampai angka terbesar antara baseline dan perkiraan,

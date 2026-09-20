@@ -1,6 +1,6 @@
 {
   "repo": "SSO5/sso-company-management-system",
-  "generatedForCommit": "906ef86e2d063b3e63f21f0d35f6d55e0320d749",
+  "generatedForCommit": "a3ccc47fec8d27a0027201cb26e5d591dea58fe9",
   "files": [
     {
       "path": ".claude/skills/ngodingpakeai/SKILL.md",
@@ -664,9 +664,9 @@
     },
     {
       "path": "src/app/(app)/projects/[id]/cost-board/page.tsx",
-      "reason": "needs_summary",
+      "reason": "changed",
       "language": "typescript",
-      "size": 1177
+      "size": 1023
     },
     {
       "path": "src/app/(app)/projects/[id]/page.tsx",
@@ -1210,15 +1210,15 @@
     },
     {
       "path": "src/components/projects/cost-category-shares.tsx",
-      "reason": "needs_summary",
+      "reason": "changed",
       "language": "typescript",
-      "size": 3981
+      "size": 4023
     },
     {
       "path": "src/components/projects/cost-category-table.tsx",
-      "reason": "needs_summary",
+      "reason": "changed",
       "language": "typescript",
-      "size": 7665
+      "size": 8467
     },
     {
       "path": "src/components/projects/cost-comparison-card.tsx",
@@ -1888,15 +1888,15 @@
     },
     {
       "path": "src/lib/project-command.ts",
-      "reason": "changed",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 14875
     },
     {
       "path": "src/lib/project-cost-board.ts",
-      "reason": "needs_summary",
+      "reason": "changed",
       "language": "typescript",
-      "size": 9340
+      "size": 13014
     },
     {
       "path": "src/lib/project-cost.ts",
@@ -1912,7 +1912,7 @@
     },
     {
       "path": "src/lib/project-quick-links.ts",
-      "reason": "new",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 2548
     },
@@ -2272,9 +2272,15 @@
     },
     {
       "path": "src/server/projects/command-center.ts",
-      "reason": "changed",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 8978
+    },
+    {
+      "path": "src/server/projects/cost-board.ts",
+      "reason": "new",
+      "language": "typescript",
+      "size": 4362
     },
     {
       "path": "src/server/projects/progress-reports.ts",
@@ -2422,15 +2428,15 @@
     },
     {
       "path": "tests/project-command.test.ts",
-      "reason": "changed",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 6681
     },
     {
       "path": "tests/project-cost-board.test.ts",
-      "reason": "needs_summary",
+      "reason": "changed",
       "language": "typescript",
-      "size": 7345
+      "size": 10401
     },
     {
       "path": "tests/project-cost.test.ts",
@@ -2446,7 +2452,7 @@
     },
     {
       "path": "tests/project-quick-links.test.ts",
-      "reason": "new",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 2552
     },
@@ -2478,7 +2484,7 @@
       "path": "tsconfig.tsbuildinfo",
       "reason": "changed",
       "language": null,
-      "size": 274481
+      "size": 275216
     }
   ]
 }

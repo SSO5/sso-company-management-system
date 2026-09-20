@@ -19,7 +19,7 @@ import { formatCurrency } from "@/lib/utils";
  */
 
 export function ProjectCostBoard({ data }: { data: CostBoardData }) {
-  const { baseline, actual, committed, payable, categories } = data;
+  const { summary, categories } = data;
 
   return (
     <div className="space-y-4">
@@ -30,25 +30,19 @@ export function ProjectCostBoard({ data }: { data: CostBoardData }) {
         </p>
       )}
 
-      <CostBoardRefresh projectId={data.projectId} updatedAt={data.updatedAt} />
+      <CostBoardRefresh projectId={data.projectId} updatedAt={summary.updatedAt} />
 
-      <CostComparisonCard
-        data={{
-          baseline,
-          actual,
-          committed,
-          baselineSource: data.baselineSource,
-        }}
-      />
+      <CostComparisonCard data={summary} />
 
       {/* Menunggu persetujuan dijaga DI LUAR kartu perbandingan: yang
           menunggu belum diputuskan. Utang adalah soal kas, bukan soal apakah
           biayanya sudah terjadi, jadi juga tidak masuk ke sana. */}
       <PendingCostSection rows={data.pendingRows} projectId={data.projectId} />
 
-      {payable > 0 && (
+      {summary.payable > 0 && (
         <p className="text-xs text-muted-foreground">
-          Dari biaya yang sudah disetujui, {formatCurrency(payable)} belum dibayar.
+          Dari biaya yang sudah disetujui, {formatCurrency(summary.payable)} belum
+          dibayar.
         </p>
       )}
 

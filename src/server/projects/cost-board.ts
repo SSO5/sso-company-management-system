@@ -7,7 +7,9 @@ import { calculateProjectProfitability } from "@/lib/workflows/project";
 import { looksLikeProjectId } from "@/lib/project-command";
 import {
   aggregateCostByCategory,
+  summarizeCostBoard,
   type CostBoardData,
+  type CostSummary,
   type PendingExpenseRow,
 } from "@/lib/project-cost-board";
 
@@ -21,6 +23,44 @@ import {
  * biaya, dan uji di tests/project-cost-board.test.ts menjaga agar kedua
  * jalur tidak pernah berselisih.
  */
+/**
+ * Ringkasan Baseline / Aktual / Terikat saja.
+ *
+ * Jalur ringan untuk pemanggil yang tidak butuh rincian per jenis biaya
+ * maupun antrean persetujuan: ia melewatkan dua kueri baris yang paling
+ * besar. getProjectCostBoard() memakai fungsi yang sama untuk bagian
+ * ringkasannya, jadi keduanya tidak bisa berselisih.
+ */
+export async function getProjectCostSummary(
+  projectId: string,
+): Promise<CostSummary | null> {
+  const actor = await requireUserOrThrow();
+  requirePermission(actor.role, "project", "view");
+
+  if (!looksLikeProjectId(projectId)) return null;
+
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, deletedAt: null },
+    select: {
+      budget: true,
+      quotation: { select: { costingSheet: { select: { number: true } } } },
+    },
+  });
+  if (!project) return null;
+
+  const profitability = await calculateProjectProfitability(projectId);
+
+  return summarizeCostBoard({
+    baseline: Number(project.budget),
+    actual: profitability.actualCost,
+    committed: profitability.committedCost,
+    pending: profitability.pendingCost,
+    payable: profitability.payable,
+    baselineSource: project.quotation?.costingSheet?.number ?? null,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
 export async function getProjectCostBoard(
   projectId: string,
 ): Promise<CostBoardData | null> {
@@ -115,15 +155,20 @@ export async function getProjectCostBoard(
   return {
     projectId: project.id,
     projectName: project.name,
-    baselineSource: project.quotation?.costingSheet?.number ?? null,
-    baseline: Number(project.budget),
-    actual: profitability.actualCost,
-    committed: profitability.committedCost,
-    pending: profitability.pendingCost,
-    payable: profitability.payable,
+    // Bagian ringkasan dibangun fungsi yang sama dengan
+    // getProjectCostSummary(), jadi papan dan jalur ringan tidak bisa
+    // menampilkan angka berbeda untuk proyek yang sama.
+    summary: summarizeCostBoard({
+      baseline: Number(project.budget),
+      actual: profitability.actualCost,
+      committed: profitability.committedCost,
+      pending: profitability.pendingCost,
+      payable: profitability.payable,
+      baselineSource: project.quotation?.costingSheet?.number ?? null,
+      updatedAt: new Date().toISOString(),
+    }),
     categories,
     pendingRows,
-    updatedAt: new Date().toISOString(),
     isMock: false,
   };
 }
