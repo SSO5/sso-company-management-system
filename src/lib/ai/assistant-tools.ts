@@ -13,6 +13,7 @@ import {
   createVendorPurchaseOrder,
 } from "@/lib/workflows/vendor-po";
 import { approveExpense, rejectExpense } from "@/lib/workflows/expense";
+import { revalidateProjectCost } from "@/lib/revalidate-project-cost";
 import {
   createCostingSheet,
   convertCostingToQuotation,
@@ -2006,6 +2007,22 @@ async function findExpenseByNumber(numberFragment: string) {
     },
     orderBy: { createdAt: "desc" },
   });
+}
+
+/**
+ * Membuang cache halaman biaya setelah asisten mengubah sebuah biaya.
+ *
+ * Dibungkus try/catch karena berkas ini juga berjalan di luar konteks
+ * permintaan — cron harian dan bot Telegram memanggil alat yang sama, dan
+ * revalidatePath() melempar di sana. Gagal menyegarkan cache tidak boleh
+ * membatalkan persetujuan yang sudah tersimpan di basis data.
+ */
+function refreshProjectCostPages(projectId: string): void {
+  try {
+    revalidateProjectCost(projectId);
+  } catch {
+    // Di luar konteks permintaan tidak ada cache halaman untuk dibuang.
+  }
 }
 
 export async function executeAssistantTool(
@@ -4651,6 +4668,7 @@ export async function runConfirmedAssistantAction(
     }
     case "approve_expense": {
       const exp = await approveExpense(String(args.expenseId), actor);
+      refreshProjectCostPages(exp.projectId);
       return `${exp.number} berhasil di-approve.`;
     }
     case "reject_expense": {
@@ -4659,6 +4677,10 @@ export async function runConfirmedAssistantAction(
         String(args.reason),
         actor,
       );
+      // Penolakan juga menggeser angka: yang tadinya menunggu kini hilang
+      // dari hitungan. Tanpa ini, papan biaya tetap menampilkan angka
+      // menunggu yang sudah tidak ada.
+      refreshProjectCostPages(exp.projectId);
       return `${exp.number} berhasil di-reject.`;
     }
     case "create_costing_sheet": {

@@ -1,5 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { revalidateProjectCost } from "@/lib/revalidate-project-cost";
 import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/current-user";
 import { requirePermission } from "@/lib/permissions";
@@ -98,7 +99,9 @@ export async function markVendorPOSentAction(id: string): Promise<ActionResult<{
     const updated = await markVendorPOSent(id, actor);
     revalidatePath(`/procurement/vendor-po/${id}`);
     revalidatePath("/finance/expenses");
-    if (updated.projectId) revalidatePath(`/projects/${updated.projectId}`);
+    // PO vendor yang berubah status menggeser angka TERIKAT di papan biaya,
+    // bukan cuma daftar pengadaan.
+    if (updated.projectId) revalidateProjectCost(updated.projectId);
     return { id };
   });
 }
@@ -135,7 +138,7 @@ export async function confirmVendorPOAction(id: string, formData: FormData): Pro
     });
 
     revalidatePath(`/procurement/vendor-po/${id}`);
-    if (po.projectId) revalidatePath(`/projects/${po.projectId}`);
+    if (po.projectId) revalidateProjectCost(po.projectId);
     return { id };
   });
 }

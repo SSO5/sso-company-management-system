@@ -1,6 +1,6 @@
 {
   "repo": "SSO5/sso-company-management-system",
-  "generatedForCommit": "4434656fa5fc2f9a90079fc95de19431a8ab3b65",
+  "generatedForCommit": "9c8ed31ef09097a00b438b18a7eeff47230131b6",
   "files": [
     {
       "path": ".claude/skills/ngodingpakeai/SKILL.md",
@@ -1894,7 +1894,7 @@
     },
     {
       "path": "src/lib/project-cost-board.ts",
-      "reason": "changed",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 16168
     },
@@ -2280,7 +2280,7 @@
       "path": "src/server/projects/cost-board.ts",
       "reason": "changed",
       "language": "typescript",
-      "size": 7238
+      "size": 8805
     },
     {
       "path": "src/server/projects/progress-reports.ts",
@@ -2436,7 +2436,7 @@
       "path": "tests/project-cost-board.test.ts",
       "reason": "changed",
       "language": "typescript",
-      "size": 13829
+      "size": 15632
     },
     {
       "path": "tests/project-cost.test.ts",
@@ -2484,7 +2484,7 @@
       "path": "tsconfig.tsbuildinfo",
       "reason": "changed",
       "language": null,
-      "size": 275125
+      "size": 275129
     }
   ]
 }

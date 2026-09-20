@@ -9,6 +9,7 @@ import { taskSchema, milestoneSchema, milestoneUpdateSchema, expenseSchema } fro
 import { generateNumber } from "@/lib/numbering";
 import { runAction, type ActionResult } from "@/lib/action-helpers";
 import { submitExpenseForApproval, approveExpense, rejectExpense, markExpensePaid } from "@/lib/workflows/expense";
+import { revalidateProjectCost } from "@/lib/revalidate-project-cost";
 import { uploadDocument } from "@/lib/workflows/documents";
 import type { TaskStatus } from "@prisma/client";
 import { notifyUser } from "@/lib/workflows/notify";
@@ -235,7 +236,7 @@ export async function createExpense(input: unknown): Promise<ActionResult<{ id: 
       return created;
     });
 
-    revalidatePath(`/projects/${data.projectId}`);
+    revalidateProjectCost(data.projectId);
     return { id: expense.id };
   });
 }
@@ -245,7 +246,7 @@ export async function submitExpenseAction(id: string, projectId: string): Promis
     const actor = await requireUserOrThrow();
     requirePermission(actor.role, "project", "update");
     await submitExpenseForApproval(id, actor);
-    revalidatePath(`/projects/${projectId}`);
+    revalidateProjectCost(projectId);
     return { id };
   });
 }
@@ -254,7 +255,7 @@ export async function approveExpenseAction(id: string, projectId: string): Promi
   return runAction(async () => {
     const actor = await requireUserOrThrow();
     await approveExpense(id, actor);
-    revalidatePath(`/projects/${projectId}`);
+    revalidateProjectCost(projectId);
     return { id };
   });
 }
@@ -263,7 +264,7 @@ export async function rejectExpenseAction(id: string, projectId: string, reason:
   return runAction(async () => {
     const actor = await requireUserOrThrow();
     await rejectExpense(id, reason, actor);
-    revalidatePath(`/projects/${projectId}`);
+    revalidateProjectCost(projectId);
     return { id };
   });
 }
@@ -301,8 +302,7 @@ export async function markExpensePaidAction(formData: FormData): Promise<ActionR
     );
 
     await markExpensePaid(id, doc.id, actor);
-    revalidatePath(`/projects/${projectId}`);
-    revalidatePath("/finance/expenses");
+    revalidateProjectCost(projectId);
     return { id };
   });
 }
