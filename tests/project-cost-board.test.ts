@@ -111,3 +111,11 @@ test("antrean kosong tidak menghasilkan peringatan apa pun", () => {
   assert.equal(sumPending([]), 0);
   assert.deepEqual(stalePendingRows([]), []);
 });
+
+test("papan tanpa antrean melaporkan nol, bukan angka yang hilang", () => {
+  // Bagian "menunggu" tetap ditampilkan saat kosong, jadi angkanya harus
+  // benar-benar nol dan bukan sekadar tidak dihitung.
+  assert.equal(sumPending([]), 0);
+  assert.equal(splitPendingByHolder([]).diFinance.length, 0);
+  assert.equal(splitPendingByHolder([]).diPengaju.length, 0);
+});

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Clock } from "lucide-react";
+import { CheckCircle2, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { displayLabel } from "@/lib/display-labels";
@@ -80,7 +80,36 @@ export function PendingCostSection({
   rows: PendingExpenseRow[];
   projectId: string;
 }) {
-  if (rows.length === 0) return null;
+  // Antrean kosong bukan alasan menyembunyikan bagian ini. Justru sebaliknya:
+  // kalau tidak ada yang menunggu, angka di papan biaya sedang lengkap — dan
+  // itu satu-satunya keadaan di mana angkanya boleh dipercaya apa adanya.
+  // Menghilangkan bagian ini membuat orang tidak bisa membedakan "tidak ada
+  // yang menunggu" dari "bagian ini belum dimuat".
+  if (rows.length === 0) {
+    return (
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Menunggu persetujuan</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="flex items-start gap-2 text-xs text-muted-foreground">
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+            <span>
+              Tidak ada biaya yang menunggu keputusan. Semua pengeluaran proyek ini
+              sudah disetujui atau ditolak, jadi angka di papan biaya sedang
+              lengkap.{" "}
+              <Link
+                href={`/finance/expenses?project=${projectId}`}
+                className="text-primary hover:underline"
+              >
+                Buka daftar biaya proyek →
+              </Link>
+            </span>
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const total = sumPending(rows);
   const { diPengaju, diFinance } = splitPendingByHolder(rows);
