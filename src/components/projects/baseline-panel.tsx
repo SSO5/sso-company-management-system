@@ -34,7 +34,13 @@ import { cn, formatCurrency, formatDateTime } from "@/lib/utils";
  * membaca laporan yang salah — papan biaya memakai Project.budget, sementara
  * orang mengira yang dipakai baseline.
  */
-export function ProjectBaselinePanel({ data }: { data: ProjectBaselineData }) {
+export function ProjectBaselinePanel({
+  data,
+  role,
+}: {
+  data: ProjectBaselineData;
+  role: string;
+}) {
   const { current, history } = data;
 
   return (
@@ -56,6 +62,7 @@ export function ProjectBaselinePanel({ data }: { data: ProjectBaselineData }) {
           <ActiveBaselineCard
             current={current}
             projectBudget={data.projectBudget}
+            role={role}
           />
 
           <BaselineLines current={current} />

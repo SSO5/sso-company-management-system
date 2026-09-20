@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   budgetDrift,
   canBecomeBaseline,
+  canUnlockBaseline,
   isLocked,
   loadProjectBaseline,
   mockProjectBaseline,
@@ -10,7 +11,9 @@ import {
   SET_BASELINE_MESSAGE,
   sumBaselineLines,
   unmappedBaselineLines,
+  UNLOCK_REASON_MIN_LENGTH,
   validateSetBaseline,
+  validateUnlockBaseline,
   type BaselineVersion,
 } from "../src/lib/project-baseline";
 
@@ -182,4 +185,40 @@ test("versi yang berlaku bisa ditelusuri ke dokumen costingnya", () => {
   assert.notEqual(c.costingId, null);
   assert.notEqual(c.setBy, "");
   assert.notEqual(c.setAt, "");
+});
+
+/* --- kunci dan buka kunci --- */
+
+test("hanya Admin yang boleh membuka kunci baseline", () => {
+  // Membuka kunci mengizinkan angka pembanding berubah TANPA versi baru,
+  // jadi laporan bulan lalu bisa berubah arti tanpa jejak.
+  assert.equal(canUnlockBaseline("ADMIN"), true);
+  for (const role of ["FINANCE", "PROJECT_MANAGER", "SALES", "IT", "VIEWER"]) {
+    assert.equal(canUnlockBaseline(role), false, role);
+  }
+});
+
+test("pesan penolakan menyebut jalan keluarnya, bukan cuma menolak", () => {
+  const pesan = validateUnlockBaseline({ role: "FINANCE", reason: "alasan panjang" });
+  assert.ok(pesan);
+  assert.match(pesan!, /versi baru/);
+});
+
+test("membuka kunci menuntut alasan yang berarti, bukan satu huruf", () => {
+  assert.ok(validateUnlockBaseline({ role: "ADMIN", reason: "" }));
+  assert.ok(validateUnlockBaseline({ role: "ADMIN", reason: "salah" }));
+  assert.ok(
+    validateUnlockBaseline({
+      role: "ADMIN",
+      reason: " ".repeat(UNLOCK_REASON_MIN_LENGTH + 5),
+    }),
+    "spasi saja tidak boleh lolos",
+  );
+  assert.equal(
+    validateUnlockBaseline({
+      role: "ADMIN",
+      reason: "Salah input angka material, dikoreksi bersama akuntan.",
+    }),
+    null,
+  );
 });

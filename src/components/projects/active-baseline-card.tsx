@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Lock, Unlock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { BaselineLockControl } from "@/components/projects/baseline-lock-control";
 import {
   budgetDrift,
   isLocked,
@@ -26,9 +27,11 @@ import { cn, formatCurrency, formatDateTime } from "@/lib/utils";
 export function ActiveBaselineCard({
   current,
   projectBudget,
+  role,
 }: {
   current: BaselineVersion;
   projectBudget: number;
+  role: string;
 }) {
   const drift = budgetDrift({ projectBudget, current });
   const nomor = `${current.costingNumber}${
@@ -109,6 +112,8 @@ export function ActiveBaselineCard({
             menentukan apakah proyek terlihat aman atau tidak.
           </p>
         )}
+
+        <BaselineLockControl baseline={current} role={role} />
       </CardContent>
     </Card>
   );

@@ -3,6 +3,7 @@
 import { requireUserOrThrow } from "@/lib/auth/current-user";
 import { requirePermission } from "@/lib/permissions";
 import { runAction, type ActionResult } from "@/lib/action-helpers";
+import { validateUnlockBaseline } from "@/lib/project-baseline";
 
 /**
  * Menetapkan satu costing final sebagai baseline proyek.
@@ -32,6 +33,55 @@ export async function setProjectBaselineAction(
     throw new Error(
       `Permintaan menetapkan ${input.costingNumber} sebagai baseline sudah benar, ` +
         "tapi penyimpanan belum tersambung. Tabel baseline dibuat pada tahap backend.",
+    );
+  });
+}
+
+/**
+ * Mengunci baseline yang sedang berlaku.
+ *
+ * Mengunci membuat angka lebih sulit digeser, jadi haknya sama dengan hak
+ * mengubah proyek. Belum menulis ke basis data pada tahap ini.
+ */
+export async function lockProjectBaselineAction(
+  baselineId: string,
+): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const actor = await requireUserOrThrow();
+    requirePermission(actor.role, "project", "update");
+    if (!baselineId) throw new Error("Baseline tidak dikenal.");
+
+    throw new Error(
+      "Permintaan mengunci baseline sudah benar, tapi penyimpanan belum " +
+        "tersambung. Tabel baseline dibuat pada tahap backend.",
+    );
+  });
+}
+
+/**
+ * Membuka kunci baseline.
+ *
+ * Hanya ADMIN, dan alasannya wajib. Membuka kunci mengizinkan angka
+ * pembanding diubah tanpa meninggalkan versi baru — artinya laporan bulan
+ * lalu bisa berubah arti tanpa jejak. Pemeriksaannya dikerjakan
+ * validateUnlockBaseline() yang diuji terpisah, lalu diulang di sini karena
+ * pemeriksaan di klien saja bukan pemeriksaan.
+ */
+export async function unlockProjectBaselineAction(
+  baselineId: string,
+  reason: string,
+): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const actor = await requireUserOrThrow();
+    requirePermission(actor.role, "project", "update");
+    if (!baselineId) throw new Error("Baseline tidak dikenal.");
+
+    const problem = validateUnlockBaseline({ role: actor.role, reason });
+    if (problem) throw new Error(problem);
+
+    throw new Error(
+      "Permintaan membuka kunci sudah benar, tapi penyimpanan belum " +
+        "tersambung. Tabel baseline dibuat pada tahap backend.",
     );
   });
 }

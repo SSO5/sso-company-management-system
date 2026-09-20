@@ -15,7 +15,7 @@ export default async function ProjectBaselinePage({
 }: {
   params: { id: string };
 }) {
-  await requireUser();
+  const actor = await requireUser();
   const data = await loadProjectBaseline(params.id);
   if (!data) notFound();
 
@@ -35,7 +35,7 @@ export default async function ProjectBaselinePage({
           &ldquo;lewat pagu&rdquo; punya arti.
         </p>
       </div>
-      <ProjectBaselinePanel data={data} />
+      <ProjectBaselinePanel data={data} role={actor.role} />
     </div>
   );
 }

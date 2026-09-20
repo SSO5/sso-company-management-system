@@ -251,3 +251,35 @@ export const SET_BASELINE_MESSAGE: Record<SetBaselineProblem, string> = {
   SAMA_DENGAN_BERLAKU:
     "Costing ini sudah menjadi baseline yang berlaku, jadi tidak ada yang berubah.",
 };
+
+/**
+ * Siapa yang boleh MEMBUKA kunci baseline.
+ *
+ * Mengunci boleh dilakukan siapa pun yang berhak mengubah proyek — ia
+ * membuat angka lebih sulit digeser, bukan lebih mudah.
+ *
+ * Membuka kunci berbeda sifatnya. Ia mengizinkan angka pembanding diubah
+ * TANPA meninggalkan versi baru, yang berarti laporan bulan lalu bisa
+ * berubah arti tanpa jejak. Karena itu hanya ADMIN, dan jalan yang
+ * seharusnya ditempuh orang lain adalah menetapkan baseline versi baru —
+ * yang justru meninggalkan jejak, lengkap dengan alasannya.
+ */
+export function canUnlockBaseline(role: string): boolean {
+  return role === "ADMIN";
+}
+
+/** Alasan wajib saat membuka kunci, dengan panjang minimal yang berarti. */
+export const UNLOCK_REASON_MIN_LENGTH = 10;
+
+export function validateUnlockBaseline(input: {
+  role: string;
+  reason: string;
+}): string | null {
+  if (!canUnlockBaseline(input.role)) {
+    return "Hanya Admin yang boleh membuka kunci baseline. Untuk mengubah angka pembanding, tetapkan baseline versi baru — cara itu meninggalkan jejak beserta alasannya.";
+  }
+  if (input.reason.trim().length < UNLOCK_REASON_MIN_LENGTH) {
+    return `Tulis alasan membuka kunci, minimal ${UNLOCK_REASON_MIN_LENGTH} karakter. Tanpa itu tidak ada yang bisa menjelaskan kenapa angka pembanding boleh berubah tanpa versi baru.`;
+  }
+  return null;
+}
