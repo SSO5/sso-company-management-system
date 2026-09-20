@@ -1,0 +1,158 @@
+name: DB Schema - Add ProjectBudgetBaseline and its lines (one-off)
+
+# Manual-only: menambah dua tabel untuk budget baseline proyek beserta
+# riwayat versinya.
+#
+# JALANKAN SETELAH workflow "DB Schema - Add CostType table and
+# ProjectExpense.costTypeId". Migrasi ini menunjuk ke tabel CostType, dan
+# urutannya diperiksa sendiri di awal: kalau CostType belum ada, ia berhenti
+# dengan kalimat yang menyebut workflow mana yang harus dijalankan dulu,
+# bukan galat "relation does not exist" yang tidak menolong siapa pun.
+#
+# Kenapa tabel sendiri, bukan satu kolom di Project: Project.budget bisa
+# diubah kapan saja lewat form proyek, dan angka yang ikut bergerak tidak
+# bisa dipakai sebagai pembanding. Baseline adalah salinan BEKU dari satu
+# versi costing final — itulah yang membuat kalimat "lewat pagu 12%" punya
+# arti. Nomor dan revisi costing disalin ke dalam barisnya, bukan sekadar
+# ditautkan, sehingga costing yang kelak dihapus tidak membatalkan baseline.
+#
+# DUA HAL YANG MEMBUAT WORKFLOW INI AMAN DIJALANKAN ULANG:
+#
+#   1. --single-transaction. Kalau ada satu perintah yang gagal, SEMUANYA
+#      dibatalkan. Tanpa ini psql berjalan autocommit: pada percobaan yang
+#      urutannya terbalik, kedua tabel sempat terbuat dan sebagian foreign
+#      key terpasang sebelum perintah yang gagal — basis data tertinggal
+#      setengah jadi.
+#   2. Seluruh perintah idempoten (IF NOT EXISTS, foreign key dijaga manual
+#      karena Postgres belum punya ADD CONSTRAINT IF NOT EXISTS).
+#
+# Ditambah satu indeks unik parsial yang tidak bisa dinyatakan di
+# schema.prisma — ProjectBudgetBaseline_one_current_per_project — yang
+# menegakkan "hanya satu versi berlaku per proyek" di basis data. Tanpa itu,
+# satu galat di server bisa meninggalkan dua baseline berlaku sekaligus dan
+# papan biaya akan memilih salah satunya tanpa ada yang tahu.
+#
+# AMAN DAN ADITIF: dua tabel baru, tidak menyentuh data yang ada, tidak ada
+# DROP maupun perubahan kolom pada tabel lama.
+on:
+  workflow_dispatch:
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install PostgreSQL 18 client tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common
+          yes '' | sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh
+          sudo apt-get install -y postgresql-client-18
+          echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
+
+      - name: Apply schema change
+        env:
+          NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
+        run: |
+          set -e
+          if [ -z "$NEW_DATABASE_URL" ]; then
+            echo "NEW_DATABASE_URL kosong. Periksa secret repositori sebelum menjalankan ulang."
+            exit 1
+          fi
+          psql "$NEW_DATABASE_URL" -v ON_ERROR_STOP=1 --single-transaction <<'SQL'
+          -- Migrasi ini menunjuk ke CostType. Kalau tabelnya belum ada, berhenti
+          -- dengan kalimat yang menyebut apa yang harus dijalankan lebih dulu —
+          -- bukan galat "relation does not exist" yang tidak menolong siapa pun.
+          DO $$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'CostType') THEN
+              RAISE EXCEPTION 'Tabel CostType belum ada. Jalankan dulu workflow "DB Schema - Add CostType table and ProjectExpense.costTypeId", baru workflow ini.';
+            END IF;
+          END $$;
+
+          CREATE TABLE IF NOT EXISTS "ProjectBudgetBaseline" (
+              "id" TEXT NOT NULL,
+              "projectId" TEXT NOT NULL,
+              "version" INTEGER NOT NULL,
+              "costingSheetId" TEXT,
+              "costingNumber" TEXT NOT NULL,
+              "costingRevision" INTEGER NOT NULL DEFAULT 0,
+              "amount" DECIMAL(18,2) NOT NULL,
+              "reason" TEXT,
+              "isCurrent" BOOLEAN NOT NULL DEFAULT false,
+              "lockedAt" TIMESTAMP(3),
+              "lockedById" TEXT,
+              "setAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              "setById" TEXT NOT NULL,
+              "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              "updatedAt" TIMESTAMP(3) NOT NULL,
+
+              CONSTRAINT "ProjectBudgetBaseline_pkey" PRIMARY KEY ("id")
+          );
+
+          CREATE TABLE IF NOT EXISTS "ProjectBudgetBaselineLine" (
+              "id" TEXT NOT NULL,
+              "baselineId" TEXT NOT NULL,
+              "costTypeId" TEXT,
+              "label" TEXT NOT NULL,
+              "category" "ExpenseCategory" NOT NULL,
+              "amount" DECIMAL(18,2) NOT NULL,
+              "sortOrder" INTEGER NOT NULL DEFAULT 0,
+
+              CONSTRAINT "ProjectBudgetBaselineLine_pkey" PRIMARY KEY ("id")
+          );
+
+          CREATE INDEX IF NOT EXISTS "ProjectBudgetBaseline_projectId_idx" ON "ProjectBudgetBaseline"("projectId");
+          CREATE INDEX IF NOT EXISTS "ProjectBudgetBaseline_costingSheetId_idx" ON "ProjectBudgetBaseline"("costingSheetId");
+          CREATE UNIQUE INDEX IF NOT EXISTS "ProjectBudgetBaseline_projectId_version_key" ON "ProjectBudgetBaseline"("projectId", "version");
+          CREATE INDEX IF NOT EXISTS "ProjectBudgetBaselineLine_baselineId_idx" ON "ProjectBudgetBaselineLine"("baselineId");
+          CREATE INDEX IF NOT EXISTS "ProjectBudgetBaselineLine_costTypeId_idx" ON "ProjectBudgetBaselineLine"("costTypeId");
+
+          -- Hanya satu baseline yang berlaku per proyek. Tidak bisa dinyatakan di
+          -- schema.prisma karena Prisma belum mendukung indeks unik parsial;
+          -- ditulis manual supaya aturannya dijaga basis data, bukan disiplin kode.
+          CREATE UNIQUE INDEX IF NOT EXISTS "ProjectBudgetBaseline_one_current_per_project"
+            ON "ProjectBudgetBaseline"("projectId")
+            WHERE "isCurrent";
+
+          DO $$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ProjectBudgetBaseline_projectId_fkey') THEN
+              ALTER TABLE "ProjectBudgetBaseline" ADD CONSTRAINT "ProjectBudgetBaseline_projectId_fkey"
+                FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ProjectBudgetBaseline_costingSheetId_fkey') THEN
+              ALTER TABLE "ProjectBudgetBaseline" ADD CONSTRAINT "ProjectBudgetBaseline_costingSheetId_fkey"
+                FOREIGN KEY ("costingSheetId") REFERENCES "CostingSheet"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ProjectBudgetBaseline_lockedById_fkey') THEN
+              ALTER TABLE "ProjectBudgetBaseline" ADD CONSTRAINT "ProjectBudgetBaseline_lockedById_fkey"
+                FOREIGN KEY ("lockedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ProjectBudgetBaseline_setById_fkey') THEN
+              ALTER TABLE "ProjectBudgetBaseline" ADD CONSTRAINT "ProjectBudgetBaseline_setById_fkey"
+                FOREIGN KEY ("setById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ProjectBudgetBaselineLine_baselineId_fkey') THEN
+              ALTER TABLE "ProjectBudgetBaselineLine" ADD CONSTRAINT "ProjectBudgetBaselineLine_baselineId_fkey"
+                FOREIGN KEY ("baselineId") REFERENCES "ProjectBudgetBaseline"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ProjectBudgetBaselineLine_costTypeId_fkey') THEN
+              ALTER TABLE "ProjectBudgetBaselineLine" ADD CONSTRAINT "ProjectBudgetBaselineLine_costTypeId_fkey"
+                FOREIGN KEY ("costTypeId") REFERENCES "CostType"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+            END IF;
+          END $$;
+          SQL
+
+      - name: Verify tables and constraint exist
+        env:
+          NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
+        run: |
+          set -e
+          echo "-- tabel baru --"
+          psql "$NEW_DATABASE_URL" -tAc "SELECT table_name FROM information_schema.tables WHERE table_name IN ('ProjectBudgetBaseline','ProjectBudgetBaselineLine') ORDER BY table_name;"
+          echo "-- indeks satu-baseline-berlaku --"
+          psql "$NEW_DATABASE_URL" -tAc "SELECT indexname FROM pg_indexes WHERE indexname = 'ProjectBudgetBaseline_one_current_per_project';"
+          echo "-- seluruh foreign key terpasang (harus 6) --"
+          psql "$NEW_DATABASE_URL" -tAc "SELECT count(*) FROM pg_constraint WHERE conname LIKE 'ProjectBudgetBaseline%_fkey';"
+          echo "-- proyek tetap utuh --"
+          psql "$NEW_DATABASE_URL" -tAc "SELECT count(*) AS proyek FROM \"Project\" WHERE \"deletedAt\" IS NULL;"
