@@ -1,9 +1,11 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/current-user";
 import { requirePermission } from "@/lib/permissions";
-import { costTypeSchema } from "@/lib/validation/cost-type";
+import { parseCostType } from "@/lib/validation/cost-type";
+import { logActivity } from "@/lib/workflows/audit";
 import { runAction, type ActionResult } from "@/lib/action-helpers";
 import {
   filterCostTypes,
@@ -85,17 +87,20 @@ export async function listSelectableCostTypes(): Promise<
 }
 
 /**
- * Menyimpan satu jenis biaya.
+ * Menyimpan satu jenis biaya, baru atau yang sudah ada.
  *
- * Tahap ini SENGAJA belum menulis ke basis data: tabel CostType baru dibuat
- * pada tugas backend. Yang sudah nyata di sini adalah validasinya — form
- * benar-benar menolak kode berformat salah, nama terlalu pendek, dan
- * kelompok yang tidak dikenal.
+ * Tiga hal yang dijaga di sini dan tidak bisa dijaga di form:
  *
- * Yang tidak dilakukan: berpura-pura berhasil. Input yang lolos validasi
- * tetap dibalas gagal dengan alasan yang jujur, karena form yang berkata
- * "tersimpan" padahal tidak ada yang tersimpan jauh lebih buruk daripada
- * form yang berkata belum bisa.
+ *   1. KODE UNIK. Dijaga basis data lewat indeks unik, tapi galatnya
+ *      diterjemahkan jadi kalimat yang menyebut kode bentrokannya. Pesan
+ *      Prisma mentah ("Unique constraint failed on the fields: (`code`)")
+ *      tidak memberi tahu siapa pun kode apa yang bentrok.
+ *   2. AKUN YANG DIPILIH HARUS ADA DAN AKTIF. Daftar akun di form bisa basi
+ *      kalau seseorang menonaktifkan akun sementara form terbuka.
+ *   3. MENGUBAH KODE JENIS YANG SUDAH DIPAKAI. Diizinkan — kode hanyalah
+ *      label, dan biaya lama menunjuk lewat id, bukan lewat kode. Tapi
+ *      dicatat di log aktivitas, karena laporan lama yang dicetak memakai
+ *      kode lama akan terlihat berbeda dari layar.
  */
 export async function saveCostTypeAction(
   id: string | null,
@@ -106,12 +111,70 @@ export async function saveCostTypeAction(
     // Sama dengan mengubah Bagan Akun: Admin dan akuntan internal.
     requirePermission(actor.role, "finance", "manage");
 
-    const data = costTypeSchema.parse(input);
+    const data = parseCostType(input);
 
-    throw new Error(
-      `Validasi lolos untuk "${data.code}", tapi penyimpanan belum tersambung. ` +
-        "Tabel jenis biaya dibuat pada tahap backend.",
-    );
+    if (data.chartOfAccountId) {
+      const akun = await prisma.chartOfAccount.findFirst({
+        where: { id: data.chartOfAccountId, isActive: true },
+        select: { id: true },
+      });
+      if (!akun) {
+        throw new Error(
+          "Akun yang dipilih sudah tidak ada atau sudah dinonaktifkan. Muat ulang halaman lalu pilih akun lain.",
+        );
+      }
+    }
+
+    const bentrok = await prisma.costType.findFirst({
+      where: { code: data.code, ...(id ? { NOT: { id } } : {}) },
+      select: { id: true, name: true },
+    });
+    if (bentrok) {
+      throw new Error(
+        `Kode ${data.code} sudah dipakai oleh "${bentrok.name}". Pakai kode lain.`,
+      );
+    }
+
+    const saved = await prisma.$transaction(async (tx) => {
+      if (!id) {
+        const created = await tx.costType.create({ data });
+        await logActivity(tx, {
+          userId: actor.userId,
+          action: "CREATE",
+          entityType: "COST_TYPE",
+          entityId: created.id,
+          description: `Menambah jenis biaya ${created.code} (${created.name})`,
+        });
+        return created;
+      }
+
+      const sebelum = await tx.costType.findUniqueOrThrow({
+        where: { id },
+        select: { code: true, name: true },
+      });
+      const updated = await tx.costType.update({ where: { id }, data });
+
+      // Perubahan kode dicatat terpisah: laporan lama yang sudah dicetak
+      // memakai kode lama akan terlihat berbeda dari layar, dan orang perlu
+      // bisa menelusuri kenapa.
+      const kodeBerubah = sebelum.code !== updated.code;
+      await logActivity(tx, {
+        userId: actor.userId,
+        action: "UPDATE",
+        entityType: "COST_TYPE",
+        entityId: updated.id,
+        description: kodeBerubah
+          ? `Mengubah jenis biaya ${sebelum.code} menjadi ${updated.code} (${updated.name})`
+          : `Memperbarui jenis biaya ${updated.code} (${updated.name})`,
+        metadata: kodeBerubah
+          ? { kodeLama: sebelum.code, kodeBaru: updated.code }
+          : undefined,
+      });
+      return updated;
+    });
+
+    revalidatePath("/settings/cost-types");
+    return { id: saved.id };
   });
 }
 

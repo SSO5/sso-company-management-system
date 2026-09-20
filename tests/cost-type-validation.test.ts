@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { costTypeSchema } from "../src/lib/validation/cost-type";
+import { costTypeSchema, parseCostType } from "../src/lib/validation/cost-type";
 
 const dasar = {
   code: "MAT-PANEL",
@@ -65,4 +65,30 @@ test("keterangan kosong disimpan sebagai null, bukan string kosong", () => {
 test("jenis baru aktif secara bawaan", () => {
   assert.equal(costTypeSchema.parse(dasar).isActive, true);
   assert.equal(costTypeSchema.parse({ ...dasar, isActive: false }).isActive, false);
+});
+
+test("galat validasi jadi satu kalimat, bukan larik JSON", () => {
+  // Pesan ZodError mentah panjangnya melewati 300 karakter, dan runAction()
+  // menukar pesan sepanjang itu dengan "Something went wrong" — sehingga
+  // aturan validasi yang sudah ditulis tidak pernah terbaca pengguna.
+  try {
+    parseCostType({ code: "M", name: "ab", category: "SEWA" });
+    assert.fail("seharusnya ditolak");
+  } catch (e) {
+    const pesan = (e as Error).message;
+    assert.ok(pesan.length < 300, `terlalu panjang: ${pesan.length}`);
+    assert.doesNotMatch(pesan, /[[{]/, "masih berbentuk JSON");
+    assert.match(pesan, /Kode minimal 2 karakter/);
+    assert.match(pesan, /Nama jenis biaya minimal 3 karakter/);
+  }
+});
+
+test("isian yang benar melewati parseCostType apa adanya", () => {
+  const hasil = parseCostType({
+    code: "mat-panel",
+    name: "Material panel",
+    category: "MATERIALS",
+  });
+  assert.equal(hasil.code, "MAT-PANEL");
+  assert.equal(hasil.chartOfAccountId, null);
 });

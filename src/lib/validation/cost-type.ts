@@ -59,3 +59,19 @@ export const costTypeSchema = z.object({
 });
 
 export type CostTypeInput = z.infer<typeof costTypeSchema>;
+
+/**
+ * Menerjemahkan hasil validasi menjadi satu kalimat yang bisa dibaca orang.
+ *
+ * Pesan ZodError mentah adalah larik JSON berisi path dan kode galat. Ia
+ * lolos sampai ke layar sebagai teks panjang yang tidak menolong siapa pun,
+ * atau — karena panjangnya melewati 300 karakter — tertukar menjadi pesan
+ * umum "Something went wrong" oleh runAction(), sehingga aturan validasi
+ * yang sudah ditulis dengan hati-hati tidak pernah terbaca.
+ */
+export function parseCostType(input: unknown): CostTypeInput {
+  const hasil = costTypeSchema.safeParse(input);
+  if (hasil.success) return hasil.data;
+  const pesan = hasil.error.issues.map((i) => i.message).join(" ");
+  throw new Error(pesan || "Isian jenis biaya belum benar.");
+}
