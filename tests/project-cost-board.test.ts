@@ -6,6 +6,10 @@ import {
   forecastAtCompletion,
   loadCostBoard,
   mockCostBoard,
+  PENDING_STALE_DAYS,
+  splitPendingByHolder,
+  stalePendingRows,
+  sumPending,
   varianceStatus,
   varianceToBaseline,
 } from "../src/lib/project-cost-board";
@@ -77,4 +81,33 @@ test("komitmen ikut memicu penanda, bukan hanya biaya yang disetujui", () => {
 
 test("tanpa baseline, papan tidak berpura-pura tahu posisi belanja", () => {
   assert.equal(varianceStatus({ baseline: 0, actual: 500, committed: 0 }), "NO_BASELINE");
+});
+
+test("antrean dipisah menurut siapa yang memegang bolanya", () => {
+  const d = mockCostBoard("clx8n2k4p0001qw3f7yz9abcd");
+  const { diPengaju, diFinance } = splitPendingByHolder(d.pendingRows);
+  assert.ok(diFinance.every((r) => r.approvalStatus === "SUBMITTED"));
+  assert.ok(diPengaju.every((r) => r.approvalStatus === "DRAFT"));
+  // Tidak boleh ada baris yang hilang atau terhitung dua kali.
+  assert.equal(diPengaju.length + diFinance.length, d.pendingRows.length);
+});
+
+test("total menunggu sama dengan jumlah baris antreannya", () => {
+  const d = mockCostBoard("clx8n2k4p0001qw3f7yz9abcd");
+  assert.equal(sumPending(d.pendingRows), d.pending);
+});
+
+test("baris yang mengendap diurutkan dari yang paling tua", () => {
+  const d = mockCostBoard("clx8n2k4p0001qw3f7yz9abcd");
+  const stale = stalePendingRows(d.pendingRows);
+  assert.ok(stale.every((r) => r.ageDays >= PENDING_STALE_DAYS));
+  assert.deepEqual(
+    stale.map((r) => r.ageDays),
+    [...stale.map((r) => r.ageDays)].sort((a, b) => b - a),
+  );
+});
+
+test("antrean kosong tidak menghasilkan peringatan apa pun", () => {
+  assert.equal(sumPending([]), 0);
+  assert.deepEqual(stalePendingRows([]), []);
 });

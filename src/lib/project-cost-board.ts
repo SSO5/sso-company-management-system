@@ -27,6 +27,19 @@ export interface CostCategoryRow {
   pending: number;
 }
 
+/** Satu baris antrean: biaya yang belum diputuskan finance. */
+export interface PendingExpenseRow {
+  id: string;
+  description: string;
+  category: ExpenseCategory;
+  amount: number;
+  /** DRAFT belum diajukan; SUBMITTED sudah di meja finance. */
+  approvalStatus: "DRAFT" | "SUBMITTED";
+  submittedBy: string;
+  /** Umur baris dalam hari, dipakai untuk menandai yang mengendap. */
+  ageDays: number;
+}
+
 export interface CostBoardData {
   projectId: string;
   projectName: string;
@@ -39,6 +52,7 @@ export interface CostBoardData {
   /** Biaya disetujui yang belum dibayar. */
   payable: number;
   categories: CostCategoryRow[];
+  pendingRows: PendingExpenseRow[];
   /** Waktu angka ini dihitung, supaya orang tahu sesegar apa yang dibaca. */
   updatedAt: string;
   isMock: boolean;
@@ -104,6 +118,12 @@ export function mockCostBoard(projectId: string): CostBoardData {
     pending: sum("pending"),
     payable: 125_000_000,
     categories,
+    pendingRows: [
+      { id: "exp-1", description: "Upah borongan instalasi minggu ke-9", category: "LABOR", amount: 18_000_000, approvalStatus: "SUBMITTED", submittedBy: "Budi Santoso", ageDays: 6 },
+      { id: "exp-2", description: "Sewa forklift 10 hari", category: "EQUIPMENT", amount: 12_500_000, approvalStatus: "SUBMITTED", submittedBy: "Rina Wijaya", ageDays: 11 },
+      { id: "exp-3", description: "Mobilisasi material ke site", category: "TRANSPORTATION", amount: 9_000_000, approvalStatus: "DRAFT", submittedBy: "Budi Santoso", ageDays: 2 },
+      { id: "exp-4", description: "Penginapan tim uji fungsi", category: "ACCOMMODATION", amount: 7_000_000, approvalStatus: "DRAFT", submittedBy: "Rina Wijaya", ageDays: 1 },
+    ],
     updatedAt: "2026-09-20T09:15:00+07:00",
     isMock: true,
   };
@@ -141,4 +161,38 @@ export function varianceStatus(d: {
   if (varianceToBaseline(d) < 0) return "OVER";
   if (consumedPercent(d) >= BASELINE_NEAR_LIMIT_PERCENT) return "NEAR_LIMIT";
   return "SAFE";
+}
+
+/** Batas hari sebelum sebuah draf biaya dianggap mengendap di antrean. */
+export const PENDING_STALE_DAYS = 7;
+
+/** Baris menunggu yang sudah terlalu lama, diurutkan dari yang paling tua. */
+export function stalePendingRows(
+  rows: PendingExpenseRow[],
+  staleDays: number = PENDING_STALE_DAYS,
+): PendingExpenseRow[] {
+  return rows
+    .filter((r) => r.ageDays >= staleDays)
+    .sort((a, b) => b.ageDays - a.ageDays);
+}
+
+/**
+ * Memisahkan antrean berdasarkan siapa yang sedang memegang bolanya.
+ *
+ * DRAFT masih di tangan pengaju; SUBMITTED sudah di meja finance. Keduanya
+ * sama-sama "menunggu" bagi papan biaya, tapi yang harus ditegur berbeda,
+ * jadi pemisahan ini bukan sekadar hiasan tampilan.
+ */
+export function splitPendingByHolder(rows: PendingExpenseRow[]): {
+  diPengaju: PendingExpenseRow[];
+  diFinance: PendingExpenseRow[];
+} {
+  return {
+    diPengaju: rows.filter((r) => r.approvalStatus === "DRAFT"),
+    diFinance: rows.filter((r) => r.approvalStatus === "SUBMITTED"),
+  };
+}
+
+export function sumPending(rows: PendingExpenseRow[]): number {
+  return rows.reduce((t, r) => t + r.amount, 0);
 }

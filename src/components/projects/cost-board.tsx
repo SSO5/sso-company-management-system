@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/table";
 import { displayLabel } from "@/lib/display-labels";
 import { CostComparisonCard } from "@/components/projects/cost-comparison-card";
+import { PendingCostSection } from "@/components/projects/pending-cost-section";
 import {
   varianceStatus,
   varianceToBaseline,
@@ -29,7 +30,7 @@ import { cn, formatCurrency } from "@/lib/utils";
  */
 
 export function ProjectCostBoard({ data }: { data: CostBoardData }) {
-  const { baseline, actual, committed, pending, payable, categories } = data;
+  const { baseline, actual, committed, payable, categories } = data;
 
   return (
     <div className="space-y-4">
@@ -50,24 +51,15 @@ export function ProjectCostBoard({ data }: { data: CostBoardData }) {
         }}
       />
 
-      {/* Menunggu persetujuan dan utang dijaga DI LUAR kartu perbandingan:
-          yang menunggu belum diputuskan, dan utang adalah soal kas, bukan
-          soal apakah biayanya sudah terjadi. */}
-      {(pending > 0 || payable > 0) && (
-        <div className="space-y-2">
-          {pending > 0 && (
-            <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs">
-              <strong>{formatCurrency(pending)}</strong> menunggu persetujuan dan belum
-              masuk hitungan mana pun di kartu di atas. Angka di papan ini berubah
-              begitu finance memutuskan.
-            </p>
-          )}
-          {payable > 0 && (
-            <p className="text-xs text-muted-foreground">
-              Dari biaya yang sudah disetujui, {formatCurrency(payable)} belum dibayar.
-            </p>
-          )}
-        </div>
+      {/* Menunggu persetujuan dijaga DI LUAR kartu perbandingan: yang
+          menunggu belum diputuskan. Utang adalah soal kas, bukan soal apakah
+          biayanya sudah terjadi, jadi juga tidak masuk ke sana. */}
+      <PendingCostSection rows={data.pendingRows} projectId={data.projectId} />
+
+      {payable > 0 && (
+        <p className="text-xs text-muted-foreground">
+          Dari biaya yang sudah disetujui, {formatCurrency(payable)} belum dibayar.
+        </p>
       )}
 
       <Card>
