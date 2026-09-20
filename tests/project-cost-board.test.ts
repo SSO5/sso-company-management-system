@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   BASELINE_NEAR_LIMIT_PERCENT,
+  categoryShares,
   consumedPercent,
   forecastAtCompletion,
   loadCostBoard,
@@ -10,6 +11,7 @@ import {
   splitPendingByHolder,
   stalePendingRows,
   sumPending,
+  topCategoriesCovering,
   varianceStatus,
   varianceToBaseline,
 } from "../src/lib/project-cost-board";
@@ -134,4 +136,47 @@ test("total tabel rincian selalu cocok dengan kartu perbandingan", () => {
   );
   assert.equal(varianceToBaseline(total), varianceToBaseline(d));
   assert.equal(forecastAtCompletion(total), forecastAtCompletion(d));
+});
+
+test("peringkat jenis biaya memakai belanja nyata, bukan baseline", () => {
+  // Baseline hanyalah rencana. "Ke mana uangnya pergi" hanya bisa dijawab
+  // oleh yang sudah terpakai dan yang sudah terikat.
+  const rows = [
+    { category: "LABOR" as const, baseline: 900, actual: 100, committed: 0, pending: 0 },
+    { category: "MATERIALS" as const, baseline: 100, actual: 200, committed: 100, pending: 0 },
+  ];
+  const shares = categoryShares(rows);
+  assert.equal(shares[0].row.category, "MATERIALS");
+  assert.equal(shares[0].rank, 1);
+  assert.equal(shares[0].spend, 300);
+  assert.equal(shares[0].sharePercent, 75);
+  assert.equal(shares[1].sharePercent, 25);
+});
+
+test("nilai menunggu persetujuan tidak ikut memeringkat", () => {
+  const rows = [
+    { category: "LABOR" as const, baseline: 100, actual: 10, committed: 0, pending: 5_000 },
+    { category: "MATERIALS" as const, baseline: 100, actual: 50, committed: 0, pending: 0 },
+  ];
+  assert.equal(categoryShares(rows)[0].row.category, "MATERIALS");
+});
+
+test("porsi tidak pecah saat belum ada belanja sama sekali", () => {
+  const rows = [
+    { category: "LABOR" as const, baseline: 100, actual: 0, committed: 0, pending: 0 },
+  ];
+  const shares = categoryShares(rows);
+  assert.equal(shares[0].sharePercent, 0);
+  assert.deepEqual(topCategoriesCovering(shares), []);
+});
+
+test("topCategoriesCovering berhenti begitu ambang tercapai", () => {
+  const d = mockCostBoard("clx8n2k4p0001qw3f7yz9abcd");
+  const shares = categoryShares(d.categories);
+  const top = topCategoriesCovering(shares, 80);
+  const acc = top.reduce((t, s) => t + s.sharePercent, 0);
+  assert.ok(acc >= 80);
+  // Tidak mengambil lebih banyak daripada yang dibutuhkan.
+  const tanpaTerakhir = acc - top[top.length - 1].sharePercent;
+  assert.ok(tanpaTerakhir < 80);
 });

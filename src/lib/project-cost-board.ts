@@ -196,3 +196,56 @@ export function splitPendingByHolder(rows: PendingExpenseRow[]): {
 export function sumPending(rows: PendingExpenseRow[]): number {
   return rows.reduce((t, r) => t + r.amount, 0);
 }
+
+export interface CategoryShare {
+  row: CostCategoryRow;
+  /** Peringkat menurut belanja nyata, 1 = terbesar. */
+  rank: number;
+  /** Porsi terhadap total belanja (aktual + terikat), 0–100. */
+  sharePercent: number;
+  /** Belanja nyata baris ini: aktual ditambah terikat. */
+  spend: number;
+}
+
+/**
+ * Memeringkat jenis biaya menurut belanja nyata.
+ *
+ * Yang diperingkat adalah aktual DITAMBAH terikat, bukan baseline. Baseline
+ * hanyalah rencana; pertanyaan "ke mana uang proyek ini sebenarnya pergi"
+ * hanya bisa dijawab oleh uang yang sudah terpakai dan yang sudah terikat.
+ *
+ * Nilai yang menunggu persetujuan tidak ikut, dengan alasan yang sama
+ * seperti di tempat lain: belum ada yang memutuskan apakah ia jadi biaya.
+ */
+export function categoryShares(rows: CostCategoryRow[]): CategoryShare[] {
+  const spendOf = (r: CostCategoryRow) => r.actual + r.committed;
+  const total = rows.reduce((t, r) => t + spendOf(r), 0);
+  return [...rows]
+    .sort((a, b) => spendOf(b) - spendOf(a))
+    .map((row, i) => ({
+      row,
+      rank: i + 1,
+      spend: spendOf(row),
+      sharePercent: total > 0 ? (spendOf(row) / total) * 100 : 0,
+    }));
+}
+
+/**
+ * Berapa jenis biaya teratas yang sudah menutupi sebagian besar belanja.
+ * Dipakai untuk kalimat semacam "3 jenis biaya menyumbang 80% belanja" —
+ * yang memberi tahu di mana harus mencari penghematan.
+ */
+export function topCategoriesCovering(
+  shares: CategoryShare[],
+  targetPercent = 80,
+): CategoryShare[] {
+  const out: CategoryShare[] = [];
+  let acc = 0;
+  for (const s of shares) {
+    if (s.spend <= 0) break;
+    out.push(s);
+    acc += s.sharePercent;
+    if (acc >= targetPercent) break;
+  }
+  return out;
+}

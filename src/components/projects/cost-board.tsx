@@ -1,4 +1,5 @@
 import { CostComparisonCard } from "@/components/projects/cost-comparison-card";
+import { CostCategoryShares } from "@/components/projects/cost-category-shares";
 import { CostCategoryTable } from "@/components/projects/cost-category-table";
 import { PendingCostSection } from "@/components/projects/pending-cost-section";
 import type { CostBoardData } from "@/lib/project-cost-board";
@@ -48,6 +49,8 @@ export function ProjectCostBoard({ data }: { data: CostBoardData }) {
           Dari biaya yang sudah disetujui, {formatCurrency(payable)} belum dibayar.
         </p>
       )}
+
+      <CostCategoryShares rows={categories} />
 
       <CostCategoryTable rows={categories} />
     </div>
