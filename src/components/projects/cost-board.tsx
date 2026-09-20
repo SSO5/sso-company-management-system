@@ -1,21 +1,8 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { displayLabel } from "@/lib/display-labels";
 import { CostComparisonCard } from "@/components/projects/cost-comparison-card";
+import { CostCategoryTable } from "@/components/projects/cost-category-table";
 import { PendingCostSection } from "@/components/projects/pending-cost-section";
-import {
-  varianceStatus,
-  varianceToBaseline,
-  type CostBoardData,
-} from "@/lib/project-cost-board";
-import { cn, formatCurrency } from "@/lib/utils";
+import type { CostBoardData } from "@/lib/project-cost-board";
+import { formatCurrency } from "@/lib/utils";
 
 /**
  * Papan Biaya Proyek.
@@ -62,69 +49,7 @@ export function ProjectCostBoard({ data }: { data: CostBoardData }) {
         </p>
       )}
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Rincian per jenis biaya</CardTitle>
-          <p className="text-[11px] text-muted-foreground">
-            Jenis biaya mana yang menggerus baseline, bukan sekadar totalnya.
-          </p>
-        </CardHeader>
-        <CardContent className="px-0 sm:px-6">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Jenis biaya</TableHead>
-                  <TableHead className="text-right">Baseline</TableHead>
-                  <TableHead className="text-right">Aktual</TableHead>
-                  <TableHead className="text-right">Terikat</TableHead>
-                  <TableHead className="text-right">Menunggu</TableHead>
-                  <TableHead className="text-right">Selisih</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {categories.map((row) => {
-                  const rowVariance = varianceToBaseline(row);
-                  // Penanda yang sama dipakai per baris: jenis biaya yang
-                  // menggerus baseline harus terlihat tanpa membandingkan
-                  // dua kolom angka sendiri.
-                  const rowStatus = varianceStatus(row);
-                  return (
-                    <TableRow key={row.category}>
-                      <TableCell className="whitespace-nowrap font-medium">
-                        {displayLabel(row.category)}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap text-right tabular-nums">
-                        {formatCurrency(row.baseline)}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap text-right tabular-nums">
-                        {formatCurrency(row.actual)}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap text-right tabular-nums text-muted-foreground">
-                        {row.committed > 0 ? formatCurrency(row.committed) : "—"}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap text-right tabular-nums text-muted-foreground">
-                        {row.pending > 0 ? formatCurrency(row.pending) : "—"}
-                      </TableCell>
-                      <TableCell
-                        className={cn(
-                          "whitespace-nowrap text-right tabular-nums",
-                          rowStatus === "OVER" && "text-destructive",
-                          rowStatus === "NEAR_LIMIT" && "text-warning",
-                          rowStatus === "SAFE" && "text-success",
-                        )}
-                      >
-                        {rowVariance < 0 ? "−" : ""}
-                        {formatCurrency(Math.abs(rowVariance))}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+      <CostCategoryTable rows={categories} />
     </div>
   );
 }

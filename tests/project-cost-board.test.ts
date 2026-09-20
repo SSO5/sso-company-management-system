@@ -119,3 +119,19 @@ test("papan tanpa antrean melaporkan nol, bukan angka yang hilang", () => {
   assert.equal(splitPendingByHolder([]).diFinance.length, 0);
   assert.equal(splitPendingByHolder([]).diPengaju.length, 0);
 });
+
+test("total tabel rincian selalu cocok dengan kartu perbandingan", () => {
+  // Tabel dan kartu membaca sumber yang sama; kalau totalnya bisa berbeda,
+  // salah satunya salah dan papan ini kehilangan gunanya.
+  const d = mockCostBoard("clx8n2k4p0001qw3f7yz9abcd");
+  const total = d.categories.reduce(
+    (t, r) => ({
+      baseline: t.baseline + r.baseline,
+      actual: t.actual + r.actual,
+      committed: t.committed + r.committed,
+    }),
+    { baseline: 0, actual: 0, committed: 0 },
+  );
+  assert.equal(varianceToBaseline(total), varianceToBaseline(d));
+  assert.equal(forecastAtCompletion(total), forecastAtCompletion(d));
+});
