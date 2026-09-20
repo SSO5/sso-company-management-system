@@ -8,6 +8,9 @@ import {
   decisionBlockedReason,
   fieldComparisons,
   rejectReasonProblem,
+  REVIEW_EVENT_LABEL,
+  sortReviewHistory,
+  wasCorrected,
   isLargeExpense,
   LARGE_EXPENSE_THRESHOLD,
   mockExpenseReview,
@@ -17,6 +20,7 @@ import {
   splitReviewByHolder,
   staleReviewItems,
   sumReview,
+  type ReviewEvent,
   type ReviewItem,
 } from "../src/lib/expense-review";
 import { PENDING_STALE_DAYS } from "../src/lib/project-cost-board";
@@ -45,6 +49,7 @@ const baris = (over: Partial<ReviewItem> = {}): ReviewItem => ({
   date: "2026-09-19",
   items: [],
   evidenceDocumentId: "doc-1",
+  history: [],
   ...over,
 });
 
@@ -377,4 +382,61 @@ test("koreksi tidak boleh menghasilkan angka yang mustahil", () => {
       /Pajak tidak boleh negatif/.test(p),
     ),
   );
+});
+
+/* --- riwayat koreksi dan keputusan --- */
+
+test("riwayat dibaca dari yang paling lama, bukan dari yang terbaru", () => {
+  // Berbeda dari antrean: antrean menjawab "apa berikutnya", riwayat
+  // menjawab "apa yang sudah terjadi" — dan cerita dibaca dari awal.
+  const urut = sortReviewHistory([
+    { type: "DITOLAK", at: "2026-09-18T15:30:00+07:00", by: "Direktur" },
+    { type: "DIBUAT", at: "2026-09-18T11:00:00+07:00", by: "Budi" },
+  ]);
+  assert.deepEqual(urut.map((e) => e.type), ["DIBUAT", "DITOLAK"]);
+});
+
+test("mengurutkan riwayat tidak mengubah daftar aslinya", () => {
+  const events: ReviewEvent[] = [
+    { type: "DIAJUKAN", at: "2026-09-02T00:00:00Z", by: "A" },
+    { type: "DIBUAT", at: "2026-09-01T00:00:00Z", by: "A" },
+  ];
+  const salinan = events.map((e) => e.type);
+  sortReviewHistory(events);
+  assert.deepEqual(events.map((e) => e.type), salinan);
+});
+
+test("biaya yang pernah dikoreksi bisa dikenali", () => {
+  // Angka yang dilihat peninjau sudah termasuk koreksi itu, dan dia berhak
+  // tahu bahwa yang dia baca bukan lagi angka yang diajukan.
+  const d = mockExpenseReview().items.find((i) => i.editedFields.includes("amount"))!;
+  assert.equal(wasCorrected(d), true);
+  assert.equal(wasCorrected(baris({ history: [] })), false);
+});
+
+test("peristiwa koreksi membawa nilai sebelum dan sesudahnya", () => {
+  // Tanpa itu, baris "dikoreksi peninjau" hanya memberi tahu bahwa sesuatu
+  // berubah — dan pertanyaan pertama pembacanya adalah "dari berapa".
+  const koreksi = mockExpenseReview()
+    .items.flatMap((i) => i.history)
+    .find((e) => e.type === "DIKOREKSI")!;
+  assert.ok(koreksi.changes && koreksi.changes.length > 0);
+  assert.ok(koreksi.note && koreksi.note.length > 10);
+});
+
+test("penolakan selalu membawa alasannya di riwayat", () => {
+  const tolak = mockExpenseReview()
+    .items.flatMap((i) => i.history)
+    .filter((e) => e.type === "DITOLAK");
+  assert.ok(tolak.length > 0);
+  for (const e of tolak) {
+    assert.ok(e.note && e.note.length > 10, JSON.stringify(e));
+  }
+});
+
+test("tiap jenis peristiwa punya label yang bisa dibaca orang", () => {
+  for (const key of Object.keys(REVIEW_EVENT_LABEL) as (keyof typeof REVIEW_EVENT_LABEL)[]) {
+    assert.ok(REVIEW_EVENT_LABEL[key].length > 3, key);
+    assert.notEqual(REVIEW_EVENT_LABEL[key], key);
+  }
 });

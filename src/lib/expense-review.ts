@@ -61,6 +61,54 @@ export interface ReviewItem {
   items: { description: string; quantity: number; unit: string; unitPrice: number }[];
   /** Dokumen bukti, untuk dibuka dari panel detail. */
   evidenceDocumentId: string | null;
+  /** Apa saja yang sudah terjadi pada biaya ini. */
+  history: ReviewEvent[];
+}
+
+export type ReviewEventType =
+  | "DIBUAT"
+  | "DIAJUKAN"
+  | "DIKOREKSI"
+  | "DISETUJUI"
+  | "DITOLAK"
+  | "DIBAYAR";
+
+export interface ReviewEvent {
+  type: ReviewEventType;
+  at: string;
+  by: string;
+  /** Alasan penolakan atau catatan koreksi. */
+  note?: string | null;
+  /** Perubahan nilai pada peristiwa koreksi. */
+  changes?: { label: string; before: string; after: string }[];
+}
+
+export const REVIEW_EVENT_LABEL: Record<ReviewEventType, string> = {
+  DIBUAT: "Dicatat",
+  DIAJUKAN: "Diajukan untuk persetujuan",
+  DIKOREKSI: "Dikoreksi peninjau",
+  DISETUJUI: "Disetujui",
+  DITOLAK: "Ditolak",
+  DIBAYAR: "Dibayar",
+};
+
+/**
+ * Riwayat diurutkan dari yang PALING LAMA.
+ *
+ * Berbeda dari antrean, yang menjawab "apa berikutnya" dan karena itu
+ * menaruh yang terbaru di atas. Riwayat menjawab "apa yang sudah terjadi",
+ * dan cerita dibaca dari awal — membalik urutannya memaksa pembacanya
+ * merangkai sendiri dari belakang.
+ */
+export function sortReviewHistory(events: ReviewEvent[]): ReviewEvent[] {
+  return [...events].sort(
+    (a, b) => new Date(a.at).getTime() - new Date(b.at).getTime(),
+  );
+}
+
+/** Benar kalau biaya ini pernah dikoreksi orang lain setelah diajukan. */
+export function wasCorrected(item: ReviewItem): boolean {
+  return item.history.some((e) => e.type === "DIKOREKSI");
 }
 
 export interface FieldComparison {
@@ -269,6 +317,10 @@ export function mockExpenseReview(): ExpenseReviewData {
         date: "2026-09-09",
         items: [],
         evidenceDocumentId: "doc-1",
+        history: [
+          { type: "DIBUAT", at: "2026-09-09T08:10:00+07:00", by: "Rina Wijaya" },
+          { type: "DIAJUKAN", at: "2026-09-09T08:12:00+07:00", by: "Rina Wijaya" },
+        ],
       },
       {
         ...p1,
@@ -301,6 +353,17 @@ export function mockExpenseReview(): ExpenseReviewData {
           { description: "Isolasi 3M tebal", quantity: 6, unit: "pcs", unitPrice: 185_000 },
         ],
         evidenceDocumentId: "doc-struk-1",
+        history: [
+          { type: "DIBUAT", at: "2026-09-14T16:40:00+07:00", by: "Budi Santoso", note: "Dari struk yang difoto di site." },
+          { type: "DIAJUKAN", at: "2026-09-14T16:45:00+07:00", by: "Budi Santoso" },
+          {
+            type: "DIKOREKSI",
+            at: "2026-09-16T09:05:00+07:00",
+            by: "Pak Direktur",
+            note: "Nilai isolasi di struk 1.110.000, bukan 1.210.000 — salah baca.",
+            changes: [{ label: "Nilai", before: "9.060.000", after: "8.960.000" }],
+          },
+        ],
       },
       {
         ...p1,
@@ -324,6 +387,10 @@ export function mockExpenseReview(): ExpenseReviewData {
         date: "2026-09-17",
         items: [],
         evidenceDocumentId: null,
+        history: [
+          { type: "DIBUAT", at: "2026-09-17T19:20:00+07:00", by: "Budi Santoso" },
+          { type: "DIAJUKAN", at: "2026-09-17T19:21:00+07:00", by: "Budi Santoso" },
+        ],
       },
       {
         ...p1,
@@ -354,6 +421,15 @@ export function mockExpenseReview(): ExpenseReviewData {
           { description: "Mobilisasi material", quantity: 1, unit: "lot", unitPrice: 9_000_000 },
         ],
         evidenceDocumentId: "doc-2",
+        history: [
+          { type: "DIBUAT", at: "2026-09-18T11:00:00+07:00", by: "Budi Santoso", note: "Dari struk yang difoto di site." },
+          {
+            type: "DITOLAK",
+            at: "2026-09-18T15:30:00+07:00",
+            by: "Pak Direktur",
+            note: "Nama vendor salah ketik dan tanggalnya tidak cocok dengan surat jalan. Perbaiki lalu ajukan lagi.",
+          },
+        ],
       },
     ],
   };

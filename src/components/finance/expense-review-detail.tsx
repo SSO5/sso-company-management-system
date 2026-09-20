@@ -14,11 +14,13 @@ import {
 } from "@/components/ui/table";
 import { ExpenseCorrectionForm } from "@/components/finance/expense-correction-form";
 import { ExpenseDecisionActions } from "@/components/finance/expense-decision-actions";
+import { ExpenseReviewHistory } from "@/components/finance/expense-review-history";
 import { displayLabel } from "@/lib/display-labels";
 import {
   fieldComparisons,
   REVIEW_FLAG_MESSAGE,
   reviewFlags,
+  wasCorrected,
   type ReviewItem,
 } from "@/lib/expense-review";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -166,6 +168,17 @@ export function ExpenseReviewDetail({
             </ul>
           </div>
         )}
+
+        <div className="space-y-1.5 border-t pt-3">
+          <p className="text-sm font-medium">Riwayat</p>
+          <ExpenseReviewHistory events={item.history} />
+          {wasCorrected(item) && (
+            <p className="text-[11px] text-muted-foreground">
+              Biaya ini pernah dikoreksi setelah diajukan. Angka yang Anda lihat di
+              atas sudah termasuk koreksi itu.
+            </p>
+          )}
+        </div>
 
         <div className="space-y-1 border-t pt-3">
           <p className="text-sm font-medium">Keputusan</p>
