@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  CAPTURE_FORM_MESSAGE,
   CAPTURE_WARNING_MESSAGE,
+  changedFromExtraction,
+  initialFormValues,
   captureWarnings,
   formatFileSize,
   isPreviewableImage,
@@ -15,6 +18,7 @@ import {
   suggestVendors,
   suggestedAmount,
   sumItems,
+  validateCaptureForm,
   type ExtractedReceipt,
 } from "../src/lib/expense-capture";
 
@@ -190,5 +194,95 @@ test("ukuran berkas ditulis dalam satuan yang dibaca orang", () => {
 test("tiap penolakan berkas punya kalimat penjelasnya sendiri", () => {
   for (const key of Object.keys(RECEIPT_FILE_MESSAGE) as (keyof typeof RECEIPT_FILE_MESSAGE)[]) {
     assert.ok(RECEIPT_FILE_MESSAGE[key].length > 20, key);
+  }
+});
+
+/* --- formulir draf --- */
+
+test("nilai awal memisahkan pajak dari nilai, bukan menumpuknya", () => {
+  // ProjectExpense menyimpan total = amount + tax. Menaruh total yang sudah
+  // termasuk pajak ke kolom amount akan menghitung pajaknya dua kali.
+  const f = initialFormValues(struk({ tax: 22_000, total: 222_000 }));
+  assert.equal(f.amount, 200_000);
+  assert.equal(f.tax, 22_000);
+  assert.equal(f.amount + f.tax, 222_000);
+});
+
+test("tanpa hasil baca, formulir kosong dan bukan berisi angka karangan", () => {
+  const f = initialFormValues(null);
+  assert.equal(f.vendor, "");
+  assert.equal(f.date, "");
+  assert.equal(f.amount, 0);
+  assert.equal(f.tax, 0);
+});
+
+test("nilai tidak pernah negatif walau pajak melebihi total", () => {
+  // Struk salah baca bisa menghasilkan pajak lebih besar dari total; nilai
+  // negatif akan lolos ke draf dan mengurangi biaya proyek.
+  const f = initialFormValues(struk({ tax: 500_000, total: 200_000 }));
+  assert.equal(f.amount, 0);
+});
+
+test("keterangan diringkas, bukan menyalin seluruh struk", () => {
+  const banyak = struk({
+    items: [item(1, 1), item(1, 1), item(1, 1), item(1, 1), item(1, 1)],
+  });
+  banyak.items.forEach((it, i) => (it.description = `barang ${i + 1}`));
+  const f = initialFormValues(banyak);
+  assert.match(f.description, /barang 1, barang 2, barang 3, dan 2 barang lain/);
+});
+
+test("kolom yang diubah manusia ditandai, yang dibiarkan tidak", () => {
+  // Finance perlu tahu angka mana yang datang dari struk dan mana yang
+  // diketik ulang manusia.
+  const e = struk();
+  const awal = initialFormValues(e);
+  assert.deepEqual(changedFromExtraction(e, awal), []);
+  assert.deepEqual(changedFromExtraction(e, { ...awal, amount: 999 }), ["amount"]);
+  assert.deepEqual(
+    changedFromExtraction(e, { ...awal, vendor: "Lain", tax: 1 }).sort(),
+    ["tax", "vendor"],
+  );
+});
+
+test("memilih jenis biaya tidak dihitung sebagai mengubah hasil baca", () => {
+  // Jenis biaya memang selalu diisi manusia; menandainya hanya jadi derau.
+  const e = struk();
+  const awal = initialFormValues(e);
+  assert.deepEqual(changedFromExtraction(e, { ...awal, costTypeId: "ct-1" }), []);
+});
+
+test("jenis biaya WAJIB di jalur struk", () => {
+  // Berbeda dari pencatatan manual: draf dari struk selalu baru, dan tanpa
+  // jenis biaya ia tidak akan pernah bisa diadu dengan pagu baseline.
+  const lengkap = {
+    vendor: "Toko A",
+    date: "2026-09-19",
+    costTypeId: "ct-1",
+    description: "kabel",
+    amount: 100_000,
+    tax: 0,
+  };
+  assert.deepEqual(validateCaptureForm(lengkap), []);
+  assert.deepEqual(validateCaptureForm({ ...lengkap, costTypeId: "" }), [
+    "JENIS_BIAYA_KOSONG",
+  ]);
+});
+
+test("seluruh kekurangan dilaporkan sekaligus", () => {
+  const problems = validateCaptureForm({
+    vendor: "  ",
+    date: "",
+    costTypeId: "",
+    description: "",
+    amount: 0,
+    tax: -1,
+  });
+  assert.equal(problems.length, 6);
+});
+
+test("tiap kekurangan formulir punya kalimat penjelasnya sendiri", () => {
+  for (const key of Object.keys(CAPTURE_FORM_MESSAGE) as (keyof typeof CAPTURE_FORM_MESSAGE)[]) {
+    assert.ok(CAPTURE_FORM_MESSAGE[key].length > 15, key);
   }
 });

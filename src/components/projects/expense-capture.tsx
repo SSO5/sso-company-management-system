@@ -18,6 +18,7 @@ import {
   sumItems,
   type ExpenseCaptureDraft,
 } from "@/lib/expense-capture";
+import { CaptureDraftForm } from "@/components/projects/capture-draft-form";
 import { ReceiptUploadArea } from "@/components/projects/receipt-upload-area";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 
@@ -209,18 +210,13 @@ export function ExpenseCapture({ data }: { data: ExpenseCaptureDraft }) {
         </Card>
       )}
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Akan disimpan sebagai draf</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-xs text-muted-foreground">
-            Apa pun hasil pembacaannya, yang terbentuk adalah biaya proyek berstatus{" "}
-            <strong>DRAF</strong> yang wajib ditinjau finance sebelum masuk hitungan
-            mana pun. Sampai disetujui, angkanya tidak menyentuh papan biaya.
-          </p>
-        </CardContent>
-      </Card>
+      <CaptureDraftForm data={data} />
+
+      <p className="text-xs text-muted-foreground">
+        Apa pun hasil pembacaannya, yang terbentuk adalah biaya proyek berstatus{" "}
+        <strong>DRAF</strong> yang wajib ditinjau finance sebelum masuk hitungan mana
+        pun. Sampai disetujui, angkanya tidak menyentuh papan biaya.
+      </p>
     </div>
   );
 }

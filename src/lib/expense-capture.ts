@@ -258,3 +258,107 @@ export function isPreviewableImage(fileName: string): boolean {
   // TIDAK dianggap bisa dipratinjau walau boleh diunggah.
   return ["jpg", "jpeg", "png", "webp"].includes(ext);
 }
+
+/* ------------------------------------------------------------------ *
+ * Draf biaya hasil pembacaan
+ * ------------------------------------------------------------------ */
+
+export interface CaptureFormValues {
+  vendor: string;
+  /** ISO yyyy-mm-dd. */
+  date: string;
+  costTypeId: string;
+  description: string;
+  amount: number;
+  tax: number;
+}
+
+/** Nilai awal formulir dari hasil baca; kosong kalau tidak terbaca. */
+export function initialFormValues(
+  extracted: ExtractedReceipt | null,
+): CaptureFormValues {
+  const total = suggestedAmount(extracted);
+  const tax = extracted?.tax ?? 0;
+  return {
+    vendor: extracted?.vendor ?? "",
+    date: extracted?.date ?? "",
+    costTypeId: "",
+    // amount adalah nilai SEBELUM pajak, mengikuti bentuk ProjectExpense:
+    // total = amount + tax. Menaruh total di amount akan menghitung pajak
+    // dua kali saat disimpan.
+    description: ringkasStruk(extracted),
+    amount: Math.max(0, total - tax),
+    tax,
+  };
+}
+
+function ringkasStruk(extracted: ExtractedReceipt | null): string {
+  if (!extracted || extracted.items.length === 0) return "";
+  const nama = extracted.items.map((i) => i.description);
+  // Keterangan yang panjangnya selembar struk tidak terbaca di daftar biaya.
+  // Tiga barang pertama sudah cukup mengenali belanjaan mana ini.
+  const tiga = nama.slice(0, 3).join(", ");
+  return nama.length > 3 ? `${tiga}, dan ${nama.length - 3} barang lain` : tiga;
+}
+
+export type CaptureField = keyof CaptureFormValues;
+
+/**
+ * Kolom mana yang DIUBAH orang dari hasil baca mesin.
+ *
+ * Ditampilkan supaya finance tahu angka mana yang datang dari struk dan mana
+ * yang diketik ulang manusia. Keduanya sah, tapi bobotnya berbeda saat
+ * meninjau: angka yang diubah manusia biasanya punya alasan, dan angka yang
+ * dibiarkan apa adanya belum tentu pernah dilihat.
+ *
+ * costTypeId dan description tidak pernah dihitung sebagai "diubah": yang
+ * pertama memang selalu diisi manusia, yang kedua hanya ringkasan.
+ */
+export function changedFromExtraction(
+  extracted: ExtractedReceipt | null,
+  form: CaptureFormValues,
+): CaptureField[] {
+  const awal = initialFormValues(extracted);
+  const fields: CaptureField[] = ["vendor", "date", "amount", "tax"];
+  return fields.filter((f) => String(awal[f]) !== String(form[f]));
+}
+
+export type CaptureFormProblem =
+  | "VENDOR_KOSONG"
+  | "TANGGAL_KOSONG"
+  | "JENIS_BIAYA_KOSONG"
+  | "KETERANGAN_KOSONG"
+  | "NILAI_NOL"
+  | "PAJAK_NEGATIF";
+
+/**
+ * Memeriksa formulir sebelum draf disimpan.
+ *
+ * Jenis biaya WAJIB di sini, walau opsional pada pencatatan biasa. Alasannya
+ * berbeda: biaya yang dicatat manual mungkin sudah lama ada sebelum daftar
+ * jenis biaya dibuat, sedangkan draf dari struk selalu baru — dan draf tanpa
+ * jenis biaya tidak akan pernah bisa diadu dengan pagu baseline, yang justru
+ * seluruh alasan jalur ini dibangun.
+ */
+export function validateCaptureForm(
+  form: CaptureFormValues,
+): CaptureFormProblem[] {
+  const p: CaptureFormProblem[] = [];
+  if (!form.vendor.trim()) p.push("VENDOR_KOSONG");
+  if (!form.date) p.push("TANGGAL_KOSONG");
+  if (!form.costTypeId) p.push("JENIS_BIAYA_KOSONG");
+  if (!form.description.trim()) p.push("KETERANGAN_KOSONG");
+  if (!(form.amount > 0)) p.push("NILAI_NOL");
+  if (form.tax < 0) p.push("PAJAK_NEGATIF");
+  return p;
+}
+
+export const CAPTURE_FORM_MESSAGE: Record<CaptureFormProblem, string> = {
+  VENDOR_KOSONG: "Isi nama vendor atau tokonya.",
+  TANGGAL_KOSONG: "Isi tanggal struk.",
+  JENIS_BIAYA_KOSONG:
+    "Pilih jenis biaya. Tanpa itu, pengeluaran ini tidak bisa diadu dengan pagu baseline.",
+  KETERANGAN_KOSONG: "Isi keterangan singkat supaya finance tahu ini belanja apa.",
+  NILAI_NOL: "Nilai harus lebih dari nol.",
+  PAJAK_NEGATIF: "Pajak tidak boleh negatif.",
+};
