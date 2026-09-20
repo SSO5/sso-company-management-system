@@ -8,6 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { CostTypeActiveToggle } from "@/components/settings/cost-type-active-toggle";
 import { CostTypeFormDialog } from "@/components/settings/cost-type-form-dialog";
 import type { AccountOption } from "@/components/settings/chart-of-account-picker";
 import { displayLabel } from "@/lib/display-labels";
@@ -106,7 +107,10 @@ export function CostTypeTable({
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">
-                  <CostTypeFormDialog costType={t} accounts={accounts} />
+                  <div className="flex flex-wrap items-start justify-end gap-1.5">
+                    <CostTypeFormDialog costType={t} accounts={accounts} />
+                    <CostTypeActiveToggle costType={t} />
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

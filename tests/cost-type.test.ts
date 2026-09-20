@@ -87,3 +87,20 @@ test("data tiruan memuat kasus yang perlu terlihat di layar", () => {
   // ikut terlihat.
   assert.ok(types.some((t) => canDeleteCostType(t)));
 });
+
+test("menonaktifkan tidak mengubah riwayat pemakaian", () => {
+  // Nonaktif bukan hapus: biaya lama tetap memegang jenis ini, jadi
+  // usageCount tidak boleh ikut berubah dan tombol hapus tetap terlarang.
+  const terpakai = jenis({ usageCount: 21, isActive: true });
+  const setelahNonaktif = { ...terpakai, isActive: false };
+  assert.equal(setelahNonaktif.usageCount, terpakai.usageCount);
+  assert.equal(canDeleteCostType(setelahNonaktif), false);
+});
+
+test("jenis nonaktif hilang dari pilihan, bukan dari daftar master", () => {
+  const types = [jenis({ id: "a" }), jenis({ id: "b", isActive: false })];
+  assert.equal(selectableCostTypes(types).length, 1);
+  // Daftar masternya tetap utuh — pengelola masih harus bisa melihat dan
+  // mengaktifkannya kembali.
+  assert.equal(sortCostTypes(types).length, 2);
+});

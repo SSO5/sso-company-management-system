@@ -36,3 +36,36 @@ export async function saveCostTypeAction(
     );
   });
 }
+
+/**
+ * Menyalakan atau mematikan satu jenis biaya.
+ *
+ * Dipisah dari saveCostTypeAction karena keduanya dipakai dengan cara yang
+ * berbeda: menyunting adalah pekerjaan sadar di dalam form, sedangkan
+ * menonaktifkan dilakukan sambil lalu dari daftar. Memaksa orang membuka
+ * form hanya untuk mematikan satu baris akan membuat daftar yang sudah usang
+ * dibiarkan begitu saja.
+ *
+ * Menonaktifkan BUKAN menghapus. Biaya lama tetap memegang jenis ini; yang
+ * berubah hanya bahwa ia tidak lagi ditawarkan saat mencatat biaya baru.
+ *
+ * Seperti saveCostTypeAction, tahap ini belum menulis ke basis data dan
+ * mengatakannya apa adanya.
+ */
+export async function setCostTypeActiveAction(
+  id: string,
+  isActive: boolean,
+): Promise<ActionResult<{ id: string; isActive: boolean }>> {
+  return runAction(async () => {
+    const actor = await requireUserOrThrow();
+    requirePermission(actor.role, "settings", "update");
+
+    if (!id) throw new Error("Jenis biaya tidak dikenal.");
+
+    throw new Error(
+      `Permintaan ${isActive ? "mengaktifkan" : "menonaktifkan"} jenis biaya ` +
+        "sudah benar, tapi penyimpanan belum tersambung. Tabel jenis biaya " +
+        "dibuat pada tahap backend.",
+    );
+  });
+}
