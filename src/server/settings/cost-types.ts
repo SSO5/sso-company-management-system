@@ -187,11 +187,14 @@ export async function saveCostTypeAction(
  * form hanya untuk mematikan satu baris akan membuat daftar yang sudah usang
  * dibiarkan begitu saja.
  *
- * Menonaktifkan BUKAN menghapus. Biaya lama tetap memegang jenis ini; yang
- * berubah hanya bahwa ia tidak lagi ditawarkan saat mencatat biaya baru.
+ * Menonaktifkan BUKAN menghapus, dan itu ditegakkan di sini: kolom isActive
+ * saja yang berubah. Biaya lama tetap memegang jenis ini lewat costTypeId,
+ * jadi riwayat dan pengelompokannya tidak berubah bentuk.
  *
- * Seperti saveCostTypeAction, tahap ini belum menulis ke basis data dan
- * mengatakannya apa adanya.
+ * Jumlah pemakaian ikut dicatat di log. Menonaktifkan jenis yang menempel
+ * pada dua puluh biaya adalah peristiwa yang berbeda dari menonaktifkan yang
+ * belum pernah dipakai, dan enam bulan lagi hanya log yang bisa
+ * membedakannya.
  */
 export async function setCostTypeActiveAction(
   id: string,
@@ -203,10 +206,47 @@ export async function setCostTypeActiveAction(
 
     if (!id) throw new Error("Jenis biaya tidak dikenal.");
 
-    throw new Error(
-      `Permintaan ${isActive ? "mengaktifkan" : "menonaktifkan"} jenis biaya ` +
-        "sudah benar, tapi penyimpanan belum tersambung. Tabel jenis biaya " +
-        "dibuat pada tahap backend.",
-    );
+    const saved = await prisma.$transaction(async (tx) => {
+      const sebelum = await tx.costType.findUnique({
+        where: { id },
+        select: {
+          code: true,
+          name: true,
+          isActive: true,
+          _count: { select: { expenses: true } },
+        },
+      });
+      if (!sebelum) {
+        throw new Error("Jenis biaya ini sudah tidak ada. Muat ulang halaman.");
+      }
+
+      // Menekan tombol yang sama dua kali tidak boleh menambah baris log
+      // yang tidak menceritakan apa pun.
+      if (sebelum.isActive === isActive) {
+        return { id, isActive };
+      }
+
+      const updated = await tx.costType.update({
+        where: { id },
+        data: { isActive },
+        select: { id: true, isActive: true, code: true, name: true },
+      });
+
+      await logActivity(tx, {
+        userId: actor.userId,
+        action: "UPDATE",
+        entityType: "COST_TYPE",
+        entityId: updated.id,
+        description: isActive
+          ? `Mengaktifkan kembali jenis biaya ${updated.code} (${updated.name})`
+          : `Menonaktifkan jenis biaya ${updated.code} (${updated.name}), dipakai ${sebelum._count.expenses} biaya`,
+        metadata: { dipakai: sebelum._count.expenses, isActive },
+      });
+
+      return { id: updated.id, isActive: updated.isActive };
+    });
+
+    revalidatePath("/settings/cost-types");
+    return saved;
   });
 }
