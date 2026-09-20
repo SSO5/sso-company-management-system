@@ -163,6 +163,7 @@ export function mockProjectCommand(projectId: string): ProjectCommandData {
       { label: "Costing", href: `/sales/costing`, count: 2, hint: "1 final" },
       { label: "Penawaran", href: `/sales/quotations`, count: 1, hint: "Won" },
       { label: "PO vendor", href: `/procurement/vendor-po`, count: 4, hint: "1 belum konfirmasi" },
+      { label: "Papan biaya", href: `/projects/${projectId}/cost-board`, hint: "Baseline vs aktual" },
       { label: "Biaya proyek", href: `/finance/expenses?project=${projectId}`, count: 23, hint: "5 menunggu" },
       { label: "Invoice", href: `/finance/invoices`, count: 3, hint: "1 belum lunas" },
       { label: "Dokumen", href: `/projects/${projectId}?tab=documents`, count: 41 },
