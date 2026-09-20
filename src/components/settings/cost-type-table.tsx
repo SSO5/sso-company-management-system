@@ -8,6 +8,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  CostTypeFormDialog,
+  type AccountOption,
+} from "@/components/settings/cost-type-form-dialog";
 import { displayLabel } from "@/lib/display-labels";
 import { unmappedCostTypes, type CostType } from "@/lib/cost-type";
 import { cn } from "@/lib/utils";
@@ -23,12 +27,19 @@ import { cn } from "@/lib/utils";
  * Kolom "Dipakai" bukan hiasan: jumlah itulah yang menentukan sebuah jenis
  * boleh dihapus atau hanya boleh dinonaktifkan.
  */
-export function CostTypeTable({ types }: { types: CostType[] }) {
+export function CostTypeTable({
+  types,
+  accounts,
+}: {
+  types: CostType[];
+  accounts: AccountOption[];
+}) {
   if (types.length === 0) {
     return (
       <EmptyState
         title="Belum ada jenis biaya"
         description="Buat jenis biaya pertama untuk mulai memetakan pengeluaran proyek ke bagan akun."
+        action={<CostTypeFormDialog accounts={accounts} />}
       />
     );
   }
@@ -56,6 +67,7 @@ export function CostTypeTable({ types }: { types: CostType[] }) {
               <TableHead>Akun</TableHead>
               <TableHead className="text-right">Dipakai</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead className="sr-only">Aksi</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -94,6 +106,9 @@ export function CostTypeTable({ types }: { types: CostType[] }) {
                   <Badge variant={t.isActive ? "success" : "secondary"}>
                     {t.isActive ? "Aktif" : "Nonaktif"}
                   </Badge>
+                </TableCell>
+                <TableCell className="text-right">
+                  <CostTypeFormDialog costType={t} accounts={accounts} />
                 </TableCell>
               </TableRow>
             ))}
