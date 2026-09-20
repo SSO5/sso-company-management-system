@@ -169,3 +169,29 @@ export function mockProjectCommand(projectId: string): ProjectCommandData {
     ],
   };
 }
+
+/** Keadaan satu tahap, disimpulkan dari langkah-langkah di dalamnya. */
+export type StageState = "BLOCKED" | "ACTIVE" | "DONE" | "TODO";
+
+/**
+ * Menyimpulkan keadaan sebuah tahap dari langkah-langkahnya.
+ *
+ * Urutannya sengaja: satu langkah tertahan mengalahkan apa pun, karena itulah
+ * yang perlu dilihat lebih dulu. Tahap baru disebut selesai kalau seluruh
+ * langkahnya selesai — bukan sebagian besar.
+ */
+export function stageState(stage: CommandStage): StageState {
+  const steps = stage.steps;
+  if (steps.length === 0) return "TODO";
+  if (steps.some((s) => s.state === "BLOCKED")) return "BLOCKED";
+  if (steps.every((s) => s.state === "DONE")) return "DONE";
+  if (steps.some((s) => s.state === "ACTIVE" || s.state === "DONE")) return "ACTIVE";
+  return "TODO";
+}
+
+/** Persen langkah selesai pada satu tahap, 0–100. */
+export function stageProgress(stage: CommandStage): number {
+  if (stage.steps.length === 0) return 0;
+  const done = stage.steps.filter((s) => s.state === "DONE").length;
+  return Math.round((done / stage.steps.length) * 100);
+}

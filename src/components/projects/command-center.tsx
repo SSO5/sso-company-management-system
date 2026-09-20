@@ -1,20 +1,10 @@
 import Link from "next/link";
-import {
-  ArrowRight,
-  Check,
-  CircleDashed,
-  Loader,
-  TriangleAlert,
-} from "lucide-react";
+import { TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ProjectFlowOverview } from "@/components/projects/project-flow-overview";
 import { cn, formatCurrency } from "@/lib/utils";
-import type {
-  CommandStage,
-  CommandStep,
-  CommandStepState,
-  ProjectCommandData,
-} from "@/lib/project-command";
+import type { ProjectCommandData } from "@/lib/project-command";
 
 /**
  * Project Command Center.
@@ -27,87 +17,6 @@ import type {
  * Semua angka datang jadi dari lapisan data, supaya layar ini tidak pernah
  * bisa berbeda dari laporan.
  */
-
-const stepIcon: Record<CommandStepState, typeof Check> = {
-  DONE: Check,
-  ACTIVE: Loader,
-  BLOCKED: TriangleAlert,
-  TODO: CircleDashed,
-};
-
-const stepTone: Record<CommandStepState, string> = {
-  DONE: "text-success",
-  ACTIVE: "text-primary",
-  BLOCKED: "text-destructive",
-  TODO: "text-muted-foreground",
-};
-
-function StepRow({ step }: { step: CommandStep }) {
-  const Icon = stepIcon[step.state];
-  const body = (
-    <div
-      className={cn(
-        "flex items-start gap-2.5 rounded-md px-2 py-1.5 transition-colors",
-        step.href && "hover:bg-muted",
-      )}
-    >
-      <Icon className={cn("mt-0.5 h-4 w-4 shrink-0", stepTone[step.state])} />
-      <div className="min-w-0 flex-1">
-        <p
-          className={cn(
-            "text-sm",
-            step.state === "TODO" && "text-muted-foreground",
-            step.state === "BLOCKED" && "font-medium",
-          )}
-        >
-          {step.label}
-        </p>
-        {step.detail && (
-          <p className="text-[11px] text-muted-foreground">{step.detail}</p>
-        )}
-      </div>
-      {step.href && (
-        <ArrowRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-      )}
-    </div>
-  );
-
-  return step.href ? (
-    <Link href={step.href} className="block">
-      {body}
-    </Link>
-  ) : (
-    body
-  );
-}
-
-function StageCard({ stage }: { stage: CommandStage }) {
-  const blocked = stage.steps.filter((s) => s.state === "BLOCKED").length;
-  const done = stage.steps.filter((s) => s.state === "DONE").length;
-
-  return (
-    <Card className="flex h-full flex-col">
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-sm">{stage.title}</CardTitle>
-          {blocked > 0 ? (
-            <Badge variant="destructive">{blocked} tertahan</Badge>
-          ) : (
-            <span className="text-[11px] text-muted-foreground">
-              {done}/{stage.steps.length} selesai
-            </span>
-          )}
-        </div>
-        <p className="text-[11px] text-muted-foreground">{stage.caption}</p>
-      </CardHeader>
-      <CardContent className="flex-1 space-y-0.5 pt-0">
-        {stage.steps.map((step, i) => (
-          <StepRow key={i} step={step} />
-        ))}
-      </CardContent>
-    </Card>
-  );
-}
 
 function SnapshotFigure({
   label,
@@ -233,11 +142,7 @@ export function ProjectCommandCenter({ data }: { data: ProjectCommandData }) {
 
       {/* Ikhtisar alur proyek: Komersial → Pengadaan → Pelaksanaan → Kendali,
           urutan yang sama dengan jalannya pekerjaan yang sebenarnya. */}
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {stages.map((stage) => (
-          <StageCard key={stage.key} stage={stage} />
-        ))}
-      </div>
+      <ProjectFlowOverview stages={stages} />
 
       {/* Tautan cepat modul — semuanya menuju modul yang sudah ada, tidak
           ada layar baru yang perlu dipelajari ulang. */}

@@ -1,0 +1,2346 @@
+{
+  "repo": "SSO5/sso-company-management-system",
+  "generatedForCommit": "13230ba970b1607189363d7005bbd95abe7bb291",
+  "files": [
+    {
+      "path": ".claude/skills/ngodingpakeai/SKILL.md",
+      "reason": "needs_summary",
+      "language": "markdown",
+      "size": 19096
+    },
+    {
+      "path": ".eslintrc.json",
+      "reason": "needs_summary",
+      "language": "json",
+      "size": 40
+    },
+    {
+      "path": ".github/workflows/backup-daily.yml",
+      "reason": "needs_summary",
+      "language": "yaml",
+      "size": 1495
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "reason": "needs_summary",
+      "language": "yaml",
+      "size": 539
+    },
+    {
+      "path": ".github/workflows/cron-daily.yml",
+      "reason": "needs_summary",
+      "language": "yaml",
+      "size": 1256
+    },
+    {
+      "path": ".github/workflows/cron-directives.yml",
+      "reason": "needs_summary",
+      "language": "yaml",
+      "size": 1617
+    },
+    {
+      "path": ".github/workflows/db-diagnose-dwiki-login.yml",
+      "reason": "needs_summary",
+      "language": "yaml",
+      "size": 2327
+    },
+    {
+      "path": ".github/workflows/db-diagnose-invoice-withholding.yml",
+      "reason": "needs_summary",
+      "language": "yaml",
+      "size": 4161
+    },
+    {
+      "path": ".github/workflows/db-diagnose-revision-history.yml",
+      "reason": "needs_summary",
+      "language": "yaml",
+      "size": 3427
+    },
+    {
+      "path": ".github/workflows/db-diagnose-usage-audit.yml",
+      "reason": "needs_summary",
+      "language": "yaml",
+      "size": 4547
+    },
+    {
+      "path": ".github/workflows/db-repair-dangling-quotation-link.yml",
+      "reason": "needs_summary",
+      "language": "yaml",
+      "size": 4071
+    },
+    {
+      "path": ".github/workflows/db-repair-invoice-stuck-overdue.yml",
+      "reason": "needs_summary",
+      "language": "yaml",
+      "size": 3728
+    },
+    {
+      "path": ".github/workflows/db-repair-reset-dwiki-password.yml",
+      "reason": "needs_summary",
+      "language": "yaml",
+      "size": 1770
+    },
+    {
+      "path": ".github/workflows/db-repair-unlock-dwiki.yml",
+      "reason": "needs_summary",
+      "language": "yaml",
+      "size": 1590
+    },
+    {
+      "path": ".github/workflows/db-schema-assistant-pending-action.yml",
+      "reason": "needs_summary",
+      "language": "yaml",
+      "size": 2064
+    },
+    {
+      "path": ".github/workflows/db-schema-directive-notified-at.yml",
+      "reason": "needs_summary",
+      "language": "yaml",
+      "size": 1654
+    },
+    {
+      "path": ".github/workflows/db-schema-directive.yml",
+      "reason": "needs_summary",
+      "language": "yaml",
+      "size": 2841
+    },
+    {
+      "path": ".github/workflows/db-schema-general-ledger-phase1.yml",
+      "reason": "needs_summary",
+      "language": "yaml",
+      "size": 5896
+    },
+    {
+      "path": ".github/workflows/db-schema-login-lockout.yml",
+      "reason": "needs_summary",
+      "language": "yaml",
+      "size": 1583
+    },
+    {
+      "path": ".github/workflows/db-schema-progress-report-item-quantity.yml",
+      "reason": "needs_summary",
+      "language": "yaml",
+      "size": 1483
+    },
+    {
+      "path": ".github/workflows/db-schema-revision-history.yml",
+      "reason": "needs_summary",
+      "language": "yaml",
+      "size": 3382
+    },
+    {
+      "path": ".github/workflows/db-schema-telegram-automation.yml",
+      "reason": "needs_summary",
+      "language": "yaml",
+      "size": 2411
+    },
+    {
+      "path": ".github/workflows/db-schema-telegram-costing-draft.yml",
+      "reason": "needs_summary",
+      "language": "yaml",
+      "size": 2280
+    },
+    {
+      "path": ".github/workflows/db-schema-telegram-pending-invoice.yml",
+      "reason": "needs_summary",
+      "language": "yaml",
+      "size": 2170
+    },
+    {
+      "path": ".github/workflows/db-schema-telegram-pending-progress-report.yml",
+      "reason": "needs_summary",
+      "language": "yaml",
+      "size": 2197
+    },
+    {
+      "path": ".github/workflows/db-schema-theme-avatar.yml",
+      "reason": "needs_summary",
+      "language": "yaml",
+      "size": 2123
+    },
+    {
+      "path": ".github/workflows/db-schema-ui-mood.yml",
+      "reason": "needs_summary",
+      "language": "yaml",
+      "size": 1448
+    },
+    {
+      "path": ".github/workflows/db-schema-vendor-po-expense-link.yml",
+      "reason": "needs_summary",
+      "language": "yaml",
+      "size": 2108
+    },
+    {
+      "path": ".github/workflows/db-seed-chart-of-accounts.yml",
+      "reason": "needs_summary",
+      "language": "yaml",
+      "size": 6465
+    },
+    {
+      "path": ".github/workflows/neon-migration.yml",
+      "reason": "needs_summary",
+      "language": "yaml",
+      "size": 2926
+    },
+    {
+      "path": ".gitignore",
+      "reason": "needs_summary",
+      "language": null,
+      "size": 365
+    },
+    {
+      "path": ".ngodingpakeaiignore",
+      "reason": "needs_summary",
+      "language": null,
+      "size": 269
+    },
+    {
+      "path": ".vercelignore",
+      "reason": "needs_summary",
+      "language": null,
+      "size": 240
+    },
+    {
+      "path": "AGENTS.md",
+      "reason": "needs_summary",
+      "language": "markdown",
+      "size": 18850
+    },
+    {
+      "path": "README.md",
+      "reason": "needs_summary",
+      "language": "markdown",
+      "size": 9279
+    },
+    {
+      "path": "delete-registry.sql",
+      "reason": "needs_summary",
+      "language": "sql",
+      "size": 36
+    },
+    {
+      "path": "docs/AUDIT-ALUR-PEMANTAUAN-PROYEK-2026-09-14.md",
+      "reason": "needs_summary",
+      "language": "markdown",
+      "size": 6803
+    },
+    {
+      "path": "docs/AUDIT-LANJUTAN-2026-09-14.md",
+      "reason": "needs_summary",
+      "language": "markdown",
+      "size": 6180
+    },
+    {
+      "path": "docs/COMMAND-FLOW-RELEASE.md",
+      "reason": "needs_summary",
+      "language": "markdown",
+      "size": 3602
+    },
+    {
+      "path": "docs/KEBUTUHAN-PANTAUAN-PROYEK-WAWANCARA-2026-09-14.md",
+      "reason": "needs_summary",
+      "language": "markdown",
+      "size": 9500
+    },
+    {
+      "path": "docs/RILIS-FINANCE-DAN-PRATINJAU-2026-09-14.md",
+      "reason": "needs_summary",
+      "language": "markdown",
+      "size": 6282
+    },
+    {
+      "path": "docs/RILIS-PANTAUAN-MINGGUAN-2026-09-14.md",
+      "reason": "needs_summary",
+      "language": "markdown",
+      "size": 5159
+    },
+    {
+      "path": "docs/UX-AUDIT-2026-09-14.md",
+      "reason": "needs_summary",
+      "language": "markdown",
+      "size": 4774
+    },
+    {
+      "path": "docs/application-blueprint/00-AUDIT-STATE.md",
+      "reason": "needs_summary",
+      "language": "markdown",
+      "size": 7074
+    },
+    {
+      "path": "docs/application-blueprint/01-EVIDENCE-NOTES.md",
+      "reason": "needs_summary",
+      "language": "markdown",
+      "size": 11666
+    },
+    {
+      "path": "docs/application-blueprint/10-PAGE-APPLICATION-BLUEPRINT.md",
+      "reason": "needs_summary",
+      "language": "markdown",
+      "size": 31488
+    },
+    {
+      "path": "next.config.mjs",
+      "reason": "needs_summary",
+      "language": "javascript",
+      "size": 198
+    },
+    {
+      "path": "package-lock.json",
+      "reason": "needs_summary",
+      "language": "json",
+      "size": 417101
+    },
+    {
+      "path": "package.json",
+      "reason": "needs_summary",
+      "language": "json",
+      "size": 2891
+    },
+    {
+      "path": "postcss.config.mjs",
+      "reason": "needs_summary",
+      "language": "javascript",
+      "size": 81
+    },
+    {
+      "path": "prisma/backfill-customer-po.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 6844
+    },
+    {
+      "path": "prisma/backfill-milestones.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 9292
+    },
+    {
+      "path": "prisma/backfill-withholding-tax.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 3835
+    },
+    {
+      "path": "prisma/cleanup-placeholder-milestones.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2993
+    },
+    {
+      "path": "prisma/delete-company-folders.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4967
+    },
+    {
+      "path": "prisma/delete-customer.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 7357
+    },
+    {
+      "path": "prisma/delete-opportunity.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 7443
+    },
+    {
+      "path": "prisma/delete-user-by-email.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1460
+    },
+    {
+      "path": "prisma/deploy/20260914-finance.sql",
+      "reason": "needs_summary",
+      "language": "sql",
+      "size": 1128
+    },
+    {
+      "path": "prisma/deploy/20260914-weekly.sql",
+      "reason": "needs_summary",
+      "language": "sql",
+      "size": 2876
+    },
+    {
+      "path": "prisma/diagnose-import.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 6617
+    },
+    {
+      "path": "prisma/fix-deal-stage.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 6443
+    },
+    {
+      "path": "prisma/fix-login.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4427
+    },
+    {
+      "path": "prisma/go.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4671
+    },
+    {
+      "path": "prisma/import-documents.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 17988
+    },
+    {
+      "path": "prisma/list-users.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1581
+    },
+    {
+      "path": "prisma/merge-users.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 6008
+    },
+    {
+      "path": "prisma/operational-followups.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 7712
+    },
+    {
+      "path": "prisma/reconcile-invoices-dp.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 10547
+    },
+    {
+      "path": "prisma/reconcile-jpc.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 15608
+    },
+    {
+      "path": "prisma/report-orphan-customers.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2422
+    },
+    {
+      "path": "prisma/reset-data.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2279
+    },
+    {
+      "path": "prisma/reset-financials.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 3805
+    },
+    {
+      "path": "prisma/reset.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1890
+    },
+    {
+      "path": "prisma/schema.prisma",
+      "reason": "needs_summary",
+      "language": "prisma",
+      "size": 72633
+    },
+    {
+      "path": "prisma/seed.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 40418
+    },
+    {
+      "path": "prisma/split-bpn-payment.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 6052
+    },
+    {
+      "path": "prisma/sync-number-sequences.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 6491
+    },
+    {
+      "path": "prisma/update-user.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1449
+    },
+    {
+      "path": "private-storage/.gitkeep",
+      "reason": "needs_summary",
+      "language": null,
+      "size": 0
+    },
+    {
+      "path": "scripts/apply-weekly-schema.mjs",
+      "reason": "needs_summary",
+      "language": "javascript",
+      "size": 2305
+    },
+    {
+      "path": "scripts/check-weekly-pdf.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1357
+    },
+    {
+      "path": "src/app/(app)/activity-log/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1115
+    },
+    {
+      "path": "src/app/(app)/dashboard/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4847
+    },
+    {
+      "path": "src/app/(app)/data/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 11157
+    },
+    {
+      "path": "src/app/(app)/data/review/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 5057
+    },
+    {
+      "path": "src/app/(app)/documents/[folderId]/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 10514
+    },
+    {
+      "path": "src/app/(app)/documents/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 471
+    },
+    {
+      "path": "src/app/(app)/documents/trash/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2933
+    },
+    {
+      "path": "src/app/(app)/error.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1368
+    },
+    {
+      "path": "src/app/(app)/finance/company-expenses/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 978
+    },
+    {
+      "path": "src/app/(app)/finance/expenses/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4031
+    },
+    {
+      "path": "src/app/(app)/finance/invoices/[id]/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 7674
+    },
+    {
+      "path": "src/app/(app)/finance/invoices/new/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2521
+    },
+    {
+      "path": "src/app/(app)/finance/invoices/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4081
+    },
+    {
+      "path": "src/app/(app)/finance/layout.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 358
+    },
+    {
+      "path": "src/app/(app)/finance/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 255
+    },
+    {
+      "path": "src/app/(app)/finance/payments/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2448
+    },
+    {
+      "path": "src/app/(app)/finance/receivables/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4035
+    },
+    {
+      "path": "src/app/(app)/layout.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1982
+    },
+    {
+      "path": "src/app/(app)/loading.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1146
+    },
+    {
+      "path": "src/app/(app)/notifications/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 743
+    },
+    {
+      "path": "src/app/(app)/numbering/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2043
+    },
+    {
+      "path": "src/app/(app)/procurement/vendor-po/[id]/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 9365
+    },
+    {
+      "path": "src/app/(app)/procurement/vendor-po/new/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 3132
+    },
+    {
+      "path": "src/app/(app)/procurement/vendor-po/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 5255
+    },
+    {
+      "path": "src/app/(app)/projects/[id]/command/page.tsx",
+      "reason": "new",
+      "language": "typescript",
+      "size": 1000
+    },
+    {
+      "path": "src/app/(app)/projects/[id]/page.tsx",
+      "reason": "changed",
+      "language": "typescript",
+      "size": 5816
+    },
+    {
+      "path": "src/app/(app)/projects/folders/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1942
+    },
+    {
+      "path": "src/app/(app)/projects/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4595
+    },
+    {
+      "path": "src/app/(app)/reports/executive/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2468
+    },
+    {
+      "path": "src/app/(app)/reports/finance/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 113
+    },
+    {
+      "path": "src/app/(app)/reports/profitability/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 113
+    },
+    {
+      "path": "src/app/(app)/reports/project/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 3634
+    },
+    {
+      "path": "src/app/(app)/reports/sales/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2020
+    },
+    {
+      "path": "src/app/(app)/sales/contacts/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2309
+    },
+    {
+      "path": "src/app/(app)/sales/contracts/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2895
+    },
+    {
+      "path": "src/app/(app)/sales/costing/[id]/edit/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2304
+    },
+    {
+      "path": "src/app/(app)/sales/costing/[id]/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 11350
+    },
+    {
+      "path": "src/app/(app)/sales/costing/new/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1897
+    },
+    {
+      "path": "src/app/(app)/sales/costing/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2877
+    },
+    {
+      "path": "src/app/(app)/sales/customers/[id]/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 5737
+    },
+    {
+      "path": "src/app/(app)/sales/customers/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2734
+    },
+    {
+      "path": "src/app/(app)/sales/opportunities/[id]/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 11630
+    },
+    {
+      "path": "src/app/(app)/sales/opportunities/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 6173
+    },
+    {
+      "path": "src/app/(app)/sales/purchase-orders/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 3487
+    },
+    {
+      "path": "src/app/(app)/sales/quotations/[id]/edit/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2820
+    },
+    {
+      "path": "src/app/(app)/sales/quotations/[id]/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 9310
+    },
+    {
+      "path": "src/app/(app)/sales/quotations/new/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2936
+    },
+    {
+      "path": "src/app/(app)/sales/quotations/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2799
+    },
+    {
+      "path": "src/app/(app)/search/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1233
+    },
+    {
+      "path": "src/app/(app)/settings/chart-of-accounts/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2387
+    },
+    {
+      "path": "src/app/(app)/settings/company/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 584
+    },
+    {
+      "path": "src/app/(app)/settings/document-correction/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2578
+    },
+    {
+      "path": "src/app/(app)/settings/integrations/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4038
+    },
+    {
+      "path": "src/app/(app)/settings/manual/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 658
+    },
+    {
+      "path": "src/app/(app)/settings/numbering/page.tsx.removed",
+      "reason": "needs_summary",
+      "language": null,
+      "size": 500
+    },
+    {
+      "path": "src/app/(app)/settings/profile/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 521
+    },
+    {
+      "path": "src/app/(app)/settings/storage/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 703
+    },
+    {
+      "path": "src/app/(app)/settings/theme/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 887
+    },
+    {
+      "path": "src/app/(app)/settings/users/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2567
+    },
+    {
+      "path": "src/app/(app)/tasks/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1609
+    },
+    {
+      "path": "src/app/(app)/work/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1912
+    },
+    {
+      "path": "src/app/(auth)/login/actions.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 3100
+    },
+    {
+      "path": "src/app/(auth)/login/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 5151
+    },
+    {
+      "path": "src/app/(auth)/login/types.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 54
+    },
+    {
+      "path": "src/app/api/auth/logout/route.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 575
+    },
+    {
+      "path": "src/app/api/branding/[...key]/route.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1404
+    },
+    {
+      "path": "src/app/api/costing/[id]/excel/route.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 13281
+    },
+    {
+      "path": "src/app/api/costing/[id]/pdf/route.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 5784
+    },
+    {
+      "path": "src/app/api/cron/daily/route.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2516
+    },
+    {
+      "path": "src/app/api/cron/directives/route.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1347
+    },
+    {
+      "path": "src/app/api/files/[id]/preview/route.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1534
+    },
+    {
+      "path": "src/app/api/files/[id]/route.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2473
+    },
+    {
+      "path": "src/app/api/invoices/[id]/pdf/route.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 3807
+    },
+    {
+      "path": "src/app/api/procurement/vendor-po/[id]/pdf/route.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 3594
+    },
+    {
+      "path": "src/app/api/progress-reports/[id]/pdf/route.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1428
+    },
+    {
+      "path": "src/app/api/progress-reports/photo/[...key]/route.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1730
+    },
+    {
+      "path": "src/app/api/quotations/[id]/pdf/route.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1957
+    },
+    {
+      "path": "src/app/api/report-reviews/[id]/pdf/route.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1723
+    },
+    {
+      "path": "src/app/api/telegram/webhook/route.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 21031
+    },
+    {
+      "path": "src/app/globals.css",
+      "reason": "needs_summary",
+      "language": "css",
+      "size": 9198
+    },
+    {
+      "path": "src/app/layout.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1284
+    },
+    {
+      "path": "src/app/manifest.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1165
+    },
+    {
+      "path": "src/app/not-found.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 657
+    },
+    {
+      "path": "src/app/page.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 224
+    },
+    {
+      "path": "src/components/assistant/assistant-widget.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 13126
+    },
+    {
+      "path": "src/components/dashboard/action-items-panel.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2632
+    },
+    {
+      "path": "src/components/dashboard/ai-smart-upload-card.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 9905
+    },
+    {
+      "path": "src/components/dashboard/document-checklist-panel.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 6532
+    },
+    {
+      "path": "src/components/dashboard/notifications-panel.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4981
+    },
+    {
+      "path": "src/components/dashboard/profile-hub.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 10964
+    },
+    {
+      "path": "src/components/dashboard/weekly-overview.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4879
+    },
+    {
+      "path": "src/components/documents/checklist-upload-dialog.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 9255
+    },
+    {
+      "path": "src/components/documents/cleanup-button.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1459
+    },
+    {
+      "path": "src/components/documents/document-preview.css",
+      "reason": "needs_summary",
+      "language": "css",
+      "size": 1206
+    },
+    {
+      "path": "src/components/documents/document-preview.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 11097
+    },
+    {
+      "path": "src/components/documents/document-row-actions.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1248
+    },
+    {
+      "path": "src/components/documents/documents-list-with-panel.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 5930
+    },
+    {
+      "path": "src/components/documents/upload-dialog.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2314
+    },
+    {
+      "path": "src/components/finance/billing-schedule-card.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 3543
+    },
+    {
+      "path": "src/components/finance/company-expense-panel.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 8674
+    },
+    {
+      "path": "src/components/finance/finance-workspace.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 57122
+    },
+    {
+      "path": "src/components/finance/invoice-actions.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2883
+    },
+    {
+      "path": "src/components/finance/invoice-form.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 14824
+    },
+    {
+      "path": "src/components/finance/record-payment-dialog.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 7483
+    },
+    {
+      "path": "src/components/layout/app-shell.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1765
+    },
+    {
+      "path": "src/components/layout/mood-switcher.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4212
+    },
+    {
+      "path": "src/components/layout/route-motion.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 460
+    },
+    {
+      "path": "src/components/layout/sidebar.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 16329
+    },
+    {
+      "path": "src/components/layout/topbar.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4556
+    },
+    {
+      "path": "src/components/layout/workspace.css",
+      "reason": "needs_summary",
+      "language": "css",
+      "size": 6578
+    },
+    {
+      "path": "src/components/numbering/number-registry-panel.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 14094
+    },
+    {
+      "path": "src/components/projects/closing-panel.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 3031
+    },
+    {
+      "path": "src/components/projects/command-center.tsx",
+      "reason": "new",
+      "language": "typescript",
+      "size": 9182
+    },
+    {
+      "path": "src/components/projects/documents-panel.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 16659
+    },
+    {
+      "path": "src/components/projects/expense-panel.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 13212
+    },
+    {
+      "path": "src/components/projects/financial-view.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 7787
+    },
+    {
+      "path": "src/components/projects/followup-panel.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 10438
+    },
+    {
+      "path": "src/components/projects/job-number-field.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2351
+    },
+    {
+      "path": "src/components/projects/milestone-panel.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 16050
+    },
+    {
+      "path": "src/components/projects/po-edit-dialog.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 5115
+    },
+    {
+      "path": "src/components/projects/po-extract-upload-dialog.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 9714
+    },
+    {
+      "path": "src/components/projects/po-row-actions.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1451
+    },
+    {
+      "path": "src/components/projects/progress-report-documents-panel.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 13450
+    },
+    {
+      "path": "src/components/projects/project-detail-tabs.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 7644
+    },
+    {
+      "path": "src/components/projects/project-status-select.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1919
+    },
+    {
+      "path": "src/components/projects/report-item-editor.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2251
+    },
+    {
+      "path": "src/components/projects/s-curve-panel.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4600
+    },
+    {
+      "path": "src/components/projects/task-panel.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 6185
+    },
+    {
+      "path": "src/components/projects/weekly-workspace.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 46466
+    },
+    {
+      "path": "src/components/reports/charts.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2779
+    },
+    {
+      "path": "src/components/sales/activate-contract-dialog.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2477
+    },
+    {
+      "path": "src/components/sales/contact-form-dialog.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 3556
+    },
+    {
+      "path": "src/components/sales/contract-form-dialog.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4214
+    },
+    {
+      "path": "src/components/sales/convert-costing-dialog.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 7146
+    },
+    {
+      "path": "src/components/sales/convert-revised-costing-button.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1502
+    },
+    {
+      "path": "src/components/sales/costing-form.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 10142
+    },
+    {
+      "path": "src/components/sales/costing-revision-history.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 3772
+    },
+    {
+      "path": "src/components/sales/costing-section-card.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 6510
+    },
+    {
+      "path": "src/components/sales/customer-form-dialog.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4046
+    },
+    {
+      "path": "src/components/sales/customer-po-panel.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 3241
+    },
+    {
+      "path": "src/components/sales/opportunity-delete-button.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 3223
+    },
+    {
+      "path": "src/components/sales/opportunity-form-dialog.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 6540
+    },
+    {
+      "path": "src/components/sales/opportunity-stage-select.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1607
+    },
+    {
+      "path": "src/components/sales/po-form-dialog.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4451
+    },
+    {
+      "path": "src/components/sales/quotation-actions.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 8411
+    },
+    {
+      "path": "src/components/sales/quotation-form.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 12163
+    },
+    {
+      "path": "src/components/sales/quotation-revision-history.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 3209
+    },
+    {
+      "path": "src/components/sales/revise-costing-button.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1240
+    },
+    {
+      "path": "src/components/sales/vendor-po-actions.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4637
+    },
+    {
+      "path": "src/components/sales/vendor-po-form.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 12864
+    },
+    {
+      "path": "src/components/settings/chart-of-account-form-dialog.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 5181
+    },
+    {
+      "path": "src/components/settings/company-form.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 5497
+    },
+    {
+      "path": "src/components/settings/create-user-dialog.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 3416
+    },
+    {
+      "path": "src/components/settings/document-correction-panel.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 46460
+    },
+    {
+      "path": "src/components/settings/edit-user-dialog.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 6905
+    },
+    {
+      "path": "src/components/settings/numbering-form.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 3503
+    },
+    {
+      "path": "src/components/settings/profile-form.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4992
+    },
+    {
+      "path": "src/components/settings/storage-health-card.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4488
+    },
+    {
+      "path": "src/components/settings/system-manual-tabs.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 37666
+    },
+    {
+      "path": "src/components/settings/theme-form.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4244
+    },
+    {
+      "path": "src/components/settings/user-active-toggle.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 707
+    },
+    {
+      "path": "src/components/tasks/directive-giver-panel.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 9588
+    },
+    {
+      "path": "src/components/tasks/my-directives-panel.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 7710
+    },
+    {
+      "path": "src/components/ui/badge.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1041
+    },
+    {
+      "path": "src/components/ui/button.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1617
+    },
+    {
+      "path": "src/components/ui/card.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1925
+    },
+    {
+      "path": "src/components/ui/currency-input.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2841
+    },
+    {
+      "path": "src/components/ui/dialog.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 5112
+    },
+    {
+      "path": "src/components/ui/empty-state.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 501
+    },
+    {
+      "path": "src/components/ui/input.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 638
+    },
+    {
+      "path": "src/components/ui/label.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 340
+    },
+    {
+      "path": "src/components/ui/select.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 609
+    },
+    {
+      "path": "src/components/ui/skeleton.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 184
+    },
+    {
+      "path": "src/components/ui/table.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1344
+    },
+    {
+      "path": "src/components/ui/tabs.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 850
+    },
+    {
+      "path": "src/components/ui/textarea.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 626
+    },
+    {
+      "path": "src/components/ui/toast.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2726
+    },
+    {
+      "path": "src/lib/action-helpers.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1915
+    },
+    {
+      "path": "src/lib/ai/assistant-tools.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 176583
+    },
+    {
+      "path": "src/lib/ai/classify-document.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 5252
+    },
+    {
+      "path": "src/lib/ai/client.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 3113
+    },
+    {
+      "path": "src/lib/ai/extract-progress-report.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 5264
+    },
+    {
+      "path": "src/lib/ai/extract-purchase-order.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4361
+    },
+    {
+      "path": "src/lib/ai/parse-costing-draft.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4339
+    },
+    {
+      "path": "src/lib/ai/parse-invoice-command.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2702
+    },
+    {
+      "path": "src/lib/ai/parse-progress-report-command.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1880
+    },
+    {
+      "path": "src/lib/ai/parse-revision-command.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4569
+    },
+    {
+      "path": "src/lib/auth/current-user.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1164
+    },
+    {
+      "path": "src/lib/auth/password.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 297
+    },
+    {
+      "path": "src/lib/auth/session.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2233
+    },
+    {
+      "path": "src/lib/db.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1756
+    },
+    {
+      "path": "src/lib/display-labels.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1352
+    },
+    {
+      "path": "src/lib/document-folder-options.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 3797
+    },
+    {
+      "path": "src/lib/document-preview.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 5086
+    },
+    {
+      "path": "src/lib/finance-overview.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1636
+    },
+    {
+      "path": "src/lib/image/remove-signature-background.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1454
+    },
+    {
+      "path": "src/lib/invoice-summary.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 687
+    },
+    {
+      "path": "src/lib/nav.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 7883
+    },
+    {
+      "path": "src/lib/notifications/config.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2553
+    },
+    {
+      "path": "src/lib/notifications/dispatch.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4272
+    },
+    {
+      "path": "src/lib/notifications/email.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2796
+    },
+    {
+      "path": "src/lib/notifications/notify-and-send.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2216
+    },
+    {
+      "path": "src/lib/notifications/telegram.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 3856
+    },
+    {
+      "path": "src/lib/notifications/whatsapp-cloud.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4955
+    },
+    {
+      "path": "src/lib/notifications/whatsapp-fonnte.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1649
+    },
+    {
+      "path": "src/lib/notifications/whatsapp-types.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 718
+    },
+    {
+      "path": "src/lib/notifications/whatsapp.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1775
+    },
+    {
+      "path": "src/lib/numbering.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 5231
+    },
+    {
+      "path": "src/lib/pdf/branding.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 769
+    },
+    {
+      "path": "src/lib/pdf/costing-document.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 11008
+    },
+    {
+      "path": "src/lib/pdf/extract-embedded-images.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2449
+    },
+    {
+      "path": "src/lib/pdf/format.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1677
+    },
+    {
+      "path": "src/lib/pdf/invoice-document.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 15405
+    },
+    {
+      "path": "src/lib/pdf/progress-report-document.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 14652
+    },
+    {
+      "path": "src/lib/pdf/quotation-document.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 15059
+    },
+    {
+      "path": "src/lib/pdf/render-progress-report-pdf.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 5195
+    },
+    {
+      "path": "src/lib/pdf/render-quotation-pdf.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4613
+    },
+    {
+      "path": "src/lib/pdf/vendor-po-document.tsx",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 15079
+    },
+    {
+      "path": "src/lib/permissions.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 9998
+    },
+    {
+      "path": "src/lib/project-command.ts",
+      "reason": "new",
+      "language": "typescript",
+      "size": 6777
+    },
+    {
+      "path": "src/lib/project-cost.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2615
+    },
+    {
+      "path": "src/lib/storage.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 10935
+    },
+    {
+      "path": "src/lib/theme-presets.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1461
+    },
+    {
+      "path": "src/lib/ui-moods.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1172
+    },
+    {
+      "path": "src/lib/utils.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2166
+    },
+    {
+      "path": "src/lib/validation/auth.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 3403
+    },
+    {
+      "path": "src/lib/validation/costing.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 3088
+    },
+    {
+      "path": "src/lib/validation/finance.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4223
+    },
+    {
+      "path": "src/lib/validation/numbering.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 3177
+    },
+    {
+      "path": "src/lib/validation/project.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4538
+    },
+    {
+      "path": "src/lib/validation/sales.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 9631
+    },
+    {
+      "path": "src/lib/weekly-comparison.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2439
+    },
+    {
+      "path": "src/lib/weekly-policy.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1405
+    },
+    {
+      "path": "src/lib/workflows/audit.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 864
+    },
+    {
+      "path": "src/lib/workflows/calculations.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 28912
+    },
+    {
+      "path": "src/lib/workflows/company-expense.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 6157
+    },
+    {
+      "path": "src/lib/workflows/corrections.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 23638
+    },
+    {
+      "path": "src/lib/workflows/costing-adjustment.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 3319
+    },
+    {
+      "path": "src/lib/workflows/costing.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 25099
+    },
+    {
+      "path": "src/lib/workflows/cron-jobs.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 14978
+    },
+    {
+      "path": "src/lib/workflows/documents.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4839
+    },
+    {
+      "path": "src/lib/workflows/expense.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 6661
+    },
+    {
+      "path": "src/lib/workflows/finance.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 15227
+    },
+    {
+      "path": "src/lib/workflows/folders.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 15131
+    },
+    {
+      "path": "src/lib/workflows/generate-progress-report.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 6266
+    },
+    {
+      "path": "src/lib/workflows/notify.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2444
+    },
+    {
+      "path": "src/lib/workflows/numbering-registry.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2487
+    },
+    {
+      "path": "src/lib/workflows/progress-report.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4743
+    },
+    {
+      "path": "src/lib/workflows/project.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 19131
+    },
+    {
+      "path": "src/lib/workflows/quotation-intake.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 3232
+    },
+    {
+      "path": "src/lib/workflows/quotation.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 24067
+    },
+    {
+      "path": "src/lib/workflows/report-review.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1867
+    },
+    {
+      "path": "src/lib/workflows/revision-history.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4765
+    },
+    {
+      "path": "src/lib/workflows/telegram-automation.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 5882
+    },
+    {
+      "path": "src/lib/workflows/telegram-costing-draft.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 8720
+    },
+    {
+      "path": "src/lib/workflows/telegram-invoice.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4355
+    },
+    {
+      "path": "src/lib/workflows/telegram-progress-report.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1884
+    },
+    {
+      "path": "src/lib/workflows/vendor-po.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 9818
+    },
+    {
+      "path": "src/lib/workspace.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1491
+    },
+    {
+      "path": "src/middleware.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2190
+    },
+    {
+      "path": "src/server/action-items.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 16123
+    },
+    {
+      "path": "src/server/activity-log.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 471
+    },
+    {
+      "path": "src/server/assistant.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 16998
+    },
+    {
+      "path": "src/server/corrections.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 17545
+    },
+    {
+      "path": "src/server/dashboard.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 5269
+    },
+    {
+      "path": "src/server/directives.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 9075
+    },
+    {
+      "path": "src/server/document-checklist.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 11054
+    },
+    {
+      "path": "src/server/documents/cleanup.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 5512
+    },
+    {
+      "path": "src/server/documents/documents.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 8675
+    },
+    {
+      "path": "src/server/documents/smart-upload.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 6584
+    },
+    {
+      "path": "src/server/finance/billing-schedule.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1457
+    },
+    {
+      "path": "src/server/finance/chart-of-accounts.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2780
+    },
+    {
+      "path": "src/server/finance/company-expenses.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 3592
+    },
+    {
+      "path": "src/server/finance/invoices.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 3197
+    },
+    {
+      "path": "src/server/finance/payments.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2583
+    },
+    {
+      "path": "src/server/finance/receivables.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1841
+    },
+    {
+      "path": "src/server/finance/workspace.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 12572
+    },
+    {
+      "path": "src/server/notifications.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2669
+    },
+    {
+      "path": "src/server/numbering/registry.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2458
+    },
+    {
+      "path": "src/server/projects/progress-reports.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 10633
+    },
+    {
+      "path": "src/server/projects/projects.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 12304
+    },
+    {
+      "path": "src/server/projects/tasks.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 14793
+    },
+    {
+      "path": "src/server/projects/weekly.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 17757
+    },
+    {
+      "path": "src/server/reports/reports.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 10380
+    },
+    {
+      "path": "src/server/sales/contacts.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2151
+    },
+    {
+      "path": "src/server/sales/costing.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 6810
+    },
+    {
+      "path": "src/server/sales/customers.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4079
+    },
+    {
+      "path": "src/server/sales/opportunities.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 10789
+    },
+    {
+      "path": "src/server/sales/purchase-orders.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 17374
+    },
+    {
+      "path": "src/server/sales/quotations.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 5726
+    },
+    {
+      "path": "src/server/sales/vendor-purchase-orders.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 5681
+    },
+    {
+      "path": "src/server/search.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2083
+    },
+    {
+      "path": "src/server/settings/company.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 5601
+    },
+    {
+      "path": "src/server/settings/mood.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1300
+    },
+    {
+      "path": "src/server/settings/profile.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4411
+    },
+    {
+      "path": "src/server/settings/storage-health.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4429
+    },
+    {
+      "path": "src/server/settings/theme.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2951
+    },
+    {
+      "path": "src/server/settings/users.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 7107
+    },
+    {
+      "path": "src/types/search.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 97
+    },
+    {
+      "path": "tailwind.config.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1615
+    },
+    {
+      "path": "tests/document-preview.test.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2349
+    },
+    {
+      "path": "tests/finance-overview.test.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 1393
+    },
+    {
+      "path": "tests/notification-integrity.test.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4208
+    },
+    {
+      "path": "tests/project-cost.test.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 2908
+    },
+    {
+      "path": "tests/weekly-workflow.test.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 3125
+    },
+    {
+      "path": "tests/workspace.test.ts",
+      "reason": "needs_summary",
+      "language": "typescript",
+      "size": 4790
+    },
+    {
+      "path": "tsconfig.json",
+      "reason": "needs_summary",
+      "language": "json",
+      "size": 662
+    },
+    {
+      "path": "tsconfig.tsbuildinfo",
+      "reason": "changed",
+      "language": null,
+      "size": 270305
+    }
+  ]
+}
