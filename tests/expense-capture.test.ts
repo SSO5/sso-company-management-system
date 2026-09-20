@@ -4,6 +4,9 @@ import {
   CAPTURE_FORM_MESSAGE,
   CAPTURE_WARNING_MESSAGE,
   changedFromExtraction,
+  draftItemTotal,
+  emptyDraftItem,
+  incompleteDraftItems,
   initialFormValues,
   isKnownVendor,
   nearMatches,
@@ -20,7 +23,9 @@ import {
   RECONCILE_TOLERANCE,
   suggestVendors,
   suggestedAmount,
+  sumDraftItems,
   sumItems,
+  toDraftItems,
   validateCaptureForm,
   type ExtractedReceipt,
 } from "../src/lib/expense-capture";
@@ -338,4 +343,52 @@ test("vendor yang sudah dikenal ditandai apa adanya", () => {
   assert.equal(isKnownVendor(riwayat, "Sinar Jaya"), true);
   assert.equal(isKnownVendor(riwayat, "Sinar Abadi"), false);
   assert.equal(isKnownVendor(riwayat, ""), false);
+});
+
+/* --- rincian item yang disunting --- */
+
+const di = (qty: number, harga: number, desc = "barang") => ({
+  description: desc,
+  quantity: qty,
+  unit: "pcs",
+  unitPrice: harga,
+});
+
+test("nilai baris dihitung, tidak pernah diketik", () => {
+  assert.equal(draftItemTotal(di(6, 185_000)), 1_110_000);
+  assert.equal(sumDraftItems([di(2, 100), di(3, 50)]), 350);
+  assert.equal(sumDraftItems([]), 0);
+});
+
+test("nilai baris tercetak dibuang saat masuk mode sunting", () => {
+  // Begitu orang menyunting jumlah atau harga, nilai tercetak jadi angka
+  // yatim yang tidak lagi berhubungan dengan apa pun. Menyimpannya hanya
+  // memberi kesempatan dua angka saling bertentangan.
+  const [baris] = toDraftItems([item(6, 185_000, 1_210_000)]);
+  assert.equal(draftItemTotal(baris), 1_110_000);
+  assert.equal("total" in baris, false);
+});
+
+test("baris tanpa uraian atau bernilai nol ditandai belum lengkap", () => {
+  // Baris seperti itu tidak menambah apa pun ke total, jadi kalau dibiarkan
+  // ia hanya membuat rincian terlihat lebih panjang daripada isinya.
+  const idx = incompleteDraftItems([
+    di(2, 100, "kabel"),
+    di(1, 0, "tanpa harga"),
+    di(1, 500, ""),
+  ]);
+  assert.deepEqual(idx, [1, 2]);
+});
+
+test("baris yang lengkap tidak pernah ditandai", () => {
+  assert.deepEqual(incompleteDraftItems([di(1, 1, "a"), di(10, 250, "b")]), []);
+  assert.deepEqual(incompleteDraftItems([]), []);
+});
+
+test("baris baru dimulai dengan jumlah satu, bukan nol", () => {
+  // Baris bernilai nol langsung ditandai belum lengkap, dan menyambut orang
+  // dengan peringatan atas baris yang baru saja dia tambahkan itu menyesatkan.
+  const baru = emptyDraftItem();
+  assert.equal(baru.quantity, 1);
+  assert.equal(draftItemTotal(baru), 0);
 });

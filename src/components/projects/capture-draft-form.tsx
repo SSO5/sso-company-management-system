@@ -10,15 +10,18 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { DraftItemsTable } from "@/components/projects/draft-items-table";
 import { VendorInput } from "@/components/projects/vendor-input";
 import { saveCaptureDraftAction } from "@/server/projects/expense-capture";
 import {
   CAPTURE_FORM_MESSAGE,
   changedFromExtraction,
   initialFormValues,
+  toDraftItems,
   validateCaptureForm,
   type CaptureField,
   type CaptureFormValues,
+  type DraftItem,
   type ExpenseCaptureDraft,
 } from "@/lib/expense-capture";
 import { formatCurrency } from "@/lib/utils";
@@ -52,6 +55,9 @@ const LABEL: Record<CaptureField, string> = {
 
 export function CaptureDraftForm({ data }: { data: ExpenseCaptureDraft }) {
   const [form, setForm] = useState(() => initialFormValues(data.extracted));
+  const [items, setItems] = useState<DraftItem[]>(() =>
+    toDraftItems(data.extracted?.items ?? []),
+  );
   const [pending, setPending] = useState(false);
   const [dicoba, setDicoba] = useState(false);
   const router = useRouter();
@@ -155,6 +161,13 @@ export function CaptureDraftForm({ data }: { data: ExpenseCaptureDraft }) {
             />
           </div>
         </div>
+
+        <DraftItemsTable
+          items={items}
+          onChange={setItems}
+          onUseSum={(sum) => set("amount", sum)}
+          currentAmount={form.amount}
+        />
 
         <div className="space-y-1">
           <Label>Keterangan</Label>

@@ -413,3 +413,54 @@ export function isKnownVendor(history: string[], typed: string): boolean {
   const q = normalizeVendor(typed);
   return q.length > 0 && history.some((h) => normalizeVendor(h) === q);
 }
+
+/* ------------------------------------------------------------------ *
+ * Rincian item pada draf
+ * ------------------------------------------------------------------ */
+
+/** Baris rincian yang sedang disunting; total selalu dihitung, tak diketik. */
+export interface DraftItem {
+  description: string;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+}
+
+/** Nilai satu baris. Dihitung, bukan disimpan — supaya tak bisa bertentangan. */
+export function draftItemTotal(item: DraftItem): number {
+  return item.quantity * item.unitPrice;
+}
+
+export function sumDraftItems(items: DraftItem[]): number {
+  return items.reduce((t, i) => t + draftItemTotal(i), 0);
+}
+
+/**
+ * Mengubah baris hasil baca menjadi baris yang bisa disunting.
+ *
+ * Nilai baris yang TERCETAK di struk sengaja dibuang di sini. Alasannya:
+ * begitu orang menyunting jumlah atau harga, nilai tercetak menjadi angka
+ * yatim yang tidak lagi berhubungan dengan apa pun, dan menyimpannya hanya
+ * memberi kesempatan dua angka saling bertentangan. Selisih antara keduanya
+ * sudah ditunjukkan di tahap pemeriksaan, sebelum sampai ke sini.
+ */
+export function toDraftItems(items: ReceiptItem[]): DraftItem[] {
+  return items.map((i) => ({
+    description: i.description,
+    quantity: i.quantity,
+    unit: i.unit,
+    unitPrice: i.unitPrice,
+  }));
+}
+
+export function emptyDraftItem(): DraftItem {
+  return { description: "", quantity: 1, unit: "pcs", unitPrice: 0 };
+}
+
+/** Baris yang belum layak disimpan: tanpa uraian atau bernilai nol. */
+export function incompleteDraftItems(items: DraftItem[]): number[] {
+  return items.reduce<number[]>((acc, item, i) => {
+    if (!item.description.trim() || draftItemTotal(item) <= 0) acc.push(i);
+    return acc;
+  }, []);
+}
