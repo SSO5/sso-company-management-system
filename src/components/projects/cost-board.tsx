@@ -9,7 +9,11 @@ import {
 } from "@/components/ui/table";
 import { displayLabel } from "@/lib/display-labels";
 import { CostComparisonCard } from "@/components/projects/cost-comparison-card";
-import { varianceToBaseline, type CostBoardData } from "@/lib/project-cost-board";
+import {
+  varianceStatus,
+  varianceToBaseline,
+  type CostBoardData,
+} from "@/lib/project-cost-board";
 import { cn, formatCurrency } from "@/lib/utils";
 
 /**
@@ -89,6 +93,10 @@ export function ProjectCostBoard({ data }: { data: CostBoardData }) {
               <TableBody>
                 {categories.map((row) => {
                   const rowVariance = varianceToBaseline(row);
+                  // Penanda yang sama dipakai per baris: jenis biaya yang
+                  // menggerus baseline harus terlihat tanpa membandingkan
+                  // dua kolom angka sendiri.
+                  const rowStatus = varianceStatus(row);
                   return (
                     <TableRow key={row.category}>
                       <TableCell className="whitespace-nowrap font-medium">
@@ -109,7 +117,9 @@ export function ProjectCostBoard({ data }: { data: CostBoardData }) {
                       <TableCell
                         className={cn(
                           "whitespace-nowrap text-right tabular-nums",
-                          rowVariance < 0 ? "text-destructive" : "text-success",
+                          rowStatus === "OVER" && "text-destructive",
+                          rowStatus === "NEAR_LIMIT" && "text-warning",
+                          rowStatus === "SAFE" && "text-success",
                         )}
                       >
                         {rowVariance < 0 ? "−" : ""}

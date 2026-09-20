@@ -1,6 +1,6 @@
 {
   "repo": "SSO5/sso-company-management-system",
-  "generatedForCommit": "4b070eab1712573b667e46ba66d866f84593eabe",
+  "generatedForCommit": "f2d0e0b1bd21c1a786add20990928f3d739401e3",
   "files": [
     {
       "path": ".claude/skills/ngodingpakeai/SKILL.md",
@@ -652,13 +652,13 @@
     },
     {
       "path": "src/app/(app)/projects/[id]/cost-board/not-found.tsx",
-      "reason": "new",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 941
     },
     {
       "path": "src/app/(app)/projects/[id]/cost-board/page.tsx",
-      "reason": "new",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 1022
     },
@@ -1192,9 +1192,15 @@
     },
     {
       "path": "src/components/projects/cost-board.tsx",
+      "reason": "changed",
+      "language": "typescript",
+      "size": 5251
+    },
+    {
+      "path": "src/components/projects/cost-comparison-card.tsx",
       "reason": "new",
       "language": "typescript",
-      "size": 8587
+      "size": 5178
     },
     {
       "path": "src/components/projects/documents-panel.tsx",
@@ -1270,7 +1276,7 @@
     },
     {
       "path": "src/components/projects/project-quick-links.tsx",
-      "reason": "changed",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 2988
     },
@@ -1852,13 +1858,13 @@
     },
     {
       "path": "src/lib/project-command.ts",
-      "reason": "changed",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 9723
     },
     {
       "path": "src/lib/project-cost-board.ts",
-      "reason": "new",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 4184
     },
@@ -2368,7 +2374,7 @@
     },
     {
       "path": "tests/project-cost-board.test.ts",
-      "reason": "new",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 2107
     },
@@ -2400,7 +2406,7 @@
       "path": "tsconfig.tsbuildinfo",
       "reason": "changed",
       "language": null,
-      "size": 272287
+      "size": 272669
     }
   ]
 }

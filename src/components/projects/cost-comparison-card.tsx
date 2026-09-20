@@ -1,8 +1,12 @@
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  BASELINE_NEAR_LIMIT_PERCENT,
   consumedPercent,
   forecastAtCompletion,
+  varianceStatus,
   varianceToBaseline,
+  type VarianceStatus,
 } from "@/lib/project-cost-board";
 import { cn, formatCurrency, formatDateTime } from "@/lib/utils";
 
@@ -64,11 +68,31 @@ function Figure({
   );
 }
 
+/**
+ * Penanda selisih terhadap baseline.
+ *
+ * Angka selisih saja menuntut pembacanya menghitung sendiri apakah itu
+ * banyak atau sedikit. Penanda ini yang menjawabnya, dengan ambang yang
+ * sama persis dengan sinyal risiko proyek supaya keduanya tidak pernah
+ * memberi peringatan pada saat yang berbeda.
+ */
+const varianceBadge: Record<
+  VarianceStatus,
+  { label: string; variant: "success" | "warning" | "destructive" | "outline" }
+> = {
+  SAFE: { label: "Dalam baseline", variant: "success" },
+  NEAR_LIMIT: { label: `Hampir mentok (≥${BASELINE_NEAR_LIMIT_PERCENT}%)`, variant: "warning" },
+  OVER: { label: "Lewat baseline", variant: "destructive" },
+  NO_BASELINE: { label: "Baseline belum ditetapkan", variant: "outline" },
+};
+
 export function CostComparisonCard({ data }: { data: CostComparison }) {
   const { baseline, actual, committed } = data;
   const forecast = forecastAtCompletion(data);
   const variance = varianceToBaseline(data);
   const consumed = consumedPercent(data);
+  const status = varianceStatus(data);
+  const badge = varianceBadge[status];
 
   // Skala batang: selalu sampai angka terbesar antara baseline dan perkiraan,
   // supaya bagian yang melewati pagu benar-benar terlihat keluar dari garis.
@@ -79,7 +103,10 @@ export function CostComparisonCard({ data }: { data: CostComparison }) {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="min-w-0 break-words">Papan biaya proyek</CardTitle>
+        <div className="flex flex-wrap items-center gap-2">
+          <CardTitle className="min-w-0 break-words">Papan biaya proyek</CardTitle>
+          <Badge variant={badge.variant}>{badge.label}</Badge>
+        </div>
         <p className="text-[11px] text-muted-foreground">
           Baseline dari costing final
           {data.baselineSource ? ` ${data.baselineSource}` : ""}. Aktual hanya
@@ -102,8 +129,8 @@ export function CostComparisonCard({ data }: { data: CostComparison }) {
           />
           <Figure
             label={variance >= 0 ? "Sisa terhadap baseline" : "Lewat baseline"}
-            value={formatCurrency(Math.abs(variance))}
-            tone={variance >= 0 ? "good" : "bad"}
+            value={`${variance < 0 ? "−" : ""}${formatCurrency(Math.abs(variance))}`}
+            tone={status === "OVER" ? "bad" : status === "NEAR_LIMIT" ? "default" : "good"}
             hint={`Perkiraan akhir ${formatCurrency(forecast)}`}
           />
         </div>
@@ -125,6 +152,13 @@ export function CostComparisonCard({ data }: { data: CostComparison }) {
                   style={{ left: w(baseline), width: w(overrun) }}
                 />
               )}
+              {/* Garis ambang "hampir mentok" ditarik sebelum garis baseline,
+                  supaya peringatannya terbaca sebagai jarak, bukan sebagai
+                  kejutan saat garis baseline sudah terlewati. */}
+              <div
+                className="absolute inset-y-0 w-px bg-warning"
+                style={{ left: w((baseline * BASELINE_NEAR_LIMIT_PERCENT) / 100) }}
+              />
               <div
                 className="absolute inset-y-0 w-0.5 bg-foreground"
                 style={{ left: w(baseline) }}

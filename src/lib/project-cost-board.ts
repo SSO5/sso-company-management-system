@@ -116,3 +116,29 @@ export async function loadCostBoard(
   if (!looksLikeProjectId(projectId)) return null;
   return mockCostBoard(projectId);
 }
+
+/**
+ * Ambang "hampir mentok", disamakan dengan BUDGET_NEAR_LIMIT pada
+ * computeProjectRiskSignals() supaya papan dan sinyal risiko tidak memberi
+ * peringatan pada saat yang berbeda.
+ *
+ * Satu perbedaan yang disengaja: sinyal risiko mengukur biaya yang sudah
+ * disetujui saja, sedangkan papan ini mengukur disetujui DITAMBAH terikat.
+ * Papan karena itu menyala lebih dulu — memang itu gunanya, memperingatkan
+ * selagi masih ada waktu.
+ */
+export const BASELINE_NEAR_LIMIT_PERCENT = 90;
+
+export type VarianceStatus = "SAFE" | "NEAR_LIMIT" | "OVER" | "NO_BASELINE";
+
+/** Menyimpulkan posisi belanja terhadap baseline. */
+export function varianceStatus(d: {
+  baseline: number;
+  actual: number;
+  committed: number;
+}): VarianceStatus {
+  if (d.baseline <= 0) return "NO_BASELINE";
+  if (varianceToBaseline(d) < 0) return "OVER";
+  if (consumedPercent(d) >= BASELINE_NEAR_LIMIT_PERCENT) return "NEAR_LIMIT";
+  return "SAFE";
+}

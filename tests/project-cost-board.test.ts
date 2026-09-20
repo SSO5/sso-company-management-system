@@ -1,10 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  BASELINE_NEAR_LIMIT_PERCENT,
   consumedPercent,
   forecastAtCompletion,
   loadCostBoard,
   mockCostBoard,
+  varianceStatus,
   varianceToBaseline,
 } from "../src/lib/project-cost-board";
 
@@ -54,4 +56,25 @@ test("menunggu persetujuan tidak pernah ikut terhitung sebagai aktual", () => {
 test("papan biaya menolak alamat yang bukan id proyek", async () => {
   assert.equal(await loadCostBoard("bukan-id"), null);
   assert.notEqual(await loadCostBoard("clx8n2k4p0001qw3f7yz9abcd"), null);
+});
+
+test("penanda selisih memakai ambang yang sama dengan sinyal risiko", () => {
+  const d = (actual: number, committed = 0) => ({ baseline: 100, actual, committed });
+  assert.equal(varianceStatus(d(50)), "SAFE");
+  assert.equal(varianceStatus(d(89)), "SAFE");
+  // 90% adalah ambang BUDGET_NEAR_LIMIT pada computeProjectRiskSignals().
+  assert.equal(varianceStatus(d(BASELINE_NEAR_LIMIT_PERCENT)), "NEAR_LIMIT");
+  assert.equal(varianceStatus(d(100)), "NEAR_LIMIT");
+  assert.equal(varianceStatus(d(101)), "OVER");
+});
+
+test("komitmen ikut memicu penanda, bukan hanya biaya yang disetujui", () => {
+  // Papan menyala lebih dulu daripada sinyal risiko, dan itu disengaja:
+  // peringatan berguna selagi masih ada waktu.
+  assert.equal(varianceStatus({ baseline: 100, actual: 60, committed: 35 }), "NEAR_LIMIT");
+  assert.equal(varianceStatus({ baseline: 100, actual: 60, committed: 50 }), "OVER");
+});
+
+test("tanpa baseline, papan tidak berpura-pura tahu posisi belanja", () => {
+  assert.equal(varianceStatus({ baseline: 0, actual: 500, committed: 0 }), "NO_BASELINE");
 });
