@@ -33,12 +33,20 @@ export function ProjectCostBoard({ data }: { data: CostBoardData }) {
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <CostBoardRefresh projectId={data.projectId} updatedAt={summary.updatedAt} />
-        <Link
-          href={`/projects/${data.projectId}/baseline`}
-          className="text-xs text-primary hover:underline"
-        >
-          Lihat budget baseline →
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            href={`/projects/${data.projectId}/capture`}
+            className="text-xs text-primary hover:underline"
+          >
+            Unggah struk →
+          </Link>
+          <Link
+            href={`/projects/${data.projectId}/baseline`}
+            className="text-xs text-primary hover:underline"
+          >
+            Lihat budget baseline →
+          </Link>
+        </div>
       </div>
 
       <CostComparisonCard data={summary} />
