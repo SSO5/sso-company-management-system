@@ -34,12 +34,12 @@ export function ProjectSnapshotCard({
     <Card>
       <CardHeader className="pb-2">
         <div className="flex flex-wrap items-center gap-2">
-          <CardTitle>{projectName}</CardTitle>
+          <CardTitle className="min-w-0 break-words">{projectName}</CardTitle>
           <Badge variant={snapshot.status === "ACTIVE" ? "default" : "secondary"}>
             {snapshot.statusLabel}
           </Badge>
         </div>
-        <p className="font-mono text-[11px] text-muted-foreground">
+        <p className="break-words font-mono text-[11px] text-muted-foreground">
           {snapshot.number}
           {snapshot.jobNumber ? ` · ${snapshot.jobNumber}` : ""} ·{" "}
           {snapshot.customerName} · PM:{" "}
@@ -47,7 +47,7 @@ export function ProjectSnapshotCard({
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3 md:grid-cols-4">
           <SnapshotFigure
             label="Progres pekerjaan"
             value={`${snapshot.progressPercent}%`}
@@ -119,7 +119,7 @@ function SnapshotFigure({
       </p>
       <p
         className={cn(
-          "text-lg font-semibold tabular-nums",
+          "break-words text-base font-semibold tabular-nums sm:text-lg",
           tone === "good" && "text-success",
           tone === "bad" && "text-destructive",
           tone === "muted" && "text-muted-foreground",

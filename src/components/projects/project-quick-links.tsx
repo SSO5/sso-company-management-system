@@ -46,7 +46,7 @@ export function ProjectQuickLinks({ links }: { links: CommandQuickLink[] }) {
           proyek ini.
         </p>
       </CardHeader>
-      <CardContent className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+      <CardContent className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
         {links.map((link) => {
           const Icon = iconFor[link.label] ?? FileText;
           return (
@@ -57,9 +57,9 @@ export function ProjectQuickLinks({ links }: { links: CommandQuickLink[] }) {
             >
               <div className="flex items-center justify-between gap-2">
                 <Icon className="h-4 w-4 text-muted-foreground" />
-                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-60 transition-opacity group-hover:opacity-100 md:opacity-0" />
               </div>
-              <p className="text-sm font-medium">{link.label}</p>
+              <p className="truncate text-sm font-medium">{link.label}</p>
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="text-[11px] tabular-nums text-muted-foreground">
                   {link.count !== undefined ? `${link.count} dokumen` : "Buka"}

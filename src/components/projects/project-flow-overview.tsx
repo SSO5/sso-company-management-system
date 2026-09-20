@@ -83,7 +83,7 @@ function StepRow({ step }: { step: CommandStep }) {
           {step.label}
         </p>
         {step.detail && (
-          <p className="text-[11px] text-muted-foreground">{step.detail}</p>
+          <p className="break-words text-[11px] text-muted-foreground">{step.detail}</p>
         )}
       </div>
       {step.href && (
@@ -131,20 +131,27 @@ function StageCard({ stage }: { stage: CommandStage }) {
 
 function StageRail({ stages }: { stages: CommandStage[] }) {
   return (
-    <div className="flex items-stretch gap-1.5 overflow-x-auto pb-1">
+    /* Di ponsel empat tahap berjajar akan menyisakan ~70px per tahap dan
+       judulnya terpotong. Jadi: 2x2 di layar kecil, satu baris dengan panah
+       penghubung mulai md. Panahnya sendiri disembunyikan di layar kecil
+       karena urutan baca dari kiri-atas ke kanan-bawah sudah jelas. */
+    <div className="grid grid-cols-2 gap-1.5 md:flex md:items-stretch">
       {stages.map((stage, i) => {
         const state = stageState(stage);
         const percent = stageProgress(stage);
         return (
-          <div key={stage.key} className="flex min-w-0 flex-1 items-center gap-1.5">
+          <div
+            key={stage.key}
+            className="flex min-w-0 items-center gap-1.5 md:flex-1"
+          >
             <div
               className={cn(
-                "min-w-0 flex-1 rounded-lg border px-3 py-2",
+                "min-w-0 flex-1 rounded-lg border px-2.5 py-2 sm:px-3",
                 stageRailTone[state],
               )}
             >
               <p className="truncate text-xs font-medium">{stage.title}</p>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="truncate text-[11px] text-muted-foreground">
                 {stageLabel[state]} · {percent}%
               </p>
               <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-background/60">
@@ -158,7 +165,7 @@ function StageRail({ stages }: { stages: CommandStage[] }) {
               </div>
             </div>
             {i < stages.length - 1 && (
-              <ArrowRight className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block" />
+              <ArrowRight className="hidden h-4 w-4 shrink-0 text-muted-foreground md:block" />
             )}
           </div>
         );
@@ -173,7 +180,7 @@ export function ProjectFlowOverview({ stages }: { stages: CommandStage[] }) {
   return (
     <div className="space-y-3">
       <StageRail stages={stages} />
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {stages.map((stage) => (
           <StageCard key={stage.key} stage={stage} />
         ))}
