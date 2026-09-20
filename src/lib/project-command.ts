@@ -195,3 +195,24 @@ export function stageProgress(stage: CommandStage): number {
   const done = stage.steps.filter((s) => s.state === "DONE").length;
   return Math.round((done / stage.steps.length) * 100);
 }
+
+/**
+ * Sisa pagu proyek: pagu dikurangi biaya yang sudah disetujui DAN komitmen
+ * yang belum jadi biaya.
+ *
+ * Komitmen ikut dikurangkan dengan sengaja. PO vendor yang sudah terkirim
+ * adalah uang yang praktis sudah habis walaupun belum tercatat sebagai
+ * biaya; menampilkan sisa pagu tanpa memotongnya akan membuat proyek
+ * terlihat lebih longgar daripada keadaan sebenarnya. Nilai negatif berarti
+ * sudah lewat pagu.
+ */
+export function remainingBudget(snapshot: {
+  budget: number;
+  actualCost: number;
+  committedCost: number;
+}): number {
+  return snapshot.budget - snapshot.actualCost - snapshot.committedCost;
+}
+
+/** Batas hari yang membuat sisa waktu ditandai perlu perhatian. */
+export const DAYS_REMAINING_WARNING = 14;

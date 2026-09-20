@@ -1,6 +1,6 @@
 {
   "repo": "SSO5/sso-company-management-system",
-  "generatedForCommit": "13230ba970b1607189363d7005bbd95abe7bb291",
+  "generatedForCommit": "24553c4fbc5d429e8de6b7a34605d5e5dc58bf5e",
   "files": [
     {
       "path": ".claude/skills/ngodingpakeai/SKILL.md",
@@ -640,13 +640,13 @@
     },
     {
       "path": "src/app/(app)/projects/[id]/command/page.tsx",
-      "reason": "new",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 1000
     },
     {
       "path": "src/app/(app)/projects/[id]/page.tsx",
-      "reason": "changed",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 5816
     },
@@ -1168,9 +1168,9 @@
     },
     {
       "path": "src/components/projects/command-center.tsx",
-      "reason": "new",
+      "reason": "changed",
       "language": "typescript",
-      "size": 9182
+      "size": 6726
     },
     {
       "path": "src/components/projects/documents-panel.tsx",
@@ -1237,6 +1237,12 @@
       "reason": "needs_summary",
       "language": "typescript",
       "size": 7644
+    },
+    {
+      "path": "src/components/projects/project-flow-overview.tsx",
+      "reason": "new",
+      "language": "typescript",
+      "size": 5465
     },
     {
       "path": "src/components/projects/project-status-select.tsx",
@@ -1810,9 +1816,9 @@
     },
     {
       "path": "src/lib/project-command.ts",
-      "reason": "new",
+      "reason": "changed",
       "language": "typescript",
-      "size": 6777
+      "size": 7843
     },
     {
       "path": "src/lib/project-cost.ts",
@@ -2313,6 +2319,12 @@
       "size": 4208
     },
     {
+      "path": "tests/project-command.test.ts",
+      "reason": "new",
+      "language": "typescript",
+      "size": 1776
+    },
+    {
       "path": "tests/project-cost.test.ts",
       "reason": "needs_summary",
       "language": "typescript",
@@ -2340,7 +2352,7 @@
       "path": "tsconfig.tsbuildinfo",
       "reason": "changed",
       "language": null,
-      "size": 270305
+      "size": 270477
     }
   ]
 }

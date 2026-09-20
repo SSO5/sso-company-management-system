@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  remainingBudget,
   stageProgress,
   stageState,
   mockProjectCommand,
@@ -46,4 +47,20 @@ test("data tiruan memuat keempat tahap dalam urutan alur kerja", () => {
   );
   // Selama masih tiruan, halaman wajib bisa mengakuinya.
   assert.equal(data.isMock, true);
+});
+
+test("sisa pagu ikut memotong komitmen, bukan hanya biaya yang disetujui", () => {
+  // PO vendor terkirim adalah uang yang praktis sudah habis. Kalau tidak
+  // dipotong, proyek terlihat lebih longgar daripada keadaannya.
+  assert.equal(
+    remainingBudget({ budget: 100, actualCost: 60, committedCost: 30 }),
+    10,
+  );
+});
+
+test("sisa pagu negatif berarti sudah lewat pagu", () => {
+  assert.equal(
+    remainingBudget({ budget: 100, actualCost: 90, committedCost: 30 }),
+    -20,
+  );
 });
