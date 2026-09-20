@@ -109,6 +109,14 @@ export const NAV: NavGroup[] = [
         href: "/settings/chart-of-accounts",
         roles: ["ADMIN", "FINANCE"],
       },
+      // Jenis Biaya menempel pada Bagan Akun — tiap jenis dipetakan ke satu
+      // akun — jadi kepemilikannya sama: Admin dan akuntan internal, bukan
+      // seluruh grup Keuangan.
+      {
+        label: "Jenis Biaya",
+        href: "/settings/cost-types",
+        roles: ["ADMIN", "FINANCE"],
+      },
     ],
   },
   {
