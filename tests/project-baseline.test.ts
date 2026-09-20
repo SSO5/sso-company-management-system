@@ -369,3 +369,21 @@ test("alasan tetap wajib walau baseline berlaku hanya dikenal sebagian", () => {
   assert.equal(reasonRequired(null), false);
   assert.equal(reasonRequired(undefined), false);
 });
+
+test("realisasi hanya menghitung yang disetujui, komitmen berdiri sendiri", () => {
+  // Aturan yang sama dengan papan biaya. Kalau halaman baseline
+  // menghitungnya dengan cara lain, dua layar akan menampilkan realisasi
+  // berbeda untuk proyek yang sama.
+  const d = mockProjectBaseline(id);
+  const rows = pairBaselineWithActual(d.current!.lines, d.realisation);
+  for (const r of rows) {
+    assert.ok(r.actual >= 0, r.label);
+    assert.ok(r.committed >= 0, r.label);
+  }
+  // Komitmen tidak pernah ikut terhitung sebagai terpakai.
+  const total = d.realisation.reduce((t, r) => t + r.actual, 0);
+  assert.equal(
+    rows.reduce((t, r) => t + r.actual, 0),
+    total,
+  );
+});

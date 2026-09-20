@@ -128,7 +128,14 @@ export function unmappedBaselineLines(lines: BaselineLine[]): BaselineLine[] {
   return lines.filter((l) => l.costTypeCode === null);
 }
 
-/** Data tiruan untuk menguji tampilan sebelum tabelnya ada. */
+/**
+ * Contoh data baseline.
+ *
+ * Tidak lagi dipakai halaman — datanya kini dibaca dari tabel
+ * ProjectBudgetBaseline — tapi tetap disimpan sebagai data uji: ia memuat
+ * keadaan yang harus ditangani layar, termasuk baris tanpa jenis biaya,
+ * costing yang sudah hilang, dan pagu proyek yang bergeser dari baseline.
+ */
 export function mockProjectBaseline(projectId: string): ProjectBaselineData {
   const v2Lines: BaselineLine[] = [
     { costTypeCode: "MAT-PANEL", label: "Panel dan komponen listrik", category: "MATERIALS", amount: 520_000_000 },
