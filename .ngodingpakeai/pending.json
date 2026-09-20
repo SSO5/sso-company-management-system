@@ -1,6 +1,6 @@
 {
   "repo": "SSO5/sso-company-management-system",
-  "generatedForCommit": "34164ecf0a1b77f7d04152bb6bf334eb6aeac8e1",
+  "generatedForCommit": "4434656fa5fc2f9a90079fc95de19431a8ab3b65",
   "files": [
     {
       "path": ".claude/skills/ngodingpakeai/SKILL.md",
@@ -1204,7 +1204,7 @@
     },
     {
       "path": "src/components/projects/cost-board.tsx",
-      "reason": "changed",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 2187
     },
@@ -1222,7 +1222,7 @@
     },
     {
       "path": "src/components/projects/cost-comparison-card.tsx",
-      "reason": "changed",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 6571
     },
@@ -1896,7 +1896,7 @@
       "path": "src/lib/project-cost-board.ts",
       "reason": "changed",
       "language": "typescript",
-      "size": 14756
+      "size": 16168
     },
     {
       "path": "src/lib/project-cost.ts",
@@ -2280,7 +2280,7 @@
       "path": "src/server/projects/cost-board.ts",
       "reason": "changed",
       "language": "typescript",
-      "size": 5891
+      "size": 7238
     },
     {
       "path": "src/server/projects/progress-reports.ts",
@@ -2436,7 +2436,7 @@
       "path": "tests/project-cost-board.test.ts",
       "reason": "changed",
       "language": "typescript",
-      "size": 12015
+      "size": 13829
     },
     {
       "path": "tests/project-cost.test.ts",
@@ -2484,7 +2484,7 @@
       "path": "tsconfig.tsbuildinfo",
       "reason": "changed",
       "language": null,
-      "size": 275307
+      "size": 275125
     }
   ]
 }

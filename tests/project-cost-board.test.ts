@@ -19,6 +19,7 @@ import {
   varianceToBaseline,
   withBaselineNumber,
 } from "../src/lib/project-cost-board";
+import { summarizeProjectCost } from "../src/lib/project-cost";
 
 test("perkiraan bertahan di baseline sampai belanja melewatinya", () => {
   assert.equal(
@@ -364,4 +365,39 @@ test("umur tidak pernah negatif walau tanggalnya di masa depan", () => {
 test("nilai Prisma Decimal dikonversi, bukan digabung sebagai teks", () => {
   const dec = { toString: () => "12500000", valueOf: () => 12_500_000 };
   assert.equal(toPendingRow(baris({ total: dec }), saatIni).amount, 12_500_000);
+});
+
+test("jumlah rincian per jenis sama dengan total summarizeProjectCost", () => {
+  // Papan dan tabel membaca baris yang sama lewat dua jalur berbeda. Kalau
+  // keduanya bisa berselisih, papan ini kehilangan gunanya — jadi diadu di
+  // sini, bukan diserahkan pada disiplin penulis.
+  const expenses = [
+    { category: "LABOR" as const, total: 1_000_000, approvalStatus: "APPROVED", paymentStatus: "PAID" },
+    { category: "MATERIALS" as const, total: 2_500_000, approvalStatus: "APPROVED", paymentStatus: "UNPAID" },
+    { category: "LABOR" as const, total: 400_000, approvalStatus: "SUBMITTED", paymentStatus: "UNPAID" },
+    { category: "OTHER" as const, total: 750_000, approvalStatus: "DRAFT", paymentStatus: "UNPAID" },
+    { category: "VENDOR" as const, total: 9_000_000, approvalStatus: "REJECTED", paymentStatus: "UNPAID" },
+    { category: "VENDOR" as const, total: 5_000_000, approvalStatus: "APPROVED", paymentStatus: "UNPAID" },
+  ];
+  const vendorPos = [
+    { grandTotal: 5_000_000, expense: { approvalStatus: "APPROVED" } },
+    { grandTotal: 3_000_000, expense: null },
+    { grandTotal: 1_200_000, expense: { approvalStatus: "SUBMITTED" } },
+  ];
+
+  const total = summarizeProjectCost(expenses, vendorPos, 20_000_000);
+  const rows = aggregateCostByCategory({
+    expenses,
+    vendorPos: vendorPos.map((v) => ({
+      category: "VENDOR" as const,
+      grandTotal: v.grandTotal,
+      expenseApprovalStatus: v.expense?.approvalStatus ?? null,
+    })),
+  });
+  const sum = (k: "actual" | "committed" | "pending") =>
+    rows.reduce((t, r) => t + r[k], 0);
+
+  assert.equal(sum("actual"), total.actualCost);
+  assert.equal(sum("committed"), total.committedCost);
+  assert.equal(sum("pending"), total.pendingCost);
 });

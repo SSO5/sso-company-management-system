@@ -10,6 +10,7 @@ import {
   toPendingRow,
   summarizeCostBoard,
   type CostBoardData,
+  type CostCategoryRow,
   type CostSummary,
   type PendingExpenseRow,
 } from "@/lib/project-cost-board";
@@ -115,6 +116,100 @@ export async function getProjectPendingExpenses(
   return rows.map((e) => toPendingRow(e));
 }
 
+/**
+ * Rincian biaya per jenis untuk satu proyek.
+ *
+ * Jalur tersendiri karena pertanyaannya berbeda dari ringkasan: ringkasan
+ * menjawab "berapa", rincian menjawab "jenis biaya mana yang menggerusnya".
+ * Pemanggil yang hanya butuh tabel tidak perlu ikut memuat antrean
+ * persetujuan.
+ *
+ * Sumbernya sama dengan papan — fetchCostRows() dipakai keduanya — sehingga
+ * tabel dan papan tidak bisa menampilkan angka berbeda.
+ */
+export async function getProjectCostCategories(
+  projectId: string,
+): Promise<CostCategoryRow[] | null> {
+  const actor = await requireUserOrThrow();
+  requirePermission(actor.role, "project", "view");
+
+  if (!looksLikeProjectId(projectId)) return null;
+
+  const exists = await prisma.project.findFirst({
+    where: { id: projectId, deletedAt: null },
+    select: { id: true },
+  });
+  if (!exists) return null;
+
+  const { expenses, vendorPos } = await fetchCostRows(projectId);
+  return aggregateCostByCategory(toAggregationInput(expenses, vendorPos));
+}
+
+/**
+ * Baris biaya mentah satu proyek: pengeluaran dan PO vendor yang sudah keluar
+ * kantor.
+ *
+ * PO vendor berstatus draf sengaja tidak diambil. Ia belum mengikat apa pun
+ * dan memunculkannya sebagai komitmen akan membuat proyek terlihat lebih
+ * sesak daripada keadaannya.
+ */
+async function fetchCostRows(projectId: string) {
+  const [expenses, vendorPos] = await Promise.all([
+    prisma.projectExpense.findMany({
+      where: { projectId, deletedAt: null },
+      orderBy: { date: "desc" },
+      select: {
+        id: true,
+        description: true,
+        category: true,
+        total: true,
+        approvalStatus: true,
+        paymentStatus: true,
+        submittedAt: true,
+        createdAt: true,
+        createdBy: { select: { name: true } },
+        submittedBy: { select: { name: true } },
+      },
+    }),
+    prisma.vendorPurchaseOrder.findMany({
+      where: {
+        projectId,
+        deletedAt: null,
+        status: { in: ["SENT", "CONFIRMED"] },
+      },
+      select: {
+        grandTotal: true,
+        expense: { select: { approvalStatus: true, category: true } },
+      },
+    }),
+  ]);
+  return { expenses, vendorPos };
+}
+
+type CostRows = Awaited<ReturnType<typeof fetchCostRows>>;
+
+function toAggregationInput(
+  expenses: CostRows["expenses"],
+  vendorPos: CostRows["vendorPos"],
+) {
+  return {
+    expenses: expenses.map((e) => ({
+      category: e.category,
+      total: Number(e.total),
+      approvalStatus: e.approvalStatus,
+      paymentStatus: e.paymentStatus,
+    })),
+    vendorPos: vendorPos.map((v) => ({
+      category: v.expense?.category ?? null,
+      grandTotal: Number(v.grandTotal),
+      expenseApprovalStatus: v.expense?.approvalStatus ?? null,
+    })),
+    // Pagu per jenis biaya belum bisa diturunkan: CostingLineItem tidak punya
+    // ExpenseCategory. Dibiarkan kosong supaya barisnya jujur berkata "belum
+    // dipetakan" daripada terbaca lewat baseline sejak rupiah pertama.
+  };
+}
+
 export async function getProjectCostBoard(
   projectId: string,
 ): Promise<CostBoardData | null> {
@@ -134,55 +229,14 @@ export async function getProjectCostBoard(
   });
   if (!project) return null;
 
-  const [profitability, expenses, vendorPos] = await Promise.all([
+  const [profitability, { expenses, vendorPos }] = await Promise.all([
     calculateProjectProfitability(projectId),
-    prisma.projectExpense.findMany({
-      where: { projectId, deletedAt: null },
-      orderBy: { date: "desc" },
-      select: {
-        id: true,
-        description: true,
-        category: true,
-        total: true,
-        approvalStatus: true,
-        paymentStatus: true,
-        submittedAt: true,
-        createdAt: true,
-        createdBy: { select: { name: true } },
-        submittedBy: { select: { name: true } },
-      },
-    }),
-    // Hanya PO vendor yang sudah keluar kantor. Yang masih draf belum
-    // mengikat apa pun dan tidak boleh muncul sebagai komitmen.
-    prisma.vendorPurchaseOrder.findMany({
-      where: {
-        projectId,
-        deletedAt: null,
-        status: { in: ["SENT", "CONFIRMED"] },
-      },
-      select: {
-        grandTotal: true,
-        expense: { select: { approvalStatus: true, category: true } },
-      },
-    }),
+    fetchCostRows(projectId),
   ]);
 
-  const categories = aggregateCostByCategory({
-    expenses: expenses.map((e) => ({
-      category: e.category,
-      total: Number(e.total),
-      approvalStatus: e.approvalStatus,
-      paymentStatus: e.paymentStatus,
-    })),
-    vendorPos: vendorPos.map((v) => ({
-      category: v.expense?.category ?? null,
-      grandTotal: Number(v.grandTotal),
-      expenseApprovalStatus: v.expense?.approvalStatus ?? null,
-    })),
-    // Pagu per jenis biaya belum bisa diturunkan: CostingLineItem tidak punya
-    // ExpenseCategory. Dibiarkan kosong supaya barisnya jujur berkata "belum
-    // dipetakan" daripada terbaca lewat baseline sejak rupiah pertama.
-  });
+  const categories = aggregateCostByCategory(
+    toAggregationInput(expenses, vendorPos),
+  );
 
   // Pemetaan barisnya dibagi dengan getProjectPendingExpenses() supaya papan
   // dan antrean tinjauan tidak bisa menampilkan nama pengaju atau umur yang
