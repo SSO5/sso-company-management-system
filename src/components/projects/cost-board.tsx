@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { CostBoardRefresh } from "@/components/projects/cost-board-refresh";
 import { CostComparisonCard } from "@/components/projects/cost-comparison-card";
 import { CostCategoryShares } from "@/components/projects/cost-category-shares";
@@ -30,7 +31,15 @@ export function ProjectCostBoard({ data }: { data: CostBoardData }) {
         </p>
       )}
 
-      <CostBoardRefresh projectId={data.projectId} updatedAt={summary.updatedAt} />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <CostBoardRefresh projectId={data.projectId} updatedAt={summary.updatedAt} />
+        <Link
+          href={`/projects/${data.projectId}/baseline`}
+          className="text-xs text-primary hover:underline"
+        >
+          Lihat budget baseline →
+        </Link>
+      </div>
 
       <CostComparisonCard data={summary} />
 
