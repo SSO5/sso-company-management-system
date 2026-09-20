@@ -21,8 +21,9 @@ export default async function ExpenseReviewPage() {
         <p className="text-sm text-muted-foreground">
           Pengeluaran proyek yang menunggu keputusan, diurutkan dari yang paling lama
           menunggu. Selama belum diputuskan, angkanya belum masuk hitungan mana pun.
-          Peninjauannya dikerjakan di sini; keputusan menyetujui atau menolak tetap
-          milik Admin (Direktur), mengikuti aturan maker-checker yang sudah berlaku.
+          Keputusan menyetujui atau menolak adalah wewenang Finance — berlaku juga
+          untuk biaya yang diajukan Admin (Direktur), yang tetap wajib melalui
+          persetujuan Finance.
         </p>
       </div>
       <ExpenseReviewQueue

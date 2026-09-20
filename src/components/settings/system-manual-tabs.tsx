@@ -121,13 +121,16 @@ export function SystemManualTabs() {
                   <tbody className="divide-y divide-border">
                     <tr><td className="py-2 pr-4 font-medium">Quotation</td><td className="py-2 pr-4">Sales</td><td className="py-2 pr-4">Direktur (Admin)</td><td className="py-2">Boleh dikirim ke customer (Mark Sent)</td></tr>
                     <tr><td className="py-2 pr-4 font-medium">Vendor PO</td><td className="py-2 pr-4">Sales / Procurement</td><td className="py-2 pr-4">Direktur (Admin)</td><td className="py-2">Boleh dikirim ke vendor (Mark Sent)</td></tr>
-                    <tr><td className="py-2 pr-4 font-medium">Project Expense</td><td className="py-2 pr-4">PM / Finance</td><td className="py-2 pr-4">Direktur (Admin)</td><td className="py-2">Masuk hitungan cost control project</td></tr>
+                    <tr><td className="py-2 pr-4 font-medium">Project Expense</td><td className="py-2 pr-4">PM / Admin / Finance</td><td className="py-2 pr-4">Finance <span className="text-muted-foreground">(bukan Admin — berlaku juga untuk biaya yang diajukan Admin/Direktur sendiri)</span></td><td className="py-2">Masuk hitungan cost control project</td></tr>
                     <tr><td className="py-2 pr-4 font-medium">Invoice</td><td className="py-2 pr-4">Finance</td><td className="py-2 pr-4">Direktur (Admin)</td><td className="py-2">Boleh diterbitkan ke customer (Mark Issued), baru bisa terima pembayaran</td></tr>
                   </tbody>
                 </table>
               </div>
               <p className="mt-3 text-xs text-muted-foreground">
                 Catatan: &quot;Direktur&quot; saat ini dipetakan ke role <span className="font-medium">Admin</span> yang sudah ada — belum ada role Direktur terpisah. Kalau ke depan butuh pemisahan (misal Direktur beda akun dari Admin operasional), tinggal ganti pengecekan role di satu tempat (<code className="rounded bg-muted px-1">src/lib/permissions.ts</code>), semua alur approval otomatis ikut.
+              </p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Pengecualian: <span className="font-medium">Project Expense</span> disetujui role <span className="font-medium">Finance</span>, bukan Admin — keputusan eksplisit pemilik sistem, karena unggahan/biaya proyek yang diajukan Admin (Direktur) sekalipun tetap wajib lewat persetujuan Finance, bukan disetujui sesama Admin atau diri sendiri. Lihat <code className="rounded bg-muted px-1">requireExpenseApprover</code> di <code className="rounded bg-muted px-1">src/lib/permissions.ts</code>.
               </p>
             </CardContent>
           </Card>
@@ -311,7 +314,8 @@ export function SystemManualTabs() {
                 <table className="w-full text-left text-sm">
                   <thead className="text-xs text-muted-foreground"><tr><th className="pb-2 pr-4">Kejadian</th><th className="pb-2">Penerima</th></tr></thead>
                   <tbody className="divide-y divide-border">
-                    <tr><td className="py-1.5 pr-4">Quotation / Vendor PO / Expense / Invoice diajukan</td><td className="py-1.5">Admin (approver)</td></tr>
+                    <tr><td className="py-1.5 pr-4">Quotation / Vendor PO / Invoice diajukan</td><td className="py-1.5">Admin (approver)</td></tr>
+                    <tr><td className="py-1.5 pr-4">Project Expense diajukan</td><td className="py-1.5">Finance (approver)</td></tr>
                     <tr><td className="py-1.5 pr-4">Approve / Reject</td><td className="py-1.5">Pengaju (maker)</td></tr>
                     <tr><td className="py-1.5 pr-4">Invoice mendekati/lewat jatuh tempo</td><td className="py-1.5">Role Finance</td></tr>
                     <tr><td className="py-1.5 pr-4">Billing Due Soon — sisa penagihan proyek mendekati tanggal target</td><td className="py-1.5">Role Finance</td></tr>

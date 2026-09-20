@@ -253,42 +253,62 @@ test("tiap perbandingan punya label yang bisa dibaca orang", () => {
 
 /* --- siapa yang boleh memutuskan --- */
 
-const admin = { role: "ADMIN", userId: "user-admin" };
+// Finance adalah peninjau di seluruh berkas ini — bukan Admin — mengikuti
+// keputusan eksplisit pemilik sistem: persetujuan biaya proyek adalah
+// wewenang Finance, termasuk saat pengajunya Admin (Direktur).
+const finance = { role: "FINANCE", userId: "user-finance" };
 
-test("draf tidak bisa diputuskan siapa pun, termasuk Admin", () => {
+test("draf tidak bisa diputuskan siapa pun, termasuk Finance", () => {
   // Bola masih di tangan pengajunya; belum ada yang diajukan.
   const alasan = decisionBlockedReason(
     { approvalStatus: "DRAFT", submittedById: "user-budi" },
-    admin,
+    finance,
   );
   assert.match(alasan ?? "", /Masih draf/);
 });
 
-test("hanya Admin yang menyetujui biaya, mengikuti maker-checker yang berlaku", () => {
-  // Halaman ini ada di ruang Keuangan karena di situlah peninjauannya
-  // dikerjakan, tapi keputusannya bukan milik peran FINANCE.
-  for (const role of ["FINANCE", "PROJECT_MANAGER", "SALES", "IT", "VIEWER"]) {
+test("hanya Finance yang menyetujui biaya, mengikuti maker-checker yang berlaku", () => {
+  // Termasuk ADMIN: biaya yang diajukan Direktur sekalipun tetap wajib
+  // lewat persetujuan Finance, bukan disetujui sesama Admin.
+  for (const role of ["ADMIN", "PROJECT_MANAGER", "SALES", "IT", "VIEWER"]) {
     const alasan = decisionBlockedReason(
       { approvalStatus: "SUBMITTED", submittedById: "user-budi" },
       { role, userId: "user-x" },
     );
-    assert.match(alasan ?? "", /Hanya Admin/, role);
+    assert.match(alasan ?? "", /Hanya Finance/, role);
   }
 });
 
-test("Admin tidak boleh menyetujui pengajuannya sendiri", () => {
+test("biaya yang diajukan Admin tetap butuh Finance, bukan Admin lain", () => {
+  // Ini persis kasus yang secara eksplisit ditegaskan pemilik sistem:
+  // Direktur bukan pengecualian.
   const alasan = decisionBlockedReason(
-    { approvalStatus: "SUBMITTED", submittedById: "user-admin" },
-    admin,
+    { approvalStatus: "SUBMITTED", submittedById: "user-admin-direktur" },
+    { role: "ADMIN", userId: "user-admin-lain" },
+  );
+  assert.match(alasan ?? "", /Hanya Finance/);
+});
+
+test("Finance tidak boleh menyetujui pengajuannya sendiri", () => {
+  const alasan = decisionBlockedReason(
+    { approvalStatus: "SUBMITTED", submittedById: "user-finance" },
+    finance,
   );
   assert.match(alasan ?? "", /Anda sendiri yang mengajukan/);
 });
 
-test("Admin lain boleh memutuskan", () => {
+test("Finance lain boleh memutuskan, termasuk atas pengajuan Admin", () => {
   assert.equal(
     decisionBlockedReason(
       { approvalStatus: "SUBMITTED", submittedById: "user-budi" },
-      admin,
+      finance,
+    ),
+    null,
+  );
+  assert.equal(
+    decisionBlockedReason(
+      { approvalStatus: "SUBMITTED", submittedById: "user-admin-direktur" },
+      finance,
     ),
     null,
   );
@@ -298,10 +318,10 @@ test("alasan penghalang selalu berupa kalimat, bukan boolean", () => {
   // Tombol mati tanpa alasan membuat orang mengira aplikasinya rusak.
   const kasus = [
     { approvalStatus: "DRAFT" as const, submittedById: "x" },
-    { approvalStatus: "SUBMITTED" as const, submittedById: "user-admin" },
+    { approvalStatus: "SUBMITTED" as const, submittedById: "user-finance" },
   ];
   for (const k of kasus) {
-    const alasan = decisionBlockedReason(k, admin);
+    const alasan = decisionBlockedReason(k, finance);
     assert.ok(alasan && alasan.length > 30, JSON.stringify(k));
   }
 });
@@ -328,7 +348,7 @@ test("koreksi yang tidak mengubah apa pun ditolak", () => {
   const sama = correctionFrom(diajukan);
   assert.deepEqual(correctionChanges(diajukan, sama), []);
   assert.ok(
-    correctionProblems(diajukan, sama, "catatan yang cukup panjang", admin).includes(
+    correctionProblems(diajukan, sama, "catatan yang cukup panjang", finance).includes(
       "Belum ada yang diubah.",
     ),
   );
@@ -347,26 +367,27 @@ test("catatan koreksi wajib, dan tidak boleh sekadar sepatah kata", () => {
   // Pengajunya mencatat satu hal dan yang tersimpan menjadi hal lain;
   // catatan adalah satu-satunya cara dia tahu apa yang terjadi.
   const next = { ...correctionFrom(diajukan), amount: 250_000 };
-  assert.ok(correctionProblems(diajukan, next, "", admin).length > 0);
-  assert.ok(correctionProblems(diajukan, next, "salah", admin).length > 0);
+  assert.ok(correctionProblems(diajukan, next, "", finance).length > 0);
+  assert.ok(correctionProblems(diajukan, next, "salah", finance).length > 0);
   assert.deepEqual(
-    correctionProblems(diajukan, next, "Nilai di struk 250.000, bukan 100.000.", admin),
+    correctionProblems(diajukan, next, "Nilai di struk 250.000, bukan 100.000.", finance),
     [],
   );
 });
 
 test("yang boleh mengoreksi sama dengan yang boleh memutuskan", () => {
-  // Mengizinkan orang lain mengubah angka lalu menyerahkannya ke Admin untuk
-  // disetujui akan membuat maker-checker kehilangan artinya.
+  // Mengizinkan orang lain mengubah angka lalu menyerahkannya ke Finance
+  // untuk disetujui akan membuat maker-checker kehilangan artinya. ADMIN
+  // sengaja diuji di sini juga: Direktur bukan pengecualian.
   const next = { ...correctionFrom(diajukan), amount: 250_000 };
   const catatan = "Nilai di struk berbeda dari yang diketik.";
-  for (const role of ["FINANCE", "PROJECT_MANAGER", "VIEWER"]) {
+  for (const role of ["ADMIN", "PROJECT_MANAGER", "VIEWER"]) {
     const p = correctionProblems(diajukan, next, catatan, { role, userId: "u" });
-    assert.ok(p.some((x) => /Hanya Admin/.test(x)), role);
+    assert.ok(p.some((x) => /Hanya Finance/.test(x)), role);
   }
-  // Termasuk Admin yang mengajukan sendiri.
+  // Termasuk Finance yang mengajukan sendiri.
   const p = correctionProblems(diajukan, next, catatan, {
-    role: "ADMIN",
+    role: "FINANCE",
     userId: "user-budi",
   });
   assert.ok(p.some((x) => /Anda sendiri yang mengajukan/.test(x)));
@@ -375,10 +396,10 @@ test("yang boleh mengoreksi sama dengan yang boleh memutuskan", () => {
 test("koreksi tidak boleh menghasilkan angka yang mustahil", () => {
   const catatan = "Memperbaiki angka sesuai struk.";
   const nol = { ...correctionFrom(diajukan), amount: 0 };
-  assert.ok(correctionProblems(diajukan, nol, catatan, admin).some((p) => /lebih dari nol/.test(p)));
+  assert.ok(correctionProblems(diajukan, nol, catatan, finance).some((p) => /lebih dari nol/.test(p)));
   const pajakNegatif = { ...correctionFrom(diajukan), tax: -1 };
   assert.ok(
-    correctionProblems(diajukan, pajakNegatif, catatan, admin).some((p) =>
+    correctionProblems(diajukan, pajakNegatif, catatan, finance).some((p) =>
       /Pajak tidak boleh negatif/.test(p),
     ),
   );

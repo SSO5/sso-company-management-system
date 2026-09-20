@@ -27,7 +27,7 @@ import { formatCurrency } from "@/lib/utils";
  * lain. Karena itu tiga hal dipegang di sini:
  *
  *   1. YANG BOLEH MENGOREKSI SAMA DENGAN YANG BOLEH MEMUTUSKAN. Mengizinkan
- *      orang lain mengubah angka lalu menyerahkannya ke Admin untuk
+ *      orang lain mengubah angka lalu menyerahkannya ke Finance untuk
  *      disetujui akan membuat maker-checker kehilangan artinya.
  *   2. PERUBAHANNYA DITAMPILKAN sebelum disimpan, dari berapa ke berapa.
  *   3. CATATAN WAJIB. Itu satu-satunya cara pengajunya tahu apa yang terjadi

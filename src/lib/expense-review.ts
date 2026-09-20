@@ -449,10 +449,13 @@ export async function loadExpenseReview(): Promise<ExpenseReviewData> {
  * Aturannya diambil apa adanya dari maker-checker yang sudah berlaku di
  * lib/workflows/expense.ts dan lib/permissions.ts — bukan aturan baru:
  *
- *   - Hanya ADMIN (Direktur) yang menyetujui atau menolak biaya proyek.
- *     Halaman ini ada di ruang Keuangan karena di situlah peninjauannya
- *     dikerjakan, tapi keputusannya bukan milik peran FINANCE.
- *   - Tidak boleh menyetujui pengajuan sendiri.
+ *   - Hanya FINANCE yang menyetujui atau menolak biaya proyek. Ini berlaku
+ *     TERMASUK saat pengajunya ADMIN (Direktur) — keputusan eksplisit dari
+ *     pemilik sistem: unggahan/biaya milik Direktur sekalipun tetap wajib
+ *     lewat persetujuan Finance, bukan disetujui sesama Admin atau diri
+ *     sendiri. Admin tidak diberi jalur pintas di sini.
+ *   - Tidak boleh menyetujui pengajuan sendiri, termasuk kalau pengaju dan
+ *     peninjau kebetulan sama-sama FINANCE.
  *   - Hanya yang sudah DIAJUKAN yang bisa diputuskan; draf masih di tangan
  *     pengajunya.
  *
@@ -467,11 +470,11 @@ export function decisionBlockedReason(
   if (item.approvalStatus !== "SUBMITTED") {
     return "Masih draf — belum diajukan, jadi belum ada yang bisa diputuskan. Yang bisa menindaknya adalah pengajunya.";
   }
-  if (actor.role !== "ADMIN") {
-    return "Hanya Admin (Direktur) yang bisa menyetujui atau menolak biaya proyek. Anda tetap bisa memeriksa dan menandai yang perlu ditanyakan.";
+  if (actor.role !== "FINANCE") {
+    return "Hanya Finance yang bisa menyetujui atau menolak biaya proyek — berlaku juga untuk biaya yang diajukan Admin (Direktur). Anda tetap bisa memeriksa dan menandai yang perlu ditanyakan.";
   }
   if (actor.userId === item.submittedById) {
-    return "Anda sendiri yang mengajukan biaya ini. Minta Admin lain yang memutuskan.";
+    return "Anda sendiri yang mengajukan biaya ini. Minta rekan Finance lain yang memutuskan.";
   }
   return null;
 }
@@ -573,7 +576,7 @@ export function correctionProblems(
   const p: string[] = [];
 
   // Yang boleh mengoreksi sama dengan yang boleh memutuskan. Mengizinkan
-  // orang lain mengubah angka lalu menyerahkannya ke Admin untuk disetujui
+  // orang lain mengubah angka lalu menyerahkannya ke Finance untuk disetujui
   // akan membuat maker-checker kehilangan artinya.
   const terhalang = decisionBlockedReason(item, actor);
   if (terhalang) p.push(terhalang);

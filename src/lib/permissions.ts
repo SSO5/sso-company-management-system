@@ -144,14 +144,28 @@ export function requirePermission(role: UserRole, module: Module, action: Action
  * User.title or a value threshold) — flag this to the founder before
  * changing, since it re-introduces a single-person dependency.
  */
-function requireApprover(role: UserRole, actorId: string, submittedById: string | null, label: string) {
-  if (role !== "ADMIN") {
-    throw new ForbiddenError(`Only Admin (Direktur) can approve or reject ${label}.`);
+function requireApprover(
+  role: UserRole,
+  actorId: string,
+  submittedById: string | null,
+  label: string,
+  allowedRoles: UserRole[] = ["ADMIN"],
+) {
+  if (!allowedRoles.includes(role)) {
+    const who = allowedRoles.map((r) => APPROVER_TITLE[r] ?? r).join(" or ");
+    throw new ForbiddenError(`Only ${who} can approve or reject ${label}.`);
   }
   if (submittedById && actorId === submittedById) {
-    throw new ForbiddenError(`You cannot approve your own ${label} submission. Ask another Admin (Direktur) to review it.`);
+    const who = allowedRoles.map((r) => APPROVER_TITLE[r] ?? r).join(" or ");
+    throw new ForbiddenError(`You cannot approve your own ${label} submission. Ask another ${who} to review it.`);
   }
 }
+
+/** Human-readable names for approver roles, used in ForbiddenError messages. */
+const APPROVER_TITLE: Partial<Record<UserRole, string>> = {
+  ADMIN: "Admin (Direktur)",
+  FINANCE: "Finance",
+};
 
 /** Quotation approval is Admin-only regardless of the general "sales" matrix. */
 export function requireQuotationApprover(role: UserRole, actorId: string, submittedById: string | null = null) {
@@ -163,9 +177,19 @@ export function requireVendorPOApprover(role: UserRole, actorId: string, submitt
   requireApprover(role, actorId, submittedById, "a vendor purchase order");
 }
 
-/** Project Expense approval — same rule, applied to project cost control. */
+/**
+ * Project Expense approval.
+ *
+ * Deliberately DIFFERENT from the other three (Quotation, Vendor PO,
+ * Invoice), which stay Admin-only: the founder's own instruction is that
+ * project expense approval belongs to FINANCE specifically, including when
+ * the submitter is an Admin (Direktur) — a Direktur's own expense/upload
+ * still needs a Finance sign-off, not a self- or peer-Admin approval. Do
+ * not fold this back into the shared ADMIN-only default without checking
+ * with the founder again.
+ */
 export function requireExpenseApprover(role: UserRole, actorId: string, submittedById: string | null = null) {
-  requireApprover(role, actorId, submittedById, "a project expense");
+  requireApprover(role, actorId, submittedById, "a project expense", ["FINANCE"]);
 }
 
 /** Invoice approval — same rule, applied before an invoice can be sent. */

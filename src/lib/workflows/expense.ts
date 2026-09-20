@@ -6,11 +6,16 @@ import { requireExpenseApprover } from "@/lib/permissions";
 import type { SessionPayload } from "@/lib/auth/session";
 
 // ---------------------------------------------------------------------------
-// MAKER-CHECKER for ProjectExpense — same pattern as Quotation / Vendor PO.
-// createExpense() itself still lives in server/projects/tasks.ts (unchanged);
-// this file only adds the submit -> approve/reject lifecycle on top, since
-// an expense recorded by any role (PM, Finance) should not count toward
-// project cost control until Admin (Direktur) has approved it.
+// MAKER-CHECKER for ProjectExpense — same pattern as Quotation / Vendor PO,
+// but with a DIFFERENT approver role. createExpense() itself still lives in
+// server/projects/tasks.ts (unchanged); this file only adds the
+// submit -> approve/reject lifecycle on top, since an expense recorded by
+// any role (PM, Admin, Finance) should not count toward project cost
+// control until FINANCE has approved it — per the founder's explicit
+// instruction, this applies even when the submitter is an Admin
+// (Direktur): a Direktur's own expense/upload still needs Finance
+// sign-off, not a self- or peer-Admin approval. See requireExpenseApprover
+// in lib/permissions.ts for the enforced rule.
 // ---------------------------------------------------------------------------
 
 export async function submitExpenseForApproval(id: string, actor: SessionPayload) {
@@ -27,7 +32,10 @@ export async function submitExpenseForApproval(id: string, actor: SessionPayload
       userId: actor.userId, action: "STATUS_CHANGE", entityType: "PROJECT_EXPENSE", entityId: id,
       description: `${updated.number}: Draft -> Submitted for approval`,
     });
-    await notifyRole(tx, "ADMIN", {
+    // FINANCE is the approver for project expenses (not ADMIN) — even an
+    // Admin's own submission needs Finance sign-off, so this notifies
+    // Finance regardless of who submitted it.
+    await notifyRole(tx, "FINANCE", {
       type: "EXPENSE_APPROVAL",
       title: "Project expense awaiting approval",
       message: `${updated.number} (Rp ${Number(updated.total).toLocaleString("id-ID")}) was submitted by ${actor.name} and needs your approval.`,
@@ -37,7 +45,7 @@ export async function submitExpenseForApproval(id: string, actor: SessionPayload
   });
 
   await dispatchOutbound(
-    { role: "ADMIN" },
+    { role: "FINANCE" },
     {
       title: "Biaya proyek menunggu approval",
       message: `${expense.number} (Rp ${Number(expense.total).toLocaleString("id-ID")}) diajukan oleh ${actor.name} dan menunggu approval Anda.`,
