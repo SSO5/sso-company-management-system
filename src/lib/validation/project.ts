@@ -59,6 +59,12 @@ export type MilestoneUpdateInput = z.infer<typeof milestoneUpdateSchema>;
 
 export const expenseSchema = z.object({
   projectId: z.string().min(1),
+  /**
+   * Jenis biaya yang lebih rinci daripada `category`. Opsional: ribuan biaya
+   * dicatat sebelum daftar jenis biaya ada, dan memaksanya sekarang akan
+   * menghentikan pencatatan di lapangan.
+   */
+  costTypeId: z.string().optional().nullable().transform((v) => (v ? v : null)),
   category: z.enum([
     "LABOR", "MATERIALS", "TRANSPORTATION", "ACCOMMODATION",
     "VENDOR", "EQUIPMENT", "MARKETING", "OTHER",

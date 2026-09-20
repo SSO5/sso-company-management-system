@@ -9,13 +9,17 @@ import { requireUser } from "@/lib/auth/current-user";
 import { requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { ExpensePanel } from "@/components/projects/expense-panel";
+import { listSelectableCostTypes } from "@/server/settings/cost-types";
 
 export default async function ExpensesPage({ searchParams }: { searchParams: { project?: string } }) {
   const actor = await requireUser();
   requirePermission(actor.role, "finance", "view");
-  const [expenses, projects] = await Promise.all([
+  const [expenses, projects, costTypes] = await Promise.all([
     listProjectExpenses(),
     prisma.project.findMany({ where: { deletedAt: null }, select: { id: true, number: true, name: true }, orderBy: { number: "desc" } }),
+    // Jenis biaya aktif untuk form pencatatan. Daftar kosong bukan galat:
+    // selama Admin belum mengisinya, form tetap bekerja seperti sebelumnya.
+    listSelectableCostTypes(),
   ]);
   const selected = projects.find(p => p.id === searchParams.project);
   return (
@@ -29,7 +33,7 @@ export default async function ExpensesPage({ searchParams }: { searchParams: { p
         </select>
         <button className="min-h-11 rounded-lg bg-primary px-4 text-sm text-primary-foreground">Tampilkan</button>
       </form>
-      {selected ? <div className="space-y-4"><Link href={`/projects/${selected.id}`} className="text-sm text-primary hover:underline">Lihat progres {selected.number} →</Link><ExpensePanel projectId={selected.id} role={actor.role} expenses={expenses.filter(e => e.projectId === selected.id).map(e => ({ ...e, total: Number(e.total), amount: Number(e.amount), tax: Number(e.tax) }))} /></div> : expenses.length === 0 ? <EmptyState title="Belum ada pengeluaran tercatat" /> : (
+      {selected ? <div className="space-y-4"><Link href={`/projects/${selected.id}`} className="text-sm text-primary hover:underline">Lihat progres {selected.number} →</Link><ExpensePanel projectId={selected.id} role={actor.role} costTypes={costTypes} expenses={expenses.filter(e => e.projectId === selected.id).map(e => ({ ...e, total: Number(e.total), amount: Number(e.amount), tax: Number(e.tax) }))} /></div> : expenses.length === 0 ? <EmptyState title="Belum ada pengeluaran tercatat" /> : (
         <Table>
           <TableHeader><TableRow><TableHead>Number</TableHead><TableHead>Project</TableHead><TableHead>Category</TableHead><TableHead>Description</TableHead><TableHead>Date</TableHead><TableHead>Total</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
           <TableBody>

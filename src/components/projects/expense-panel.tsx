@@ -71,10 +71,13 @@ export function ExpensePanel({
   projectId,
   expenses,
   role,
+  costTypes = [],
 }: {
   projectId: string;
   expenses: Expense[];
   role: UserRole;
+  /** Jenis biaya aktif; kosong berarti daftarnya belum diisi Admin. */
+  costTypes?: { id: string; code: string; name: string }[];
 }) {
   const [open, setOpen] = useState(false);
   const [rejectId, setRejectId] = useState<string | null>(null);
@@ -355,9 +358,42 @@ export function ExpensePanel({
 
       <Dialog open={open} onOpenChange={setOpen} title="Record Project Expense">
         <form onSubmit={onSubmit} className="space-y-3">
+          {/* Jenis biaya lebih rinci daripada kategori, dan kategorinya
+              DITURUNKAN dari jenis yang dipilih di server — dua kolom yang
+              menyatakan hal sama tapi bisa berbeda akan membuat laporan per
+              kategori dan papan biaya per jenis saling bertentangan. */}
+          {costTypes.length > 0 && (
+            <div className="space-y-1">
+              <Label>
+                Jenis biaya{" "}
+                <span className="text-muted-foreground">(disarankan)</span>
+              </Label>
+              <Select name="costTypeId" defaultValue="">
+                <option value="">— Tanpa jenis biaya —</option>
+                {costTypes.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.code} · {t.name}
+                  </option>
+                ))}
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                Memilih jenis biaya membuat pengeluaran ini bisa diadu dengan pagu
+                baseline. Tanpa itu, ia hanya masuk hitungan total.
+              </p>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>Kategori</Label>
+              <Label>
+                Kategori
+                {costTypes.length > 0 && (
+                  <span className="text-muted-foreground">
+                    {" "}
+                    (diabaikan kalau jenis biaya dipilih)
+                  </span>
+                )}
+              </Label>
               <Select name="category" defaultValue="OTHER">
                 {CATEGORIES.map((c) => (
                   <option key={c} value={c}>

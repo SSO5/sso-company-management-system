@@ -227,10 +227,29 @@ export async function createExpense(input: unknown): Promise<ActionResult<{ id: 
     const data = expenseSchema.parse(input);
     const total = data.amount + data.tax;
 
+    // Kalau jenis biaya dipilih, kategorinya DITURUNKAN dari jenis itu, bukan
+    // dari pilihan di form. Dua kolom yang menyatakan hal sama tapi bisa
+    // berbeda adalah cara pasti membuat laporan per kategori dan papan biaya
+    // per jenis saling bertentangan — dan yang salah tidak akan ketahuan
+    // sampai ada yang menjumlahkan keduanya.
+    let category = data.category;
+    if (data.costTypeId) {
+      const jenis = await prisma.costType.findFirst({
+        where: { id: data.costTypeId, isActive: true },
+        select: { category: true },
+      });
+      if (!jenis) {
+        throw new Error(
+          "Jenis biaya yang dipilih sudah tidak aktif. Muat ulang halaman lalu pilih yang lain.",
+        );
+      }
+      category = jenis.category;
+    }
+
     const expense = await prisma.$transaction(async (tx) => {
       const number = await generateNumber(tx, "EXPENSE");
       const created = await tx.projectExpense.create({
-        data: { ...data, total, number, createdById: actor.userId },
+        data: { ...data, category, total, number, createdById: actor.userId },
       });
       await logActivity(tx, { userId: actor.userId, action: "CREATE", entityType: "PROJECT_EXPENSE", entityId: created.id, description: `Recorded expense ${created.number} (${created.category})` });
       return created;

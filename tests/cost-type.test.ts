@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { can } from "../src/lib/permissions";
+import { expenseSchema } from "../src/lib/validation/project";
 import type { UserRole } from "@prisma/client";
 import {
   canDeleteCostType,
@@ -170,4 +171,22 @@ test("hak jenis biaya mengikuti Bagan Akun, bukan pengaturan", () => {
     assert.equal(can(role, "finance", "view"), true, role);
     assert.equal(can(role, "finance", "manage"), false, role);
   }
+});
+
+test("jenis biaya boleh dikosongkan saat mencatat biaya", () => {
+  // Ribuan biaya dicatat sebelum daftar jenis biaya ada, dan memaksanya
+  // sekarang akan menghentikan pencatatan di lapangan.
+  const dasar = {
+    projectId: "clx8n2k4p0001qw3f7yz9abcd",
+    category: "MATERIALS",
+    description: "Kabel daya",
+    date: "2026-09-20",
+    amount: 1_500_000,
+  };
+  assert.equal(expenseSchema.parse(dasar).costTypeId, null);
+  assert.equal(expenseSchema.parse({ ...dasar, costTypeId: "" }).costTypeId, null);
+  assert.equal(
+    expenseSchema.parse({ ...dasar, costTypeId: "ct-1" }).costTypeId,
+    "ct-1",
+  );
 });
