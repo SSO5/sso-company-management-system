@@ -10,6 +10,9 @@ import { requireUser } from "@/lib/auth/current-user";
  * Masih memakai data tiruan; saat tabelnya ada, hanya isi
  * loadProjectBaseline() yang berubah.
  */
+/* Angka realisasi bergerak setiap ada biaya disetujui. */
+export const dynamic = "force-dynamic";
+
 export default async function ProjectBaselinePage({
   params,
 }: {

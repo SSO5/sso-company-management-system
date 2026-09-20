@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 /**
  * Membuang cache setiap halaman yang menampilkan angka biaya sebuah proyek.
  *
- * Empat halaman membaca sumber yang sama dengan pertanyaan berbeda: detail
+ * Lima halaman membaca sumber yang sama dengan pertanyaan berbeda: detail
  * proyek, Command Center, papan biaya, dan daftar biaya finance. Kalau hanya
  * sebagian yang disegarkan, dua halaman akan menampilkan angka berbeda untuk
  * proyek yang sama — dan orang akan percaya yang mana pun yang dibukanya
@@ -21,5 +21,8 @@ export function revalidateProjectCost(projectId: string): void {
   revalidatePath(`/projects/${projectId}`);
   revalidatePath(`/projects/${projectId}/command`);
   revalidatePath(`/projects/${projectId}/cost-board`);
+  // Halaman baseline mengadu pagu dengan realisasi, jadi ia ikut basi setiap
+  // kali ada biaya yang berubah.
+  revalidatePath(`/projects/${projectId}/baseline`);
   revalidatePath("/finance/expenses");
 }

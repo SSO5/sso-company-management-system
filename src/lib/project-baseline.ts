@@ -60,6 +60,16 @@ export interface ProjectBaselineData {
   current: BaselineVersion | null;
   /** Seluruh versi, terbaru lebih dulu. */
   history: BaselineVersion[];
+  /**
+   * Realisasi per jenis biaya, untuk diadu dengan pagu baseline.
+   *
+   * Angkanya datang dari sumber yang sama dengan papan biaya — halaman ini
+   * tidak menghitung ulang apa pun — supaya baseline dan papan tidak pernah
+   * menampilkan realisasi yang berbeda untuk proyek yang sama.
+   */
+  realisation: { costTypeCode: string; actual: number; committed: number }[];
+  /** Waktu angka realisasi dihitung. */
+  realisationAt: string;
   /** Costing final yang tersedia untuk dijadikan baseline. */
   availableCostings: {
     number: string;
@@ -172,6 +182,14 @@ export function mockProjectBaseline(projectId: string): ProjectBaselineData {
     projectBudget: 1_050_000_000,
     current: v2,
     history: [v2, v1],
+    realisation: [
+      { costTypeCode: "MAT-PANEL", actual: 498_000_000, committed: 40_000_000 },
+      { costTypeCode: "UPAH-BORONG", actual: 231_500_000, committed: 0 },
+      { costTypeCode: "JASA-VENDOR", actual: 110_000_000, committed: 40_000_000 },
+      { costTypeCode: "SEWA-ALAT", actual: 41_000_000, committed: 0 },
+      { costTypeCode: "LAIN-LAIN", actual: 3_000_000, committed: 0 },
+    ],
+    realisationAt: new Date().toISOString(),
     availableCostings: [
       { number: "003/CST/MKT/VIII/2026", revision: 1, status: "CONVERTED", amount: v2.amount },
       { number: "007/CST/MKT/IX/2026", revision: 0, status: "FINAL", amount: 1_112_000_000 },
@@ -326,4 +344,89 @@ export function totalBaselineChange(history: BaselineVersion[]): number | null {
   return (
     menurutVersi[menurutVersi.length - 1].amount - menurutVersi[0].amount
   );
+}
+
+export interface BaselineVsActualRow {
+  label: string;
+  costTypeCode: string | null;
+  /** Pagu dari baseline; null kalau belanja ini tidak ada di baseline. */
+  baseline: number | null;
+  actual: number;
+  committed: number;
+  /** Pagu dikurangi belanja; null kalau tidak ada pembandingnya. */
+  remaining: number | null;
+  /**
+   * Kenapa baris ini tidak punya pembanding, kalau memang tidak punya.
+   *
+   *   BELUM_DIPETAKAN — baris baseline tanpa jenis biaya
+   *   DI_LUAR_BASELINE — belanja pada jenis biaya yang tidak dianggarkan
+   */
+  gap: "BELUM_DIPETAKAN" | "DI_LUAR_BASELINE" | null;
+}
+
+/**
+ * Memasangkan pagu baseline dengan realisasinya per jenis biaya.
+ *
+ * Dua keadaan yang sengaja TIDAK disembunyikan, karena keduanya adalah
+ * informasi, bukan kekurangan data:
+ *
+ *   - Baris baseline tanpa jenis biaya. Ia dianggarkan tapi tidak bisa
+ *     diadu dengan apa pun; menampilkannya bernilai nol akan membuatnya
+ *     terlihat hemat 100%.
+ *   - Belanja pada jenis biaya yang tidak ada di baseline. Inilah bentuk
+ *     paling umum pembengkakan yang luput: uang keluar di tempat yang
+ *     memang tidak pernah dianggarkan, jadi tidak muncul sebagai "lewat
+ *     pagu" di baris mana pun.
+ */
+export function pairBaselineWithActual(
+  lines: BaselineLine[],
+  realisation: { costTypeCode: string; actual: number; committed: number }[],
+): BaselineVsActualRow[] {
+  const belanja = new Map(realisation.map((r) => [r.costTypeCode, r]));
+  const terpakai = new Set<string>();
+
+  const rows: BaselineVsActualRow[] = lines.map((l) => {
+    const r = l.costTypeCode ? belanja.get(l.costTypeCode) : undefined;
+    if (l.costTypeCode && r) terpakai.add(l.costTypeCode);
+    const actual = r?.actual ?? 0;
+    const committed = r?.committed ?? 0;
+    return {
+      label: l.label,
+      costTypeCode: l.costTypeCode,
+      baseline: l.amount,
+      actual,
+      committed,
+      remaining: l.costTypeCode ? l.amount - actual - committed : null,
+      gap: l.costTypeCode ? null : "BELUM_DIPETAKAN",
+    };
+  });
+
+  for (const r of realisation) {
+    if (terpakai.has(r.costTypeCode)) continue;
+    rows.push({
+      label: r.costTypeCode,
+      costTypeCode: r.costTypeCode,
+      baseline: null,
+      actual: r.actual,
+      committed: r.committed,
+      remaining: null,
+      gap: "DI_LUAR_BASELINE",
+    });
+  }
+
+  return rows;
+}
+
+/** Belanja yang tidak punya pagu sama sekali di baseline. */
+export function spendOutsideBaseline(rows: BaselineVsActualRow[]): number {
+  return rows
+    .filter((r) => r.gap === "DI_LUAR_BASELINE")
+    .reduce((t, r) => t + r.actual + r.committed, 0);
+}
+
+/** Pagu yang belum bisa diadu karena barisnya belum punya jenis biaya. */
+export function baselineNotComparable(rows: BaselineVsActualRow[]): number {
+  return rows
+    .filter((r) => r.gap === "BELUM_DIPETAKAN")
+    .reduce((t, r) => t + (r.baseline ?? 0), 0);
 }

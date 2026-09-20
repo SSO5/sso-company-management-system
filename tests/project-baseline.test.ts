@@ -2,12 +2,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   baselineHistoryRows,
+  baselineNotComparable,
   budgetDrift,
   canBecomeBaseline,
   canUnlockBaseline,
   isLocked,
   loadProjectBaseline,
   mockProjectBaseline,
+  pairBaselineWithActual,
+  spendOutsideBaseline,
   reasonRequired,
   SET_BASELINE_MESSAGE,
   sumBaselineLines,
@@ -275,4 +278,73 @@ test("menyusun riwayat tidak mengubah daftar aslinya", () => {
   baselineHistoryRows(d.history, d.current!.id);
   totalBaselineChange(d.history);
   assert.deepEqual(d.history.map((v) => v.id), salinan);
+});
+
+/* --- baseline diadu dengan realisasi --- */
+
+const garis = (
+  costTypeCode: string | null,
+  amount: number,
+  label = costTypeCode ?? "tanpa jenis",
+) => ({ costTypeCode, label, category: "OTHER" as const, amount });
+
+test("pagu dan realisasi dipasangkan lewat kode jenis biaya", () => {
+  const rows = pairBaselineWithActual(
+    [garis("MAT", 100), garis("UPAH", 50)],
+    [{ costTypeCode: "MAT", actual: 60, committed: 10 }],
+  );
+  const mat = rows.find((r) => r.costTypeCode === "MAT")!;
+  assert.equal(mat.baseline, 100);
+  assert.equal(mat.actual, 60);
+  assert.equal(mat.committed, 10);
+  assert.equal(mat.remaining, 30);
+
+  // Jenis yang dianggarkan tapi belum dibelanjakan tetap muncul, bernilai nol.
+  const upah = rows.find((r) => r.costTypeCode === "UPAH")!;
+  assert.equal(upah.actual, 0);
+  assert.equal(upah.remaining, 50);
+});
+
+test("baris baseline tanpa jenis biaya tidak terlihat hemat 100%", () => {
+  // Kalau diperlakukan sebagai nol terpakai, ia akan terbaca paling hemat
+  // justru karena tidak bisa diukur.
+  const rows = pairBaselineWithActual([garis(null, 35)], []);
+  assert.equal(rows[0].gap, "BELUM_DIPETAKAN");
+  assert.equal(rows[0].remaining, null);
+  assert.equal(baselineNotComparable(rows), 35);
+});
+
+test("belanja di luar baseline dimunculkan, bukan dibuang diam-diam", () => {
+  // Inilah bentuk pembengkakan yang paling mudah luput: uang keluar pada
+  // jenis biaya yang memang tidak pernah dianggarkan.
+  const rows = pairBaselineWithActual(
+    [garis("MAT", 100)],
+    [
+      { costTypeCode: "MAT", actual: 50, committed: 0 },
+      { costTypeCode: "DENDA", actual: 7_000_000, committed: 1_000_000 },
+    ],
+  );
+  const luar = rows.find((r) => r.costTypeCode === "DENDA")!;
+  assert.equal(luar.gap, "DI_LUAR_BASELINE");
+  assert.equal(luar.baseline, null);
+  assert.equal(luar.remaining, null);
+  assert.equal(spendOutsideBaseline(rows), 8_000_000);
+});
+
+test("sisa negatif berarti jenis biaya itu sudah lewat pagunya", () => {
+  const rows = pairBaselineWithActual(
+    [garis("MAT", 100)],
+    [{ costTypeCode: "MAT", actual: 90, committed: 30 }],
+  );
+  assert.equal(rows[0].remaining, -20);
+});
+
+test("data tiruan memperlihatkan ketiga keadaan sekaligus", () => {
+  const d = mockProjectBaseline(id);
+  const rows = pairBaselineWithActual(d.current!.lines, d.realisation);
+  assert.ok(rows.some((r) => r.gap === null));
+  assert.ok(rows.some((r) => r.gap === "BELUM_DIPETAKAN"));
+  // Tidak ada belanja di luar baseline pada data tiruan; nilainya harus nol,
+  // bukan NaN.
+  assert.equal(spendOutsideBaseline(rows), 0);
 });

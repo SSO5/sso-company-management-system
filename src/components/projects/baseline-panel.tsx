@@ -16,6 +16,7 @@ import {
 } from "@/lib/project-baseline";
 import { ActiveBaselineCard } from "@/components/projects/active-baseline-card";
 import { BaselineHistory } from "@/components/projects/baseline-history";
+import { BaselineVsActual } from "@/components/projects/baseline-vs-actual";
 import { SetBaselinePanel } from "@/components/projects/set-baseline-panel";
 import { formatCurrency } from "@/lib/utils";
 
@@ -67,6 +68,12 @@ export function ProjectBaselinePanel({
           />
 
           <BaselineLines current={current} />
+
+          <BaselineVsActual
+            lines={current.lines}
+            realisation={data.realisation}
+            realisationAt={data.realisationAt}
+          />
         </>
       )}
 
