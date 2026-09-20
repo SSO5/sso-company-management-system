@@ -216,3 +216,31 @@ export function remainingBudget(snapshot: {
 
 /** Batas hari yang membuat sisa waktu ditandai perlu perhatian. */
 export const DAYS_REMAINING_WARNING = 14;
+
+/**
+ * Bentuk id cuid yang dipakai Prisma untuk Project: huruf "c" diikuti
+ * 24 karakter basis-36. Dipakai untuk menolak alamat yang jelas bukan id
+ * proyek sebelum repot mencari datanya.
+ */
+const CUID = /^c[a-z0-9]{20,30}$/;
+
+export function looksLikeProjectId(value: string | undefined | null): boolean {
+  return typeof value === "string" && CUID.test(value.trim());
+}
+
+/**
+ * Memuat data Command Center untuk satu proyek, atau null kalau proyeknya
+ * tidak ada.
+ *
+ * Selama tahap tiruan, "tidak ada" ditentukan dari bentuk id saja — id yang
+ * tidak berbentuk cuid pasti bukan proyek. Saat kueri aslinya ditulis, hanya
+ * isi fungsi ini yang berubah: halaman sudah menangani null dengan notFound()
+ * sejak sekarang, jadi alamat proyek yang salah tidak pernah menampilkan
+ * layar berisi angka tiruan seolah-olah itu data nyata.
+ */
+export async function loadProjectCommand(
+  projectId: string,
+): Promise<ProjectCommandData | null> {
+  if (!looksLikeProjectId(projectId)) return null;
+  return mockProjectCommand(projectId);
+}

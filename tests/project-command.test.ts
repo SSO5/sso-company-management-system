@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  loadProjectCommand,
+  looksLikeProjectId,
   remainingBudget,
   stageProgress,
   stageState,
@@ -63,4 +65,22 @@ test("sisa pagu negatif berarti sudah lewat pagu", () => {
     remainingBudget({ budget: 100, actualCost: 90, committedCost: 30 }),
     -20,
   );
+});
+
+test("alamat yang jelas bukan id proyek ditolak sebelum data dicari", () => {
+  assert.equal(looksLikeProjectId("clx8n2k4p0001qw3f7yz9abcd"), true);
+  assert.equal(looksLikeProjectId(""), false);
+  assert.equal(looksLikeProjectId("   "), false);
+  assert.equal(looksLikeProjectId("123"), false);
+  assert.equal(looksLikeProjectId("../../etc/passwd"), false);
+  assert.equal(looksLikeProjectId(undefined), false);
+});
+
+test("loadProjectCommand mengembalikan null untuk proyek yang tidak ada", async () => {
+  // Halaman memanggil notFound() pada null. Tanpa ini, alamat proyek yang
+  // salah akan menampilkan layar penuh angka tiruan seolah itu data nyata.
+  assert.equal(await loadProjectCommand("bukan-id"), null);
+  const ada = await loadProjectCommand("clx8n2k4p0001qw3f7yz9abcd");
+  assert.notEqual(ada, null);
+  assert.equal(ada?.projectId, "clx8n2k4p0001qw3f7yz9abcd");
 });
