@@ -10,7 +10,7 @@ import { JobNumberField } from "@/components/projects/job-number-field";
 import { ProjectStatusSelect } from "@/components/projects/project-status-select";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { FolderOpen, LayoutDashboard, TriangleAlert } from "lucide-react";
+import { FolderOpen, TriangleAlert } from "lucide-react";
 
 export default async function ProjectDetailPage({
   params,
@@ -20,6 +20,13 @@ export default async function ProjectDetailPage({
   searchParams: { tab?: string };
 }) {
   if (searchParams.tab === "costs") redirect(`/finance/expenses?project=${params.id}`);
+  // Command Center adalah pintu masuk utama sekarang, bukan tautan kecil yang
+  // gampang terlewat. Siapa pun yang membuka URL kanonis proyek TANPA
+  // menyebut tab tertentu (dari daftar proyek, dari peluang yang dimenangkan,
+  // dari halaman pelanggan, dst.) langsung diarahkan ke sana. Tautan lama
+  // yang sudah menyebut tab eksplisit (?tab=documents, ?tab=progress, dst.)
+  // tidak terpengaruh — itulah gunanya syarat `!searchParams.tab`.
+  if (!searchParams.tab) redirect(`/projects/${params.id}/command`);
   const [
     {
       project,
@@ -55,11 +62,15 @@ export default async function ProjectDetailPage({
   return (
     <div className="space-y-4">
       <div>
+        {/* Command Center adalah induk langsung dari halaman tab ini di
+            hierarki navigasi yang baru (Semua proyek -> Command Center ->
+            detail per-tab), jadi tautan "kembali" mengarah ke situ, bukan
+            langsung melompat ke daftar proyek. */}
         <Link
-          href="/projects"
+          href={`/projects/${params.id}/command`}
           className="mb-3 inline-block py-2 text-sm text-primary"
         >
-          ← Semua proyek
+          ← Command Center
         </Link>
         <p className="font-mono text-xs text-muted-foreground">
           {project.number}
@@ -82,12 +93,6 @@ export default async function ProjectDetailPage({
             jobNumber={project.jobNumber}
             canManage={canManage}
           />
-          <Link
-            href={`/projects/${project.id}/command`}
-            className="flex items-center gap-1 text-xs text-primary hover:underline"
-          >
-            <LayoutDashboard className="h-3.5 w-3.5" /> Command Center
-          </Link>
           {opportunityFolder && (
             <Link
               href={`/documents/${opportunityFolder.id}`}
