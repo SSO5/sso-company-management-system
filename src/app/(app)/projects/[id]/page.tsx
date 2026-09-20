@@ -10,7 +10,7 @@ import { JobNumberField } from "@/components/projects/job-number-field";
 import { ProjectStatusSelect } from "@/components/projects/project-status-select";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { FolderOpen, TriangleAlert } from "lucide-react";
+import { FolderOpen, LayoutDashboard, TriangleAlert } from "lucide-react";
 
 export default async function ProjectDetailPage({
   params,
@@ -82,6 +82,12 @@ export default async function ProjectDetailPage({
             jobNumber={project.jobNumber}
             canManage={canManage}
           />
+          <Link
+            href={`/projects/${project.id}/command`}
+            className="flex items-center gap-1 text-xs text-primary hover:underline"
+          >
+            <LayoutDashboard className="h-3.5 w-3.5" /> Command Center
+          </Link>
           {opportunityFolder && (
             <Link
               href={`/documents/${opportunityFolder.id}`}
