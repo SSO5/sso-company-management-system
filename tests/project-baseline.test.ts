@@ -166,3 +166,20 @@ test("tiap masalah punya kalimat penjelasnya sendiri", () => {
     assert.ok(SET_BASELINE_MESSAGE[key].length > 10, key);
   }
 });
+
+test("costing yang sudah dihapus tidak membatalkan baseline", () => {
+  // Baseline adalah salinan beku, bukan tautan hidup. Yang hilang hanya
+  // jalan pintas ke dokumennya.
+  const lama = mockProjectBaseline(id).history.find((v) => v.costingId === null)!;
+  assert.equal(lama.costingId, null);
+  assert.ok(lama.amount > 0);
+  assert.equal(lama.costingNumber.length > 0, true);
+  assert.equal(sumBaselineLines(lama.lines), lama.amount);
+});
+
+test("versi yang berlaku bisa ditelusuri ke dokumen costingnya", () => {
+  const c = mockProjectBaseline(id).current!;
+  assert.notEqual(c.costingId, null);
+  assert.notEqual(c.setBy, "");
+  assert.notEqual(c.setAt, "");
+});

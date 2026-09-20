@@ -31,6 +31,12 @@ export interface BaselineVersion {
   id: string;
   /** Urutan versi baseline pada proyek ini, mulai dari 1. */
   version: number;
+  /**
+   * Id costing sumbernya, supaya angka baseline bisa ditelusuri sampai ke
+   * dokumen aslinya. null kalau costingnya sudah dihapus — baselinenya tetap
+   * berlaku, karena ia salinan beku, bukan tautan hidup.
+   */
+  costingId: string | null;
   /** Nomor costing sumbernya, mis. "003/CST/MKT/VIII/2026". */
   costingNumber: string;
   costingRevision: number;
@@ -127,6 +133,7 @@ export function mockProjectBaseline(projectId: string): ProjectBaselineData {
   const v2: BaselineVersion = {
     id: "bl-2",
     version: 2,
+    costingId: "clx0costing0001aaaaaaaaaaa",
     costingNumber: "003/CST/MKT/VIII/2026",
     costingRevision: 1,
     amount: sumBaselineLines(v2Lines),
@@ -145,6 +152,7 @@ export function mockProjectBaseline(projectId: string): ProjectBaselineData {
   const v1: BaselineVersion = {
     id: "bl-1",
     version: 1,
+    costingId: null,
     costingNumber: "003/CST/MKT/VIII/2026",
     costingRevision: 0,
     amount: sumBaselineLines(v1Lines),

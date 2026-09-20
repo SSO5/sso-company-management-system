@@ -1,4 +1,3 @@
-import { Lock, Unlock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -12,11 +11,10 @@ import {
 } from "@/components/ui/table";
 import { displayLabel } from "@/lib/display-labels";
 import {
-  budgetDrift,
-  isLocked,
   unmappedBaselineLines,
   type ProjectBaselineData,
 } from "@/lib/project-baseline";
+import { ActiveBaselineCard } from "@/components/projects/active-baseline-card";
 import { SetBaselinePanel } from "@/components/projects/set-baseline-panel";
 import { cn, formatCurrency, formatDateTime } from "@/lib/utils";
 
@@ -38,7 +36,6 @@ import { cn, formatCurrency, formatDateTime } from "@/lib/utils";
  */
 export function ProjectBaselinePanel({ data }: { data: ProjectBaselineData }) {
   const { current, history } = data;
-  const drift = budgetDrift(data);
 
   return (
     <div className="space-y-4">
@@ -56,68 +53,10 @@ export function ProjectBaselinePanel({ data }: { data: ProjectBaselineData }) {
         />
       ) : (
         <>
-          <Card>
-            <CardHeader className="pb-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <CardTitle className="text-sm">Baseline berlaku</CardTitle>
-                <Badge variant="secondary">Versi {current.version}</Badge>
-                {isLocked(current) ? (
-                  <Badge variant="success">
-                    <Lock className="mr-1 h-3 w-3" /> Terkunci
-                  </Badge>
-                ) : (
-                  <Badge variant="warning">
-                    <Unlock className="mr-1 h-3 w-3" /> Belum dikunci
-                  </Badge>
-                )}
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                Dari costing {current.costingNumber}
-                {current.costingRevision > 0 ? `.R${current.costingRevision}` : ""} ·
-                ditetapkan {current.setBy} pada {formatDateTime(current.setAt)}
-                {current.lockedAt
-                  ? ` · dikunci ${formatDateTime(current.lockedAt)}`
-                  : ""}
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-x-4 gap-y-3 md:grid-cols-3">
-                <Figure label="Baseline" value={formatCurrency(current.amount)} />
-                <Figure
-                  label="Pagu proyek saat ini"
-                  value={formatCurrency(data.projectBudget)}
-                />
-                <Figure
-                  label={
-                    drift === null
-                      ? "Selisih"
-                      : drift === 0
-                        ? "Sama dengan baseline"
-                        : drift > 0
-                          ? "Pagu proyek di atas baseline"
-                          : "Pagu proyek di bawah baseline"
-                  }
-                  value={drift === null ? "—" : formatCurrency(Math.abs(drift))}
-                  tone={drift && drift !== 0 ? "bad" : "good"}
-                />
-              </div>
-
-              {drift !== null && drift !== 0 && (
-                <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs">
-                  Pagu proyek sudah bergeser {formatCurrency(Math.abs(drift))} dari
-                  baseline. Papan biaya membandingkan realisasi dengan{" "}
-                  <strong>pagu proyek</strong>, bukan baseline — jadi selisih ini ikut
-                  menentukan apakah proyek terlihat aman atau tidak.
-                </p>
-              )}
-
-              {current.reason && (
-                <p className="text-xs text-muted-foreground">
-                  Alasan versi ini: {current.reason}
-                </p>
-              )}
-            </CardContent>
-          </Card>
+          <ActiveBaselineCard
+            current={current}
+            projectBudget={data.projectBudget}
+          />
 
           <BaselineLines current={current} />
         </>
@@ -255,32 +194,5 @@ function BaselineLines({
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-function Figure({
-  label,
-  value,
-  tone = "default",
-}: {
-  label: string;
-  value: string;
-  tone?: "default" | "good" | "bad";
-}) {
-  return (
-    <div className="space-y-0.5">
-      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-        {label}
-      </p>
-      <p
-        className={cn(
-          "break-words text-base font-semibold tabular-nums sm:text-lg",
-          tone === "good" && "text-success",
-          tone === "bad" && "text-destructive",
-        )}
-      >
-        {value}
-      </p>
-    </div>
   );
 }
