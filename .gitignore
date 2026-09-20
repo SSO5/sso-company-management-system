@@ -25,3 +25,6 @@ prototypes/check-syntax.cjs
 
 .vercel
 .env*
+
+# Daftar kerja sementara CLI NgodingPakeAI — ditulis ulang tiap `sync --plan`.
+.ngodingpakeai/pending.json
