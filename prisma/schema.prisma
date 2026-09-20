@@ -344,6 +344,9 @@ model User {
   companyExpensesApproved      CompanyExpense[]      @relation("CompanyExpenseApprovedBy")
   companyExpensesRejected      CompanyExpense[]      @relation("CompanyExpenseRejectedBy")
 
+  baselinesSet    ProjectBudgetBaseline[] @relation("BaselineSetBy")
+  baselinesLocked ProjectBudgetBaseline[] @relation("BaselineLockedBy")
+
   @@index([role])
 }
 
@@ -647,6 +650,8 @@ model CostingSheet {
 
   sections        CostingSection[]
   revisionHistory CostingSheetRevisionHistory[]
+
+  budgetBaselines ProjectBudgetBaseline[]
 
   @@index([customerId])
   @@index([status])
@@ -1053,6 +1058,7 @@ model Project {
   vendorPurchaseOrders VendorPurchaseOrder[]
   progressReports      ProgressReport[]
   weeklySettings       ProjectWeeklySettings?
+  budgetBaselines      ProjectBudgetBaseline[]
 
   @@index([status])
   @@index([customerId])
@@ -1862,7 +1868,8 @@ model CostType {
   /// bentuk hanya karena daftar masternya dirapikan.
   isActive Boolean @default(true)
 
-  expenses ProjectExpense[]
+  expenses      ProjectExpense[]
+  baselineLines ProjectBudgetBaselineLine[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1870,6 +1877,84 @@ model CostType {
   @@index([category])
   @@index([isActive])
   @@index([chartOfAccountId])
+}
+
+/// Pagu proyek yang DIBEKUKAN dari satu versi costing final.
+///
+/// Berbeda dari Project.budget, yang bisa diubah kapan saja lewat form
+/// proyek: angka yang ikut bergerak tidak bisa dipakai sebagai pembanding.
+/// Baseline inilah yang membuat kalimat "lewat pagu 12%" punya arti, karena
+/// pagunya tidak bisa diam-diam disesuaikan agar cocok.
+///
+/// Nomor dan revisi costing DISALIN, bukan cuma ditautkan. Costing yang
+/// kelak dihapus tidak boleh membatalkan baseline — ia salinan beku, bukan
+/// tautan hidup.
+model ProjectBudgetBaseline {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  /// Urutan versi pada proyek ini, mulai dari 1.
+  version Int
+
+  costingSheetId  String?
+  costingSheet    CostingSheet? @relation(fields: [costingSheetId], references: [id], onDelete: SetNull)
+  /// Salinan beku nomor dan revisi costing sumbernya.
+  costingNumber   String
+  costingRevision Int           @default(0)
+
+  amount Decimal @db.Decimal(18, 2)
+
+  /// Alasan penggantian. Wajib diisi mulai versi kedua — baseline yang
+  /// berganti tanpa keterangan menghapus satu-satunya penjelasan kenapa
+  /// angka pembandingnya bergeser.
+  reason String?
+
+  /// Hanya satu versi per proyek yang boleh berlaku. Ditegakkan indeks unik
+  /// parsial di basis data, bukan hanya oleh disiplin kode.
+  isCurrent Boolean @default(false)
+
+  /// Terkunci berarti tidak bisa diubah lagi, hanya digantikan versi baru.
+  lockedAt   DateTime?
+  lockedById String?
+  lockedBy   User?     @relation("BaselineLockedBy", fields: [lockedById], references: [id])
+
+  setAt   DateTime @default(now())
+  setById String
+  setBy   User     @relation("BaselineSetBy", fields: [setById], references: [id])
+
+  lines ProjectBudgetBaselineLine[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, version])
+  @@index([projectId])
+  @@index([costingSheetId])
+}
+
+/// Satu baris pagu pada sebuah baseline.
+///
+/// costTypeId nullable: costing bisa memuat baris yang belum dipetakan ke
+/// jenis biaya mana pun, dan barisnya tetap harus tersimpan. Papan biaya
+/// menampilkannya sebagai "belum dipetakan" — bukan nol, karena nol akan
+/// membuatnya terbaca hemat 100% justru karena tidak bisa diukur.
+model ProjectBudgetBaselineLine {
+  id         String                @id @default(cuid())
+  baselineId String
+  baseline   ProjectBudgetBaseline @relation(fields: [baselineId], references: [id], onDelete: Cascade)
+
+  costTypeId String?
+  costType   CostType? @relation(fields: [costTypeId], references: [id], onDelete: SetNull)
+
+  label    String
+  category ExpenseCategory
+  amount   Decimal         @db.Decimal(18, 2)
+
+  sortOrder Int @default(0)
+
+  @@index([baselineId])
+  @@index([costTypeId])
 }
 
 model FinanceWorkItem {
