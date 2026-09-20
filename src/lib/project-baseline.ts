@@ -215,8 +215,8 @@ export async function loadProjectBaseline(
  * menghapus satu-satunya penjelasan kenapa angka pembandingnya bergeser, dan
  * enam bulan kemudian tidak ada yang bisa menjawabnya.
  */
-export function reasonRequired(current: BaselineVersion | null): boolean {
-  return current !== null;
+export function reasonRequired(current: unknown | null): boolean {
+  return current !== null && current !== undefined;
 }
 
 export type SetBaselineProblem =
@@ -232,10 +232,16 @@ export type SetBaselineProblem =
  * yang menyebut satu kesalahan lalu menyebut kesalahan berikutnya setelah
  * dikirim ulang membuat orang menebak-nebak.
  */
+/**
+ * Sengaja hanya meminta dua kolom dari baseline yang berlaku, bukan seluruh
+ * BaselineVersion. Pemanggil di server membaca baris basis data, dan
+ * memaksanya menyusun objek tampilan lengkap hanya untuk lewat pemeriksaan
+ * akan melahirkan kolom-kolom karangan yang tidak dipakai siapa pun.
+ */
 export function validateSetBaseline(input: {
   costing: { number: string; revision: number; status: string } | null;
   reason: string;
-  current: BaselineVersion | null;
+  current: Pick<BaselineVersion, "costingNumber" | "costingRevision"> | null;
 }): SetBaselineProblem[] {
   const problems: SetBaselineProblem[] = [];
 

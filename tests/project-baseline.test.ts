@@ -348,3 +348,24 @@ test("data tiruan memperlihatkan ketiga keadaan sekaligus", () => {
   // bukan NaN.
   assert.equal(spendOutsideBaseline(rows), 0);
 });
+
+test("pemeriksaan penetapan hanya butuh nomor dan revisi baseline berlaku", () => {
+  // Pemanggil di server membaca baris basis data; memaksanya menyusun objek
+  // tampilan lengkap hanya untuk lewat pemeriksaan akan melahirkan kolom
+  // karangan yang tidak dipakai siapa pun.
+  const problems = validateSetBaseline({
+    costing: { number: "007/CST/MKT/IX/2026", revision: 0, status: "FINAL" },
+    reason: "ganti lingkup",
+    current: { costingNumber: "003/CST/MKT/VIII/2026", costingRevision: 1 },
+  });
+  assert.deepEqual(problems, []);
+});
+
+test("alasan tetap wajib walau baseline berlaku hanya dikenal sebagian", () => {
+  assert.equal(
+    reasonRequired({ costingNumber: "X", costingRevision: 0 }),
+    true,
+  );
+  assert.equal(reasonRequired(null), false);
+  assert.equal(reasonRequired(undefined), false);
+});
