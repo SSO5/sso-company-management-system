@@ -38,7 +38,7 @@ test("ProjectExpense.costTypeId nullable", () => {
   // Ribuan biaya lama dicatat sebelum daftar jenis biaya ada. Kolom NOT NULL
   // akan menolak migrasinya, atau memaksa nilai karangan pada data nyata.
   assert.match(schema, /costTypeId\s+String\?/);
-  assert.match(workflow, /ADD COLUMN\s+"costTypeId" TEXT;/);
+  assert.match(workflow, /ADD COLUMN IF NOT EXISTS "costTypeId" TEXT;/);
   assert.doesNotMatch(workflow, /"costTypeId" TEXT NOT NULL/);
 });
 
@@ -79,4 +79,23 @@ test("workflow hanya berjalan kalau dijalankan orang", () => {
   // Perubahan skema produksi tidak boleh ikut terpicu oleh push.
   assert.match(workflow, /on:\s*\n\s*workflow_dispatch:/);
   assert.doesNotMatch(workflow, /\n\s{2}push:/);
+});
+
+test("gagal di tengah tidak meninggalkan basis data setengah jadi", () => {
+  assert.match(workflow, /psql "\$NEW_DATABASE_URL" -v ON_ERROR_STOP=1 --single-transaction/);
+});
+
+test("seluruh perintah aman dijalankan ulang", () => {
+  const creates = sql.match(/CREATE (?:UNIQUE )?(?:TABLE|INDEX) (?!IF NOT EXISTS)/g);
+  assert.equal(creates, null, `ada CREATE tanpa IF NOT EXISTS: ${creates}`);
+  const fkCount = (sql.match(/ADD CONSTRAINT "[^"]+_fkey"/g) ?? []).length;
+  const guardCount = (sql.match(/pg_constraint WHERE conname = '[^']+_fkey'/g) ?? []).length;
+  assert.equal(fkCount, 2);
+  assert.equal(guardCount, fkCount);
+});
+
+test("workflow berhenti kalau secret basis datanya kosong", () => {
+  // Tanpa ini psql akan mencoba menyambung ke basis data lokal runner dan
+  // gagal dengan pesan yang menyesatkan.
+  assert.match(workflow, /if \[ -z "\$NEW_DATABASE_URL" \]; then/);
 });

@@ -1,26 +1,29 @@
 name: DB Schema - Add CostType table and ProjectExpense.costTypeId (one-off)
 
-# Manual-only, one-off schema change: menambah tabel CostType (master jenis
-# biaya proyek) dan kolom ProjectExpense.costTypeId yang menunjuk ke sana.
+# Manual-only: menambah tabel CostType (master jenis biaya proyek) dan kolom
+# ProjectExpense.costTypeId yang menunjuk ke sana.
 #
-# Kenapa ini dibutuhkan: CostingLineItem tidak punya ExpenseCategory sama
-# sekali, jadi pagu PER JENIS BIAYA tidak bisa dibandingkan dengan
-# realisasinya — papan biaya sampai sekarang menulis "belum dipetakan".
-# CostType adalah lapisan penghubungnya, dan ia bermuara ke ExpenseCategory
-# lewat kolom `category` sehingga seluruh laporan lama tetap benar tanpa
-# disentuh.
+# Kenapa dibutuhkan: CostingLineItem tidak punya ExpenseCategory sama sekali,
+# jadi pagu PER JENIS BIAYA tidak bisa dibandingkan dengan realisasinya —
+# papan biaya menulis "belum dipetakan". CostType adalah lapisan
+# penghubungnya, dan ia bermuara ke ExpenseCategory lewat kolom `category`
+# sehingga seluruh laporan lama tetap benar tanpa disentuh.
 #
-# SQL di bawah dihasilkan `prisma migrate diff` yang membandingkan schema
-# sebelum dan sesudah perubahan (tanpa perlu koneksi basis data).
+# DUA HAL YANG MEMBUAT WORKFLOW INI AMAN DIJALANKAN ULANG:
 #
-# AMAN DAN ADITIF:
-#   - satu tabel baru, tidak menyentuh data yang ada
-#   - ProjectExpense.costTypeId nullable tanpa default, jadi instan di
-#     Postgres (tidak ada penulisan ulang tabel) dan ribuan biaya lama tetap
-#     valid apa adanya
-#   - kedua foreign key memakai ON DELETE SET NULL: menghapus akun atau jenis
-#     biaya tidak boleh ikut menghapus biaya proyek
-#   - tidak ada DROP, tidak ada kehilangan data
+#   1. --single-transaction. Kalau ada satu perintah yang gagal, SEMUANYA
+#      dibatalkan. Tanpa ini psql berjalan autocommit: perintah yang terlanjur
+#      sukses tetap tersimpan, dan basis data tertinggal setengah jadi —
+#      keadaan yang paling sulit dibereskan karena menjalankan ulang lalu
+#      gagal dengan "already exists".
+#   2. Seluruh perintah idempoten (IF NOT EXISTS, foreign key dijaga manual
+#      karena Postgres belum punya ADD CONSTRAINT IF NOT EXISTS). Jadi
+#      menjalankan ulang setelah gagal — atau karena ragu — tidak merusak
+#      apa pun.
+#
+# AMAN DAN ADITIF: satu tabel baru, satu kolom nullable tanpa default (instan
+# di Postgres, tidak ada penulisan ulang tabel), kedua foreign key ON DELETE
+# SET NULL. Tidak ada DROP, TRUNCATE, atau DELETE.
 on:
   workflow_dispatch:
 
@@ -41,12 +44,15 @@ jobs:
           NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
         run: |
           set -e
-          psql "$NEW_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
-          -- AlterTable
-          ALTER TABLE "ProjectExpense" ADD COLUMN     "costTypeId" TEXT;
+          if [ -z "$NEW_DATABASE_URL" ]; then
+            echo "NEW_DATABASE_URL kosong. Periksa secret repositori sebelum menjalankan ulang."
+            exit 1
+          fi
+          psql "$NEW_DATABASE_URL" -v ON_ERROR_STOP=1 --single-transaction <<'SQL'
+          -- Idempoten: aman dijalankan ulang kalau sebelumnya gagal di tengah.
+          ALTER TABLE "ProjectExpense" ADD COLUMN IF NOT EXISTS "costTypeId" TEXT;
 
-          -- CreateTable
-          CREATE TABLE "CostType" (
+          CREATE TABLE IF NOT EXISTS "CostType" (
               "id" TEXT NOT NULL,
               "code" TEXT NOT NULL,
               "name" TEXT NOT NULL,
@@ -60,26 +66,24 @@ jobs:
               CONSTRAINT "CostType_pkey" PRIMARY KEY ("id")
           );
 
-          -- CreateIndex
-          CREATE UNIQUE INDEX "CostType_code_key" ON "CostType"("code");
+          CREATE UNIQUE INDEX IF NOT EXISTS "CostType_code_key" ON "CostType"("code");
+          CREATE INDEX IF NOT EXISTS "CostType_category_idx" ON "CostType"("category");
+          CREATE INDEX IF NOT EXISTS "CostType_isActive_idx" ON "CostType"("isActive");
+          CREATE INDEX IF NOT EXISTS "CostType_chartOfAccountId_idx" ON "CostType"("chartOfAccountId");
+          CREATE INDEX IF NOT EXISTS "ProjectExpense_costTypeId_idx" ON "ProjectExpense"("costTypeId");
 
-          -- CreateIndex
-          CREATE INDEX "CostType_category_idx" ON "CostType"("category");
-
-          -- CreateIndex
-          CREATE INDEX "CostType_isActive_idx" ON "CostType"("isActive");
-
-          -- CreateIndex
-          CREATE INDEX "CostType_chartOfAccountId_idx" ON "CostType"("chartOfAccountId");
-
-          -- CreateIndex
-          CREATE INDEX "ProjectExpense_costTypeId_idx" ON "ProjectExpense"("costTypeId");
-
-          -- AddForeignKey
-          ALTER TABLE "ProjectExpense" ADD CONSTRAINT "ProjectExpense_costTypeId_fkey" FOREIGN KEY ("costTypeId") REFERENCES "CostType"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
-          -- AddForeignKey
-          ALTER TABLE "CostType" ADD CONSTRAINT "CostType_chartOfAccountId_fkey" FOREIGN KEY ("chartOfAccountId") REFERENCES "ChartOfAccount"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+          -- Postgres belum punya ADD CONSTRAINT IF NOT EXISTS, jadi dijaga manual.
+          DO $$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ProjectExpense_costTypeId_fkey') THEN
+              ALTER TABLE "ProjectExpense" ADD CONSTRAINT "ProjectExpense_costTypeId_fkey"
+                FOREIGN KEY ("costTypeId") REFERENCES "CostType"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'CostType_chartOfAccountId_fkey') THEN
+              ALTER TABLE "CostType" ADD CONSTRAINT "CostType_chartOfAccountId_fkey"
+                FOREIGN KEY ("chartOfAccountId") REFERENCES "ChartOfAccount"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+            END IF;
+          END $$;
           SQL
 
       - name: Verify table and column exist
@@ -87,7 +91,7 @@ jobs:
           NEW_DATABASE_URL: ${{ secrets.NEW_DATABASE_URL }}
         run: |
           set -e
-          echo "-- CostType columns --"
+          echo "-- kolom CostType --"
           psql "$NEW_DATABASE_URL" -tAc "SELECT column_name FROM information_schema.columns WHERE table_name = 'CostType' ORDER BY ordinal_position;"
           echo "-- ProjectExpense.costTypeId --"
           psql "$NEW_DATABASE_URL" -tAc "SELECT column_name FROM information_schema.columns WHERE table_name = 'ProjectExpense' AND column_name = 'costTypeId';"

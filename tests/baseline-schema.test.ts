@@ -31,13 +31,19 @@ test("hanya satu baseline yang boleh berlaku per proyek", () => {
   // Prisma tidak bisa menyatakan indeks unik parsial, jadi ia ditulis manual.
   // Tanpa itu, satu galat di server bisa meninggalkan dua baseline berlaku
   // sekaligus dan papan biaya akan memilih salah satunya tanpa ada yang tahu.
-  assert.match(sql, /CREATE UNIQUE INDEX "ProjectBudgetBaseline_one_current_per_project"/);
+  assert.match(
+    sql,
+    /CREATE UNIQUE INDEX IF NOT EXISTS "ProjectBudgetBaseline_one_current_per_project"/,
+  );
   assert.match(sql, /ON "ProjectBudgetBaseline"\("projectId"\)\s*\n?\s*WHERE "isCurrent"/);
 });
 
 test("nomor versi unik per proyek", () => {
   assert.match(model("ProjectBudgetBaseline"), /@@unique\(\[projectId, version\]\)/);
-  assert.match(sql, /CREATE UNIQUE INDEX "ProjectBudgetBaseline_projectId_version_key"/);
+  assert.match(
+    sql,
+    /CREATE UNIQUE INDEX IF NOT EXISTS "ProjectBudgetBaseline_projectId_version_key"/,
+  );
 });
 
 test("nomor costing DISALIN, bukan sekadar ditautkan", () => {
@@ -87,4 +93,32 @@ test("migrasi tidak menghapus atau mengubah tabel lama", () => {
 test("workflow hanya berjalan kalau dijalankan orang", () => {
   assert.match(workflow, /on:\s*\n\s*workflow_dispatch:/);
   assert.doesNotMatch(workflow, /\n\s{2}push:/);
+});
+
+test("gagal di tengah tidak meninggalkan basis data setengah jadi", () => {
+  // Tanpa --single-transaction, psql berjalan autocommit: pada percobaan
+  // dengan urutan terbalik, kedua tabel sempat terbuat dan tiga foreign key
+  // terpasang sebelum perintah yang gagal. Itu keadaan yang paling sulit
+  // dibereskan, karena menjalankan ulang lalu gagal "already exists".
+  assert.match(workflow, /psql "\$NEW_DATABASE_URL" -v ON_ERROR_STOP=1 --single-transaction/);
+});
+
+test("urutan migrasi diperiksa sendiri, bukan diserahkan ke ingatan", () => {
+  // Migrasi ini menunjuk ke CostType. Galat "relation does not exist" tidak
+  // memberi tahu siapa pun apa yang harus dijalankan lebih dulu.
+  assert.match(sql, /RAISE EXCEPTION 'Tabel CostType belum ada\./);
+  assert.match(sql, /information_schema\.tables WHERE table_name = 'CostType'/);
+});
+
+test("seluruh perintah aman dijalankan ulang", () => {
+  // Setelah sebuah workflow gagal, hal pertama yang dilakukan orang adalah
+  // menjalankannya lagi. Itu tidak boleh merusak apa pun.
+  const creates = sql.match(/CREATE (?:UNIQUE )?(?:TABLE|INDEX) (?!IF NOT EXISTS)/g);
+  assert.equal(creates, null, `ada CREATE tanpa IF NOT EXISTS: ${creates}`);
+  // Postgres belum punya ADD CONSTRAINT IF NOT EXISTS, jadi tiap foreign key
+  // wajib dijaga pemeriksaan pg_constraint.
+  const fkCount = (sql.match(/ADD CONSTRAINT "[^"]+_fkey"/g) ?? []).length;
+  const guardCount = (sql.match(/pg_constraint WHERE conname = '[^']+_fkey'/g) ?? []).length;
+  assert.equal(fkCount, 6);
+  assert.equal(guardCount, fkCount);
 });
