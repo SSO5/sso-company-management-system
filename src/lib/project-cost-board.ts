@@ -194,6 +194,49 @@ export function varianceStatus(d: {
   return "SAFE";
 }
 
+/**
+ * Menyusun satu baris antrean dari satu baris ProjectExpense.
+ *
+ * Dua keputusan sengaja dikunci di satu tempat yang bisa diuji, karena
+ * keduanya mudah salah dan akibatnya menimpa orang:
+ *
+ *   - NAMA PENGAJU. submittedBy baru terisi SETELAH diajukan, jadi baris yang
+ *     masih draf memakai pembuatnya. Nama yang salah di antrean persetujuan
+ *     berarti orang yang salah yang ditegur.
+ *   - UMUR BARIS. Dihitung dari saat ia MULAI menunggu — tanggal pengajuan
+ *     untuk yang sudah diajukan, tanggal dibuat untuk yang masih draf — bukan
+ *     dari tanggal transaksinya. Struk bulan lalu yang baru diajukan kemarin
+ *     belum mengendap sebulan.
+ */
+export function toPendingRow(
+  e: {
+    id: string;
+    description: string;
+    category: ExpenseCategory;
+    total: unknown;
+    approvalStatus: string;
+    submittedAt: Date | null;
+    createdAt: Date;
+    createdBy: { name: string };
+    submittedBy: { name: string } | null;
+  },
+  now: Date = new Date(),
+): PendingExpenseRow {
+  const waitingSince = e.submittedAt ?? e.createdAt;
+  return {
+    id: e.id,
+    description: e.description,
+    category: e.category,
+    amount: Number(e.total),
+    approvalStatus: e.approvalStatus as "DRAFT" | "SUBMITTED",
+    submittedBy: (e.submittedBy ?? e.createdBy).name,
+    ageDays: Math.max(
+      0,
+      Math.floor((now.getTime() - waitingSince.getTime()) / 86_400_000),
+    ),
+  };
+}
+
 /** Batas hari sebelum sebuah draf biaya dianggap mengendap di antrean. */
 export const PENDING_STALE_DAYS = 7;
 

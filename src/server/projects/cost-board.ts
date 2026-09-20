@@ -7,6 +7,7 @@ import { calculateProjectProfitability } from "@/lib/workflows/project";
 import { looksLikeProjectId } from "@/lib/project-command";
 import {
   aggregateCostByCategory,
+  toPendingRow,
   summarizeCostBoard,
   type CostBoardData,
   type CostSummary,
@@ -59,6 +60,59 @@ export async function getProjectCostSummary(
     baselineSource: project.quotation?.costingSheet?.number ?? null,
     updatedAt: new Date().toISOString(),
   });
+}
+
+/**
+ * Antrean biaya yang menunggu keputusan untuk satu proyek.
+ *
+ * Jalur tersendiri, bukan sekadar bagian papan, karena inilah satu-satunya
+ * angka di papan yang BISA DITINDAK langsung: selama baris-baris ini belum
+ * diputuskan, posisi biaya proyek belum bisa dibaca utuh. Finance yang
+ * membuka daftar tinjauan tidak perlu ikut memuat rincian per jenis biaya.
+ *
+ * Yang dikembalikan hanya DRAFT dan SUBMITTED. REJECTED sudah diputuskan,
+ * dan APPROVED sudah menjadi biaya — keduanya bukan lagi antrean.
+ */
+export async function getProjectPendingExpenses(
+  projectId: string,
+): Promise<PendingExpenseRow[] | null> {
+  const actor = await requireUserOrThrow();
+  requirePermission(actor.role, "project", "view");
+
+  if (!looksLikeProjectId(projectId)) return null;
+
+  const exists = await prisma.project.findFirst({
+    where: { id: projectId, deletedAt: null },
+    select: { id: true },
+  });
+  if (!exists) return null;
+
+  const rows = await prisma.projectExpense.findMany({
+    where: {
+      projectId,
+      deletedAt: null,
+      approvalStatus: { in: ["DRAFT", "SUBMITTED"] },
+    },
+    // Yang paling lama menunggu lebih dulu. Antrean persetujuan yang
+    // diurutkan menurut tanggal transaksi akan menyembunyikan justru baris
+    // yang paling perlu ditegur.
+    orderBy: [{ submittedAt: "asc" }, { createdAt: "asc" }],
+    select: {
+      id: true,
+      description: true,
+      category: true,
+      total: true,
+      approvalStatus: true,
+      submittedAt: true,
+      createdAt: true,
+      createdBy: { select: { name: true } },
+      submittedBy: { select: { name: true } },
+    },
+  });
+
+  // Dibungkus, bukan .map(toPendingRow): map menyuntikkan index sebagai
+  // argumen kedua, yang di sini adalah parameter "now".
+  return rows.map((e) => toPendingRow(e));
 }
 
 export async function getProjectCostBoard(
@@ -130,27 +184,15 @@ export async function getProjectCostBoard(
     // dipetakan" daripada terbaca lewat baseline sejak rupiah pertama.
   });
 
-  const now = Date.now();
+  // Pemetaan barisnya dibagi dengan getProjectPendingExpenses() supaya papan
+  // dan antrean tinjauan tidak bisa menampilkan nama pengaju atau umur yang
+  // berbeda untuk baris yang sama.
   const pendingRows: PendingExpenseRow[] = expenses
     .filter(
       (e) => e.approvalStatus === "DRAFT" || e.approvalStatus === "SUBMITTED",
     )
-    .map((e) => ({
-      id: e.id,
-      description: e.description,
-      category: e.category,
-      amount: Number(e.total),
-      approvalStatus: e.approvalStatus as "DRAFT" | "SUBMITTED",
-      // Yang mengajukan sebuah draf adalah pembuatnya; submittedBy baru terisi
-      // setelah diajukan. Nama yang salah di antrean persetujuan berarti
-      // orang yang salah yang ditegur.
-      submittedBy: (e.submittedBy ?? e.createdBy).name,
-      // Umur dihitung dari saat baris itu MULAI menunggu: tanggal pengajuan
-      // untuk yang sudah diajukan, tanggal dibuat untuk yang masih draf.
-      ageDays: Math.floor(
-        (now - (e.submittedAt ?? e.createdAt).getTime()) / 86_400_000,
-      ),
-    }));
+    .map((e) => toPendingRow(e))
+    .sort((a, b) => b.ageDays - a.ageDays);
 
   return {
     projectId: project.id,

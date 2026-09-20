@@ -12,6 +12,7 @@ import {
   splitPendingByHolder,
   stalePendingRows,
   summarizeCostBoard,
+  toPendingRow,
   sumPending,
   topCategoriesCovering,
   varianceStatus,
@@ -309,4 +310,58 @@ test("ringkasan papan identik dengan ringkasan yang berdiri sendiri", () => {
     updatedAt: d.summary.updatedAt,
   });
   assert.deepEqual(d.summary, ulang);
+});
+
+/* --- pemetaan baris antrean --- */
+
+const baris = (over: Partial<Parameters<typeof toPendingRow>[0]> = {}) => ({
+  id: "exp-1",
+  description: "Sewa forklift",
+  category: "EQUIPMENT" as const,
+  total: 12_500_000,
+  approvalStatus: "SUBMITTED",
+  submittedAt: new Date("2026-09-10T00:00:00Z"),
+  createdAt: new Date("2026-08-01T00:00:00Z"),
+  createdBy: { name: "Budi" },
+  submittedBy: { name: "Rina" },
+  ...over,
+});
+
+const saatIni = new Date("2026-09-20T00:00:00Z");
+
+test("umur dihitung sejak baris MULAI menunggu, bukan sejak transaksinya", () => {
+  // Struk bulan lalu yang baru diajukan kemarin belum mengendap sebulan.
+  assert.equal(toPendingRow(baris(), saatIni).ageDays, 10);
+});
+
+test("baris yang masih draf memakai tanggal dibuat", () => {
+  const r = toPendingRow(
+    baris({ approvalStatus: "DRAFT", submittedAt: null, submittedBy: null }),
+    saatIni,
+  );
+  assert.equal(r.ageDays, 50);
+  assert.equal(r.approvalStatus, "DRAFT");
+});
+
+test("baris draf memakai nama pembuatnya, bukan kosong", () => {
+  // submittedBy baru terisi setelah diajukan. Nama yang salah di antrean
+  // persetujuan berarti orang yang salah yang ditegur.
+  assert.equal(
+    toPendingRow(baris({ submittedAt: null, submittedBy: null }), saatIni).submittedBy,
+    "Budi",
+  );
+  assert.equal(toPendingRow(baris(), saatIni).submittedBy, "Rina");
+});
+
+test("umur tidak pernah negatif walau tanggalnya di masa depan", () => {
+  const r = toPendingRow(
+    baris({ submittedAt: new Date("2026-10-01T00:00:00Z") }),
+    saatIni,
+  );
+  assert.equal(r.ageDays, 0);
+});
+
+test("nilai Prisma Decimal dikonversi, bukan digabung sebagai teks", () => {
+  const dec = { toString: () => "12500000", valueOf: () => 12_500_000 };
+  assert.equal(toPendingRow(baris({ total: dec }), saatIni).amount, 12_500_000);
 });

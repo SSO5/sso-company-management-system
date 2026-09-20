@@ -1,6 +1,6 @@
 {
   "repo": "SSO5/sso-company-management-system",
-  "generatedForCommit": "a3ccc47fec8d27a0027201cb26e5d591dea58fe9",
+  "generatedForCommit": "34164ecf0a1b77f7d04152bb6bf334eb6aeac8e1",
   "files": [
     {
       "path": ".claude/skills/ngodingpakeai/SKILL.md",
@@ -664,7 +664,7 @@
     },
     {
       "path": "src/app/(app)/projects/[id]/cost-board/page.tsx",
-      "reason": "changed",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 1023
     },
@@ -1204,27 +1204,27 @@
     },
     {
       "path": "src/components/projects/cost-board.tsx",
-      "reason": "needs_summary",
+      "reason": "changed",
       "language": "typescript",
-      "size": 2311
+      "size": 2187
     },
     {
       "path": "src/components/projects/cost-category-shares.tsx",
-      "reason": "changed",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 4023
     },
     {
       "path": "src/components/projects/cost-category-table.tsx",
-      "reason": "changed",
+      "reason": "needs_summary",
       "language": "typescript",
       "size": 8467
     },
     {
       "path": "src/components/projects/cost-comparison-card.tsx",
-      "reason": "needs_summary",
+      "reason": "changed",
       "language": "typescript",
-      "size": 6736
+      "size": 6571
     },
     {
       "path": "src/components/projects/documents-panel.tsx",
@@ -1896,7 +1896,7 @@
       "path": "src/lib/project-cost-board.ts",
       "reason": "changed",
       "language": "typescript",
-      "size": 13014
+      "size": 14756
     },
     {
       "path": "src/lib/project-cost.ts",
@@ -2278,9 +2278,9 @@
     },
     {
       "path": "src/server/projects/cost-board.ts",
-      "reason": "new",
+      "reason": "changed",
       "language": "typescript",
-      "size": 4362
+      "size": 5891
     },
     {
       "path": "src/server/projects/progress-reports.ts",
@@ -2436,7 +2436,7 @@
       "path": "tests/project-cost-board.test.ts",
       "reason": "changed",
       "language": "typescript",
-      "size": 10401
+      "size": 12015
     },
     {
       "path": "tests/project-cost.test.ts",
@@ -2484,7 +2484,7 @@
       "path": "tsconfig.tsbuildinfo",
       "reason": "changed",
       "language": null,
-      "size": 275216
+      "size": 275307
     }
   ]
 }
