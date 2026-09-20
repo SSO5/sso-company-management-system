@@ -12,7 +12,7 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL") // pooled (PgBouncer) — used at runtime by the app
-  directUrl = env("DIRECT_URL")   // unpooled — used only for `prisma db push` / migrate
+  directUrl = env("DIRECT_URL") // unpooled — used only for `prisma db push` / migrate
 }
 
 // ---------------------------------------------------------------------------
@@ -296,53 +296,53 @@ model User {
   // an Admin after the person DMs the bot once and is told their own chat ID
   // (there's no way to know it beforehand — Telegram assigns it on first
   // contact).
-  telegramChatId    String? @unique
+  telegramChatId String? @unique
 
-  opportunitiesAsSalesPic Opportunity[]     @relation("OpportunitySalesPic")
-  quotationsCreated       Quotation[]       @relation("QuotationCreatedBy")
-  quotationsAsSalesPic    Quotation[]       @relation("QuotationSalesPic")
-  quotationsSubmitted     Quotation[]       @relation("QuotationSubmittedBy")
-  quotationsApproved      Quotation[]       @relation("QuotationApprovedBy")
-  quotationsRejected      Quotation[]       @relation("QuotationRejectedBy")
-  quotationsSigned        Quotation[]       @relation("QuotationSigner")
-  projectsManaged         Project[]         @relation("ProjectManager")
-  projectsAsSalesPic      Project[]         @relation("ProjectSalesPic")
-  projectsClosedBy        Project[]         @relation("ProjectClosedBy")
-  tasksAssigned           ProjectTask[]     @relation("TaskAssignedTo")
-  documentsUploaded       Document[]        @relation("DocumentUploadedBy")
-  documentsDeleted        Document[]        @relation("DocumentDeletedBy")
-  notifications           Notification[]
-  activityLogs            ActivityLog[]
-  createdCustomers        Customer[]        @relation("CustomerCreatedBy")
-  createdCostingSheets    CostingSheet[]    @relation("CostingCreatedBy")
+  opportunitiesAsSalesPic      Opportunity[]         @relation("OpportunitySalesPic")
+  quotationsCreated            Quotation[]           @relation("QuotationCreatedBy")
+  quotationsAsSalesPic         Quotation[]           @relation("QuotationSalesPic")
+  quotationsSubmitted          Quotation[]           @relation("QuotationSubmittedBy")
+  quotationsApproved           Quotation[]           @relation("QuotationApprovedBy")
+  quotationsRejected           Quotation[]           @relation("QuotationRejectedBy")
+  quotationsSigned             Quotation[]           @relation("QuotationSigner")
+  projectsManaged              Project[]             @relation("ProjectManager")
+  projectsAsSalesPic           Project[]             @relation("ProjectSalesPic")
+  projectsClosedBy             Project[]             @relation("ProjectClosedBy")
+  tasksAssigned                ProjectTask[]         @relation("TaskAssignedTo")
+  documentsUploaded            Document[]            @relation("DocumentUploadedBy")
+  documentsDeleted             Document[]            @relation("DocumentDeletedBy")
+  notifications                Notification[]
+  activityLogs                 ActivityLog[]
+  createdCustomers             Customer[]            @relation("CustomerCreatedBy")
+  createdCostingSheets         CostingSheet[]        @relation("CostingCreatedBy")
   numberRegistryEntriesCreated NumberRegistryEntry[] @relation("NumberRegistryCreatedBy")
   numberRegistryEntriesVoided  NumberRegistryEntry[] @relation("NumberRegistryVoidedBy")
-  createdExpenses         ProjectExpense[]  @relation("ExpenseCreatedBy")
-  expensesSubmitted       ProjectExpense[]  @relation("ExpenseSubmittedBy")
-  expensesApproved        ProjectExpense[]  @relation("ExpenseApprovedBy")
-  expensesRejected        ProjectExpense[]  @relation("ExpenseRejectedBy")
-  createdInvoices         Invoice[]         @relation("InvoiceCreatedBy")
-  invoicesSubmitted       Invoice[]         @relation("InvoiceSubmittedBy")
-  invoicesApproved        Invoice[]         @relation("InvoiceApprovedBy")
-  invoicesRejected        Invoice[]         @relation("InvoiceRejectedBy")
-  createdPayments         Payment[]         @relation("PaymentCreatedBy")
-  createdPurchaseOrders   PurchaseOrder[]   @relation("POCreatedBy")
-  createdContracts        Contract[]        @relation("ContractCreatedBy")
-  createdTasks            ProjectTask[]     @relation("TaskCreatedBy")
-  invoicesAsSalesPic      Invoice[]         @relation("InvoiceSalesPic")
-  createdVendorPOs        VendorPurchaseOrder[] @relation("VendorPOCreatedBy")
-  vendorPOsSigned         VendorPurchaseOrder[] @relation("VendorPOSigner")
-  vendorPOsSubmitted      VendorPurchaseOrder[] @relation("VendorPOSubmittedBy")
-  vendorPOsApproved       VendorPurchaseOrder[] @relation("VendorPOApprovedBy")
-  vendorPOsRejected       VendorPurchaseOrder[] @relation("VendorPORejectedBy")
-  progressReportsCreated  ProgressReport[]      @relation("ProgressReportCreatedBy")
-  progressReportsPrepared ProgressReport[]      @relation("ProgressReportPreparedBy")
-  directivesAssigned      Directive[]           @relation("DirectiveAssignedTo")
-  directivesGiven         Directive[]           @relation("DirectiveAssignedBy")
-  companyExpensesCreated   CompanyExpense[] @relation("CompanyExpenseCreatedBy")
-  companyExpensesSubmitted CompanyExpense[] @relation("CompanyExpenseSubmittedBy")
-  companyExpensesApproved  CompanyExpense[] @relation("CompanyExpenseApprovedBy")
-  companyExpensesRejected  CompanyExpense[] @relation("CompanyExpenseRejectedBy")
+  createdExpenses              ProjectExpense[]      @relation("ExpenseCreatedBy")
+  expensesSubmitted            ProjectExpense[]      @relation("ExpenseSubmittedBy")
+  expensesApproved             ProjectExpense[]      @relation("ExpenseApprovedBy")
+  expensesRejected             ProjectExpense[]      @relation("ExpenseRejectedBy")
+  createdInvoices              Invoice[]             @relation("InvoiceCreatedBy")
+  invoicesSubmitted            Invoice[]             @relation("InvoiceSubmittedBy")
+  invoicesApproved             Invoice[]             @relation("InvoiceApprovedBy")
+  invoicesRejected             Invoice[]             @relation("InvoiceRejectedBy")
+  createdPayments              Payment[]             @relation("PaymentCreatedBy")
+  createdPurchaseOrders        PurchaseOrder[]       @relation("POCreatedBy")
+  createdContracts             Contract[]            @relation("ContractCreatedBy")
+  createdTasks                 ProjectTask[]         @relation("TaskCreatedBy")
+  invoicesAsSalesPic           Invoice[]             @relation("InvoiceSalesPic")
+  createdVendorPOs             VendorPurchaseOrder[] @relation("VendorPOCreatedBy")
+  vendorPOsSigned              VendorPurchaseOrder[] @relation("VendorPOSigner")
+  vendorPOsSubmitted           VendorPurchaseOrder[] @relation("VendorPOSubmittedBy")
+  vendorPOsApproved            VendorPurchaseOrder[] @relation("VendorPOApprovedBy")
+  vendorPOsRejected            VendorPurchaseOrder[] @relation("VendorPORejectedBy")
+  progressReportsCreated       ProgressReport[]      @relation("ProgressReportCreatedBy")
+  progressReportsPrepared      ProgressReport[]      @relation("ProgressReportPreparedBy")
+  directivesAssigned           Directive[]           @relation("DirectiveAssignedTo")
+  directivesGiven              Directive[]           @relation("DirectiveAssignedBy")
+  companyExpensesCreated       CompanyExpense[]      @relation("CompanyExpenseCreatedBy")
+  companyExpensesSubmitted     CompanyExpense[]      @relation("CompanyExpenseSubmittedBy")
+  companyExpensesApproved      CompanyExpense[]      @relation("CompanyExpenseApprovedBy")
+  companyExpensesRejected      CompanyExpense[]      @relation("CompanyExpenseRejectedBy")
 
   @@index([role])
 }
@@ -369,22 +369,22 @@ model Customer {
   notes        String?
 
   createdById String
-  createdBy   User     @relation("CustomerCreatedBy", fields: [createdById], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdBy   User      @relation("CustomerCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
   deletedById String?
 
-  contacts       Contact[]
-  leads          Lead[]
-  opportunities  Opportunity[]
-  quotations     Quotation[]
-  costingSheets  CostingSheet[]
-  purchaseOrders PurchaseOrder[]
-  contracts      Contract[]
-  projects       Project[]
-  invoices       Invoice[]
-  payments       Payment[]
+  contacts             Contact[]
+  leads                Lead[]
+  opportunities        Opportunity[]
+  quotations           Quotation[]
+  costingSheets        CostingSheet[]
+  purchaseOrders       PurchaseOrder[]
+  contracts            Contract[]
+  projects             Project[]
+  invoices             Invoice[]
+  payments             Payment[]
   vendorPurchaseOrders VendorPurchaseOrder[]
 
   @@index([companyName])
@@ -399,13 +399,13 @@ model Contact {
 
   name       String
   salutation String? // "Mr.", "Ms.", "Mrs." — used on quotation PDF's greeting line
-  position  String?
+  position   String?
   department String?
-  email     String?
-  phone     String?
-  whatsapp  String?
-  isPrimary Boolean  @default(false)
-  notes     String?
+  email      String?
+  phone      String?
+  whatsapp   String?
+  isPrimary  Boolean @default(false)
+  notes      String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -418,10 +418,10 @@ model Contact {
 }
 
 model Lead {
-  id         String     @id @default(cuid())
-  number     String     @unique // LED-2026-0001
+  id         String    @id @default(cuid())
+  number     String    @unique // LED-2026-0001
   customerId String?
-  customer   Customer?  @relation(fields: [customerId], references: [id])
+  customer   Customer? @relation(fields: [customerId], references: [id])
 
   companyName String
   contactName String?
@@ -431,8 +431,8 @@ model Lead {
   status      LeadStatus @default(NEW)
   notes       String?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
   @@index([status])
@@ -448,13 +448,13 @@ model Opportunity {
 
   name                String
   description         String?
-  estimatedValue      Decimal            @db.Decimal(18, 2)
-  probability          Int               @default(10) // 0-100
+  estimatedValue      Decimal           @db.Decimal(18, 2)
+  probability         Int               @default(10) // 0-100
   expectedClosingDate DateTime?
   salesPicId          String
-  salesPic            User               @relation("OpportunitySalesPic", fields: [salesPicId], references: [id])
+  salesPic            User              @relation("OpportunitySalesPic", fields: [salesPicId], references: [id])
   source              String?
-  status              OpportunityStatus  @default(NEW)
+  status              OpportunityStatus @default(NEW)
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -475,30 +475,30 @@ model Opportunity {
 // ---------------------------------------------------------------------------
 
 model Quotation {
-  id            String    @id @default(cuid())
-  number        String    @unique // QT-2026-0001
+  id            String       @id @default(cuid())
+  number        String       @unique // QT-2026-0001
   customerId    String
-  customer      Customer  @relation(fields: [customerId], references: [id])
+  customer      Customer     @relation(fields: [customerId], references: [id])
   contactId     String?
-  contact       Contact?  @relation(fields: [contactId], references: [id])
+  contact       Contact?     @relation(fields: [contactId], references: [id])
   opportunityId String?
   opportunity   Opportunity? @relation(fields: [opportunityId], references: [id])
 
-  quotationDate DateTime  @default(now())
-  validUntil    DateTime?
-  salesPicId    String
-  salesPic      User      @relation("QuotationSalesPic", fields: [salesPicId], references: [id])
+  quotationDate   DateTime  @default(now())
+  validUntil      DateTime?
+  salesPicId      String
+  salesPic        User      @relation("QuotationSalesPic", fields: [salesPicId], references: [id])
   // Who signs this specific quotation's PDF (name, title, and signature
   // image are pulled from this user). Defaults to salesPicId when the
   // quotation is created, but is fully overridable per document — e.g. a
   // Director signs high-value quotes while a Sales Manager signs routine
   // ones. This is what makes PIC/TTD customizable instead of fixed.
-  signerId      String?
-  signer        User?     @relation("QuotationSigner", fields: [signerId], references: [id])
-  description   String?
-  subjectLine   String? // PDF "SUBJECT" line, e.g. "Quotation — Bracket Idler for Mechanical Parts"; falls back to description
-  terms         String?
-  notes         String?
+  signerId        String?
+  signer          User?     @relation("QuotationSigner", fields: [signerId], references: [id])
+  description     String?
+  subjectLine     String? // PDF "SUBJECT" line, e.g. "Quotation — Bracket Idler for Mechanical Parts"; falls back to description
+  terms           String?
+  notes           String?
   // Structured "B. TERMS & CONDITIONS" grid for the PDF (Pricing, Validity,
   // Lead Time, Scope of Work, Payment Terms, Warranty). Array of
   // { title: string, body: string }. Pre-filled with SSO's standard six
@@ -516,41 +516,41 @@ model Quotation {
   // quotation for editing).
   revision Int @default(0)
 
-  subtotal   Decimal @db.Decimal(18, 2) @default(0)
-  discount   Decimal @db.Decimal(18, 2) @default(0)
-  tax        Decimal @db.Decimal(18, 2) @default(0)
-  grandTotal Decimal @db.Decimal(18, 2) @default(0)
+  subtotal   Decimal @default(0) @db.Decimal(18, 2)
+  discount   Decimal @default(0) @db.Decimal(18, 2)
+  tax        Decimal @default(0) @db.Decimal(18, 2)
+  grandTotal Decimal @default(0) @db.Decimal(18, 2)
 
   status   QuotationStatus @default(DRAFT)
   isLocked Boolean         @default(false) // locked once submitted for approval
 
-  submittedAt   DateTime?
-  submittedById String?
-  submittedBy   User?     @relation("QuotationSubmittedBy", fields: [submittedById], references: [id])
-  approvedAt    DateTime?
-  approvedById  String?
-  approvedBy    User?     @relation("QuotationApprovedBy", fields: [approvedById], references: [id])
-  rejectedAt    DateTime?
-  rejectedById  String?
-  rejectedBy    User?     @relation("QuotationRejectedBy", fields: [rejectedById], references: [id])
+  submittedAt     DateTime?
+  submittedById   String?
+  submittedBy     User?     @relation("QuotationSubmittedBy", fields: [submittedById], references: [id])
+  approvedAt      DateTime?
+  approvedById    String?
+  approvedBy      User?     @relation("QuotationApprovedBy", fields: [approvedById], references: [id])
+  rejectedAt      DateTime?
+  rejectedById    String?
+  rejectedBy      User?     @relation("QuotationRejectedBy", fields: [rejectedById], references: [id])
   rejectionReason String?
-  sentAt        DateTime?
-  wonAt         DateTime?
-  lostAt        DateTime?
-  lostReason    String?
+  sentAt          DateTime?
+  wonAt           DateTime?
+  lostAt          DateTime?
+  lostReason      String?
 
   createdById String
-  createdBy   User     @relation("QuotationCreatedBy", fields: [createdById], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdBy   User      @relation("QuotationCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
-  items          QuotationItem[]
-  purchaseOrders PurchaseOrder[]
-  contracts      Contract[]
-  project        Project?
-  invoices       Invoice[]
-  costingSheet   CostingSheet?
+  items           QuotationItem[]
+  purchaseOrders  PurchaseOrder[]
+  contracts       Contract[]
+  project         Project?
+  invoices        Invoice[]
+  costingSheet    CostingSheet?
   revisionHistory QuotationRevisionHistory[]
 
   @@index([status])
@@ -589,8 +589,8 @@ model QuotationItem {
   quantity        Decimal @db.Decimal(18, 4)
   unit            String  @default("unit")
   unitPrice       Decimal @db.Decimal(18, 2)
-  discountPercent Decimal @db.Decimal(5, 2) @default(0)
-  taxPercent      Decimal @db.Decimal(5, 2) @default(0)
+  discountPercent Decimal @default(0) @db.Decimal(5, 2)
+  taxPercent      Decimal @default(0) @db.Decimal(5, 2)
   total           Decimal @db.Decimal(18, 2)
   sortOrder       Int     @default(0)
 
@@ -609,10 +609,10 @@ model QuotationItem {
 // carrying line items across so nothing is re-typed (section 38 principle).
 
 model CostingSheet {
-  id         String        @id @default(cuid())
-  number     String        @unique // CST-2026-0001
-  customerId String
-  customer   Customer      @relation(fields: [customerId], references: [id])
+  id            String       @id @default(cuid())
+  number        String       @unique // CST-2026-0001
+  customerId    String
+  customer      Customer     @relation(fields: [customerId], references: [id])
   opportunityId String?
   opportunity   Opportunity? @relation(fields: [opportunityId], references: [id])
 
@@ -635,17 +635,17 @@ model CostingSheet {
   // PPN and PPh Final are both charged as a % of Total COGS (input VAT +
   // withholding tax on vendor/procurement spend), not of revenue. Editable
   // per sheet since rates and the operational estimate vary by job.
-  operationalCost  Decimal @db.Decimal(18, 2) @default(0)
-  ppnPercent       Decimal @db.Decimal(5, 2) @default(11)
-  pphFinalPercent  Decimal @db.Decimal(5, 2) @default(2)
+  operationalCost Decimal @default(0) @db.Decimal(18, 2)
+  ppnPercent      Decimal @default(11) @db.Decimal(5, 2)
+  pphFinalPercent Decimal @default(2) @db.Decimal(5, 2)
 
   createdById String
-  createdBy   User     @relation("CostingCreatedBy", fields: [createdById], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdBy   User      @relation("CostingCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
-  sections CostingSection[]
+  sections        CostingSection[]
   revisionHistory CostingSheetRevisionHistory[]
 
   @@index([customerId])
@@ -705,7 +705,7 @@ model TelegramCostingDraft {
   customerName    String? // resolved company name, shown back in the preview
   projectTitle    String?
   jobNo           String?
-  operationalCost Decimal  @db.Decimal(18, 2) @default(0)
+  operationalCost Decimal  @default(0) @db.Decimal(18, 2)
   itemsJson       Json     @default("[]") // CostingLineItemInput[] collected so far
   // COLLECTING = still gathering required fields; CONFIRMING = all required
   // fields present, showing a preview and waiting for "ya"/"batal"/more items.
@@ -797,21 +797,21 @@ model CostingLineItem {
   sectionId String
   section   CostingSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
 
-  groupLabel String? // optional sub-heading shared by several lines, e.g. "1. SERVICE GEARBOX"
+  groupLabel  String? // optional sub-heading shared by several lines, e.g. "1. SERVICE GEARBOX"
   name        String // Equipment / item name
   description String?
-  quantity    Decimal @db.Decimal(18, 4) @default(1)
+  quantity    Decimal @default(1) @db.Decimal(18, 4)
   unit        String  @default("lot")
   currency    String  @default("IDR")
 
-  costUnitPrice          Decimal @db.Decimal(18, 2) // cost per unit, before supplier discount
-  supplierDiscountPercent Decimal @db.Decimal(5, 2) @default(0)
-  marginPercent           Decimal @db.Decimal(5, 2) @default(0) // target margin on SELLING price
+  costUnitPrice           Decimal @db.Decimal(18, 2) // cost per unit, before supplier discount
+  supplierDiscountPercent Decimal @default(0) @db.Decimal(5, 2)
+  marginPercent           Decimal @default(0) @db.Decimal(5, 2) // target margin on SELLING price
 
   // Server-computed & persisted at save time (never trust client math):
-  costTotal         Decimal @db.Decimal(18, 2) @default(0) // costUnitPrice * qty * (1 - supplierDiscount%)
-  sellingUnitPrice   Decimal @db.Decimal(18, 2) @default(0) // costPerUnitAfterDiscount / (1 - margin%)
-  sellingTotalPrice  Decimal @db.Decimal(18, 2) @default(0) // sellingUnitPrice * qty
+  costTotal         Decimal @default(0) @db.Decimal(18, 2) // costUnitPrice * qty * (1 - supplierDiscount%)
+  sellingUnitPrice  Decimal @default(0) @db.Decimal(18, 2) // costPerUnitAfterDiscount / (1 - margin%)
+  sellingTotalPrice Decimal @default(0) @db.Decimal(18, 2) // sellingUnitPrice * qty
 
   sortOrder Int @default(0)
 
@@ -823,20 +823,20 @@ model CostingLineItem {
 // ---------------------------------------------------------------------------
 
 model PurchaseOrder {
-  id         String              @id @default(cuid())
+  id          String     @id @default(cuid())
   // The customer's OWN PO reference, typed in as-is (e.g. "EPC-L/2026-0450",
   // "2026/BPN-L-0505") — this is an inbound document SSO did not issue, so
   // unlike Quotation/Invoice/VendorPurchaseOrder (which SSO creates and
   // therefore numbers itself via generateNumber()), there is no SSO sequence
   // to invent here. Uniqueness is scoped per customer, not global, since two
   // unrelated customers' own numbering schemes could coincidentally collide.
-  number     String
-  customerId String
-  customer   Customer            @relation(fields: [customerId], references: [id])
+  number      String
+  customerId  String
+  customer    Customer   @relation(fields: [customerId], references: [id])
   quotationId String?
-  quotation  Quotation?          @relation(fields: [quotationId], references: [id])
-  projectId  String?
-  project    Project?            @relation(fields: [projectId], references: [id])
+  quotation   Quotation? @relation(fields: [quotationId], references: [id])
+  projectId   String?
+  project     Project?   @relation(fields: [projectId], references: [id])
 
   poDate    DateTime            @default(now())
   poValue   Decimal             @db.Decimal(18, 2)
@@ -862,9 +862,9 @@ model PurchaseOrder {
   estimatedDeliveryDate DateTime?
 
   createdById String
-  createdBy   User     @relation("POCreatedBy", fields: [createdById], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdBy   User      @relation("POCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
   contracts  Contract[]
@@ -877,16 +877,16 @@ model PurchaseOrder {
 }
 
 model Contract {
-  id         String         @id @default(cuid())
-  number     String         @unique // CTR-2026-0001
-  customerId String
-  customer   Customer       @relation(fields: [customerId], references: [id])
-  quotationId String?
-  quotation  Quotation?     @relation(fields: [quotationId], references: [id])
+  id              String         @id @default(cuid())
+  number          String         @unique // CTR-2026-0001
+  customerId      String
+  customer        Customer       @relation(fields: [customerId], references: [id])
+  quotationId     String?
+  quotation       Quotation?     @relation(fields: [quotationId], references: [id])
   purchaseOrderId String?
   purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
-  projectId  String?
-  project    Project?       @relation(fields: [projectId], references: [id])
+  projectId       String?
+  project         Project?       @relation(fields: [projectId], references: [id])
 
   contractValue Decimal        @db.Decimal(18, 2)
   startDate     DateTime
@@ -895,9 +895,9 @@ model Contract {
   notes         String?
 
   createdById String
-  createdBy   User     @relation("ContractCreatedBy", fields: [createdById], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdBy   User      @relation("ContractCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
   @@index([status])
@@ -936,30 +936,30 @@ model VendorPurchaseOrder {
   paymentTerms  String?
   deliveryTerms String?
 
-  subtotal   Decimal @db.Decimal(18, 2) @default(0)
-  discount   Decimal @db.Decimal(18, 2) @default(0)
-  taxPercent Decimal @db.Decimal(5, 2) @default(11)
-  tax        Decimal @db.Decimal(18, 2) @default(0)
-  grandTotal Decimal @db.Decimal(18, 2) @default(0)
+  subtotal   Decimal @default(0) @db.Decimal(18, 2)
+  discount   Decimal @default(0) @db.Decimal(18, 2)
+  taxPercent Decimal @default(11) @db.Decimal(5, 2)
+  tax        Decimal @default(0) @db.Decimal(18, 2)
+  grandTotal Decimal @default(0) @db.Decimal(18, 2)
 
-  notes  String? // "Note / Ketentuan" block, freeform (numbered by the user)
-  status VendorPurchaseOrderStatus @default(DRAFT)
+  notes    String? // "Note / Ketentuan" block, freeform (numbered by the user)
+  status   VendorPurchaseOrderStatus @default(DRAFT)
   // Maker-checker: once submitted, isLocked prevents the maker from editing
   // until approved/rejected — mirrors Quotation's pattern exactly.
-  isLocked Boolean @default(false)
+  isLocked Boolean                   @default(false)
 
   signerId String?
   signer   User?   @relation("VendorPOSigner", fields: [signerId], references: [id])
 
-  submittedAt    DateTime?
-  submittedById  String?
-  submittedBy    User?     @relation("VendorPOSubmittedBy", fields: [submittedById], references: [id])
-  approvedAt     DateTime?
-  approvedById   String?
-  approvedBy     User?     @relation("VendorPOApprovedBy", fields: [approvedById], references: [id])
-  rejectedAt     DateTime?
-  rejectedById   String?
-  rejectedBy     User?     @relation("VendorPORejectedBy", fields: [rejectedById], references: [id])
+  submittedAt     DateTime?
+  submittedById   String?
+  submittedBy     User?     @relation("VendorPOSubmittedBy", fields: [submittedById], references: [id])
+  approvedAt      DateTime?
+  approvedById    String?
+  approvedBy      User?     @relation("VendorPOApprovedBy", fields: [approvedById], references: [id])
+  rejectedAt      DateTime?
+  rejectedById    String?
+  rejectedBy      User?     @relation("VendorPORejectedBy", fields: [rejectedById], references: [id])
   rejectionReason String?
 
   createdById String
@@ -968,7 +968,7 @@ model VendorPurchaseOrder {
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
-  items VendorPurchaseOrderItem[]
+  items   VendorPurchaseOrderItem[]
   // The Finance-side half of this PO's cost — see ProjectExpense.
   // vendorPurchaseOrderId for how/when it's created (markVendorPOSent).
   expense ProjectExpense?
@@ -988,10 +988,10 @@ model VendorPurchaseOrderItem {
   // convention as CostingLineItem.groupLabel.
   groupLabel  String?
   description String
-  quantity    Decimal @db.Decimal(18, 4) @default(1)
+  quantity    Decimal @default(1) @db.Decimal(18, 4)
   unit        String  @default("lot")
-  unitPrice   Decimal @db.Decimal(18, 2) @default(0)
-  amount      Decimal @db.Decimal(18, 2) @default(0)
+  unitPrice   Decimal @default(0) @db.Decimal(18, 2)
+  amount      Decimal @default(0) @db.Decimal(18, 2)
   sortOrder   Int     @default(0)
 
   @@index([vendorPurchaseOrderId])
@@ -1002,20 +1002,20 @@ model VendorPurchaseOrderItem {
 // ---------------------------------------------------------------------------
 
 model Project {
-  id         String   @id @default(cuid())
-  number     String   @unique // PRJ-2026-0001
-  name       String
-  customerId String
-  customer   Customer @relation(fields: [customerId], references: [id])
+  id            String       @id @default(cuid())
+  number        String       @unique // PRJ-2026-0001
+  name          String
+  customerId    String
+  customer      Customer     @relation(fields: [customerId], references: [id])
   opportunityId String?
   opportunity   Opportunity? @relation(fields: [opportunityId], references: [id])
   quotationId   String?      @unique
   quotation     Quotation?   @relation(fields: [quotationId], references: [id])
 
   projectManagerId String?
-  projectManager    User?    @relation("ProjectManager", fields: [projectManagerId], references: [id])
-  salesPicId        String?
-  salesPic          User?    @relation("ProjectSalesPic", fields: [salesPicId], references: [id])
+  projectManager   User?   @relation("ProjectManager", fields: [projectManagerId], references: [id])
+  salesPicId       String?
+  salesPic         User?   @relation("ProjectSalesPic", fields: [salesPicId], references: [id])
 
   // Free-text "Job Number" (spec: found in SSO's own real job-costing sheet
   // as "NO JO" — a short internal code like "226" or "BPN-0505", distinct
@@ -1025,14 +1025,14 @@ model Project {
   // no single fixed pattern. Left blank until Finance/PM assigns one.
   jobNumber String?
 
-  startDate     DateTime?
-  endDate       DateTime?
-  contractValue Decimal       @db.Decimal(18, 2) @default(0)
-  budget        Decimal       @db.Decimal(18, 2) @default(0)
-  status        ProjectStatus @default(PLANNING)
-  progressPercent Int         @default(0)
+  startDate       DateTime?
+  endDate         DateTime?
+  contractValue   Decimal       @default(0) @db.Decimal(18, 2)
+  budget          Decimal       @default(0) @db.Decimal(18, 2)
+  status          ProjectStatus @default(PLANNING)
+  progressPercent Int           @default(0)
 
-  closingChecklist Json?     // { taskCompleted: bool, bastUploaded: bool, ... }
+  closingChecklist Json? // { taskCompleted: bool, bastUploaded: bool, ... }
   completedAt      DateTime?
   closedAt         DateTime?
   closedById       String?
@@ -1042,17 +1042,17 @@ model Project {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  purchaseOrders PurchaseOrder[]
-  contracts      Contract[]
-  tasks          ProjectTask[]
-  milestones     ProjectMilestone[]
-  expenses       ProjectExpense[]
-  invoices       Invoice[]
-  payments       Payment[]
-  folders        Folder[]
+  purchaseOrders       PurchaseOrder[]
+  contracts            Contract[]
+  tasks                ProjectTask[]
+  milestones           ProjectMilestone[]
+  expenses             ProjectExpense[]
+  invoices             Invoice[]
+  payments             Payment[]
+  folders              Folder[]
   vendorPurchaseOrders VendorPurchaseOrder[]
-  progressReports ProgressReport[]
-  weeklySettings ProjectWeeklySettings?
+  progressReports      ProgressReport[]
+  weeklySettings       ProjectWeeklySettings?
 
   @@index([status])
   @@index([customerId])
@@ -1060,25 +1060,25 @@ model Project {
 }
 
 model ProjectTask {
-  id          String   @id @default(cuid())
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  title       String
-  description String?
-  assignedToId String?
-  assignedTo   User?      @relation("TaskAssignedTo", fields: [assignedToId], references: [id])
-  startDate   DateTime?
-  dueDate     DateTime?
-  priority    TaskPriority @default(MEDIUM)
-  status      TaskStatus   @default(TODO)
-  progressPercent Int      @default(0)
-  notes       String?
+  title           String
+  description     String?
+  assignedToId    String?
+  assignedTo      User?        @relation("TaskAssignedTo", fields: [assignedToId], references: [id])
+  startDate       DateTime?
+  dueDate         DateTime?
+  priority        TaskPriority @default(MEDIUM)
+  status          TaskStatus   @default(TODO)
+  progressPercent Int          @default(0)
+  notes           String?
 
   createdById String
-  createdBy   User     @relation("TaskCreatedBy", fields: [createdById], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdBy   User      @relation("TaskCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
   @@index([projectId])
@@ -1087,9 +1087,9 @@ model ProjectTask {
 }
 
 model ProjectMilestone {
-  id          String          @id @default(cuid())
-  projectId   String
-  project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   name            String
   dueDate         DateTime?
@@ -1104,7 +1104,7 @@ model ProjectMilestone {
   // 100%) — dipakai untuk menghitung kumulatif "Rencana" (dari dueDate) dan
   // "Realisasi" (dari completedAt). Tidak wajib diisi; kalau kosong,
   // milestone itu tidak ikut dihitung ke kurva sampai bobotnya diisi.
-  weightPercent Decimal   @db.Decimal(5, 2) @default(0)
+  weightPercent Decimal   @default(0) @db.Decimal(5, 2)
   completedAt   DateTime?
 
   // Links this milestone back to the real customer PO stage it represents
@@ -1132,19 +1132,24 @@ model ProjectMilestone {
 }
 
 model ProjectExpense {
-  id        String          @id @default(cuid())
-  number    String          @unique // EXP-2026-0001
+  id        String  @id @default(cuid())
+  number    String  @unique // EXP-2026-0001
   projectId String
-  project   Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  category      ExpenseCategory
-  description   String
-  vendor        String?
-  date          DateTime        @default(now())
-  amount        Decimal         @db.Decimal(18, 2)
-  tax           Decimal         @db.Decimal(18, 2) @default(0)
-  total         Decimal         @db.Decimal(18, 2)
-  paymentStatus ExpensePaymentStatus  @default(UNPAID)
+  category       ExpenseCategory
+  /// Jenis biaya yang lebih rinci daripada `category`. Nullable karena ribuan
+  /// biaya lama dicatat sebelum daftar jenis biaya ada; kolom ini yang
+  /// memungkinkan pagu per jenis biaya dibandingkan dengan realisasinya.
+  costTypeId     String?
+  costType       CostType?             @relation(fields: [costTypeId], references: [id], onDelete: SetNull)
+  description    String
+  vendor         String?
+  date           DateTime              @default(now())
+  amount         Decimal               @db.Decimal(18, 2)
+  tax            Decimal               @default(0) @db.Decimal(18, 2)
+  total          Decimal               @db.Decimal(18, 2)
+  paymentStatus  ExpensePaymentStatus  @default(UNPAID)
   approvalStatus ExpenseApprovalStatus @default(DRAFT)
   isLocked       Boolean               @default(false)
 
@@ -1156,25 +1161,26 @@ model ProjectExpense {
   vendorPurchaseOrderId String?              @unique
   vendorPurchaseOrder   VendorPurchaseOrder? @relation(fields: [vendorPurchaseOrderId], references: [id])
 
-  submittedAt    DateTime?
-  submittedById  String?
-  submittedBy    User?     @relation("ExpenseSubmittedBy", fields: [submittedById], references: [id])
-  approvedAt     DateTime?
-  approvedById   String?
-  approvedBy     User?     @relation("ExpenseApprovedBy", fields: [approvedById], references: [id])
-  rejectedAt     DateTime?
-  rejectedById   String?
-  rejectedBy     User?     @relation("ExpenseRejectedBy", fields: [rejectedById], references: [id])
+  submittedAt     DateTime?
+  submittedById   String?
+  submittedBy     User?     @relation("ExpenseSubmittedBy", fields: [submittedById], references: [id])
+  approvedAt      DateTime?
+  approvedById    String?
+  approvedBy      User?     @relation("ExpenseApprovedBy", fields: [approvedById], references: [id])
+  rejectedAt      DateTime?
+  rejectedById    String?
+  rejectedBy      User?     @relation("ExpenseRejectedBy", fields: [rejectedById], references: [id])
   rejectionReason String?
 
   createdById String
-  createdBy   User     @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdBy   User      @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
   @@index([projectId])
   @@index([category])
+  @@index([costTypeId])
   @@index([approvalStatus])
 }
 
@@ -1195,7 +1201,7 @@ model ProgressReport {
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   inspectionDate DateTime
-  dateVerified Boolean @default(false)
+  dateVerified   Boolean  @default(false)
   location       String?
 
   // Written for management, not for the workshop. The checkpoint table answers
@@ -1220,10 +1226,10 @@ model ProgressReport {
   // right under that file in the timeline instead of a separate hand-typed
   // record disconnected from the document. Null for any report created the
   // old manual way, or if the source document is later deleted.
-  sourceDocumentId String?   @unique
+  sourceDocumentId         String?   @unique
   originalSourceDocumentId String?
-  sourceDocument   Document? @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
-  aiGenerated      Boolean   @default(false)
+  sourceDocument           Document? @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
+  aiGenerated              Boolean   @default(false)
 
   createdById String
   createdBy   User      @relation("ProgressReportCreatedBy", fields: [createdById], references: [id])
@@ -1231,57 +1237,58 @@ model ProgressReport {
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
-  items ProgressReportItem[]
+  items   ProgressReportItem[]
   reviews ProgressReportReview[]
 
   @@index([projectId])
 }
 
 model ProjectWeeklySettings {
-  projectId String @id
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  ownerId String?
-  vendorDueAt DateTime?
+  projectId     String    @id
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  ownerId       String?
+  vendorDueAt   DateTime?
   customerDueAt DateTime?
-  recipient String?
-  channel String @default("WhatsApp")
-  updatedAt DateTime @updatedAt
+  recipient     String?
+  channel       String    @default("WhatsApp")
+  updatedAt     DateTime  @updatedAt
 }
 
 model ProgressReportReview {
-  id String @id @default(cuid())
-  reportId String
-  report ProgressReport @relation(fields: [reportId], references: [id], onDelete: Restrict)
-  version Int
-  fingerprint String
-  snapshot Json
-  pdfKey String
-  pdfHash String
-  status String @default("PENDING")
-  approverId String
-  requestedById String
-  requestedAt DateTime @default(now())
-  decidedById String?
-  decidedAt DateTime?
-  decisionNote String?
-  notificationStatus String @default("NOT_SENT")
-  dispatch ProgressReportDispatch?
+  id                 String                  @id @default(cuid())
+  reportId           String
+  report             ProgressReport          @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  version            Int
+  fingerprint        String
+  snapshot           Json
+  pdfKey             String
+  pdfHash            String
+  status             String                  @default("PENDING")
+  approverId         String
+  requestedById      String
+  requestedAt        DateTime                @default(now())
+  decidedById        String?
+  decidedAt          DateTime?
+  decisionNote       String?
+  notificationStatus String                  @default("NOT_SENT")
+  dispatch           ProgressReportDispatch?
+
   @@unique([reportId, version])
   @@index([approverId, status])
 }
 
 model ProgressReportDispatch {
-  id String @id @default(cuid())
-  reviewId String @unique
-  review ProgressReportReview @relation(fields: [reviewId], references: [id], onDelete: Restrict)
-  recordedById String
+  id             String               @id @default(cuid())
+  reviewId       String               @unique
+  review         ProgressReportReview @relation(fields: [reviewId], references: [id], onDelete: Restrict)
+  recordedById   String
   recordedByName String
-  recordedAt DateTime @default(now())
-  sentAt DateTime
-  recipient String
-  channel String
-  method String @default("MANUAL_CONFIRMATION")
-  note String?
+  recordedAt     DateTime             @default(now())
+  sentAt         DateTime
+  recipient      String
+  channel        String
+  method         String               @default("MANUAL_CONFIRMATION")
+  note           String?
 }
 
 model ProgressReportItem {
@@ -1319,38 +1326,38 @@ model ProgressReportItem {
 // ---------------------------------------------------------------------------
 
 model Invoice {
-  id         String    @id @default(cuid())
-  number     String    @unique // INV-2026-0001
-  customerId String
-  customer   Customer  @relation(fields: [customerId], references: [id])
-  projectId  String?
-  project    Project?  @relation(fields: [projectId], references: [id])
+  id          String     @id @default(cuid())
+  number      String     @unique // INV-2026-0001
+  customerId  String
+  customer    Customer   @relation(fields: [customerId], references: [id])
+  projectId   String?
+  project     Project?   @relation(fields: [projectId], references: [id])
   quotationId String?
   quotation   Quotation? @relation(fields: [quotationId], references: [id])
-  contactId  String?
-  contact    Contact?  @relation(fields: [contactId], references: [id])
+  contactId   String?
+  contact     Contact?   @relation(fields: [contactId], references: [id])
 
   invoiceDate DateTime      @default(now())
   dueDate     DateTime
-  subtotal    Decimal       @db.Decimal(18, 2) @default(0)
-  discount    Decimal       @db.Decimal(18, 2) @default(0)
-  tax         Decimal       @db.Decimal(18, 2) @default(0)
-  grandTotal  Decimal       @db.Decimal(18, 2) @default(0)
-  paidAmount  Decimal       @db.Decimal(18, 2) @default(0)
+  subtotal    Decimal       @default(0) @db.Decimal(18, 2)
+  discount    Decimal       @default(0) @db.Decimal(18, 2)
+  tax         Decimal       @default(0) @db.Decimal(18, 2)
+  grandTotal  Decimal       @default(0) @db.Decimal(18, 2)
+  paidAmount  Decimal       @default(0) @db.Decimal(18, 2)
   status      InvoiceStatus @default(DRAFT)
   // Maker-checker: locked while awaiting Direktur approval, same pattern as
   // Quotation/VendorPurchaseOrder — the maker cannot edit or self-approve.
   isLocked    Boolean       @default(false)
 
-  submittedAt    DateTime?
-  submittedById  String?
-  submittedBy    User?     @relation("InvoiceSubmittedBy", fields: [submittedById], references: [id])
-  approvedAt     DateTime?
-  approvedById   String?
-  approvedBy     User?     @relation("InvoiceApprovedBy", fields: [approvedById], references: [id])
-  rejectedAt     DateTime?
-  rejectedById   String?
-  rejectedBy     User?     @relation("InvoiceRejectedBy", fields: [rejectedById], references: [id])
+  submittedAt     DateTime?
+  submittedById   String?
+  submittedBy     User?     @relation("InvoiceSubmittedBy", fields: [submittedById], references: [id])
+  approvedAt      DateTime?
+  approvedById    String?
+  approvedBy      User?     @relation("InvoiceApprovedBy", fields: [approvedById], references: [id])
+  rejectedAt      DateTime?
+  rejectedById    String?
+  rejectedBy      User?     @relation("InvoiceRejectedBy", fields: [rejectedById], references: [id])
   rejectionReason String?
 
   // Fields verified against a real issued invoice ("001/INV/FIN/VIII/2026")
@@ -1383,12 +1390,12 @@ model Invoice {
   // as a separate field (rather than folded into paidAmount) so cash
   // actually received in the bank and tax credited are never conflated.
   // See lib/workflows/calculations.ts:invoiceOutstanding().
-  withholdingTax Decimal @db.Decimal(18, 2) @default(0)
+  withholdingTax Decimal @default(0) @db.Decimal(18, 2)
 
   createdById String
-  createdBy   User     @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdBy   User      @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
   items    InvoiceItem[]
@@ -1406,10 +1413,10 @@ model InvoiceItem {
   invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   description String
-  quantity    Decimal @db.Decimal(18, 4) @default(1)
+  quantity    Decimal @default(1) @db.Decimal(18, 4)
   unit        String  @default("unit")
   unitPrice   Decimal @db.Decimal(18, 2)
-  taxPercent  Decimal @db.Decimal(5, 2) @default(0)
+  taxPercent  Decimal @default(0) @db.Decimal(5, 2)
   total       Decimal @db.Decimal(18, 2)
   sortOrder   Int     @default(0)
 
@@ -1427,10 +1434,10 @@ model InvoiceItem {
 }
 
 model Payment {
-  id        String   @id @default(cuid())
-  number    String   @unique // PAY-2026-0001
-  invoiceId String
-  invoice   Invoice  @relation(fields: [invoiceId], references: [id])
+  id         String   @id @default(cuid())
+  number     String   @unique // PAY-2026-0001
+  invoiceId  String
+  invoice    Invoice  @relation(fields: [invoiceId], references: [id])
   customerId String
   customer   Customer @relation(fields: [customerId], references: [id])
   projectId  String?
@@ -1445,11 +1452,11 @@ model Payment {
   // PPh 23 (or similar) the customer withheld before transferring this
   // specific payment — see Invoice.withholdingTax for why this counts as
   // settling the invoice rather than leaving it outstanding.
-  withholdingTax  Decimal       @db.Decimal(18, 2) @default(0)
+  withholdingTax  Decimal       @default(0) @db.Decimal(18, 2)
 
   createdById String
-  createdBy   User     @relation("PaymentCreatedBy", fields: [createdById], references: [id])
-  createdAt   DateTime @default(now())
+  createdBy   User      @relation("PaymentCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
   deletedAt   DateTime?
 
   @@index([invoiceId])
@@ -1479,9 +1486,9 @@ model Folder {
   opportunityId String?
   opportunity   Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
 
-  routeKey  String?  // stable key for auto-routing, e.g. "SALES/QUOTATION", "FINANCE/INVOICE", "CLOSING/BAST"
-  isSystem  Boolean  @default(true) // system folders cannot be deleted by normal users
-  path      String   // materialized display path, e.g. "PRJ-2026-0001 - PT ABC / 01 Sales / Quotation"
+  routeKey String? // stable key for auto-routing, e.g. "SALES/QUOTATION", "FINANCE/INVOICE", "CLOSING/BAST"
+  isSystem Boolean @default(true) // system folders cannot be deleted by normal users
+  path     String // materialized display path, e.g. "PRJ-2026-0001 - PT ABC / 01 Sales / Quotation"
 
   createdAt DateTime @default(now())
 
@@ -1494,13 +1501,13 @@ model Folder {
 }
 
 model Document {
-  id           String   @id @default(cuid())
-  fileName     String
-  originalName String
-  mimeType     String
-  fileSize     Int
-  storageDriver String  @default("local")
-  storagePath  String   // internal key, never exposed to client directly
+  id            String @id @default(cuid())
+  fileName      String
+  originalName  String
+  mimeType      String
+  fileSize      Int
+  storageDriver String @default("local")
+  storagePath   String // internal key, never exposed to client directly
 
   folderId String?
   folder   Folder? @relation(fields: [folderId], references: [id])
@@ -1508,15 +1515,15 @@ model Document {
   relatedEntityType String? // "CUSTOMER" | "OPPORTUNITY" | "QUOTATION" | "PO" | "CONTRACT" | "PROJECT" | "INVOICE" | "PAYMENT" | "EXPENSE"
   relatedEntityId   String?
 
-  uploadedById String
-  uploadedBy   User     @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
-  uploadedAt   DateTime @default(now())
-  version      Int      @default(1)
-  progressFormat String @default("UNKNOWN")
-  processingState String @default("IDLE")
+  uploadedById        String
+  uploadedBy          User      @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
+  uploadedAt          DateTime  @default(now())
+  version             Int       @default(1)
+  progressFormat      String    @default("UNKNOWN")
+  processingState     String    @default("IDLE")
   processingStartedAt DateTime?
-  processingError String?
-  description  String?
+  processingError     String?
+  description         String?
 
   deletedAt   DateTime? // soft delete = Trash
   deletedById String?
@@ -1536,14 +1543,14 @@ model Document {
 // ---------------------------------------------------------------------------
 
 model Notification {
-  id      String   @id @default(cuid())
+  id      String  @id @default(cuid())
   userId  String
-  user    User     @relation(fields: [userId], references: [id])
-  type    String   // e.g. "QUOTATION_APPROVAL", "INVOICE_OVERDUE", "PROJECT_DEADLINE", "CONTRACT_EXPIRING", "PROJECT_CLOSING_INCOMPLETE"
+  user    User    @relation(fields: [userId], references: [id])
+  type    String // e.g. "QUOTATION_APPROVAL", "INVOICE_OVERDUE", "PROJECT_DEADLINE", "CONTRACT_EXPIRING", "PROJECT_CLOSING_INCOMPLETE"
   title   String
   message String
   link    String?
-  isRead  Boolean  @default(false)
+  isRead  Boolean @default(false)
 
   createdAt DateTime @default(now())
 
@@ -1593,13 +1600,13 @@ model NumberSequence {
 // rather than Prisma enums because this list is company policy, not a
 // database entity, and may grow without a schema migration.
 model NumberRegistryEntry {
-  id         String   @id @default(cuid())
-  docTypeCode String  // e.g. "SK", "QUO", "INV", "BAST"...
-  deptCode    String  // e.g. "MKT", "FIN", "DIR"...
-  number     String   @unique
-  numberDate DateTime
-  subject    String // Perihal / Nama Proyek
-  picName    String // Nama Peminta
+  id          String   @id @default(cuid())
+  docTypeCode String // e.g. "SK", "QUO", "INV", "BAST"...
+  deptCode    String // e.g. "MKT", "FIN", "DIR"...
+  number      String   @unique
+  numberDate  DateTime
+  subject     String // Perihal / Nama Proyek
+  picName     String // Nama Peminta
 
   createdById String
   createdBy   User     @relation("NumberRegistryCreatedBy", fields: [createdById], references: [id])
@@ -1630,25 +1637,25 @@ model RegistryNumberSequence {
 }
 
 model CompanySettings {
-  id      String @id @default("singleton")
-  companyName  String  @default("PT Sarana Sinergi Optima")
-  logoUrl      String?
-  address      String?
+  id                    String  @id @default("singleton")
+  companyName           String  @default("PT Sarana Sinergi Optima")
+  logoUrl               String?
+  address               String?
   // Second address line (kecamatan/kota/kode pos, e.g. "Pondok Pinang,
   // Kebayoran Lama, Jakarta Selatan 12310") — printed on its own line under
   // `address` in PDF headers/footers, matching the real letterhead format
   // (spec point #1: full address must show, not just "Jakarta").
-  addressLine2 String?
-  city         String?
-  province     String?
-  country      String? @default("Indonesia")
-  phone        String?
-  email        String?
-  taxId        String?
-  currency     String  @default("IDR")
-  timezone     String  @default("Asia/Jakarta")
-  fiscalYearStartMonth Int @default(1)
-  defaultTaxRatePercent Decimal @db.Decimal(5,2) @default(11)
+  addressLine2          String?
+  city                  String?
+  province              String?
+  country               String? @default("Indonesia")
+  phone                 String?
+  email                 String?
+  taxId                 String?
+  currency              String  @default("IDR")
+  timezone              String  @default("Asia/Jakarta")
+  fiscalYearStartMonth  Int     @default(1)
+  defaultTaxRatePercent Decimal @default(11) @db.Decimal(5, 2)
 
   // Prefix is the literal string placed between the sequence and the roman
   // month in the number (see lib/numbering.ts): {seq}/{prefix}/{month}/{year}.
@@ -1656,32 +1663,32 @@ model CompanySettings {
   // matching SSO's real numbering SOP — verified against the company's
   // numbering registry (e.g. "004/QUO/MKT/VII/2026"). All editable per
   // entity type in Settings > Numbering.
-  customerPrefix    String @default("CUS/MKT")
-  leadPrefix        String @default("LED/MKT")
-  opportunityPrefix String @default("OPP/MKT")
-  quotationPrefix   String @default("QUO/MKT")
-  poPrefix          String @default("PO/MKT")
-  contractPrefix    String @default("CTR/MKT")
-  projectPrefix     String @default("PRJ/OPS")
-  invoicePrefix     String @default("INV/FIN")
-  paymentPrefix     String @default("PAY/FIN")
-  expensePrefix     String @default("EXP/FIN")
-  costingPrefix     String @default("CST/MKT")
+  customerPrefix        String @default("CUS/MKT")
+  leadPrefix            String @default("LED/MKT")
+  opportunityPrefix     String @default("OPP/MKT")
+  quotationPrefix       String @default("QUO/MKT")
+  poPrefix              String @default("PO/MKT")
+  contractPrefix        String @default("CTR/MKT")
+  projectPrefix         String @default("PRJ/OPS")
+  invoicePrefix         String @default("INV/FIN")
+  paymentPrefix         String @default("PAY/FIN")
+  expensePrefix         String @default("EXP/FIN")
+  costingPrefix         String @default("CST/MKT")
   jobOrderPrefix        String @default("JO/MKT")
   generalDocumentPrefix String @default("SSO-SURAT")
   // Outbound vendor/procurement PO — verified against a real issued PO
   // ("001/PO/PRO/VII/2026"). Deliberately separate from poPrefix above,
   // which is the customer-received PO in the Sales pipeline.
-  vendorPoPrefix    String @default("PO/PRO")
+  vendorPoPrefix        String @default("PO/PRO")
   // Field engineering progress/inspection reports (spec: real internal
   // template found in SSO's WhatsApp archive, doc no. "ENG-REP-004" —
   // photo-based before/after checklist per project). Kept as its own
   // configurable prefix like every other document type rather than
   // hardcoding "ENG-REP", consistent with how quotationPrefix/costingPrefix
   // etc. are all Settings-editable.
-  progressReportPrefix String @default("ENG-REP/OPS")
-  companyExpensePrefix String @default("OPX/FIN")
-  numberPadding     Int    @default(3)
+  progressReportPrefix  String @default("ENG-REP/OPS")
+  companyExpensePrefix  String @default("OPX/FIN")
+  numberPadding         Int    @default(3)
 
   // "PAYMENT INSTRUCTIONS" bank block printed on the Invoice PDF (spec:
   // matches the real invoice's "Bank Transfer Info" box exactly). All
@@ -1732,7 +1739,7 @@ enum DirectiveStatus {
 }
 
 model Directive {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   // Groups every per-recipient row created by the same "give task" action —
   // even a single-recipient one gets a batchId, so the given-view never has
   // to special-case "batch of one" vs "broadcast".
@@ -1809,10 +1816,11 @@ model ChartOfAccount {
   // field rather than an opening JournalEntry, since Journal/JournalLine
   // don't exist yet in this phase. openingBalanceDate records the "as of"
   // date the founder/accountant entered when setting this account up.
-  openingBalance     Decimal   @db.Decimal(18, 2) @default(0)
+  openingBalance     Decimal   @default(0) @db.Decimal(18, 2)
   openingBalanceDate DateTime?
 
   companyExpenses CompanyExpense[]
+  costTypes       CostType[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1820,47 +1828,93 @@ model ChartOfAccount {
   @@index([type])
 }
 
-model FinanceWorkItem {
-  id String @id @default(cuid())
-  title String
-  kind String @default("BILLING")
-  projectId String?
-  reference String?
-  ownerId String?
-  dueAt DateTime?
-  status String @default("OPEN")
-  checks Json
-  notes String?
-  createdById String
-  updatedById String
+/// Jenis biaya proyek yang dikelola pengguna.
+///
+/// Lapisan penghubung antara apa yang ditulis di costing dan apa yang
+/// dicatat sebagai pengeluaran:
+///
+///   CostingLineItem -> CostType -> ExpenseCategory -> ChartOfAccount
+///
+/// Sengaja TIDAK menggantikan ExpenseCategory. Enum itu dipakai belasan
+/// tempat (laporan, papan biaya, sinyal risiko) dan menggantinya bukan
+/// pekerjaan satu fitur; CostType justru bermuara ke sana lewat `category`,
+/// sehingga seluruh laporan lama tetap benar tanpa disentuh.
+model CostType {
+  id          String  @id @default(cuid())
+  /// Kode pendek yang diketik berulang kali, mis. "MAT-PANEL". Unik supaya
+  /// "mat panel" dan "MAT-PANEL" tidak jadi dua jenis untuk hal yang sama.
+  code        String  @unique
+  name        String
+  description String?
+
+  /// Ember bawaan sistem tempat jenis ini bermuara di laporan.
+  category ExpenseCategory
+
+  /// Akun pembukuan. Nullable dengan sengaja: memaksanya diisi saat membuat
+  /// hanya akan membuat orang memilih akun asal-asalan supaya formnya mau
+  /// tersimpan, dan akun yang salah lebih sulit ditemukan daripada akun yang
+  /// kosong. Yang kosong ditandai di daftar.
+  chartOfAccountId String?
+  chartOfAccount   ChartOfAccount? @relation(fields: [chartOfAccountId], references: [id], onDelete: SetNull)
+
+  /// Nonaktif berarti berhenti ditawarkan saat mencatat biaya baru — BUKAN
+  /// dihapus. Biaya lama tetap memegang jenis ini, jadi riwayat tidak berubah
+  /// bentuk hanya karena daftar masternya dirapikan.
+  isActive Boolean @default(true)
+
+  expenses ProjectExpense[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([category])
+  @@index([isActive])
+  @@index([chartOfAccountId])
+}
+
+model FinanceWorkItem {
+  id          String    @id @default(cuid())
+  title       String
+  kind        String    @default("BILLING")
+  projectId   String?
+  reference   String?
+  ownerId     String?
+  dueAt       DateTime?
+  status      String    @default("OPEN")
+  checks      Json
+  notes       String?
+  createdById String
+  updatedById String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
   @@index([status, dueAt])
 }
 
 model FinanceBankBalance {
-  id String @id @default(cuid())
-  bankName String
-  asOf DateTime
-  amount Decimal @db.Decimal(18,2)
+  id               String   @id @default(cuid())
+  bankName         String
+  asOf             DateTime
+  amount           Decimal  @db.Decimal(18, 2)
   sourceDocumentId String
-  createdById String
-  createdAt DateTime @default(now())
+  createdById      String
+  createdAt        DateTime @default(now())
+
   @@index([bankName, asOf])
 }
 
 model FinanceProjectEstimate {
-  projectId String @id
-  netSales Decimal @db.Decimal(18,2)
-  totalForecastCost Decimal @db.Decimal(18,2)
-  basis String
-  updatedById String
-  updatedAt DateTime @updatedAt
+  projectId         String   @id
+  netSales          Decimal  @db.Decimal(18, 2)
+  totalForecastCost Decimal  @db.Decimal(18, 2)
+  basis             String
+  updatedById       String
+  updatedAt         DateTime @updatedAt
 }
 
 model CompanyExpense {
-  id        String @id @default(cuid())
-  number    String @unique // OPX-2026-0001
+  id     String @id @default(cuid())
+  number String @unique // OPX-2026-0001
 
   // Nullable on purpose: the COA may not be fully populated yet when Finance
   // starts recording company expenses — better to let the expense exist
@@ -1872,27 +1926,27 @@ model CompanyExpense {
   vendor      String?
   date        DateTime @default(now())
   amount      Decimal  @db.Decimal(18, 2)
-  tax         Decimal  @db.Decimal(18, 2) @default(0)
+  tax         Decimal  @default(0) @db.Decimal(18, 2)
   total       Decimal  @db.Decimal(18, 2)
 
   paymentStatus  ExpensePaymentStatus  @default(UNPAID)
   approvalStatus ExpenseApprovalStatus @default(DRAFT)
 
-  submittedAt   DateTime?
-  submittedById String?
-  submittedBy   User?     @relation("CompanyExpenseSubmittedBy", fields: [submittedById], references: [id])
-  approvedAt    DateTime?
-  approvedById  String?
-  approvedBy    User?     @relation("CompanyExpenseApprovedBy", fields: [approvedById], references: [id])
-  rejectedAt    DateTime?
-  rejectedById  String?
-  rejectedBy    User?     @relation("CompanyExpenseRejectedBy", fields: [rejectedById], references: [id])
+  submittedAt     DateTime?
+  submittedById   String?
+  submittedBy     User?     @relation("CompanyExpenseSubmittedBy", fields: [submittedById], references: [id])
+  approvedAt      DateTime?
+  approvedById    String?
+  approvedBy      User?     @relation("CompanyExpenseApprovedBy", fields: [approvedById], references: [id])
+  rejectedAt      DateTime?
+  rejectedById    String?
+  rejectedBy      User?     @relation("CompanyExpenseRejectedBy", fields: [rejectedById], references: [id])
   rejectionReason String?
 
   createdById String
-  createdBy   User     @relation("CompanyExpenseCreatedBy", fields: [createdById], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdBy   User      @relation("CompanyExpenseCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
   @@index([approvalStatus])
