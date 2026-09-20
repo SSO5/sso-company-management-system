@@ -2,7 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   ageBucket,
+  decisionBlockedReason,
   fieldComparisons,
+  rejectReasonProblem,
   isLargeExpense,
   LARGE_EXPENSE_THRESHOLD,
   mockExpenseReview,
@@ -31,6 +33,7 @@ const baris = (over: Partial<ReviewItem> = {}): ReviewItem => ({
   total: 100_000,
   approvalStatus: "SUBMITTED",
   submittedBy: "Budi",
+  submittedById: "user-budi",
   ageDays: 1,
   fromReceipt: false,
   hasEvidence: true,
@@ -238,4 +241,71 @@ test("tiap perbandingan punya label yang bisa dibaca orang", () => {
     assert.notEqual(x.label, x.field, x.field);
     assert.ok(x.label.length > 2);
   }
+});
+
+/* --- siapa yang boleh memutuskan --- */
+
+const admin = { role: "ADMIN", userId: "user-admin" };
+
+test("draf tidak bisa diputuskan siapa pun, termasuk Admin", () => {
+  // Bola masih di tangan pengajunya; belum ada yang diajukan.
+  const alasan = decisionBlockedReason(
+    { approvalStatus: "DRAFT", submittedById: "user-budi" },
+    admin,
+  );
+  assert.match(alasan ?? "", /Masih draf/);
+});
+
+test("hanya Admin yang menyetujui biaya, mengikuti maker-checker yang berlaku", () => {
+  // Halaman ini ada di ruang Keuangan karena di situlah peninjauannya
+  // dikerjakan, tapi keputusannya bukan milik peran FINANCE.
+  for (const role of ["FINANCE", "PROJECT_MANAGER", "SALES", "IT", "VIEWER"]) {
+    const alasan = decisionBlockedReason(
+      { approvalStatus: "SUBMITTED", submittedById: "user-budi" },
+      { role, userId: "user-x" },
+    );
+    assert.match(alasan ?? "", /Hanya Admin/, role);
+  }
+});
+
+test("Admin tidak boleh menyetujui pengajuannya sendiri", () => {
+  const alasan = decisionBlockedReason(
+    { approvalStatus: "SUBMITTED", submittedById: "user-admin" },
+    admin,
+  );
+  assert.match(alasan ?? "", /Anda sendiri yang mengajukan/);
+});
+
+test("Admin lain boleh memutuskan", () => {
+  assert.equal(
+    decisionBlockedReason(
+      { approvalStatus: "SUBMITTED", submittedById: "user-budi" },
+      admin,
+    ),
+    null,
+  );
+});
+
+test("alasan penghalang selalu berupa kalimat, bukan boolean", () => {
+  // Tombol mati tanpa alasan membuat orang mengira aplikasinya rusak.
+  const kasus = [
+    { approvalStatus: "DRAFT" as const, submittedById: "x" },
+    { approvalStatus: "SUBMITTED" as const, submittedById: "user-admin" },
+  ];
+  for (const k of kasus) {
+    const alasan = decisionBlockedReason(k, admin);
+    assert.ok(alasan && alasan.length > 30, JSON.stringify(k));
+  }
+});
+
+test("penolakan menuntut alasan yang bisa ditindak", () => {
+  // Penolakan tanpa itu akan kembali lagi dalam bentuk yang sama minggu
+  // depan: pengajunya tidak punya cara tahu apa yang harus diperbaiki.
+  assert.ok(rejectReasonProblem(""));
+  assert.ok(rejectReasonProblem("   "));
+  assert.ok(rejectReasonProblem("salah"));
+  assert.equal(
+    rejectReasonProblem("Nota tidak mencantumkan nama toko, minta ulang."),
+    null,
+  );
 });

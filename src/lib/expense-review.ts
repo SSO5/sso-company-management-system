@@ -31,6 +31,8 @@ export interface ReviewItem {
   total: number;
   approvalStatus: "DRAFT" | "SUBMITTED";
   submittedBy: string;
+  /** Id pengaju, untuk aturan "tidak boleh menyetujui pengajuan sendiri". */
+  submittedById: string;
   /** Hari sejak baris ini MULAI menunggu, bukan sejak tanggal transaksinya. */
   ageDays: number;
   /** Benar kalau draf ini berasal dari struk yang difoto. */
@@ -258,6 +260,7 @@ export function mockExpenseReview(): ExpenseReviewData {
         total: 12_500_000,
         approvalStatus: "SUBMITTED",
         submittedBy: "Rina Wijaya",
+        submittedById: "user-rina",
         ageDays: 11,
         fromReceipt: false,
         hasEvidence: true,
@@ -280,6 +283,7 @@ export function mockExpenseReview(): ExpenseReviewData {
         total: 9_956_600,
         approvalStatus: "SUBMITTED",
         submittedBy: "Budi Santoso",
+        submittedById: "user-budi",
         ageDays: 6,
         fromReceipt: true,
         hasEvidence: true,
@@ -311,6 +315,7 @@ export function mockExpenseReview(): ExpenseReviewData {
         total: 1_250_000,
         approvalStatus: "SUBMITTED",
         submittedBy: "Budi Santoso",
+        submittedById: "user-budi",
         ageDays: 3,
         fromReceipt: false,
         hasEvidence: false,
@@ -333,6 +338,7 @@ export function mockExpenseReview(): ExpenseReviewData {
         total: 9_000_000,
         approvalStatus: "DRAFT",
         submittedBy: "Budi Santoso",
+        submittedById: "user-budi",
         ageDays: 2,
         fromReceipt: true,
         hasEvidence: true,
@@ -355,4 +361,60 @@ export function mockExpenseReview(): ExpenseReviewData {
 
 export async function loadExpenseReview(): Promise<ExpenseReviewData> {
   return mockExpenseReview();
+}
+
+/* ------------------------------------------------------------------ *
+ * Siapa yang boleh memutuskan
+ * ------------------------------------------------------------------ */
+
+/**
+ * Alasan sebuah baris TIDAK bisa diputuskan sekarang, atau null kalau bisa.
+ *
+ * Aturannya diambil apa adanya dari maker-checker yang sudah berlaku di
+ * lib/workflows/expense.ts dan lib/permissions.ts — bukan aturan baru:
+ *
+ *   - Hanya ADMIN (Direktur) yang menyetujui atau menolak biaya proyek.
+ *     Halaman ini ada di ruang Keuangan karena di situlah peninjauannya
+ *     dikerjakan, tapi keputusannya bukan milik peran FINANCE.
+ *   - Tidak boleh menyetujui pengajuan sendiri.
+ *   - Hanya yang sudah DIAJUKAN yang bisa diputuskan; draf masih di tangan
+ *     pengajunya.
+ *
+ * Dikembalikan sebagai kalimat, bukan boolean, supaya tombol yang mati bisa
+ * menjelaskan dirinya sendiri. Tombol mati tanpa alasan membuat orang
+ * mengira aplikasinya rusak.
+ */
+export function decisionBlockedReason(
+  item: Pick<ReviewItem, "approvalStatus" | "submittedById">,
+  actor: { role: string; userId: string },
+): string | null {
+  if (item.approvalStatus !== "SUBMITTED") {
+    return "Masih draf — belum diajukan, jadi belum ada yang bisa diputuskan. Yang bisa menindaknya adalah pengajunya.";
+  }
+  if (actor.role !== "ADMIN") {
+    return "Hanya Admin (Direktur) yang bisa menyetujui atau menolak biaya proyek. Anda tetap bisa memeriksa dan menandai yang perlu ditanyakan.";
+  }
+  if (actor.userId === item.submittedById) {
+    return "Anda sendiri yang mengajukan biaya ini. Minta Admin lain yang memutuskan.";
+  }
+  return null;
+}
+
+/** Panjang minimal alasan penolakan yang berarti. */
+export const REJECT_REASON_MIN_LENGTH = 10;
+
+/**
+ * Memeriksa alasan penolakan.
+ *
+ * Wajib, dan tidak boleh sekadar "tidak sesuai". Penolakan tanpa alasan yang
+ * bisa ditindak akan kembali lagi dalam bentuk yang sama minggu depan —
+ * pengajunya tidak punya cara tahu apa yang harus diperbaiki.
+ */
+export function rejectReasonProblem(reason: string): string | null {
+  const t = reason.trim();
+  if (t.length === 0) return "Tulis alasan penolakan.";
+  if (t.length < REJECT_REASON_MIN_LENGTH) {
+    return `Alasan terlalu pendek (minimal ${REJECT_REASON_MIN_LENGTH} karakter). Pengajunya perlu tahu apa yang harus diperbaiki.`;
+  }
+  return null;
 }

@@ -24,7 +24,13 @@ import { formatCurrency } from "@/lib/utils";
  * pengaju tidak bisa ditindak finance sama sekali, dan menaruhnya dalam satu
  * daftar membuat finance merasa punya tunggakan yang bukan miliknya.
  */
-export function ExpenseReviewQueue({ data }: { data: ExpenseReviewData }) {
+export function ExpenseReviewQueue({
+  data,
+  actor,
+}: {
+  data: ExpenseReviewData;
+  actor: { role: string; userId: string };
+}) {
   const { diFinance, diPengaju } = splitReviewByHolder(data.items);
   const mengendap = staleReviewItems(data.items);
 
@@ -56,11 +62,13 @@ export function ExpenseReviewQueue({ data }: { data: ExpenseReviewData }) {
           )}
 
           <Antrean
+            actor={actor}
             title="Di meja finance"
             caption="Sudah diajukan, tinggal disetujui atau ditolak."
             items={diFinance}
           />
           <Antrean
+            actor={actor}
             title="Masih di pengaju"
             caption="Masih draf — belum diajukan, jadi belum bisa Anda tindak. Ditampilkan supaya terlihat kalau ada yang tertahan di sana."
             items={diPengaju}
@@ -75,10 +83,12 @@ function Antrean({
   title,
   caption,
   items,
+  actor,
 }: {
   title: string;
   caption: string;
   items: ReviewItem[];
+  actor: { role: string; userId: string };
 }) {
   if (items.length === 0) return null;
 
@@ -94,7 +104,7 @@ function Antrean({
         <p className="text-[11px] text-muted-foreground">{caption}</p>
       </CardHeader>
       <CardContent>
-        <ExpenseReviewTable items={items} />
+        <ExpenseReviewTable items={items} actor={actor} />
       </CardContent>
     </Card>
   );

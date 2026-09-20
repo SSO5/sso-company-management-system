@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ExpenseDecisionActions } from "@/components/finance/expense-decision-actions";
 import { displayLabel } from "@/lib/display-labels";
 import {
   fieldComparisons,
@@ -34,15 +35,16 @@ import { formatCurrency, formatDate } from "@/lib/utils";
  *   - RINCIAN BARANG, supaya "belanja apa" terjawab tanpa berpindah halaman.
  *   - TAUTAN KE BUKTINYA, atau pernyataan jelas bahwa buktinya tidak ada.
  *
- * Panel ini tidak punya tombol setuju atau tolak. Itu disengaja pada tahap
- * ini: keputusannya belum tersambung, dan tombol yang tidak melakukan apa-apa
- * lebih buruk daripada tidak ada tombol.
+ * Keputusannya ada di bawah, memanggil alur persetujuan yang sudah berlaku —
+ * bukan jalur baru khusus halaman ini.
  */
 export function ExpenseReviewDetail({
   item,
+  actor,
   onClose,
 }: {
   item: ReviewItem | null;
+  actor: { role: string; userId: string };
   onClose: () => void;
 }) {
   if (!item) return null;
@@ -164,10 +166,10 @@ export function ExpenseReviewDetail({
           </div>
         )}
 
-        <p className="text-[11px] text-muted-foreground">
-          Menyetujui dan menolak dikerjakan pada tahap berikutnya. Tombol yang tidak
-          melakukan apa-apa lebih menyesatkan daripada tidak ada tombol.
-        </p>
+        <div className="space-y-1 border-t pt-3">
+          <p className="text-sm font-medium">Keputusan</p>
+          <ExpenseDecisionActions item={item} actor={actor} onDone={onClose} />
+        </div>
       </div>
     </Dialog>
   );

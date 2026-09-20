@@ -52,7 +52,13 @@ const BUCKET_VARIANT: Record<AgeBucket, "secondary" | "warning" | "destructive">
   MENGENDAP: "destructive",
 };
 
-export function ExpenseReviewTable({ items }: { items: ReviewItem[] }) {
+export function ExpenseReviewTable({
+  items,
+  actor,
+}: {
+  items: ReviewItem[];
+  actor: { role: string; userId: string };
+}) {
   const [dibuka, setDibuka] = useState<ReviewItem | null>(null);
   if (items.length === 0) return null;
   const urut = sortReviewQueue(items);
@@ -179,7 +185,11 @@ export function ExpenseReviewTable({ items }: { items: ReviewItem[] }) {
         rincian, bukti, dan angka mana yang diubah dari hasil baca.
       </p>
 
-      <ExpenseReviewDetail item={dibuka} onClose={() => setDibuka(null)} />
+      <ExpenseReviewDetail
+        item={dibuka}
+        actor={actor}
+        onClose={() => setDibuka(null)}
+      />
     </div>
   );
 }
