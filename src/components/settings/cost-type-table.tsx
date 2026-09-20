@@ -8,10 +8,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  CostTypeFormDialog,
-  type AccountOption,
-} from "@/components/settings/cost-type-form-dialog";
+import { CostTypeFormDialog } from "@/components/settings/cost-type-form-dialog";
+import type { AccountOption } from "@/components/settings/chart-of-account-picker";
 import { displayLabel } from "@/lib/display-labels";
 import { unmappedCostTypes, type CostType } from "@/lib/cost-type";
 import { cn } from "@/lib/utils";

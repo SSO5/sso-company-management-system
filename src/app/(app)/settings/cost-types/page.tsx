@@ -24,7 +24,7 @@ export default async function CostTypesPage() {
   ]);
   const accountOptions = accounts
     .filter((a) => a.isActive)
-    .map((a) => ({ id: a.id, code: a.code, name: a.name }));
+    .map((a) => ({ id: a.id, code: a.code, name: a.name, type: a.type }));
 
   return (
     <div className="space-y-4">

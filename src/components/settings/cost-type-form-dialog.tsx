@@ -8,6 +8,10 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import {
+  ChartOfAccountPicker,
+  type AccountOption,
+} from "@/components/settings/chart-of-account-picker";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { saveCostTypeAction } from "@/server/settings/cost-types";
@@ -40,12 +44,6 @@ const KELOMPOK = [
   "MARKETING",
   "OTHER",
 ] as const;
-
-export interface AccountOption {
-  id: string;
-  code: string;
-  name: string;
-}
 
 export function CostTypeFormDialog({
   costType,
@@ -167,14 +165,14 @@ export function CostTypeFormDialog({
               Akun pembukuan{" "}
               <span className="text-muted-foreground">(boleh dikosongkan)</span>
             </Label>
-            <Select name="chartOfAccountId" defaultValue="">
-              <option value="">— Belum dipetakan —</option>
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.code} · {a.name}
-                </option>
-              ))}
-            </Select>
+            <ChartOfAccountPicker
+              accounts={accounts}
+              // Mode ubah wajib memilih ulang pemetaan yang sudah ada.
+              // CostType menyimpan kode akunnya, jadi dicocokkan lewat kode.
+              defaultAccountId={
+                accounts.find((a) => a.code === costType?.accountCode)?.id ?? null
+              }
+            />
             <p className="text-[11px] text-muted-foreground">
               Boleh diisi nanti. Akun yang dipilih asal-asalan lebih sulit ditemukan
               daripada akun yang memang belum diisi — yang kosong ditandai di daftar.
