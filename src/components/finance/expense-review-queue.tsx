@@ -1,12 +1,8 @@
-import Link from "next/link";
-import { Clock, FileWarning, Receipt } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { displayLabel } from "@/lib/display-labels";
+import { ExpenseReviewTable } from "@/components/finance/expense-review-table";
 import {
-  REVIEW_FLAG_MESSAGE,
-  reviewFlags,
   splitReviewByHolder,
   staleReviewItems,
   sumReview,
@@ -97,66 +93,9 @@ function Antrean({
         </div>
         <p className="text-[11px] text-muted-foreground">{caption}</p>
       </CardHeader>
-      <CardContent className="space-y-2">
-        {items.map((item) => (
-          <Baris key={item.id} item={item} />
-        ))}
+      <CardContent>
+        <ExpenseReviewTable items={items} />
       </CardContent>
     </Card>
-  );
-}
-
-function Baris({ item }: { item: ReviewItem }) {
-  const flags = reviewFlags(item);
-
-  return (
-    <div className="space-y-1.5 rounded-md border p-3">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="flex flex-wrap items-center gap-1.5 text-sm">
-            <span className="break-words font-medium">{item.description}</span>
-            {item.fromReceipt && (
-              <Badge variant="secondary">
-                <Receipt className="mr-1 h-3 w-3" /> dari struk
-              </Badge>
-            )}
-          </p>
-          <p className="break-words text-[11px] text-muted-foreground">
-            <span className="font-mono">{item.number}</span> ·{" "}
-            <Link
-              href={`/projects/${item.projectId}/cost-board`}
-              className="text-primary hover:underline"
-            >
-              {item.projectNumber}
-            </Link>{" "}
-            {item.projectName} · {item.vendor ?? "tanpa vendor"} ·{" "}
-            {item.costTypeCode ?? displayLabel(item.category)} · diajukan{" "}
-            {item.submittedBy} {item.ageDays} hari lalu
-          </p>
-        </div>
-        <p className="shrink-0 whitespace-nowrap text-sm font-medium tabular-nums">
-          {formatCurrency(item.total)}
-        </p>
-      </div>
-
-      {/* Penunjuk, bukan alasan menolak: menyetujui baris bertanda tetap sah.
-          Gunanya hanya mengarahkan mata pada antrean yang panjang. */}
-      {flags.length > 0 && (
-        <ul className="space-y-0.5">
-          {flags.map((f) => (
-            <li
-              key={f}
-              className="flex items-start gap-1.5 text-[11px] text-muted-foreground"
-            >
-              <FileWarning className="mt-0.5 h-3 w-3 shrink-0 text-warning" />
-              {REVIEW_FLAG_MESSAGE[f]}
-              {f === "ANGKA_DIUBAH" && (
-                <span> Kolom: {item.editedFields.join(", ")}.</span>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
   );
 }

@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  ageBucket,
+  isLargeExpense,
+  LARGE_EXPENSE_THRESHOLD,
   mockExpenseReview,
   REVIEW_FLAG_MESSAGE,
   reviewFlags,
@@ -112,5 +115,62 @@ test("data tiruan memuat keempat tanda sekaligus", () => {
   const semua = new Set(mockExpenseReview().items.flatMap(reviewFlags));
   for (const f of ["TANPA_BUKTI", "TANPA_JENIS_BIAYA", "ANGKA_DIUBAH", "MENGENDAP"]) {
     assert.ok(semua.has(f as never), f);
+  }
+});
+
+/* --- penanda umur dan nilai besar --- */
+
+test("umur dikelompokkan, bukan diserahkan sebagai angka hari mentah", () => {
+  // Angka hari menuntut pembacanya membandingkan sendiri dengan ambang yang
+  // harus dia ingat. Kelompok menjawabnya langsung.
+  assert.equal(ageBucket(0), "BARU");
+  assert.equal(ageBucket(2), "BARU");
+  assert.equal(ageBucket(3), "MENUNGGU");
+  assert.equal(ageBucket(PENDING_STALE_DAYS - 1), "MENUNGGU");
+  assert.equal(ageBucket(PENDING_STALE_DAYS), "MENGENDAP");
+  assert.equal(ageBucket(30), "MENGENDAP");
+});
+
+test("kelompok umur tidak pernah bertentangan dengan penanda mengendap", () => {
+  // Dua tempat yang memakai ambang berbeda akan membuat satu baris terbaca
+  // "menunggu" di tabel tapi "mengendap" di peringatan atasnya.
+  for (const hari of [0, 2, 3, 6, PENDING_STALE_DAYS, 20]) {
+    const item = baris({ ageDays: hari });
+    assert.equal(
+      ageBucket(hari) === "MENGENDAP",
+      reviewFlags(item).includes("MENGENDAP"),
+      `hari ${hari}`,
+    );
+  }
+});
+
+test("nilai besar ditandai pada ambangnya, bukan di atasnya saja", () => {
+  assert.equal(isLargeExpense({ total: LARGE_EXPENSE_THRESHOLD }), true);
+  assert.equal(isLargeExpense({ total: LARGE_EXPENSE_THRESHOLD - 1 }), false);
+  assert.ok(
+    reviewFlags(baris({ total: LARGE_EXPENSE_THRESHOLD })).includes("NILAI_BESAR"),
+  );
+});
+
+test("nilai besar bukan batas persetujuan, hanya penanda", () => {
+  // Tidak ada aturan yang berubah di angka itu: baris bernilai besar tetap
+  // muncul di antrean yang sama dan tetap bisa disetujui.
+  const besar = baris({ total: LARGE_EXPENSE_THRESHOLD * 5 });
+  const { diFinance } = splitReviewByHolder([besar]);
+  assert.equal(diFinance.length, 1);
+  assert.ok(reviewFlags(besar).includes("NILAI_BESAR"));
+});
+
+test("setiap penanda punya kalimat penjelas, termasuk yang baru", () => {
+  for (const f of reviewFlags(
+    baris({
+      total: LARGE_EXPENSE_THRESHOLD,
+      hasEvidence: false,
+      costTypeCode: null,
+      editedFields: ["amount"],
+      ageDays: 30,
+    }),
+  )) {
+    assert.ok(REVIEW_FLAG_MESSAGE[f].length > 20, f);
   }
 });

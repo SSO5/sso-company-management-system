@@ -64,6 +64,31 @@ export function sortReviewQueue(items: ReviewItem[]): ReviewItem[] {
   });
 }
 
+/** Benar kalau nilainya pantas dilihat lebih lama. */
+export function isLargeExpense(item: { total: number }): boolean {
+  return item.total >= LARGE_EXPENSE_THRESHOLD;
+}
+
+/**
+ * Umur antrean dikelompokkan supaya bisa dibaca sekilas.
+ *
+ * Angka hari mentah menuntut pembacanya membandingkan sendiri dengan ambang
+ * yang harus dia ingat. Kelompok menjawabnya langsung.
+ */
+export type AgeBucket = "BARU" | "MENUNGGU" | "MENGENDAP";
+
+export function ageBucket(ageDays: number): AgeBucket {
+  if (ageDays >= PENDING_STALE_DAYS) return "MENGENDAP";
+  if (ageDays >= 3) return "MENUNGGU";
+  return "BARU";
+}
+
+export const AGE_BUCKET_LABEL: Record<AgeBucket, string> = {
+  BARU: "Baru",
+  MENUNGGU: "Menunggu",
+  MENGENDAP: "Mengendap",
+};
+
 /** Antrean yang sudah mengendap melewati batas. */
 export function staleReviewItems(items: ReviewItem[]): ReviewItem[] {
   return sortReviewQueue(items.filter((i) => i.ageDays >= PENDING_STALE_DAYS));
@@ -90,10 +115,23 @@ export function sumReview(items: ReviewItem[]): number {
   return items.reduce((t, i) => t + i.total, 0);
 }
 
+/**
+ * Nilai yang membuat sebuah pengeluaran pantas dilihat lebih lama.
+ *
+ * Bukan batas persetujuan — tidak ada aturan yang berubah di angka ini.
+ * Ia hanya menandai baris yang, kalau salah, paling mahal untuk diperbaiki
+ * belakangan. Sepuluh juta dipilih karena di perusahaan sebesar SSO itulah
+ * kira-kira titik di mana memanggil orang kedua sepadan dengan gangguannya;
+ * di bawah itu, memeriksa satu per satu justru memperlambat semuanya tanpa
+ * menangkap apa pun.
+ */
+export const LARGE_EXPENSE_THRESHOLD = 10_000_000;
+
 export type ReviewFlag =
   | "TANPA_BUKTI"
   | "TANPA_JENIS_BIAYA"
   | "ANGKA_DIUBAH"
+  | "NILAI_BESAR"
   | "MENGENDAP";
 
 /**
@@ -107,6 +145,7 @@ export function reviewFlags(item: ReviewItem): ReviewFlag[] {
   if (!item.hasEvidence) f.push("TANPA_BUKTI");
   if (!item.costTypeCode) f.push("TANPA_JENIS_BIAYA");
   if (item.editedFields.length > 0) f.push("ANGKA_DIUBAH");
+  if (item.total >= LARGE_EXPENSE_THRESHOLD) f.push("NILAI_BESAR");
   if (item.ageDays >= PENDING_STALE_DAYS) f.push("MENGENDAP");
   return f;
 }
@@ -117,6 +156,8 @@ export const REVIEW_FLAG_MESSAGE: Record<ReviewFlag, string> = {
   TANPA_JENIS_BIAYA:
     "Belum punya jenis biaya, jadi tidak akan bisa diadu dengan pagu baseline.",
   ANGKA_DIUBAH: "Ada angka yang diubah manusia dari hasil baca struk.",
+  NILAI_BESAR:
+    "Nilainya besar — kalau salah, ini yang paling mahal diperbaiki belakangan.",
   MENGENDAP: `Sudah menunggu ${PENDING_STALE_DAYS} hari atau lebih.`,
 };
 
