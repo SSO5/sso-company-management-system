@@ -387,3 +387,20 @@ test("realisasi hanya menghitung yang disetujui, komitmen berdiri sendiri", () =
     total,
   );
 });
+
+test("total baseline yang dibandingkan hanya dari baris yang bisa diadu", () => {
+  // Memasukkan baris yang belum dipetakan akan membuat sisa pagu terlihat
+  // lebih besar daripada yang benar-benar terukur — kesalahan yang paling
+  // sulit terlihat karena angkanya tetap masuk akal.
+  const rows = pairBaselineWithActual(
+    [garis("MAT", 100), garis(null, 40), garis("UPAH", 60)],
+    [{ costTypeCode: "MAT", actual: 30, committed: 0 }],
+  );
+  const totalBisaDiadu = rows
+    .filter((r) => r.gap === null)
+    .reduce((t, r) => t + (r.baseline ?? 0), 0);
+  assert.equal(totalBisaDiadu, 160);
+  assert.equal(baselineNotComparable(rows), 40);
+  // Keduanya dilaporkan terpisah, tidak dijumlahkan diam-diam.
+  assert.notEqual(totalBisaDiadu, 200);
+});

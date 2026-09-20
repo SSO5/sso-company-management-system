@@ -143,7 +143,7 @@ export function mockCostBoard(projectId: string): CostBoardData {
       committed: sum("committed"),
       pending: sum("pending"),
       payable: 125_000_000,
-      baselineSource: "003/CST/MKT/VIII/2026",
+      baselineSource: "Baseline v2 dari costing 003/CST/MKT/VIII/2026.R1 (terkunci)",
       // Waktu hitung sengaja diambil saat dipanggil, bukan nilai tetap: itulah
       // satu-satunya cara membuktikan bahwa penyegaran benar-benar menjalankan
       // ulang pemuatan data, bukan hanya menampilkan ulang halaman yang sama.

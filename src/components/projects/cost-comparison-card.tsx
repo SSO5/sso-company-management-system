@@ -95,9 +95,11 @@ export function CostComparisonCard({ data }: { data: CostSummary }) {
           <CardTitle className="min-w-0 break-words">Papan biaya proyek</CardTitle>
           <Badge variant={badge.variant}>{badge.label}</Badge>
         </div>
-        <p className="text-[11px] text-muted-foreground">
-          Baseline dari costing final
-          {data.baselineSource ? ` ${data.baselineSource}` : ""}. Aktual hanya
+<p className="text-[11px] text-muted-foreground">
+          {/* Sumber pagu ditulis apa adanya. Proyek yang belum punya baseline
+              dibandingkan dengan Project.budget yang bisa berubah kapan saja,
+              dan pembacanya berhak tahu angka mana yang sedang dipakai. */}
+          {data.baselineSource ?? "Pagu dari data proyek"}. Aktual hanya
           menghitung pengeluaran yang sudah disetujui.
           {data.updatedAt ? ` Diperbarui ${formatDateTime(data.updatedAt)}.` : ""}
         </p>

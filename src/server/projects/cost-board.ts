@@ -43,24 +43,67 @@ export async function getProjectCostSummary(
 
   const project = await prisma.project.findFirst({
     where: { id: projectId, deletedAt: null },
-    select: {
-      budget: true,
-      quotation: { select: { costingSheet: { select: { number: true } } } },
-    },
+    select: { budget: true },
   });
   if (!project) return null;
 
-  const profitability = await calculateProjectProfitability(projectId);
+  const [profitability, pagu] = await Promise.all([
+    calculateProjectProfitability(projectId),
+    resolveBaseline(projectId, Number(project.budget)),
+  ]);
 
   return summarizeCostBoard({
-    baseline: Number(project.budget),
+    baseline: pagu.amount,
     actual: profitability.actualCost,
     committed: profitability.committedCost,
     pending: profitability.pendingCost,
     payable: profitability.payable,
-    baselineSource: project.quotation?.costingSheet?.number ?? null,
+    baselineSource: pagu.source,
     updatedAt: new Date().toISOString(),
   });
+}
+
+/**
+ * Menentukan angka pagu yang dipakai papan biaya, dan mengatakan asalnya.
+ *
+ * Baseline yang dibekukan selalu menang kalau ada: itulah gunanya ia
+ * dibekukan. Proyek yang belum punya baseline jatuh ke Project.budget —
+ * angka yang bisa diubah kapan saja lewat form proyek — dan label sumbernya
+ * mengatakan itu apa adanya, karena pembacanya berhak tahu apakah pembanding
+ * yang sedang dipakai bisa digeser atau tidak.
+ */
+async function resolveBaseline(
+  projectId: string,
+  projectBudget: number,
+): Promise<{ amount: number; source: string }> {
+  const baseline = await prisma.projectBudgetBaseline.findFirst({
+    where: { projectId, isCurrent: true },
+    select: {
+      version: true,
+      amount: true,
+      costingNumber: true,
+      costingRevision: true,
+      lockedAt: true,
+    },
+  });
+
+  if (!baseline) {
+    return {
+      amount: projectBudget,
+      source:
+        "Pagu dari data proyek — belum ada baseline yang dibekukan, jadi angka ini bisa berubah kapan saja",
+    };
+  }
+
+  const nomor = `${baseline.costingNumber}${
+    baseline.costingRevision > 0 ? `.R${baseline.costingRevision}` : ""
+  }`;
+  return {
+    amount: Number(baseline.amount),
+    source: `Baseline v${baseline.version} dari costing ${nomor}${
+      baseline.lockedAt ? " (terkunci)" : " (belum dikunci)"
+    }`,
+  };
 }
 
 /**
